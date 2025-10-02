@@ -1,0 +1,17 @@
+[build]
+  publish = "public"
+  command = "echo 'Static site - no build needed'"
+
+# Redirect toutes les routes vers index.html (SPA)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Headers de sécurité
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "no-referrer-when-downgrade"
