@@ -1,5 +1,5 @@
 // FRONT
-const API = "/api"; // Sur Netlify: remplace par l'URL complète de ton backend Railway (ex: https://XXX.up.railway.app/api)
+const API = "https://shop-2-production.up.railway.app/api";
 const fmt = n => new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR'}).format(n);
 
 // 11 produits (noms neutres) – remplace librement name/farm/category pic/video
