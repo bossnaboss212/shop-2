@@ -1,11 +1,7 @@
 [build]
   publish = "public"
-  command = "echo 'Static site - no build needed'"
-  # Ignore package.json (backend dependencies)
-  ignore = "/bin/false"
-
-[build.environment]
-  NODE_VERSION = "22"
+  # Aucune commande = pas d'installation de dépendances
+  command = ""
 
 # Redirect toutes les routes vers index.html (SPA)
 [[redirects]]
