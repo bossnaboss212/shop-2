@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Admin</title>
+  <style>
+    body{font-family:system-ui;padding:20px;background:#0f1115;color:#e8edf2}
+    input,button{padding:10px;border-radius:8px;border:1px solid #2a2f34;background:#0d1117;color:#e8edf2}
+    table{width:100%;border-collapse:collapse;margin-top:14px}
+    th,td{border:1px solid #2a2f34;padding:8px}
+    .muted{color:#aab4c0}
+  </style>
+</head>
+<body>
+  <h1>Admin</h1>
+  <div id="auth">
+    <input id="pass" placeholder="Mot de passe" value="gangstaforlife12" type="password">
+    <button id="login">Se connecter</button>
+  </div>
+  <div id="dash" style="display:none">
+    <div>Total CA: <b id="ca">0,00 €</b></div>
+    <table>
+      <thead><tr><th>ID</th><th>Date</th><th>Client</th><th>Type</th><th>Total</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+<script>
+let token='';
+const fmt = n => new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR'}).format(n);
+document.getElementById('login').onclick = async ()=>{
+  const r = await fetch('/api/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:document.getElementById('pass').value})});
+  const j = await r.json();
+  if(!j.ok){ alert('Mauvais mot de passe'); return; }
+  token = j.token; document.getElementById('auth').style.display='none'; document.getElementById('dash').style.display='block'; load();
+};
+async function load(){
+  const r = await fetch('/api/admin/orders',{headers:{'x-admin-token':token}});
+  const j = await r.json();
+  document.getElementById('ca').textContent = fmt(j.ca||0);
+  const tb = document.getElementById('rows'); tb.innerHTML='';
+  (j.orders||[]).forEach(o=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${o.id}</td><td>${o.created_at}</td><td>${o.customer}</td><td>${o.type}</td><td>${fmt(o.total)}</td>`;
+    tb.appendChild(tr);
+  });
+}
+</script>
+</body>
+</html>

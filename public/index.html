@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>DROGUA CENTER</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <h1>DROGUA CENTER</h1>
+    <button id="cartBtn" class="btn">🛒 <span id="badge">0</span></button>
+  </header>
+
+  <!-- Filtres -->
+  <div id="filters" class="filters"></div>
+
+  <!-- Pages -->
+  <main id="page-home" class="page active">
+    <div id="grid" class="grid"></div>
+  </main>
+
+  <main id="page-infos" class="page">
+    <div class="card p">
+      <h2>Infos</h2>
+      <ul class="links">
+        <li><a target="_blank" href="https://t.me/+MToYP95G9zY2ZTJk">CANAL PRINCIPAL</a></li>
+        <li><a target="_blank" href="https://t.me/+usSUbJOfYsk5ZTg0">CANAL PHOTO</a></li>
+        <li><a target="_blank" href="https://snapchat.com/t/jR2yW7xa">Snapchat secours</a></li>
+      </ul>
+      <div class="muted small">Snapchat principal : <a target="_blank" href="https://snapchat.com/t/l9gurvAj">snapchat.com/t/l9gurvAj</a></div>
+    </div>
+  </main>
+
+  <main id="page-avis" class="page">
+    <div class="card p">
+      <h2>Avis ⭐</h2>
+      <div id="reviews"></div>
+      <div class="review-form">
+        <input id="revName" placeholder="Votre nom (optionnel)">
+        <textarea id="revText" placeholder="Votre avis..."></textarea>
+        <select id="revStars">
+          <option value="5">5 ⭐</option>
+          <option value="4">4 ⭐</option>
+          <option value="3">3 ⭐</option>
+          <option value="2">2 ⭐</option>
+          <option value="1">1 ⭐</option>
+        </select>
+        <button id="revSubmit" class="primary">Publier</button>
+      </div>
+    </div>
+  </main>
+
+  <main id="page-support" class="page">
+    <div class="card p">
+      <h2>Support</h2>
+      <p>Contact : <b>@assistancenter</b></p>
+    </div>
+  </main>
+
+  <!-- Panier -->
+  <section id="cartSheet" class="sheet hidden">
+    <div class="sheet-card">
+      <div class="sheet-header"><h2>Panier</h2><button id="closeCart">✕</button></div>
+      <div id="lines"></div>
+      <div class="total">Total: <b id="total">0,00 €</b></div>
+      <div class="delivery">
+        <label><input type="radio" name="delivery" value="Livraison sur Millau" checked> Livraison sur Millau</label>
+        <label><input type="radio" name="delivery" value="Livraison extérieure (+20€)"> Livraison extérieure (+20€)</label>
+      </div>
+      <input id="addr" placeholder="Adresse (auto-complétion)">
+      <div id="suggestions"></div>
+      <button id="checkout" class="primary">Valider</button>
+    </div>
+  </section>
+
+  <!-- Nav bas -->
+  <nav class="bottom">
+    <button data-tab="home" class="tab active">Accueil</button>
+    <button data-tab="infos" class="tab">Infos</button>
+    <button data-tab="avis" class="tab">Avis</button>
+    <button data-tab="support" class="tab">Support</button>
+  </nav>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

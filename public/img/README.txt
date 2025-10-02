@@ -1,0 +1,1 @@
+Place tes images dans ce dossier (ex: amnesia.JPG, needles.JPG, etc.).

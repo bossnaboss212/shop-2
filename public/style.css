@@ -1,0 +1,31 @@
+:root{--bg:#0f1115;--card:#171a22;--text:#e8edf2;--muted:#aab4c0;--accent:#4cb3ff;--border:#2a2f34}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui;background:var(--bg);color:var(--text)}
+.top{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid var(--border)}
+.btn{background:#202633;border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:10px;cursor:pointer}
+.filters{display:flex;gap:8px;flex-wrap:wrap;padding:10px 12px}
+.filters .chip{background:#1b2029;border:1px solid var(--border);padding:6px 10px;border-radius:999px;cursor:pointer}
+.page{display:none;padding-bottom:64px}
+.page.active{display:block}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;padding:12px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.thumb{width:100%;aspect-ratio:1/1;object-fit:cover;display:block}
+.meta{padding:8px 10px}
+.p{padding:12px}
+.links{list-style:none;padding-left:0}
+.links li{margin:8px 0}
+.muted{color:var(--muted)}
+.small{font-size:12px}
+.bottom{position:fixed;bottom:0;left:0;right:0;background:#12161d;border-top:1px solid var(--border);display:flex;justify-content:space-around;padding:8px}
+.tab{background:transparent;border:none;color:var(--text);font-weight:600}
+.sheet{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:flex-end}
+.sheet-card{background:var(--card);border:1px solid var(--border);border-top-left-radius:16px;border-top-right-radius:16px;padding:12px;width:100%}
+.hidden{display:none}
+#lines .line{display:flex;align-items:center;gap:10px;border:1px solid var(--border);border-radius:12px;padding:8px;margin:6px 0}
+#lines img, #lines video{width:44px;height:44px;border-radius:8px;object-fit:cover}
+.total{display:flex;justify-content:space-between;margin:8px 2px}
+.primary{background:var(--accent);color:#082033;border:none;border-radius:12px;padding:10px 14px;font-weight:700;cursor:pointer}
+input,textarea,select{background:#0d1117;color:var(--text);border:1px solid var(--border);border-radius:12px;padding:10px 12px;width:100%}
+#suggestions{background:#0b0f15;border:1px solid var(--border);border-radius:10px;margin-top:6px;max-height:160px;overflow:auto}
+#suggestions div{padding:8px 10px;border-bottom:1px solid var(--border);cursor:pointer}
+.review-form{display:grid;gap:8px;margin-top:12px}
