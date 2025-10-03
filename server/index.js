@@ -19,7 +19,8 @@ const WEBAPP_URL = process.env.WEBAPP_URL || 'https://shop-2-production.up.railw
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public')));        // /server/public
+app.use(express.static(path.join(__dirname, '..', 'public')));  // /public (racine)
 
 // Database initialization
 let db;
