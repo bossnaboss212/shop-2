@@ -1,0 +1,4 @@
+node_modules/
+boutique.db
+.env
+.DS_Store
