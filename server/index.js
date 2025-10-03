@@ -14,6 +14,7 @@ const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID || '';
 const DRIVER_CHAT_ID = process.env.DRIVER_CHAT_ID || '';
 const MAPBOX_KEY = process.env.MAPBOX_KEY || '';
 const ADMIN_PASS = process.env.ADMIN_PASS || 'gangstaforlife12';
+const WEBAPP_URL = process.env.WEBAPP_URL || 'https://shop-2-production.up.railway.app';
 
 // Middleware
 app.use(cors());
@@ -678,11 +679,364 @@ app.get('/api/admin/orders/export/csv', requireAdmin, async (req, res) => {
   }
 });
 
-// Ajouter après les autres routes, avant le catch-all
-app.post(`/bot${TELEGRAM_TOKEN}`, async (req, res) => {
-  // Le bot.js gérera ces requêtes
-  res.sendStatus(200);
-});
+// ==================== TELEGRAM BOT ====================
+// Webhook endpoint pour le bot Telegram
+if (TELEGRAM_TOKEN) {
+  console.log('🤖 Configuration du bot Telegram...');
+
+  app.post(`/bot${TELEGRAM_TOKEN}`, async (req, res) => {
+    try {
+      const { message, callback_query } = req.body;
+      
+      // Gestion des messages
+      if (message) {
+        const chatId = message.chat.id;
+        const text = message.text;
+        const firstName = message.from.first_name || 'Client';
+        
+        if (text === '/start') {
+          const welcomeText = `🌟 <b>Bienvenue ${firstName} chez DROGUA CENTER !</b> 🌟
+
+Votre boutique premium accessible directement depuis Telegram.
+
+<b>🛍️ Que souhaitez-vous faire ?</b>
+
+• <b>Boutique</b> - Parcourir et commander
+• <b>Admin</b> - Gérer votre boutique
+• <b>Support</b> - Aide et assistance
+
+✨ <i>Programme de fidélité actif !</i>
+Bénéficiez d'une remise tous les 10 achats.`;
+
+          const keyboard = {
+            inline_keyboard: [
+              [{
+                text: '🛍️ Accéder à la Boutique',
+                web_app: { url: WEBAPP_URL }
+              }],
+              [{
+                text: '🔐 Panneau Admin',
+                web_app: { url: `${WEBAPP_URL}/admin.html` }
+              }],
+              [
+                {
+                  text: '📢 Canal Principal',
+                  url: 'https://t.me/+MToYP95G9zY2ZTJk'
+                },
+                {
+                  text: '📸 Canal Photo',
+                  url: 'https://t.me/+usSUbJOfYsk5ZTg0'
+                }
+              ],
+              [
+                {
+                  text: '💬 Support',
+                  callback_data: 'contact_support'
+                },
+                {
+                  text: 'ℹ️ Infos',
+                  callback_data: 'show_info'
+                }
+              ]
+            ]
+          };
+          
+          await axios.post(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+            chat_id: chatId,
+            text: welcomeText,
+            parse_mode: 'HTML',
+            reply_markup: keyboard
+          });
+        }
+        else if (text === '/shop' || text === '/boutique') {
+          const shopText = `🛍️ <b>BOUTIQUE DROGUA CENTER</b>
+
+Cliquez sur le bouton ci-dessous pour accéder à notre catalogue complet.
+
+💎 Livraison rapide et discrète
+🔒 Paiement sécurisé
+📦 Suivi de commande en temps réel
+🎁 Programme de fidélité actif`;
+
+          const keyboard = {
+            inline_keyboard: [
+              [{
+                text: '🛒 Ouvrir la Boutique',
+                web_app: { url: WEBAPP_URL }
+              }]
+            ]
+          };
+          
+          await axios.post(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+            chat_id: chatId,
+            text: shopText,
+            parse_mode: 'HTML',
+            reply_markup: keyboard
+          });
+        }
+        else if (text === '/admin') {
+          const adminText = `🔐 <b>PANNEAU ADMINISTRATEUR</b>
+
+Accédez au tableau de bord pour gérer :
+
+📊 Statistiques et ventes
+📦 Commandes en cours
+📋 Gestion du stock
+💰 Finances et transactions
+⚙️ Paramètres de la boutique
+
+<i>⚠️ Authentification requise</i>`;
+
+          const keyboard = {
+            inline_keyboard: [
+              [{
+                text: '🔐 Ouvrir le Panneau Admin',
+                web_app: { url: `${WEBAPP_URL}/admin.html` }
+              }]
+            ]
+          };
+          
+          await axios.post(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+            chat_id: chatId,
+            text: adminText,
+            parse_mode: 'HTML',
+            reply_markup: keyboard
+          });
+        }
+        else if (text === '/help' || text === '/aide') {
+          const helpText = `❓ <b>AIDE & SUPPORT</b>
+
+<b>📍 Livraison :</b>
+• Gratuite sur Millau
+• +20€ pour l'extérieur
+
+<b>💰 Paiement :</b>
+• Espèces à la livraison
+• Virement bancaire
+• Crypto-monnaies
+
+<b>🎁 Programme fidélité :</b>
+• Remise automatique tous les 10 achats
+• Jusqu'à 10% ou 20€ de réduction
+
+<b>📞 Contact support :</b>
+@assistancenter
+
+<b>⏰ Horaires d'ouverture :</b>
+7j/7 de 12H à 00H (minuit)
+Livraison rapide pendant les heures d'ouverture`;
+
+          const keyboard = {
+            inline_keyboard: [
+              [{
+                text: '💬 Contacter le Support',
+                url: 'https://t.me/assistancenter'
+              }],
+              [
+                {
+                  text: '🛒 Boutique',
+                  callback_data: 'open_shop'
+                },
+                {
+                  text: '🔐 Admin',
+                  callback_data: 'open_admin'
+                }
+              ]
+            ]
+          };
+          
+          await axios.post(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+            chat_id: chatId,
+            text: helpText,
+            parse_mode: 'HTML',
+            reply_markup: keyboard
+          });
+        }
+      }
+      
+      // Gestion des callback queries (boutons)
+      if (callback_query) {
+        const chatId = callback_query.message.chat.id;
+        const data = callback_query.data;
+        
+        // Répondre au callback pour enlever le "loading"
+        await axios.post(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/answerCallbackQuery`, {
+          callback_query_id: callback_query.id
+        });
+        
+        if (data === 'contact_support') {
+          const supportText = `💬 <b>SUPPORT CLIENT</b>
+
+Pour toute question ou assistance :
+
+<b>📱 Telegram :</b> @assistancenter
+<b>📸 Snapchat :</b> https://snapchat.com/t/l9gurvAj
+<b>🆘 Snap Secours :</b> https://snapchat.com/t/jR2yW7xa
+
+Notre équipe est disponible <b>7j/7</b> pour vous aider !
+
+<i>Réponse sous 24h maximum</i>`;
+
+          const keyboard = {
+            inline_keyboard: [
+              [{
+                text: '💬 Support Telegram',
+                url: 'https://t.me/assistancenter'
+              }],
+              [{
+                text: '📸 Snapchat',
+                url: 'https://snapchat.com/t/l9gurvAj'
+              }]
+            ]
+          };
+          
+          await axios.post(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+            chat_id: chatId,
+            text: supportText,
+            parse_mode: 'HTML',
+            reply_markup: keyboard
+          });
+        }
+        else if (data === 'show_info') {
+          const infoText = `ℹ️ <b>À PROPOS DE DROGUA CENTER</b>
+
+<b>🏪 Votre boutique de confiance depuis 2024</b>
+
+✅ Livraison rapide à domicile
+✅ Paiement sécurisé
+✅ Programme de fidélité
+✅ Support client 7j/7
+✅ Produits de qualité garantis
+
+<b>📊 Nos chiffres :</b>
+• +1000 clients satisfaits
+• Livraison rapide
+• Note moyenne : ⭐⭐⭐⭐⭐
+
+<b>📍 Zone de livraison :</b>
+Millau et alentours
+
+<b>⏰ Horaires :</b>
+7j/7 de 12H à 00H (minuit)
+
+Merci de votre confiance ! 💚`;
+
+          const keyboard = {
+            inline_keyboard: [
+              [{
+                text: '🛒 Commander Maintenant',
+                web_app: { url: WEBAPP_URL }
+              }]
+            ]
+          };
+          
+          await axios.post(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+            chat_id: chatId,
+            text: infoText,
+            parse_mode: 'HTML',
+            reply_markup: keyboard
+          });
+        }
+        else if (data === 'open_shop') {
+          const shopText = `🛍️ <b>BOUTIQUE DROGUA CENTER</b>
+
+Cliquez sur le bouton ci-dessous pour accéder à notre catalogue complet.
+
+💎 Livraison rapide et discrète
+🔒 Paiement sécurisé
+📦 Suivi de commande en temps réel
+🎁 Programme de fidélité actif`;
+
+          const keyboard = {
+            inline_keyboard: [
+              [{
+                text: '🛒 Ouvrir la Boutique',
+                web_app: { url: WEBAPP_URL }
+              }]
+            ]
+          };
+          
+          await axios.post(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+            chat_id: chatId,
+            text: shopText,
+            parse_mode: 'HTML',
+            reply_markup: keyboard
+          });
+        }
+        else if (data === 'open_admin') {
+          const adminText = `🔐 <b>PANNEAU ADMINISTRATEUR</b>
+
+Accédez au tableau de bord pour gérer :
+
+📊 Statistiques et ventes
+📦 Commandes en cours
+📋 Gestion du stock
+💰 Finances et transactions
+⚙️ Paramètres de la boutique
+
+<i>⚠️ Authentification requise</i>`;
+
+          const keyboard = {
+            inline_keyboard: [
+              [{
+                text: '🔐 Ouvrir le Panneau Admin',
+                web_app: { url: `${WEBAPP_URL}/admin.html` }
+              }]
+            ]
+          };
+          
+          await axios.post(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+            chat_id: chatId,
+            text: adminText,
+            parse_mode: 'HTML',
+            reply_markup: keyboard
+          });
+        }
+      }
+      
+      res.sendStatus(200);
+    } catch (error) {
+      console.error('Bot error:', error);
+      res.sendStatus(500);
+    }
+  });
+
+  // Configurer le webhook au démarrage
+  setTimeout(async () => {
+    try {
+      const webhookUrl = `${WEBAPP_URL}/bot${TELEGRAM_TOKEN}`;
+      await axios.post(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/setWebhook`, {
+        url: webhookUrl,
+        allowed_updates: ['message', 'callback_query']
+      });
+      console.log('✅ Webhook Telegram configuré:', webhookUrl);
+      
+      // Configurer les commandes du bot
+      await axios.post(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/setMyCommands`, {
+        commands: [
+          { command: 'start', description: '🏠 Menu principal' },
+          { command: 'shop', description: '🛒 Ouvrir la boutique' },
+          { command: 'admin', description: '🔐 Panneau admin' },
+          { command: 'help', description: '❓ Aide et support' }
+        ]
+      });
+      console.log('✅ Commandes du bot configurées');
+      
+      // Configurer le bouton Menu
+      await axios.post(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/setChatMenuButton`, {
+        menu_button: {
+          type: 'web_app',
+          text: '🛒 Boutique',
+          web_app: { url: WEBAPP_URL }
+        }
+      });
+      console.log('✅ Bouton Menu configuré');
+    } catch (error) {
+      console.error('❌ Erreur configuration bot:', error.message);
+    }
+  }, 3000);
+}
+// ==================== FIN TELEGRAM BOT ====================
 
 // Catch-all for React Router (if using React)
 app.get('*', (req, res) => {
@@ -694,16 +1048,24 @@ async function start() {
   await initDB();
   
   app.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT}`);
+    console.log('🚀 ================================');
+    console.log(`   Server running on port ${PORT}`);
+    console.log('🚀 ================================');
     console.log(`📱 Frontend: http://localhost:${PORT}`);
     console.log(`🔐 Admin: http://localhost:${PORT}/admin.html`);
     
     if (!TELEGRAM_TOKEN) {
-      console.log('⚠️  TELEGRAM_TOKEN not set - notifications disabled');
+      console.log('⚠️  TELEGRAM_TOKEN not set - bot disabled');
+    } else {
+      console.log('✅ Bot Telegram activé');
+      console.log(`🔗 Webhook: ${WEBAPP_URL}/bot${TELEGRAM_TOKEN}`);
     }
+    
     if (!MAPBOX_KEY) {
       console.log('⚠️  MAPBOX_KEY not set - geocoding disabled');
     }
+    
+    console.log('🚀 ================================');
   });
 }
 
