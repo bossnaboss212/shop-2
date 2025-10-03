@@ -679,8 +679,7 @@ app.get('/api/admin/orders/export/csv', requireAdmin, async (req, res) => {
   }
 });
 
-// ==================== TELEGRAM BOT ====================
-// Webhook endpoint pour le bot Telegram
+// ==================== TELEGRAM BOT SIMPLE ====================
 if (TELEGRAM_TOKEN) {
   console.log('🤖 Configuration du bot Telegram...');
 
@@ -688,11 +687,15 @@ if (TELEGRAM_TOKEN) {
     try {
       const { message, callback_query } = req.body;
       
+      console.log('📩 Message reçu du bot:', JSON.stringify(req.body));
+      
       // Gestion des messages
       if (message) {
         const chatId = message.chat.id;
         const text = message.text;
         const firstName = message.from.first_name || 'Client';
+        
+        console.log(`💬 Message de ${firstName}: ${text}`);
         
         if (text === '/start') {
           const welcomeText = `🌟 <b>Bienvenue ${firstName} chez DROGUA CENTER !</b> 🌟
@@ -747,6 +750,8 @@ Bénéficiez d'une remise tous les 10 achats.`;
             parse_mode: 'HTML',
             reply_markup: keyboard
           });
+          
+          console.log('✅ Message /start envoyé à', chatId);
         }
         else if (text === '/shop' || text === '/boutique') {
           const shopText = `🛍️ <b>BOUTIQUE DROGUA CENTER</b>
@@ -773,6 +778,8 @@ Cliquez sur le bouton ci-dessous pour accéder à notre catalogue complet.
             parse_mode: 'HTML',
             reply_markup: keyboard
           });
+          
+          console.log('✅ Message /shop envoyé à', chatId);
         }
         else if (text === '/admin') {
           const adminText = `🔐 <b>PANNEAU ADMINISTRATEUR</b>
@@ -802,6 +809,8 @@ Accédez au tableau de bord pour gérer :
             parse_mode: 'HTML',
             reply_markup: keyboard
           });
+          
+          console.log('✅ Message /admin envoyé à', chatId);
         }
         else if (text === '/help' || text === '/aide') {
           const helpText = `❓ <b>AIDE & SUPPORT</b>
@@ -851,6 +860,8 @@ Livraison rapide pendant les heures d'ouverture`;
             parse_mode: 'HTML',
             reply_markup: keyboard
           });
+          
+          console.log('✅ Message /help envoyé à', chatId);
         }
       }
       
@@ -859,10 +870,12 @@ Livraison rapide pendant les heures d'ouverture`;
         const chatId = callback_query.message.chat.id;
         const data = callback_query.data;
         
+        console.log(`🔘 Callback reçu: ${data} de ${chatId}`);
+        
         // Répondre au callback pour enlever le "loading"
         await axios.post(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/answerCallbackQuery`, {
           callback_query_id: callback_query.id
-        });
+        }).catch(err => console.error('Erreur answerCallback:', err.message));
         
         if (data === 'contact_support') {
           const supportText = `💬 <b>SUPPORT CLIENT</b>
@@ -996,45 +1009,14 @@ Accédez au tableau de bord pour gérer :
       
       res.sendStatus(200);
     } catch (error) {
-      console.error('Bot error:', error);
+      console.error('❌ Erreur bot:', error.message);
+      console.error('Stack:', error.stack);
       res.sendStatus(500);
     }
   });
 
-  // Configurer le webhook au démarrage
-  setTimeout(async () => {
-    try {
-      const webhookUrl = `${WEBAPP_URL}/bot${TELEGRAM_TOKEN}`;
-      await axios.post(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/setWebhook`, {
-        url: webhookUrl,
-        allowed_updates: ['message', 'callback_query']
-      });
-      console.log('✅ Webhook Telegram configuré:', webhookUrl);
-      
-      // Configurer les commandes du bot
-      await axios.post(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/setMyCommands`, {
-        commands: [
-          { command: 'start', description: '🏠 Menu principal' },
-          { command: 'shop', description: '🛒 Ouvrir la boutique' },
-          { command: 'admin', description: '🔐 Panneau admin' },
-          { command: 'help', description: '❓ Aide et support' }
-        ]
-      });
-      console.log('✅ Commandes du bot configurées');
-      
-      // Configurer le bouton Menu
-      await axios.post(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/setChatMenuButton`, {
-        menu_button: {
-          type: 'web_app',
-          text: '🛒 Boutique',
-          web_app: { url: WEBAPP_URL }
-        }
-      });
-      console.log('✅ Bouton Menu configuré');
-    } catch (error) {
-      console.error('❌ Erreur configuration bot:', error.message);
-    }
-  }, 3000);
+  console.log(`✅ Bot endpoint configuré: /bot${TELEGRAM_TOKEN.substring(0, 10)}...`);
+  console.log(`📍 URL complète: ${WEBAPP_URL}/bot${TELEGRAM_TOKEN.substring(0, 10)}...`);
 }
 // ==================== FIN TELEGRAM BOT ====================
 
