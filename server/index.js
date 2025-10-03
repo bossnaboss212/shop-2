@@ -678,6 +678,12 @@ app.get('/api/admin/orders/export/csv', requireAdmin, async (req, res) => {
   }
 });
 
+// Ajouter après les autres routes, avant le catch-all
+app.post(`/bot${TELEGRAM_TOKEN}`, async (req, res) => {
+  // Le bot.js gérera ces requêtes
+  res.sendStatus(200);
+});
+
 // Catch-all for React Router (if using React)
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
