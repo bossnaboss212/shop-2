@@ -4,8 +4,8 @@
   "description": "Boutique DROGUA CENTER",
   "main": "server/index.js",
   "scripts": {
-    "start": "node index.js",
-    "bot": "node bot.js",  
+    "start": "node server/index.js",
+    "bot": "node bot.js",
     "dev": "nodemon index.js"
   },
   "dependencies": {
