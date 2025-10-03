@@ -2,7 +2,7 @@
   "name": "shop-2",
   "version": "1.0.0",
   "description": "Boutique DROGUA CENTER",
-  "main": "index.js",
+  "main": "server/index.js",
   "scripts": {
     "start": "node index.js",
     "bot": "node bot.js",  
