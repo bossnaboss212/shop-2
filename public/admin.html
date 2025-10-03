@@ -1,4 +1,1831 @@
-<!doctype html>
+<span style="color:${profitColor}">${fmt(profit)}</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderFinancialForecast() {
+  const transactions = getTransactions();
+  const now = new Date();
+  
+  const last7Days = transactions.filter(t => {
+    const diff = now - new Date(t.date);
+    return diff >= 0 && diff < 7 * 24 * 60 * 60 * 1000;
+  });
+  
+  const last7Revenue = last7Days.filter(t => t.type === 'revenue').reduce((sum, t) => sum + t.amount, 0);
+  const last7Expense = last7Days.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+  const dailyAvg = (last7Revenue - last7Expense) / 7;
+  
+  const daysLeft = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() - now.getDate();
+  const projection = dailyAvg * daysLeft;
+  
+  const dailyProfits = {};
+  transactions.forEach(t => {
+    if (!dailyProfits[t.date]) dailyProfits[t.date] = 0;
+    dailyProfits[t.date] += t.type === 'revenue' ? t.amount : -t.amount;
+  });
+  
+  const bestDayEntry = Object.entries(dailyProfits).sort((a, b) => b[1] - a[1])[0];
+  const bestDay = bestDayEntry ? bestDayEntry[1] : 0;
+  const bestDayDate = bestDayEntry ? new Date(bestDayEntry[0]).toLocaleDateString('fr-FR') : '-';
+  
+  const monthTransactions = transactions.filter(t => {
+    const d = new Date(t.date);
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  });
+  const monthExpenses = monthTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+  const monthRevenue = monthTransactions.filter(t => t.type === 'revenue').reduce((sum, t) => sum + t.amount, 0);
+  
+  const alerts = [];
+  if (monthExpenses > monthRevenue) alerts.push('⚠️ Dépenses > Revenus ce mois');
+  if (dailyAvg < 0) alerts.push('📉 Tendance négative sur 7 jours');
+  if (projection < 0) alerts.push('⚡ Projection de perte ce mois');
+  
+  document.getElementById('projectionEndMonth').textContent = fmt(projection);
+  document.getElementById('projectionEndMonth').style.color = projection >= 0 ? 'var(--success)' : 'var(--danger)';
+  document.getElementById('bestDay').textContent = fmt(bestDay);
+  document.getElementById('bestDayDate').textContent = bestDayDate;
+  document.getElementById('financeAlerts').innerHTML = alerts.length > 0 
+    ? alerts.map(a => `<div style="margin-bottom:4px">${a}</div>`).join('')
+    : '<div style="color:var(--success)">✅ Tout va bien</div>';
+}
+
+function updateCashBalanceDisplay() {
+  const balance = parseFloat(localStorage.getItem('cash_balance') || '0');
+  document.getElementById('cashBalance').textContent = fmt(balance);
+  document.getElementById('currentCashBalance').value = balance.toFixed(2);
+  
+  const status = balance < 500 ? '⚠️ Faible' : balance > 2000 ? '✅ Sain' : '💰 Correct';
+  document.getElementById('cashStatus').textContent = status;
+}
+
+function updateMonthlyGoalDisplay() {
+  const goal = parseFloat(localStorage.getItem('monthly_goal') || '5000');
+  const transactions = getTransactions();
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  
+  const monthRevenue = transactions
+    .filter(t => t.type === 'revenue' && new Date(t.date) >= monthStart)
+    .reduce((sum, t) => sum + t.amount, 0);
+  
+  const progress = goal > 0 ? ((monthRevenue / goal) * 100).toFixed(1) : 0;
+  
+  document.getElementById('monthlyGoalProgress').textContent = progress + '%';
+  document.getElementById('monthlyGoalProgress').style.color = progress >= 100 ? 'var(--success)' : 'var(--accent)';
+  document.getElementById('monthlyGoalAmount').textContent = fmt(monthRevenue);
+  document.getElementById('monthlyGoalTarget').textContent = fmt(goal);
+  document.getElementById('monthlyGoalInput').value = goal;
+}
+
+document.getElementById('addTransaction')?.addEventListener('click', () => {
+  const type = document.getElementById('transactionType').value;
+  const category = document.getElementById('transactionCategory').value;
+  const description = document.getElementById('transactionDescription').value.trim();
+  const amount = parseFloat(document.getElementById('transactionAmount').value);
+  const date = document.getElementById('transactionDate').value;
+  const payment = document.getElementById('transactionPayment').value;
+  const note = document.getElementById('transactionNote').value.trim();
+  
+  if (!description || !amount || amount <= 0 || !date) {
+    showToast('Veuillez remplir tous les champs', 'error');
+    return;
+  }
+  
+  const transactions = getTransactions();
+  transactions.unshift({
+    type,
+    category,
+    description,
+    amount,
+    date,
+    payment,
+    note,
+    created_at: new Date().toISOString()
+  });
+  
+  saveTransactions(transactions);
+  
+  if (payment === 'especes') {
+    const currentBalance = parseFloat(localStorage.getItem('cash_balance') || '0');
+    const newBalance = type === 'revenue' ? currentBalance + amount : currentBalance - amount;
+    localStorage.setItem('cash_balance', newBalance.toString());
+  }
+  
+  document.getElementById('transactionDescription').value = '';
+  document.getElementById('transactionAmount').value = '';
+  document.getElementById('transactionDate').value = new Date().toISOString().split('T')[0];
+  document.getElementById('transactionNote').value = '';
+  
+  showToast('Transaction ajoutée');
+  loadFinances();
+  loadStats();
+});
+
+document.getElementById('filterTransactionType')?.addEventListener('change', loadTransactionsTable);
+document.getElementById('filterTransactionCategory')?.addEventListener('change', loadTransactionsTable);
+document.getElementById('filterTransactionPeriod')?.addEventListener('change', loadTransactionsTable);
+document.getElementById('filterTransactionPayment')?.addEventListener('change', loadTransactionsTable);
+document.getElementById('searchTransaction')?.addEventListener('input', loadTransactionsTable);
+document.getElementById('refreshFinances')?.addEventListener('click', loadFinances);
+document.getElementById('chartPeriod')?.addEventListener('change', renderFinanceChart);
+
+document.getElementById('updateCashBalance')?.addEventListener('click', () => {
+  const newBalance = parseFloat(document.getElementById('newCashBalance').value);
+  
+  if (isNaN(newBalance) || newBalance < 0) {
+    showToast('Montant invalide', 'error');
+    return;
+  }
+  
+  localStorage.setItem('cash_balance', newBalance.toString());
+  document.getElementById('newCashBalance').value = '';
+  
+  showToast('Solde de caisse mis à jour');
+  updateCashBalanceDisplay();
+  loadFinanceStats();
+});
+
+document.getElementById('setMonthlyGoal')?.addEventListener('click', () => {
+  const goal = parseFloat(document.getElementById('monthlyGoalInput').value);
+  
+  if (isNaN(goal) || goal < 0) {
+    showToast('Montant invalide', 'error');
+    return;
+  }
+  
+  localStorage.setItem('monthly_goal', goal.toString());
+  
+  showToast('Objectif mensuel défini');
+  updateMonthlyGoalDisplay();
+});
+
+document.getElementById('exportFinances')?.addEventListener('click', () => {
+  const transactions = getTransactions();
+  
+  if (transactions.length === 0) {
+    showToast('Aucune transaction à exporter', 'error');
+    return;
+  }
+  
+  let csv = 'Date,Type,Catégorie,Description,Paiement,Montant,Note\n';
+  transactions.forEach(t => {
+    const typeLabel = t.type === 'revenue' ? 'Revenu' : 'Dépense';
+    csv += `"${t.date}","${typeLabel}","${t.category}","${t.description}","${t.payment || ''}",${t.amount},"${t.note || ''}"\n`;
+  });
+  
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `finances_${Date.now()}.csv`;
+  a.click();
+  
+  showToast('Export réussi');
+});
+
+document.getElementById('exportFinancesExcel')?.addEventListener('click', () => {
+  const transactions = getTransactions();
+  
+  if (transactions.length === 0) {
+    showToast('Aucune transaction à exporter', 'error');
+    return;
+  }
+  
+  let html = '<table><thead><tr><th>Date</th><th>Type</th><th>Catégorie</th><th>Description</th><th>Paiement</th><th>Montant</th><th>Note</th></tr></thead><tbody>';
+  
+  transactions.forEach(t => {
+    const typeLabel = t.type === 'revenue' ? 'Revenu' : 'Dépense';
+    html += `<tr><td>${t.date}</td><td>${typeLabel}</td><td>${t.category}</td><td>${t.description}</td><td>${t.payment || ''}</td><td>${t.amount}</td><td>${t.note || ''}</td></tr>`;
+  });
+  
+  html += '</tbody></table>';
+  
+  const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `finances_${Date.now()}.xls`;
+  a.click();
+  
+  showToast('Export Excel réussi');
+});
+
+// === PAYROLL ===
+
+function getEmployees() {
+  try {
+    return JSON.parse(localStorage.getItem('employees') || '[]');
+  } catch {
+    return [];
+  }
+}
+
+function saveEmployees(employees) {
+  localStorage.setItem('employees', JSON.stringify(employees));
+}
+
+function getPayrollRecords() {
+  try {
+    return JSON.parse(localStorage.getItem('payroll_records') || '[]');
+  } catch {
+    return [];
+  }
+}
+
+function savePayrollRecords(records) {
+  localStorage.setItem('payroll_records', JSON.stringify(records));
+}
+
+async function loadPayroll() {
+  showLoading('payrollLoading');
+  try {
+    loadPayrollStats();
+    loadEmployeesTable();
+    loadPayrollTable();
+    populateEmployeeSelect();
+    renderPayrollChart();
+  } catch (e) {
+    console.error('Error loading payroll:', e);
+  } finally {
+    hideLoading('payrollLoading');
+  }
+}
+
+function loadPayrollStats() {
+  const employees = getEmployees().filter(e => e.status === 'active');
+  const records = getPayrollRecords();
+  const now = new Date();
+  
+  const monthRecords = records.filter(r => {
+    return r.month === (now.getMonth() + 1) && r.year === now.getFullYear();
+  });
+  
+  const totalPayroll = monthRecords.reduce((sum, r) => sum + (r.grossAmount || 0), 0);
+  const paidThisMonth = monthRecords.filter(r => r.status === 'paid').reduce((sum, r) => sum + (r.netAmount || 0), 0);
+  const pendingPayments = monthRecords.filter(r => r.status === 'pending').length;
+  
+  document.getElementById('totalPayroll').textContent = fmt(totalPayroll);
+  document.getElementById('activeEmployees').textContent = employees.length;
+  document.getElementById('pendingPayments').textContent = pendingPayments;
+  document.getElementById('paidThisMonth').textContent = fmt(paidThisMonth);
+}
+
+function loadEmployeesTable() {
+  const employees = getEmployees();
+  const tbody = document.getElementById('employeesTable');
+  
+  if (employees.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Aucun employé</td></tr>';
+    return;
+  }
+  
+  tbody.innerHTML = employees.map((e, idx) => {
+    const statusBadge = e.status === 'active' 
+      ? '<span class="badge success">Actif</span>'
+      : '<span class="badge danger">Inactif</span>';
+    
+    const typeLabels = {
+      mensuel: 'Mensuel',
+      horaire: 'Horaire',
+      journalier: 'Journalier'
+    };
+    
+    const salaryLabel = e.type === 'mensuel' 
+      ? `${fmt(e.salary)}/mois`
+      : `${fmt(e.salary)}/${e.type === 'horaire' ? 'h' : 'jour'}`;
+    
+    return `
+      <tr>
+        <td><strong>${e.name}</strong></td>
+        <td>${e.position}</td>
+        <td><span class="badge">${typeLabels[e.type]}</span></td>
+        <td>${salaryLabel}</td>
+        <td>${new Date(e.hireDate).toLocaleDateString('fr-FR')}</td>
+        <td>${statusBadge}</td>
+        <td class="actions">
+          ${e.status === 'active' 
+            ? `<button class="btn-sm btn-warning" onclick="toggleEmployeeStatus(${idx})" title="Désactiver">❌</button>`
+            : `<button class="btn-sm btn-success" onclick="toggleEmployeeStatus(${idx})" title="Activer">✅</button>`
+          }
+          <button class="btn-sm btn-danger" onclick="deleteEmployee(${idx})" title="Supprimer">🗑️</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function loadPayrollTable() {
+  let records = getPayrollRecords();
+  
+  const statusFilter = document.getElementById('filterPayrollStatus')?.value || 'all';
+  const monthFilter = document.getElementById('filterPayrollMonth')?.value || 'all';
+  const yearFilter = document.getElementById('filterPayrollYear')?.value || 'all';
+  
+  if (statusFilter !== 'all') {
+    records = records.filter(r => r.status === statusFilter);
+  }
+  
+  if (monthFilter !== 'all') {
+    records = records.filter(r => r.month === parseInt(monthFilter));
+  }
+  
+  if (yearFilter !== 'all') {
+    records = records.filter(r => r.year === parseInt(yearFilter));
+  }
+  
+  const tbody = document.getElementById('payrollTable');
+  
+  if (records.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Aucune paie enregistrée</td></tr>';
+    return;
+  }
+  
+  records.sort((a, b) => {
+    const dateA = new Date(a.year, a.month - 1);
+    const dateB = new Date(b.year, b.month - 1);
+    return dateB - dateA;
+  });
+  
+  tbody.innerHTML = records.map((r, idx) => {
+    const statusBadge = r.status === 'paid'
+      ? '<span class="badge success">Payé</span>'
+      : '<span class="badge warning">En attente</span>';
+    
+    const monthNames = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
+    const period = `${monthNames[r.month - 1]} ${r.year}`;
+    
+    const paymentDate = r.paymentDate 
+      ? new Date(r.paymentDate).toLocaleDateString('fr-FR')
+      : '-';
+    
+    return `
+      <tr>
+        <td><strong>${r.employeeName}</strong><br><span class="muted" style="font-size:12px">${r.employeePosition}</span></td>
+        <td>${period}</td>
+        <td>${fmt(r.grossAmount)}</td>
+        <td>${fmt(r.bonus || 0)}</td>
+        <td><strong style="color:var(--success)">${fmt(r.netAmount)}</strong></td>
+        <td>${statusBadge}</td>
+        <td>${paymentDate}</td>
+        <td class="actions">
+          ${r.status === 'pending' 
+            ? `<button class="btn-sm btn-success" onclick="markPayrollPaid(${idx})" title="Marquer comme payé">💵</button>`
+            : ''
+          }
+          <button class="btn-sm btn-danger" onclick="deletePayroll(${idx})" title="Supprimer">🗑️</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function populateEmployeeSelect() {
+  const employees = getEmployees().filter(e => e.status === 'active');
+  const select = document.getElementById('payrollEmployee');
+  
+  select.innerHTML = '<option value="">Sélectionner...</option>' +
+    employees.map((e, idx) => `<option value="${idx}">${e.name} - ${e.position}</option>`).join('');
+}
+
+function renderPayrollChart() {
+  const records = getPayrollRecords();
+  const chartDiv = document.getElementById('payrollChart');
+  
+  if (records.length === 0) {
+    chartDiv.innerHTML = '<div style="flex:1;text-align:center;color:var(--muted)">Aucune donnée</div>';
+    return;
+  }
+  
+  const monthlyData = {};
+  const now = new Date();
+  
+  for (let i = 11; i >= 0; i--) {
+    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = `${date.getFullYear()}-${date.getMonth() + 1}`;
+    monthlyData[key] = 0;
+  }
+  
+  records.filter(r => r.status === 'paid').forEach(r => {
+    const key = `${r.year}-${r.month}`;
+    if (monthlyData[key] !== undefined) {
+      monthlyData[key] += r.netAmount || 0;
+    }
+  });
+  
+  const maxValue = Math.max(...Object.values(monthlyData), 1);
+  
+  chartDiv.innerHTML = Object.entries(monthlyData).map(([key, amount]) => {
+    const [year, month] = key.split('-');
+    const date = new Date(parseInt(year), parseInt(month) - 1);
+    const label = date.toLocaleDateString('fr-FR', { month: 'short' });
+    const height = (amount / maxValue) * 150;
+    
+    return `
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;min-width:40px">
+        <div style="display:flex;align-items:flex-end;height:150px">
+          <div style="width:24px;background:var(--accent);height:${height}px;border-radius:4px 4px 0 0" title="${fmt(amount)}"></div>
+        </div>
+        <div style="font-size:11px;color:var(--muted)">${label}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+document.getElementById('addEmployee')?.addEventListener('click', () => {
+  const name = document.getElementById('employeeName').value.trim();
+  const position = document.getElementById('employeePosition').value.trim();
+  const type = document.getElementById('employeeType').value;
+  const salary = parseFloat(document.getElementById('employeeSalary').value);
+  const hireDate = document.getElementById('employeeHireDate').value;
+  
+  if (!name || !position || !salary || salary <= 0 || !hireDate) {
+    showToast('Veuillez remplir tous les champs', 'error');
+    return;
+  }
+  
+  const employees = getEmployees();
+  employees.push({
+    name,
+    position,
+    type,
+    salary,
+    hireDate,
+    status: 'active',
+    createdAt: new Date().toISOString()
+  });
+  
+  saveEmployees(employees);
+  
+  document.getElementById('employeeName').value = '';
+  document.getElementById('employeePosition').value = '';
+  document.getElementById('employeeSalary').value = '';
+  document.getElementById('employeeHireDate').value = '';
+  
+  showToast('Employé ajouté');
+  loadPayroll();
+});
+
+function toggleEmployeeStatus(index) {
+  const employees = getEmployees();
+  employees[index].status = employees[index].status === 'active' ? 'inactive' : 'active';
+  saveEmployees(employees);
+  
+  showToast('Statut mis à jour');
+  loadPayroll();
+}
+
+function deleteEmployee(index) {
+  if (!confirm('Supprimer cet employé ?')) return;
+  
+  const employees = getEmployees();
+  employees.splice(index, 1);
+  saveEmployees(employees);
+  
+  showToast('Employé supprimé');
+  loadPayroll();
+}
+
+document.getElementById('generatePayroll')?.addEventListener('click', () => {
+  const employeeIdx = document.getElementById('payrollEmployee').value;
+  const month = parseInt(document.getElementById('payrollMonth').value);
+  const year = parseInt(document.getElementById('payrollYear').value);
+  const hours = parseFloat(document.getElementById('payrollHours').value) || 0;
+  const bonus = parseFloat(document.getElementById('payrollBonus').value) || 0;
+  const note = document.getElementById('payrollNote').value.trim();
+  
+  if (employeeIdx === '') {
+    showToast('Veuillez sélectionner un employé', 'error');
+    return;
+  }
+  
+  const employees = getEmployees();
+  const employee = employees[parseInt(employeeIdx)];
+  
+  if (!employee) {
+    showToast('Employé introuvable', 'error');
+    return;
+  }
+  
+  let grossAmount = 0;
+  if (employee.type === 'mensuel') {
+    grossAmount = employee.salary;
+  } else if (employee.type === 'horaire') {
+    if (hours === 0) {
+      showToast('Veuillez indiquer le nombre d\'heures', 'error');
+      return;
+    }
+    grossAmount = employee.salary * hours;
+  } else if (employee.type === 'journalier') {
+    if (hours === 0) {
+      showToast('Veuillez indiquer le nombre de jours', 'error');
+      return;
+    }
+    grossAmount = employee.salary * hours;
+  }
+  
+  const charges = grossAmount * 0.22;
+  const netAmount = grossAmount + bonus - charges;
+  
+  const records = getPayrollRecords();
+  records.push({
+    employeeName: employee.name,
+    employeePosition: employee.position,
+    month,
+    year,
+    type: employee.type,
+    hours,
+    grossAmount,
+    bonus,
+    charges,
+    netAmount,
+    note,
+    status: 'pending',
+    createdAt: new Date().toISOString()
+  });
+  
+  savePayrollRecords(records);
+  
+  document.getElementById('payrollEmployee').value = '';
+  document.getElementById('payrollHours').value = '0';
+  document.getElementById('payrollBonus').value = '0';
+  document.getElementById('payrollNote').value = '';
+  
+  showToast('Paie générée');
+  loadPayroll();
+});
+
+function markPayrollPaid(index) {
+  if (!confirm('Marquer cette paie comme payée ?')) return;
+  
+  const records = getPayrollRecords();
+  records[index].status = 'paid';
+  records[index].paymentDate = new Date().toISOString();
+  
+  savePayrollRecords(records);
+  
+  const record = records[index];
+  const transactions = getTransactions();
+  transactions.unshift({
+    type: 'expense',
+    category: 'salaire',
+    description: `Salaire ${record.employeeName} - ${record.month}/${record.year}`,
+    amount: record.netAmount,
+    date: new Date().toISOString().split('T')[0],
+    payment: 'virement',
+    note: record.note || '',
+    created_at: new Date().toISOString()
+  });
+  saveTransactions(transactions);
+  
+  showToast('Paie marquée comme payée');
+  loadPayroll();
+  loadFinances();
+}
+
+function deletePayroll(index) {
+  if (!confirm('Supprimer cette paie ?')) return;
+  
+  const records = getPayrollRecords();
+  records.splice(index, 1);
+  savePayrollRecords(records);
+  
+  showToast('Paie supprimée');
+  loadPayroll();
+}
+
+document.getElementById('filterPayrollStatus')?.addEventListener('change', loadPayrollTable);
+document.getElementById('filterPayrollMonth')?.addEventListener('change', loadPayrollTable);
+document.getElementById('filterPayrollYear')?.addEventListener('change', loadPayrollTable);
+document.getElementById('refreshPayroll')?.addEventListener('click', loadPayroll);
+
+document.getElementById('exportPayroll')?.addEventListener('click', () => {
+  const records = getPayrollRecords();
+  
+  if (records.length === 0) {
+    showToast('Aucune paie à exporter', 'error');
+    return;
+  }
+  
+  let csv = 'Employé,Poste,Période,Type,Heures/Jours,Salaire brut,Primes,Charges,Net à payer,Statut,Date paiement,Note\n';
+  records.forEach(r => {
+    const period = `${r.month}/${r.year}`;
+    const paymentDate = r.paymentDate ? new Date(r.paymentDate).toLocaleDateString('fr-FR') : '-';
+    csv += `"${r.employeeName}","${r.employeePosition}","${period}","${r.type}",${r.hours || 0},${r.grossAmount},${r.bonus || 0},${r.charges},${r.netAmount},"${r.status}","${paymentDate}","${r.note || ''}"\n`;
+  });
+  
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `paie_${Date.now()}.csv`;
+  a.click();
+  
+  showToast('Export réussi');
+});
+
+// === STOCK ===
+async function loadStockData() {
+  populateProductSelect();
+  await loadStock();
+  await loadMovements();
+  loadStats();
+}
+
+function populateProductSelect() {
+  const select = document.getElementById('stockProduct');
+  select.innerHTML = '<option value="">Sélectionner...</option>' + 
+    PRODUCTS_DATA.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+  
+  select.onchange = () => {
+    const productId = parseInt(select.value);
+    const product = PRODUCTS_DATA.find(p => p.id === productId);
+    const variantSelect = document.getElementById('stockVariant');
+    
+    if (product) {
+      variantSelect.innerHTML = '<option value="">Sélectionner...</option>' +
+        product.variants.map(v => `<option value="${v.label}">${v.label}</option>`).join('');
+      variantSelect.disabled = false;
+    } else {
+      variantSelect.innerHTML = '<option value="">Sélectionner...</option>';
+      variantSelect.disabled = true;
+    }
+  };
+}
+
+async function loadStock() {
+  showLoading('stockLoading');
+  try {
+    const data = await apiCall('/admin/stock');
+    const tbody = document.getElementById('stockTable');
+    
+    if (!data.ok || data.stock.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Aucun stock</td></tr>';
+      return;
+    }
+    
+    tbody.innerHTML = data.stock.map(s => {
+      const product = PRODUCTS_DATA.find(p => p.id === s.product_id);
+      const variant = product?.variants.find(v => v.label === s.variant);
+      const value = variant ? s.qty * variant.price : 0;
+      
+      let statusBadge = '<span class="badge success">OK</span>';
+      if (s.qty === 0) statusBadge = '<span class="badge danger">Rupture</span>';
+      else if (s.qty < 10) statusBadge = '<span class="badge warning">Stock bas</span>';
+      
+      return `
+        <tr>
+          <td><strong>${product?.name || 'Inconnu'}</strong></td>
+          <td>${s.variant}</td>
+          <td><strong style="color:var(--accent)">${s.qty}</strong></td>
+          <td>${statusBadge}</td>
+          <td>${fmt(value)}</td>
+          <td class="actions">
+            <button class="btn-sm btn-primary" onclick="quickAddStock(${s.product_id}, '${s.variant}')">+ Rapide</button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  } catch (e) {
+    console.error('Error loading stock:', e);
+  } finally {
+    hideLoading('stockLoading');
+  }
+}
+
+async function loadMovements() {
+  try {
+    const data = await apiCall('/admin/stock/movements');
+    const tbody = document.getElementById('movementsTable');
+    
+    if (!data.ok || data.movements.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Aucun mouvement</td></tr>';
+      return;
+    }
+    
+    tbody.innerHTML = data.movements.map(m => {
+      const product = PRODUCTS_DATA.find(p => p.id === m.product_id);
+      const typeBadge = m.type === 'in' 
+        ? '<span class="badge success">➕ Entrée</span>' 
+        : '<span class="badge danger">➖ Sortie</span>';
+      
+      return `
+        <tr>
+          <td>${new Date(m.created_at).toLocaleString('fr-FR')}</td>
+          <td><strong>${product?.name || 'Inconnu'}</strong></td>
+          <td>${m.variant}</td>
+          <td>${typeBadge}</td>
+          <td><strong>${m.quantity}</strong></td>
+          <td>${m.stock_after}</td>
+          <td class="muted">${m.reason || '-'}</td>
+        </tr>
+      `;
+    }).join('');
+  } catch (e) {
+    console.error('Error loading movements:', e);
+  }
+}
+
+async function addStockMovement(productId, variant, type, quantity, reason = '') {
+  try {
+    await apiCall('/admin/stock/movement', {
+      method: 'POST',
+      body: JSON.stringify({ product_id: productId, variant, type, quantity, reason })
+    });
+    showToast('Stock mis à jour');
+    loadStockData();
+  } catch (e) {
+    showToast('Erreur de mise à jour', 'error');
+  }
+}
+
+document.getElementById('addStockMovement')?.addEventListener('click', () => {
+  const productId = parseInt(document.getElementById('stockProduct').value);
+  const variant = document.getElementById('stockVariant').value;
+  const type = document.getElementById('stockType').value;
+  const quantity = parseInt(document.getElementById('stockQty').value);
+  const reason = document.getElementById('stockReason').value;
+  
+  if (!productId || !variant || !quantity) {
+    showToast('Veuillez remplir tous les champs', 'error');
+    return;
+  }
+  
+  addStockMovement(productId, variant, type, quantity, reason);
+  
+  document.getElementById('stockProduct').value = '';
+  document.getElementById('stockVariant').innerHTML = '<option value="">Sélectionner...</option>';
+  document.getElementById('stockVariant').disabled = true;
+  document.getElementById('stockQty').value = '1';
+  document.getElementById('stockReason').value = '';
+});
+
+function quickAddStock(productId, variant) {
+  const qty = prompt('Quantité à ajouter :', '10');
+  if (qty && !isNaN(qty) && parseInt(qty) > 0) {
+    addStockMovement(productId, variant, 'in', parseInt(qty), 'Ajout rapide');
+  }
+}
+
+// === PRODUCTS ===
+async function loadProducts() {
+  showLoading('productsLoading');
+  try {
+    const tbody = document.getElementById('productsTable');
+    tbody.innerHTML = PRODUCTS_DATA.map(p => `
+      <tr>
+        <td><strong>${p.name}</strong></td>
+        <td><span class="badge">-</span></td>
+        <td>${fmt(Math.min(...p.variants.map(v => v.price)))}</td>
+        <td>${p.variants.length} variants</td>
+        <td><span class="badge success">Actif</span></td>
+        <td class="actions">
+          <button class="btn-sm btn-primary" onclick="editProduct(${p.id})" title="Éditer">✏️</button>
+        </td>
+      </tr>
+    `).join('');
+  } catch (e) {
+    console.error('Error loading products:', e);
+  } finally {
+    hideLoading('productsLoading');
+  }
+}
+
+function editProduct(id) {
+  const product = PRODUCTS_DATA.find(p => p.id === id);
+  if (!product) return;
+  
+  document.getElementById('editProductName').value = product.name;
+  document.getElementById('editProductCategory').value = product.category || '';
+  document.getElementById('editProductFarm').value = product.farm || '';
+  document.getElementById('editProductActive').value = '1';
+  document.getElementById('editProductVariants').value = JSON.stringify(product.variants, null, 2);
+  
+  document.getElementById('saveProductBtn').dataset.productId = id;
+  document.getElementById('modalEditProduct').classList.add('active');
+}
+
+document.getElementById('saveProductBtn')?.addEventListener('click', () => {
+  const idStr = document.getElementById('saveProductBtn').dataset.productId;
+  
+  if (idStr.startsWith('new_')) {
+    const newId = parseInt(idStr.replace('new_', ''));
+    
+    try {
+      const newProduct = {
+        id: newId,
+        name: document.getElementById('editProductName').value,
+        category: document.getElementById('editProductCategory').value,
+        farm: document.getElementById('editProductFarm').value,
+        variants: JSON.parse(document.getElementById('editProductVariants').value)
+      };
+      
+      PRODUCTS_DATA.push(newProduct);
+      
+      showToast('Produit créé');
+      closeModal('modalEditProduct');
+      loadProducts();
+      populateProductSelect();
+    } catch (e) {
+      showToast('Erreur : Vérifiez le format JSON des variants', 'error');
+      console.error('Error creating product:', e);
+    }
+  } else {
+    const id = parseInt(idStr);
+    
+    try {
+      const product = PRODUCTS_DATA.find(p => p.id === id);
+      if (!product) return;
+      
+      product.name = document.getElementById('editProductName').value;
+      product.category = document.getElementById('editProductCategory').value;
+      product.farm = document.getElementById('editProductFarm').value;
+      
+      const variantsText = document.getElementById('editProductVariants').value;
+      product.variants = JSON.parse(variantsText);
+      
+      showToast('Produit mis à jour');
+      closeModal('modalEditProduct');
+      loadProducts();
+    } catch (e) {
+      showToast('Erreur : Vérifiez le format JSON des variants', 'error');
+      console.error('Error saving product:', e);
+    }
+  }
+});
+
+document.getElementById('addProduct')?.addEventListener('click', () => {
+  const newId = Math.max(...PRODUCTS_DATA.map(p => p.id)) + 1;
+  
+  document.getElementById('editProductName').value = '';
+  document.getElementById('editProductCategory').value = '';
+  document.getElementById('editProductFarm').value = '';
+  document.getElementById('editProductActive').value = '1';
+  document.getElementById('editProductVariants').value = '[\n  {"label":"5G","price":30},\n  {"label":"10G","price":60}\n]';
+  
+  document.getElementById('saveProductBtn').dataset.productId = 'new_' + newId;
+  document.getElementById('modalEditProduct').classList.add('active');
+});
+
+document.getElementById('searchProducts')?.addEventListener('input', function() {
+  const searchTerm = this.value.toLowerCase();
+  const rows = document.querySelectorAll('#productsTable tr');
+  
+  rows.forEach(row => {
+    const text = row.textContent.toLowerCase();
+    row.style.display = text.includes(searchTerm) ? '' : 'none';
+  });
+});
+
+// === REVIEWS ===
+async function loadReviews() {
+  showLoading('reviewsLoading');
+  try {
+    const data = await apiCall('/admin/reviews');
+    const tbody = document.getElementById('reviewsTable');
+    
+    if (!data.ok || data.reviews.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Aucun avis</td></tr>';
+      return;
+    }
+    
+    tbody.innerHTML = data.reviews.map(r => {
+      const product = PRODUCTS_DATA.find(p => p.id === r.product_id);
+      const statusBadge = r.approved 
+        ? '<span class="badge success">Approuvé</span>' 
+        : '<span class="badge warning">En attente</span>';
+      
+      return `
+        <tr>
+          <td><strong>${product?.name || 'Produit'}</strong></td>
+          <td>${r.name || 'Anonyme'}</td>
+          <td>${'⭐'.repeat(r.stars)}</td>
+          <td>${r.text.substring(0, 50)}${r.text.length > 50 ? '...' : ''}</td>
+          <td>${new Date(r.created_at).toLocaleDateString('fr-FR')}</td>
+          <td>${statusBadge}</td>
+          <td class="actions">
+            ${!r.approved ? `<button class="btn-sm btn-success" onclick="approveReview('${r.id}')">✓</button>` : ''}
+            <button class="btn-sm btn-danger" onclick="deleteReview('${r.id}')">🗑️</button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  } catch (e) {
+    console.error('Error loading reviews:', e);
+  } finally {
+    hideLoading('reviewsLoading');
+  }
+}
+
+async function approveReview(id) {
+  try {
+    await apiCall(`/admin/reviews/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ approved: 1 })
+    });
+    showToast('Avis approuvé');
+    loadReviews();
+  } catch (e) {
+    showToast('Erreur', 'error');
+  }
+}
+
+async function deleteReview(id) {
+  if (!confirm('Supprimer cet avis ?')) return;
+  try {
+    await apiCall(`/admin/reviews/${id}`, { method: 'DELETE' });
+    showToast('Avis supprimé');
+    loadReviews();
+  } catch (e) {
+    showToast('Erreur', 'error');
+  }
+}
+
+document.getElementById('refreshReviews')?.addEventListener('click', loadReviews);
+
+document.getElementById('filterReviews')?.addEventListener('change', function() {
+  const filter = this.value;
+  const rows = document.querySelectorAll('#reviewsTable tr');
+  
+  rows.forEach(row => {
+    if (filter === 'all') {
+      row.style.display = '';
+    } else {
+      const hasApproved = row.innerHTML.includes('Approuvé');
+      const hasPending = row.innerHTML.includes('En attente');
+      
+      if ((filter === 'approved' && hasApproved) || (filter === 'pending' && hasPending)) {
+        row.style.display = '';
+      } else {
+        row.style.display = 'none';
+      }
+    }
+  });
+});
+
+// === SETTINGS ===
+async function loadSettings() {
+  try {
+    const data = await apiCall('/admin/settings');
+    if (data.ok) {
+      document.getElementById('settingShopName').value = data.settings.shop_name || 'DROGUA CENTER';
+      document.getElementById('settingDeliveryFee').value = data.settings.delivery_fee || '20';
+      document.getElementById('settingLoyalty').value = data.settings.loyalty_threshold || '10';
+    }
+  } catch (e) {
+    console.error('Error loading settings:', e);
+  }
+}
+
+document.getElementById('saveSettings')?.addEventListener('click', async () => {
+  try {
+    const settings = {
+      shop_name: document.getElementById('settingShopName').value,
+      delivery_fee: document.getElementById('settingDeliveryFee').value,
+      loyalty_threshold: document.getElementById('settingLoyalty').value
+    };
+    
+    await apiCall('/admin/settings', {
+      method: 'PUT',
+      body: JSON.stringify({ settings })
+    });
+    
+    showToast('Paramètres sauvegardés');
+  } catch (e) {
+    showToast('Erreur de sauvegarde', 'error');
+  }
+});
+
+// === INITIALIZATION ===
+
+function migrateOldData() {
+  try {
+    const ordersRaw = localStorage.getItem('admin_orders');
+    if (ordersRaw) {
+      const orders = JSON.parse(ordersRaw);
+      const fixedOrders = orders.map(o => {
+        if (typeof o.items === 'string') {
+          try {
+            o.items = JSON.parse(o.items);
+          } catch {
+            o.items = [];
+          }
+        } else if (!Array.isArray(o.items)) {
+          o.items = [];
+        }
+        return o;
+      });
+      localStorage.setItem('admin_orders', JSON.stringify(fixedOrders));
+    }
+  } catch (e) {
+    console.error('Migration error:', e);
+  }
+}
+
+function initDemoData() {
+  migrateOldData();
+  
+  if (!localStorage.getItem('admin_orders') || JSON.parse(localStorage.getItem('admin_orders')).length === 0) {
+    const demoOrders = [
+      {
+        id: 1,
+        customer: 'Client 1',
+        type: 'Livraison sur Millau',
+        address: '12 rue Example, Millau',
+        items: [{"name":"AMNESIA","variant":"5G","qty":1,"price":30,"lineTotal":30}],
+        total: 30,
+        discount: 0,
+        status: 'delivered',
+        created_at: new Date(Date.now() - 86400000).toISOString()
+      },
+      {
+        id: 2,
+        customer: 'Client 2',
+        type: 'Livraison extérieure (+20€)',
+        address: 'Paris',
+        items: [{"name":"NEEDLES KETA","variant":"2G","qty":2,"price":40,"lineTotal":80}],
+        total: 100,
+        discount: 0,
+        status: 'processing',
+        created_at: new Date(Date.now() - 172800000).toISOString()
+      },
+      {
+        id: 3,
+        customer: 'Client 3',
+        type: 'Livraison sur Millau',
+        address: 'Millau Centre',
+        items: [{"name":"EL JEFE","variant":"1G","qty":1,"price":50,"lineTotal":50}],
+        total: 50,
+        discount: 0,
+        status: 'pending',
+        created_at: new Date(Date.now() - 259200000).toISOString()
+      }
+    ];
+    localStorage.setItem('admin_orders', JSON.stringify(demoOrders));
+  }
+  
+  if (!localStorage.getItem('stock_data')) {
+    const initialStock = {};
+    PRODUCTS_DATA.forEach(product => {
+      product.variants.forEach(variant => {
+        const key = `${product.id}_${variant.label}`;
+        initialStock[key] = Math.floor(Math.random() * 50) + 10;
+      });
+    });
+    localStorage.setItem('stock_data', JSON.stringify(initialStock));
+  }
+  
+  if (!localStorage.getItem('stock_movements')) {
+    const demoMovements = [
+      {product_id:1, variant:'5G', type:'in', quantity:50, stock_after:65, reason:'Réapprovisionnement', created_at:new Date(Date.now() - 86400000).toISOString()},
+      {product_id:1, variant:'5G', type:'out', quantity:5, stock_after:15, reason:'Commande client', created_at:new Date(Date.now() - 172800000).toISOString()},
+      {product_id:2, variant:'2G', type:'in', quantity:30, stock_after:45, reason:'Nouvel arrivage', created_at:new Date(Date.now() - 259200000).toISOString()}
+    ];
+    localStorage.setItem('stock_movements', JSON.stringify(demoMovements));
+  }
+  
+  if (!localStorage.getItem('finance_transactions')) {
+    const now = new Date();
+    const demoTransactions = [
+      {type: 'revenue', category: 'vente', description: 'Commande #1 - AMNESIA 5G', amount: 30, date: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], payment: 'especes', note: 'Client régulier', created_at: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString()},
+      {type: 'revenue', category: 'vente', description: 'Commande #2 - NEEDLES KETA 2G x2', amount: 100, date: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], payment: 'cb', note: 'Livraison express', created_at: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString()},
+      {type: 'revenue', category: 'vente', description: 'Commande #3 - EL JEFE 1G', amount: 50, date: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], payment: 'crypto', note: '', created_at: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString()},
+      {type: 'expense', category: 'achat_stock', description: 'Réapprovisionnement AMNESIA 100G', amount: 450, date: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], payment: 'virement', note: 'Fournisseur principal', created_at: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000).toISOString()},
+      {type: 'expense', category: 'livraison', description: 'Frais de livraison - Lot du 15/12', amount: 50, date: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], payment: 'especes', note: '', created_at: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()},
+      {type: 'expense', category: 'publicite', description: 'Publicité Telegram - Décembre', amount: 100, date: new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], payment: 'cb', note: 'Campagne mensuelle', created_at: new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000).toISOString()},
+      {type: 'revenue', category: 'vente', description: 'Commande #4 - LEMON X GELATO 3.5G', amount: 40, date: new Date(now.getTime() - 4 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], payment: 'especes', note: '', created_at: new Date(now.getTime() - 4 * 24 * 60 * 60 * 1000).toISOString()},
+      {type: 'expense', category: 'salaire', description: 'Salaire livreur - Décembre', amount: 300, date: new Date(now.getTime() - 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], payment: 'virement', note: 'Paiement mensuel', created_at: new Date(now.getTime() - 15 * 24 * 60 * 60 * 1000).toISOString()},
+      {type: 'revenue', category: 'vente', description: 'Commande #5 - SKITTLEZ CAKE 5G', amount: 40, date: new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], payment: 'cb', note: 'Nouveau client', created_at: new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000).toISOString()},
+      {type: 'expense', category: 'loyer', description: 'Loyer local - Décembre', amount: 500, date: new Date(now.getTime() - 20 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], payment: 'virement', note: '', created_at: new Date(now.getTime() - 20 * 24 * 60 * 60 * 1000).toISOString()}
+    ];
+    localStorage.setItem('finance_transactions', JSON.stringify(demoTransactions));
+  }
+  
+  if (!localStorage.getItem('cash_balance')) {
+    localStorage.setItem('cash_balance', '1500');
+  }
+  
+  if (!localStorage.getItem('monthly_goal')) {
+    localStorage.setItem('monthly_goal', '5000');
+  }
+  
+  if (!localStorage.getItem('employees')) {
+    const demoEmployees = [
+      {name: 'Jean Dupont', position: 'Livreur', type: 'mensuel', salary: 1800, hireDate: new Date(2024, 0, 15).toISOString().split('T')[0], status: 'active', createdAt: new Date(2024, 0, 15).toISOString()},
+      {name: 'Marie Martin', position: 'Préparatrice', type: 'horaire', salary: 15, hireDate: new Date(2024, 5, 1).toISOString().split('T')[0], status: 'active', createdAt: new Date(2024, 5, 1).toISOString()},
+      {name: 'Paul Dubois', position: 'Assistant', type: 'mensuel', salary: 1500, hireDate: new Date(2024, 8, 10).toISOString().split('T')[0], status: 'active', createdAt: new Date(2024, 8, 10).toISOString()}
+    ];
+    localStorage.setItem('employees', JSON.stringify(demoEmployees));
+  }
+  
+  if (!localStorage.getItem('payroll_records')) {
+    const demoPayroll = [
+      {employeeName: 'Jean Dupont', employeePosition: 'Livreur', month: 12, year: 2024, type: 'mensuel', hours: 0, grossAmount: 1800, bonus: 100, charges: 418, netAmount: 1482, note: 'Prime de Noël', status: 'paid', paymentDate: new Date(2024, 11, 30).toISOString(), createdAt: new Date(2024, 11, 25).toISOString()},
+      {employeeName: 'Marie Martin', employeePosition: 'Préparatrice', month: 12, year: 2024, type: 'horaire', hours: 120, grossAmount: 1800, bonus: 0, charges: 396, netAmount: 1404, note: '120 heures travaillées', status: 'paid', paymentDate: new Date(2024, 11, 30).toISOString(), createdAt: new Date(2024, 11, 25).toISOString()},
+      {employeeName: 'Paul Dubois', employeePosition: 'Assistant', month: 12, year: 2024, type: 'mensuel', hours: 0, grossAmount: 1500, bonus: 0, charges: 330, netAmount: 1170, note: '', status: 'pending', createdAt: new Date(2024, 11, 25).toISOString()}
+    ];
+    localStorage.setItem('payroll_records', JSON.stringify(demoPayroll));
+  }
+}
+
+initDemoData();
+
+const now = new Date();
+document.getElementById('transactionDate').value = now.toISOString().split('T')[0];
+document.getElementById('employeeHireDate').value = now.toISOString().split('T')[0];
+document.getElementById('payrollMonth').value = now.getMonth() + 1;
+document.getElementById('payrollYear').value = now.getFullYear();
+</script>
+</body>
+</html>
+        ? '<span class="badge success">  Object.entries(reviewsObj).forEach(([productId, revList]) => {
+    revList.forEach((r, idx) => {
+      reviews.push({
+        id: `${productId}_${idx}`,
+        product_id: parseInt(productId),
+        name: r.name,
+        stars: r.stars,
+        text: r.text,
+        approved: 1,
+        created_at: new Date(r.date).toISOString()
+      });
+    });
+  });
+  
+  return { ok: true, reviews };
+}
+
+function updateLocalReview(endpoint, options) {
+  return { ok: true };
+}
+
+function deleteLocalReview(endpoint) {
+  const id = endpoint.split('/').pop();
+  const [productId, idx] = id.split('_');
+  
+  const reviews = JSON.parse(localStorage.getItem('product_reviews') || '{}');
+  if (reviews[productId]) {
+    reviews[productId].splice(parseInt(idx), 1);
+    localStorage.setItem('product_reviews', JSON.stringify(reviews));
+  }
+  
+  return { ok: true };
+}
+
+function getLocalSettings() {
+  return {
+    ok: true,
+    settings: {
+      shop_name: 'DROGUA CENTER',
+      delivery_fee: '20',
+      loyalty_threshold: '10'
+    }
+  };
+}
+
+function saveLocalSettings(options) {
+  return { ok: true };
+}
+
+// === LOGIN ===
+document.getElementById('login').onclick = async () => {
+  const pass = document.getElementById('pass').value;
+  
+  if (pass !== ADMIN_PASS) {
+    showToast('Mot de passe incorrect', 'error');
+    return;
+  }
+  
+  if (USE_LOCAL_MODE) {
+    TOKEN = 'local-admin-token';
+    document.getElementById('auth').style.display = 'none';
+    document.getElementById('dash').style.display = 'block';
+    document.getElementById('modeIndicator').style.display = 'inline-block';
+    showToast('Connecté en mode local (données localStorage)', 'success');
+    loadDashboard();
+    return;
+  }
+  
+  try {
+    const response = await fetch(API + '/admin/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pass })
+    });
+    
+    const data = await response.json();
+    
+    if (data.ok && data.token) {
+      TOKEN = data.token;
+      document.getElementById('auth').style.display = 'none';
+      document.getElementById('dash').style.display = 'block';
+      showToast('Connecté en mode API', 'success');
+      loadDashboard();
+    } else {
+      showToast('Erreur de connexion', 'error');
+    }
+  } catch (e) {
+    showToast('Erreur serveur - Mode local activé', 'error');
+    console.error('Login error:', e);
+  }
+};
+
+function logout() {
+  TOKEN = null;
+  document.getElementById('dash').style.display = 'none';
+  document.getElementById('auth').style.display = 'block';
+  document.getElementById('pass').value = '';
+}
+
+document.getElementById('logoutBtn')?.addEventListener('click', logout);
+
+// === TABS ===
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    
+    const tab = btn.dataset.tab;
+    if (tab === 'orders') loadOrders();
+    else if (tab === 'finances') loadFinances();
+    else if (tab === 'payroll') loadPayroll();
+    else if (tab === 'stock') loadStockData();
+    else if (tab === 'products') loadProducts();
+    else if (tab === 'reviews') loadReviews();
+    else if (tab === 'settings') loadSettings();
+  };
+});
+
+// === DASHBOARD ===
+async function loadDashboard() {
+  loadStats();
+  loadOrders();
+  loadStockData();
+}
+
+async function loadStats() {
+  try {
+    const data = await apiCall('/admin/stats');
+    if (data.ok) {
+      const s = data.stats;
+      document.getElementById('totalCA').textContent = fmt(s.totalCA);
+      document.getElementById('totalOrders').textContent = s.totalOrders;
+      document.getElementById('avgOrder').textContent = fmt(s.avgOrder);
+      document.getElementById('topProduct').textContent = s.topProduct;
+      document.getElementById('stockValue').textContent = fmt(s.stockValue);
+      document.getElementById('stockAlerts').textContent = s.stockOut + s.stockLow;
+    }
+  } catch (e) {
+    console.error('Error loading stats:', e);
+  }
+}
+
+// === ORDERS ===
+async function loadOrders() {
+  showLoading('ordersLoading');
+  try {
+    const status = document.getElementById('filterStatus').value;
+    const data = await apiCall(`/admin/orders?status=${status}`);
+    
+    const tbody = document.getElementById('ordersTable');
+    if (!data.ok || data.orders.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Aucune commande</td></tr>';
+      return;
+    }
+    
+    tbody.innerHTML = data.orders.map(o => {
+      const statusBadge = {
+        pending: '<span class="badge warning">En attente</span>',
+        processing: '<span class="badge info">En traitement</span>',
+        delivered: '<span class="badge success">Livré</span>',
+        cancelled: '<span class="badge danger">Annulé</span>'
+      }[o.status] || '<span class="badge">Inconnu</span>';
+      
+      return `
+        <tr>
+          <td><strong>#${o.id}</strong></td>
+          <td>${new Date(o.created_at).toLocaleDateString('fr-FR')}</td>
+          <td>${o.customer}</td>
+          <td><span class="badge">${o.type}</span></td>
+          <td>${o.items.length} article(s)</td>
+          <td><strong style="color:var(--accent)">${fmt(o.total)}</strong></td>
+          <td>${statusBadge}</td>
+          <td class="actions">
+            <button class="btn-sm btn-primary" onclick="viewOrder(${o.id})" title="Voir les détails">👁️</button>
+            <button class="btn-sm btn-primary" onclick="editOrder(${o.id})" title="Éditer">✏️</button>
+            <button class="btn-sm btn-danger" onclick="deleteOrder(${o.id})" title="Supprimer">🗑️</button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  } catch (e) {
+    console.error('Error loading orders:', e);
+    showToast('Erreur de chargement', 'error');
+  } finally {
+    hideLoading('ordersLoading');
+  }
+}
+
+async function viewOrder(id) {
+  try {
+    const data = await apiCall(`/admin/orders?limit=1000`);
+    const order = data.orders.find(o => o.id === id);
+    if (!order) return;
+    
+    const details = document.getElementById('orderDetails');
+    details.innerHTML = `
+      <div style="margin-bottom:16px">
+        <strong>Commande #${order.id}</strong><br>
+        <span class="muted">Date: ${new Date(order.created_at).toLocaleString('fr-FR')}</span>
+      </div>
+      <div style="margin-bottom:16px">
+        <strong>Client:</strong> ${order.customer}<br>
+        <strong>Type:</strong> ${order.type}<br>
+        <strong>Adresse:</strong> ${order.address || '-'}
+      </div>
+      <div style="margin-bottom:16px">
+        <strong>Articles:</strong>
+        <ul style="list-style:none;padding:0;margin-top:8px">
+          ${order.items.map(it => `<li style="padding:6px;background:var(--bg);border-radius:6px;margin-bottom:4px">
+            ${it.name} - ${it.variant} - ${it.qty} × ${fmt(it.price)} = <strong>${fmt(it.lineTotal)}</strong>
+          </li>`).join('')}
+        </ul>
+      </div>
+      <div style="padding-top:12px;border-top:1px solid var(--border)">
+        <strong>Remise fidélité:</strong> ${fmt(order.discount || 0)}<br>
+        <strong style="font-size:18px;color:var(--accent)">Total: ${fmt(order.total)}</strong>
+      </div>
+    `;
+    document.getElementById('modalOrder').classList.add('active');
+  } catch (e) {
+    console.error('Error viewing order:', e);
+  }
+}
+
+async function editOrder(id) {
+  try {
+    const data = await apiCall(`/admin/orders?limit=1000`);
+    const order = data.orders.find(o => o.id === id);
+    if (!order) return;
+    
+    document.getElementById('editOrderCustomer').value = order.customer;
+    document.getElementById('editOrderType').value = order.type;
+    document.getElementById('editOrderAddress').value = order.address || '';
+    document.getElementById('editOrderStatus').value = order.status || 'pending';
+    document.getElementById('editOrderTotal').value = order.total;
+    
+    document.getElementById('saveOrderBtn').dataset.orderId = id;
+    
+    document.getElementById('modalEditOrder').classList.add('active');
+  } catch (e) {
+    console.error('Error editing order:', e);
+    showToast('Erreur de chargement', 'error');
+  }
+}
+
+document.getElementById('saveOrderBtn')?.addEventListener('click', async () => {
+  const id = document.getElementById('saveOrderBtn').dataset.orderId;
+  if (!id) return;
+  
+  try {
+    const updates = {
+      customer: document.getElementById('editOrderCustomer').value,
+      type: document.getElementById('editOrderType').value,
+      address: document.getElementById('editOrderAddress').value,
+      status: document.getElementById('editOrderStatus').value,
+      total: parseFloat(document.getElementById('editOrderTotal').value)
+    };
+    
+    await apiCall(`/admin/orders/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates)
+    });
+    
+    showToast('Commande mise à jour');
+    closeModal('modalEditOrder');
+    loadOrders();
+  } catch (e) {
+    showToast('Erreur de sauvegarde', 'error');
+  }
+});
+
+async function deleteOrder(id) {
+  if (!confirm('Supprimer cette commande ?')) return;
+  try {
+    await apiCall(`/admin/orders/${id}`, { method: 'DELETE' });
+    showToast('Commande supprimée');
+    loadOrders();
+    loadStats();
+  } catch (e) {
+    showToast('Erreur de suppression', 'error');
+  }
+}
+
+document.getElementById('refreshOrders')?.addEventListener('click', loadOrders);
+document.getElementById('filterStatus')?.addEventListener('change', loadOrders);
+
+document.getElementById('searchOrders')?.addEventListener('input', function() {
+  const searchTerm = this.value.toLowerCase();
+  const rows = document.querySelectorAll('#ordersTable tr');
+  
+  rows.forEach(row => {
+    const text = row.textContent.toLowerCase();
+    row.style.display = text.includes(searchTerm) ? '' : 'none';
+  });
+});
+
+document.getElementById('exportOrders')?.addEventListener('click', async () => {
+  try {
+    const orders = JSON.parse(localStorage.getItem('admin_orders') || '[]');
+    let csv = 'ID,Date,Client,Type,Adresse,Total,Remise,Statut\n';
+    orders.forEach(o => {
+      const date = new Date(o.created_at || Date.now()).toLocaleString('fr-FR');
+      csv += `${o.id},"${date}","${o.customer}","${o.type}","${o.address || ''}",${o.total},${o.discount || 0},"${o.status || 'pending'}"\n`;
+    });
+    
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `orders_${Date.now()}.csv`;
+    a.click();
+    showToast('Export réussi');
+  } catch (e) {
+    showToast('Erreur d\'export', 'error');
+  }
+});
+
+// === FINANCES ===
+
+function getTransactions() {
+  try {
+    return JSON.parse(localStorage.getItem('finance_transactions') || '[]');
+  } catch {
+    return [];
+  }
+}
+
+function saveTransactions(transactions) {
+  localStorage.setItem('finance_transactions', JSON.stringify(transactions));
+}
+
+async function loadFinances() {
+  showLoading('financesLoading');
+  try {
+    loadFinanceStats();
+    loadTransactionsTable();
+    renderFinanceChart();
+    renderCategoryReport();
+    renderTopExpenses();
+    renderMonthlyPerformance();
+    renderFinancialForecast();
+    updateCashBalanceDisplay();
+    updateMonthlyGoalDisplay();
+  } catch (e) {
+    console.error('Error loading finances:', e);
+  } finally {
+    hideLoading('financesLoading');
+  }
+}
+
+function loadFinanceStats() {
+  const transactions = getTransactions();
+  
+  const revenues = transactions.filter(t => t.type === 'revenue');
+  const expenses = transactions.filter(t => t.type === 'expense');
+  
+  const totalRevenue = revenues.reduce((sum, t) => sum + t.amount, 0);
+  const totalExpenses = expenses.reduce((sum, t) => sum + t.amount, 0);
+  const netProfit = totalRevenue - totalExpenses;
+  const profitMargin = totalRevenue > 0 ? ((netProfit / totalRevenue) * 100).toFixed(1) : 0;
+  
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const monthTransactions = transactions.filter(t => new Date(t.date) >= monthStart);
+  const monthRevenue = monthTransactions.filter(t => t.type === 'revenue').reduce((sum, t) => sum + t.amount, 0);
+  const monthExpenses = monthTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+  const monthBalance = monthRevenue - monthExpenses;
+  
+  const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+  const lastMonthTransactions = transactions.filter(t => {
+    const d = new Date(t.date);
+    return d >= lastMonthStart && d <= lastMonthEnd;
+  });
+  const lastMonthRevenue = lastMonthTransactions.filter(t => t.type === 'revenue').reduce((sum, t) => sum + t.amount, 0);
+  const revenueGrowth = lastMonthRevenue > 0 ? (((monthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100).toFixed(1) : 0;
+  
+  const daysInMonth = now.getDate();
+  const dailyAverage = daysInMonth > 0 ? monthBalance / daysInMonth : 0;
+  
+  document.getElementById('totalRevenue').textContent = fmt(totalRevenue);
+  document.getElementById('totalExpenses').textContent = fmt(totalExpenses);
+  document.getElementById('netProfit').textContent = fmt(netProfit);
+  document.getElementById('netProfit').style.color = netProfit >= 0 ? 'var(--success)' : 'var(--danger)';
+  document.getElementById('profitMargin').textContent = profitMargin + '%';
+  document.getElementById('revenueGrowth').textContent = revenueGrowth + '%';
+  document.getElementById('revenueGrowth').style.color = parseFloat(revenueGrowth) >= 0 ? 'var(--success)' : 'var(--danger)';
+  document.getElementById('dailyAverage').textContent = fmt(dailyAverage);
+}
+
+function loadTransactionsTable() {
+  let transactions = getTransactions();
+  
+  const typeFilter = document.getElementById('filterTransactionType')?.value || 'all';
+  const categoryFilter = document.getElementById('filterTransactionCategory')?.value || 'all';
+  const periodFilter = document.getElementById('filterTransactionPeriod')?.value || 'all';
+  const paymentFilter = document.getElementById('filterTransactionPayment')?.value || 'all';
+  const searchTerm = document.getElementById('searchTransaction')?.value?.toLowerCase() || '';
+  
+  if (typeFilter !== 'all') {
+    transactions = transactions.filter(t => t.type === typeFilter);
+  }
+  
+  if (categoryFilter !== 'all') {
+    transactions = transactions.filter(t => t.category === categoryFilter);
+  }
+  
+  if (paymentFilter !== 'all') {
+    transactions = transactions.filter(t => t.payment === paymentFilter);
+  }
+  
+  if (searchTerm) {
+    transactions = transactions.filter(t => 
+      t.description.toLowerCase().includes(searchTerm) ||
+      (t.note && t.note.toLowerCase().includes(searchTerm))
+    );
+  }
+  
+  if (periodFilter !== 'all') {
+    const now = new Date();
+    let startDate;
+    
+    if (periodFilter === 'today') {
+      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    } else if (periodFilter === 'week') {
+      startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    } else if (periodFilter === 'month') {
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    } else if (periodFilter === 'lastmonth') {
+      startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const endDate = new Date(now.getFullYear(), now.getMonth(), 0);
+      transactions = transactions.filter(t => {
+        const d = new Date(t.date);
+        return d >= startDate && d <= endDate;
+      });
+    } else if (periodFilter === 'year') {
+      startDate = new Date(now.getFullYear(), 0, 1);
+    }
+    
+    if (startDate && periodFilter !== 'lastmonth') {
+      transactions = transactions.filter(t => new Date(t.date) >= startDate);
+    }
+  }
+  
+  const tbody = document.getElementById('transactionsTable');
+  
+  if (transactions.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Aucune transaction</td></tr>';
+    return;
+  }
+  
+  transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+  
+  tbody.innerHTML = transactions.map((t, idx) => {
+    const typeBadge = t.type === 'revenue' 
+      ? '<span class="badge success">💰 Revenu</span>'
+      : '<span class="badge danger">💸 Dépense</span>';
+    
+    const categoryLabels = {
+      vente: 'Vente',
+      achat_stock: 'Achat stock',
+      livraison: 'Livraison',
+      salaire: 'Salaire',
+      loyer: 'Loyer',
+      publicite: 'Publicité',
+      commission: 'Commission',
+      maintenance: 'Maintenance',
+      assurance: 'Assurance',
+      autre: 'Autre'
+    };
+    
+    const paymentLabels = {
+      especes: '💵 Espèces',
+      cb: '💳 CB',
+      virement: '🏦 Virement',
+      crypto: '₿ Crypto',
+      autre: 'Autre'
+    };
+    
+    const amountColor = t.type === 'revenue' ? 'var(--success)' : 'var(--danger)';
+    const amountSign = t.type === 'revenue' ? '+' : '-';
+    
+    return `
+      <tr>
+        <td>${new Date(t.date).toLocaleDateString('fr-FR')}</td>
+        <td>${typeBadge}</td>
+        <td><span class="badge">${categoryLabels[t.category] || t.category}</span></td>
+        <td>${t.description}</td>
+        <td><span class="badge info">${paymentLabels[t.payment] || t.payment}</span></td>
+        <td><strong style="color:${amountColor}">${amountSign}${fmt(t.amount)}</strong></td>
+        <td class="muted" style="font-size:12px">${t.note || '-'}</td>
+        <td class="actions">
+          <button class="btn-sm btn-danger" onclick="deleteTransaction(${idx})" title="Supprimer">🗑️</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function deleteTransaction(index) {
+  if (!confirm('Supprimer cette transaction ?')) return;
+  
+  const transactions = getTransactions();
+  transactions.splice(index, 1);
+  saveTransactions(transactions);
+  
+  showToast('Transaction supprimée');
+  loadFinances();
+}
+
+function renderFinanceChart() {
+  const transactions = getTransactions();
+  const chartDiv = document.getElementById('financeChart');
+  const period = parseInt(document.getElementById('chartPeriod')?.value || '30');
+  
+  const now = new Date();
+  const dailyRevenue = {};
+  const dailyExpense = {};
+  
+  for (let i = 0; i < period; i++) {
+    const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+    const dateKey = date.toISOString().split('T')[0];
+    dailyRevenue[dateKey] = 0;
+    dailyExpense[dateKey] = 0;
+  }
+  
+  transactions.forEach(t => {
+    const dateKey = t.date;
+    if (dateKey in dailyRevenue) {
+      if (t.type === 'revenue') {
+        dailyRevenue[dateKey] += t.amount;
+      } else {
+        dailyExpense[dateKey] += t.amount;
+      }
+    }
+  });
+  
+  const maxValue = Math.max(
+    ...Object.values(dailyRevenue),
+    ...Object.values(dailyExpense),
+    1
+  );
+  
+  const dates = Object.keys(dailyRevenue).sort().slice(-14);
+  
+  chartDiv.innerHTML = dates.map(date => {
+    const revenue = dailyRevenue[date];
+    const expense = dailyExpense[date];
+    const profit = revenue - expense;
+    const revenueHeight = (revenue / maxValue) * 180;
+    const expenseHeight = (expense / maxValue) * 180;
+    const profitHeight = Math.abs((profit / maxValue) * 180);
+    const dayLabel = new Date(date).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' });
+    
+    return `
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;min-width:50px">
+        <div style="display:flex;gap:3px;align-items:flex-end;height:180px">
+          <div style="width:14px;background:var(--success);height:${revenueHeight}px;border-radius:4px 4px 0 0" title="Revenus: ${fmt(revenue)}"></div>
+          <div style="width:14px;background:var(--danger);height:${expenseHeight}px;border-radius:4px 4px 0 0" title="Dépenses: ${fmt(expense)}"></div>
+          <div style="width:14px;background:${profit >= 0 ? 'var(--accent)' : 'var(--warning)'};height:${profitHeight}px;border-radius:4px 4px 0 0" title="Bénéfice: ${fmt(profit)}"></div>
+        </div>
+        <div style="font-size:10px;color:var(--muted);text-align:center;white-space:nowrap">${dayLabel}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderTopExpenses() {
+  const transactions = getTransactions();
+  const expenses = transactions.filter(t => t.type === 'expense');
+  
+  const topExpenses = [...expenses]
+    .sort((a, b) => b.amount - a.amount)
+    .slice(0, 5);
+  
+  const div = document.getElementById('topExpenses');
+  
+  if (topExpenses.length === 0) {
+    div.innerHTML = '<div style="color:var(--muted);text-align:center;padding:20px">Aucune dépense</div>';
+    return;
+  }
+  
+  div.innerHTML = topExpenses.map((t, idx) => `
+    <div style="display:flex;justify-content:space-between;padding:10px;background:var(--bg);border-radius:6px;margin-bottom:8px">
+      <div>
+        <div style="font-weight:600">${idx + 1}. ${t.description}</div>
+        <div style="font-size:12px;color:var(--muted)">${new Date(t.date).toLocaleDateString('fr-FR')}</div>
+      </div>
+      <div style="color:var(--danger);font-weight:700">${fmt(t.amount)}</div>
+    </div>
+  `).join('');
+}
+
+function renderCategoryReport() {
+  const transactions = getTransactions();
+  const expenses = transactions.filter(t => t.type === 'expense');
+  
+  const categoryTotals = {};
+  expenses.forEach(t => {
+    categoryTotals[t.category] = (categoryTotals[t.category] || 0) + t.amount;
+  });
+  
+  const reportDiv = document.getElementById('categoryReport');
+  
+  if (Object.keys(categoryTotals).length === 0) {
+    reportDiv.innerHTML = '<div style="color:var(--muted);text-align:center">Aucune dépense enregistrée</div>';
+    return;
+  }
+  
+  const total = Object.values(categoryTotals).reduce((sum, v) => sum + v, 0);
+  const categoryLabels = {
+    achat_stock: 'Achat stock',
+    livraison: 'Livraison',
+    salaire: 'Salaire',
+    loyer: 'Loyer',
+    publicite: 'Publicité',
+    commission: 'Commission',
+    maintenance: 'Maintenance',
+    assurance: 'Assurance',
+    autre: 'Autre'
+  };
+  
+  reportDiv.innerHTML = Object.entries(categoryTotals)
+    .sort((a, b) => b[1] - a[1])
+    .map(([cat, amount]) => {
+      const percentage = (amount / total * 100).toFixed(1);
+      return `
+        <div style="margin-bottom:12px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+            <span><strong>${categoryLabels[cat] || cat}</strong></span>
+            <span style="color:var(--accent)">${fmt(amount)} (${percentage}%)</span>
+          </div>
+          <div style="background:var(--border);height:8px;border-radius:4px;overflow:hidden">
+            <div style="background:var(--accent);height:100%;width:${percentage}%;border-radius:4px"></div>
+          </div>
+        </div>
+      `;
+    }).join('');
+}
+
+function renderMonthlyPerformance() {
+  const transactions = getTransactions();
+  const div = document.getElementById('monthlyPerformance');
+  
+  const monthlyData = {};
+  const now = new Date();
+  
+  for (let i = 5; i >= 0; i--) {
+    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    const monthName = date.toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' });
+    monthlyData[key] = { name: monthName, revenue: 0, expense: 0 };
+  }
+  
+  transactions.forEach(t => {
+    const date = new Date(t.date);
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    if (monthlyData[key]) {
+      if (t.type === 'revenue') {
+        monthlyData[key].revenue += t.amount;
+      } else {
+        monthlyData[key].expense += t.amount;
+      }
+    }
+  });
+  
+  div.innerHTML = Object.values(monthlyData).map(m => {
+    const profit = m.revenue - m.expense;
+    const profitColor = profit >= 0 ? 'var(--success)' : 'var(--danger)';
+    
+    return `
+      <div style="padding:12px;background:var(--bg);border-radius:6px;margin-bottom:8px">
+        <div style="font-weight:600;margin-bottom:8px">${m.name}</div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
+          <span style="color:var(--muted)">Revenus</span>
+          <span style="color:var(--success)">${fmt(m.revenue)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
+          <span style="color:var(--muted)">Dépenses</span>
+          <span style="color:var(--danger)">${fmt(m.expense)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:700;padding-top:8px;border-top:1px solid var(--border)">
+          <span>Bénéfice</span>
+          <span style="color:${profitColor}">${fmt(profit<!doctype html>
 <html lang="fr">
 <head>
   <meta charset="utf-8">
@@ -103,18 +1930,15 @@ tbody tr:last-child td{border-bottom:none}
 .toast.show{opacity:1;transform:translateX(0)}
 .toast.error{border-left-color:var(--danger)}
 
-/* Filters */
-.filters{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap}
-.filter-chip{background:#2a3441;border:1px solid var(--border);padding:8px 16px;border-radius:20px;font-size:13px;cursor:pointer;transition:all 0.2s}
-.filter-chip:hover{background:#3a4554}
-.filter-chip.active{background:var(--accent);color:#fff;border-color:var(--accent)}
-
 /* Stock form */
 .stock-form{background:var(--card);padding:20px;border-radius:12px;border:1px solid var(--border);margin-bottom:20px}
 .stock-form h3{margin-bottom:16px;font-size:16px}
 .stock-grid{display:grid;grid-template-columns:2fr 2fr 1fr 1fr 2fr auto;gap:10px;align-items:end}
 .stock-grid > div label{display:block;margin-bottom:6px;color:var(--muted);font-size:13px}
 .stock-grid input,.stock-grid select{margin:0}
+
+.muted{color:var(--muted)}
+.small{font-size:12px}
 
 @media (max-width:768px){
   .stats{grid-template-columns:1fr}
@@ -147,18 +1971,10 @@ tbody tr:last-child td{border-bottom:none}
       <div class="stat-card">
         <h3>Chiffre d'affaires total</h3>
         <div class="value" id="totalCA">0,00 €</div>
-        <div class="trend up" id="trendCA" style="display:none">
-          <span>↗</span>
-          <span>+12% vs semaine dernière</span>
-        </div>
       </div>
       <div class="stat-card">
         <h3>Nombre de commandes</h3>
         <div class="value" id="totalOrders">0</div>
-        <div class="trend up" id="trendOrders" style="display:none">
-          <span>↗</span>
-          <span>+5 cette semaine</span>
-        </div>
       </div>
       <div class="stat-card">
         <h3>Panier moyen</h3>
@@ -238,17 +2054,14 @@ tbody tr:last-child td{border-bottom:none}
         <div class="stat-card">
           <h3>💰 Revenus totaux</h3>
           <div class="value" style="color:var(--success)" id="totalRevenue">0,00 €</div>
-          <div class="trend" id="revenueTrend"></div>
         </div>
         <div class="stat-card">
           <h3>💸 Dépenses totales</h3>
           <div class="value" style="color:var(--danger)" id="totalExpenses">0,00 €</div>
-          <div class="trend" id="expensesTrend"></div>
         </div>
         <div class="stat-card">
           <h3>💎 Bénéfice net</h3>
           <div class="value" id="netProfit">0,00 €</div>
-          <div class="trend" id="profitTrend"></div>
         </div>
         <div class="stat-card">
           <h3>📊 Marge bénéficiaire</h3>
@@ -292,7 +2105,7 @@ tbody tr:last-child td{border-bottom:none}
           <button id="updateCashBalance">💾 Mettre à jour</button>
         </div>
         <div style="margin-top:8px;color:var(--muted);font-size:13px">
-          💡 Le solde de caisse représente l'argent liquide disponible. Il s'ajuste automatiquement avec les transactions.
+          💡 Le solde de caisse représente l'argent liquide disponible. Il s'ajuste automatiquement avec les transactions en espèces.
         </div>
       </div>
 
@@ -517,15 +2330,6 @@ tbody tr:last-child td{border-bottom:none}
             </tr>
           </tbody>
         </table>
-      </div>
-
-      <!-- Rapport récapitulatif -->
-      <div class="chart-container" style="margin-top:30px">
-        <h3 style="cursor:pointer;user-select:none" onclick="toggleSection('summaryReport')">
-          <span>📄 Rapport récapitulatif</span>
-          <span id="summaryReportToggle" style="font-size:20px;margin-left:8px;transition:transform 0.3s">▼</span>
-        </h3>
-        <div id="summaryReport" style="margin-top:16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px"></div>
       </div>
     </div>
 
@@ -766,7 +2570,7 @@ tbody tr:last-child td{border-bottom:none}
       </div>
 
       <!-- Stock actuel -->
-      <h3 style="margin-bottom:12px">📦 Stock actuel</h3>
+      <h3 style="margin:20px 0 12px 0">📦 Stock actuel</h3>
       <div class="loading" id="stockLoading">
         <div class="spinner"></div>
       </div>
@@ -999,7 +2803,7 @@ tbody tr:last-child td{border-bottom:none}
 <script>
 const API = 'https://biutique-production.up.railway.app/api';
 const fmt = n => new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR'}).format(n);
-const ADMIN_PASS = 'gangstaforlife12'; // ⚠️ CHANGEZ CE MOT DE PASSE
+const ADMIN_PASS = 'gangstaforlife12';
 
 let TOKEN = 'local-admin-token';
 let USE_LOCAL_MODE = true;
@@ -1037,13 +2841,24 @@ function closeModal(id) {
   document.getElementById(id)?.classList.remove('active');
 }
 
+function toggleSection(sectionId) {
+  const section = document.getElementById(sectionId);
+  const toggle = document.getElementById(sectionId + 'Toggle');
+  
+  if (section.style.display === 'none') {
+    section.style.display = 'block';
+    if (toggle) toggle.textContent = '▼';
+  } else {
+    section.style.display = 'none';
+    if (toggle) toggle.textContent = '▶';
+  }
+}
+
 async function apiCall(endpoint, options = {}) {
-  // Mode LOCAL : utilise localStorage
   if (USE_LOCAL_MODE) {
     return handleLocalStorage(endpoint, options);
   }
   
-  // Mode API : appelle le backend
   const headers = { 'Content-Type': 'application/json' };
   if (TOKEN) headers['x-admin-token'] = TOKEN;
   
@@ -1064,35 +2879,27 @@ async function apiCall(endpoint, options = {}) {
   return response.json();
 }
 
-// Gestion localStorage pour mode local
 function handleLocalStorage(endpoint, options) {
   const method = options.method || 'GET';
   
-  // Stats
-  if (endpoint === '/admin/stats') {
-    return getLocalStats();
-  }
+  if (endpoint === '/admin/stats') return getLocalStats();
   
-  // Orders
   if (endpoint.startsWith('/admin/orders')) {
     if (method === 'GET') return getLocalOrders();
     if (method === 'PUT') return updateLocalOrder(endpoint, options);
     if (method === 'DELETE') return deleteLocalOrder(endpoint);
   }
   
-  // Stock
   if (endpoint === '/admin/stock') return getLocalStock();
   if (endpoint === '/admin/stock/movement') return addLocalStockMovement(options);
   if (endpoint === '/admin/stock/movements') return getLocalMovements();
   
-  // Reviews
   if (endpoint === '/admin/reviews') {
     if (method === 'GET') return getLocalReviews();
     if (method === 'PUT') return updateLocalReview(endpoint, options);
     if (method === 'DELETE') return deleteLocalReview(endpoint);
   }
   
-  // Settings
   if (endpoint === '/admin/settings') {
     if (method === 'GET') return getLocalSettings();
     if (method === 'PUT') return saveLocalSettings(options);
@@ -1101,12 +2908,9 @@ function handleLocalStorage(endpoint, options) {
   return { ok: true, data: [] };
 }
 
-// === LOCAL STORAGE HELPERS ===
-
 function getLocalOrders() {
   const orders = JSON.parse(localStorage.getItem('admin_orders') || '[]');
   orders.forEach(o => {
-    // Parser items seulement si c'est une string
     if (typeof o.items === 'string') {
       o.items = JSON.parse(o.items || '[]');
     } else if (!o.items) {
@@ -1123,14 +2927,8 @@ function updateLocalOrder(endpoint, options) {
   
   if (orderIndex !== -1 && options.body) {
     const data = JSON.parse(options.body);
+    orders[orderIndex] = { ...orders[orderIndex], ...data };
     
-    // Mettre à jour tous les champs
-    orders[orderIndex] = {
-      ...orders[orderIndex],
-      ...data
-    };
-    
-    // S'assurer que items est toujours un tableau
     if (orders[orderIndex].items && typeof orders[orderIndex].items === 'string') {
       orders[orderIndex].items = JSON.parse(orders[orderIndex].items);
     }
@@ -1155,24 +2953,13 @@ function getLocalStats() {
     const totalOrders = orders.length;
     const avgOrder = totalOrders > 0 ? totalCA / totalOrders : 0;
     
-    // Produit le plus vendu
     const itemCounts = {};
     orders.forEach(o => {
       try {
-        // Multi-niveau de parsing pour gérer tous les cas
         let items = o.items;
+        if (typeof items === 'string') items = JSON.parse(items);
+        if (!Array.isArray(items)) items = [];
         
-        // Si c'est une string, parser
-        if (typeof items === 'string') {
-          items = JSON.parse(items);
-        }
-        
-        // Si ce n'est pas un tableau, le rendre vide
-        if (!Array.isArray(items)) {
-          items = [];
-        }
-        
-        // Maintenant on peut boucler en toute sécurité
         items.forEach(it => {
           if (it && it.name && it.qty) {
             itemCounts[it.name] = (itemCounts[it.name] || 0) + it.qty;
@@ -1184,7 +2971,6 @@ function getLocalStats() {
     });
     const topProduct = Object.entries(itemCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || '-';
     
-    // Stock
     const stock = JSON.parse(localStorage.getItem('stock_data') || '{}');
     let stockValue = 0, stockOut = 0, stockLow = 0;
     
@@ -1269,1282 +3055,4 @@ function getLocalReviews() {
   const reviewsObj = JSON.parse(localStorage.getItem('product_reviews') || '{}');
   const reviews = [];
   
-  Object.entries(reviewsObj).forEach(([productId, revList]) => {
-    revList.forEach((r, idx) => {
-      reviews.push({
-        id: `${productId}_${idx}`,
-        product_id: parseInt(productId),
-        name: r.name,
-        stars: r.stars,
-        text: r.text,
-        approved: 1,
-        created_at: new Date(r.date).toISOString()
-      });
-    });
-  });
-  
-  return { ok: true, reviews };
-}
-
-function updateLocalReview(endpoint, options) {
-  // Pour simplifier, on ne fait rien en local
-  return { ok: true };
-}
-
-function deleteLocalReview(endpoint) {
-  const id = endpoint.split('/').pop();
-  const [productId, idx] = id.split('_');
-  
-  const reviews = JSON.parse(localStorage.getItem('product_reviews') || '{}');
-  if (reviews[productId]) {
-    reviews[productId].splice(parseInt(idx), 1);
-    localStorage.setItem('product_reviews', JSON.stringify(reviews));
-  }
-  
-  return { ok: true };
-}
-
-function getLocalSettings() {
-  return {
-    ok: true,
-    settings: {
-      shop_name: 'DROGUA CENTER',
-      delivery_fee: '20',
-      loyalty_threshold: '10'
-    }
-  };
-}
-
-function saveLocalSettings(options) {
-  // En mode local, on ne sauvegarde pas vraiment
-  return { ok: true };
-}
-
-// === LOGIN ===
-document.getElementById('login').onclick = async () => {
-  const pass = document.getElementById('pass').value;
-  
-  // Vérification du mot de passe
-  if (pass !== ADMIN_PASS) {
-    showToast('Mot de passe incorrect', 'error');
-    return;
-  }
-  
-  // MODE LOCAL : connexion immédiate
-  if (USE_LOCAL_MODE) {
-    TOKEN = 'local-admin-token';
-    document.getElementById('auth').style.display = 'none';
-    document.getElementById('dash').style.display = 'block';
-    document.getElementById('modeIndicator').style.display = 'inline-block';
-    showToast('Connecté en mode local (données localStorage)', 'success');
-    loadDashboard();
-    return;
-  }
-  
-  // MODE API : appel au backend
-  try {
-    const response = await fetch(API + '/admin/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: pass })
-    });
-    
-    const data = await response.json();
-    
-    if (data.ok && data.token) {
-      TOKEN = data.token;
-      document.getElementById('auth').style.display = 'none';
-      document.getElementById('dash').style.display = 'block';
-      showToast('Connecté en mode API', 'success');
-      loadDashboard();
-    } else {
-      showToast('Erreur de connexion', 'error');
-    }
-  } catch (e) {
-    showToast('Erreur serveur - Activez USE_LOCAL_MODE', 'error');
-    console.error('Login error:', e);
-  }
-};
-
-function logout() {
-  TOKEN = null;
-  document.getElementById('dash').style.display = 'none';
-  document.getElementById('auth').style.display = 'block';
-  document.getElementById('pass').value = '';
-}
-
-document.getElementById('logoutBtn')?.addEventListener('click', logout);
-
-// === TABS ===
-document.querySelectorAll('.tab-btn').forEach(btn => {
-  btn.onclick = () => {
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
-    
-    // Load data for tab
-    const tab = btn.dataset.tab;
-    if (tab === 'orders') loadOrders();
-    else if (tab === 'finances') loadFinances();
-    else if (tab === 'payroll') loadPayroll();
-    else if (tab === 'stock') loadStockData();
-    else if (tab === 'products') loadProducts();
-    else if (tab === 'reviews') loadReviews();
-    else if (tab === 'settings') loadSettings();
-  };
-});
-
-// === DASHBOARD ===
-async function loadDashboard() {
-  loadStats();
-  loadOrders();
-  loadStockData();
-}
-
-async function loadStats() {
-  try {
-    const data = await apiCall('/admin/stats');
-    if (data.ok) {
-      const s = data.stats;
-      document.getElementById('totalCA').textContent = fmt(s.totalCA);
-      document.getElementById('totalOrders').textContent = s.totalOrders;
-      document.getElementById('avgOrder').textContent = fmt(s.avgOrder);
-      document.getElementById('topProduct').textContent = s.topProduct;
-      document.getElementById('stockValue').textContent = fmt(s.stockValue);
-      document.getElementById('stockAlerts').textContent = s.stockOut + s.stockLow;
-    }
-  } catch (e) {
-    console.error('Error loading stats:', e);
-  }
-}
-
-// === ORDERS ===
-async function loadOrders() {
-  showLoading('ordersLoading');
-  try {
-    const status = document.getElementById('filterStatus').value;
-    const data = await apiCall(`/admin/orders?status=${status}`);
-    
-    const tbody = document.getElementById('ordersTable');
-    if (!data.ok || data.orders.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Aucune commande</td></tr>';
-      return;
-    }
-    
-    tbody.innerHTML = data.orders.map(o => {
-      const statusBadge = {
-        pending: '<span class="badge warning">En attente</span>',
-        processing: '<span class="badge info">En traitement</span>',
-        delivered: '<span class="badge success">Livré</span>',
-        cancelled: '<span class="badge danger">Annulé</span>'
-      }[o.status] || '<span class="badge">Inconnu</span>';
-      
-      return `
-        <tr>
-          <td><strong>#${o.id}</strong></td>
-          <td>${new Date(o.created_at).toLocaleDateString('fr-FR')}</td>
-          <td>${o.customer}</td>
-          <td><span class="badge">${o.type}</span></td>
-          <td>${o.items.length} article(s)</td>
-          <td><strong style="color:var(--accent)">${fmt(o.total)}</strong></td>
-          <td>${statusBadge}</td>
-          <td class="actions">
-            <button class="btn-sm btn-primary" onclick="viewOrder(${o.id})" title="Voir les détails">👁️</button>
-            <button class="btn-sm btn-primary" onclick="editOrder(${o.id})" title="Éditer">✏️</button>
-            <button class="btn-sm btn-danger" onclick="deleteOrder(${o.id})" title="Supprimer">🗑️</button>
-          </td>
-        </tr>
-      `;
-    }).join('');
-  } catch (e) {
-    console.error('Error loading orders:', e);
-    showToast('Erreur de chargement', 'error');
-  } finally {
-    hideLoading('ordersLoading');
-  }
-}
-
-async function viewOrder(id) {
-  try {
-    const data = await apiCall(`/admin/orders?limit=1000`);
-    const order = data.orders.find(o => o.id === id);
-    if (!order) return;
-    
-    const details = document.getElementById('orderDetails');
-    details.innerHTML = `
-      <div style="margin-bottom:16px">
-        <strong>Commande #${order.id}</strong><br>
-        <span class="muted">Date: ${new Date(order.created_at).toLocaleString('fr-FR')}</span>
-      </div>
-      <div style="margin-bottom:16px">
-        <strong>Client:</strong> ${order.customer}<br>
-        <strong>Type:</strong> ${order.type}<br>
-        <strong>Adresse:</strong> ${order.address || '-'}
-      </div>
-      <div style="margin-bottom:16px">
-        <strong>Articles:</strong>
-        <ul style="list-style:none;padding:0;margin-top:8px">
-          ${order.items.map(it => `<li style="padding:6px;background:var(--bg);border-radius:6px;margin-bottom:4px">
-            ${it.name} - ${it.variant} - ${it.qty} × ${fmt(it.price)} = <strong>${fmt(it.lineTotal)}</strong>
-          </li>`).join('')}
-        </ul>
-      </div>
-      <div style="padding-top:12px;border-top:1px solid var(--border)">
-        <strong>Remise fidélité:</strong> ${fmt(order.discount || 0)}<br>
-        <strong style="font-size:18px;color:var(--accent)">Total: ${fmt(order.total)}</strong>
-      </div>
-    `;
-    document.getElementById('modalOrder').classList.add('active');
-  } catch (e) {
-    console.error('Error viewing order:', e);
-  }
-}
-
-// Nouvelle fonction pour éditer une commande
-async function editOrder(id) {
-  try {
-    const data = await apiCall(`/admin/orders?limit=1000`);
-    const order = data.orders.find(o => o.id === id);
-    if (!order) return;
-    
-    // Remplir le formulaire
-    document.getElementById('editOrderCustomer').value = order.customer;
-    document.getElementById('editOrderType').value = order.type;
-    document.getElementById('editOrderAddress').value = order.address || '';
-    document.getElementById('editOrderStatus').value = order.status || 'pending';
-    document.getElementById('editOrderTotal').value = order.total;
-    
-    // Stocker l'ID pour la sauvegarde
-    document.getElementById('saveOrderBtn').dataset.orderId = id;
-    
-    // Ouvrir le modal
-    document.getElementById('modalEditOrder').classList.add('active');
-  } catch (e) {
-    console.error('Error editing order:', e);
-    showToast('Erreur de chargement', 'error');
-  }
-}
-
-// Sauvegarder les modifications de commande
-document.getElementById('saveOrderBtn')?.addEventListener('click', async () => {
-  const id = document.getElementById('saveOrderBtn').dataset.orderId;
-  if (!id) return;
-  
-  try {
-    const updates = {
-      customer: document.getElementById('editOrderCustomer').value,
-      type: document.getElementById('editOrderType').value,
-      address: document.getElementById('editOrderAddress').value,
-      status: document.getElementById('editOrderStatus').value,
-      total: parseFloat(document.getElementById('editOrderTotal').value)
-    };
-    
-    await apiCall(`/admin/orders/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(updates)
-    });
-    
-    showToast('Commande mise à jour');
-    closeModal('modalEditOrder');
-    loadOrders();
-  } catch (e) {
-    showToast('Erreur de sauvegarde', 'error');
-  }
-});
-
-async function updateOrderStatus(id, status) {
-  if (!status) return;
-  try {
-    await apiCall(`/admin/orders/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify({ status })
-    });
-    showToast('Statut mis à jour');
-    loadOrders();
-  } catch (e) {
-    showToast('Erreur de mise à jour', 'error');
-  }
-}
-
-async function deleteOrder(id) {
-  if (!confirm('Supprimer cette commande ?')) return;
-  try {
-    await apiCall(`/admin/orders/${id}`, { method: 'DELETE' });
-    showToast('Commande supprimée');
-    loadOrders();
-    loadStats();
-  } catch (e) {
-    showToast('Erreur de suppression', 'error');
-  }
-}
-
-document.getElementById('refreshOrders')?.addEventListener('click', loadOrders);
-document.getElementById('filterStatus')?.addEventListener('change', loadOrders);
-
-document.getElementById('exportOrders')?.addEventListener('click', async () => {
-  try {
-    if (USE_LOCAL_MODE) {
-      // Export CSV en mode local
-      const orders = JSON.parse(localStorage.getItem('admin_orders') || '[]');
-      let csv = 'ID,Date,Client,Type,Adresse,Total,Remise,Statut\n';
-      orders.forEach(o => {
-        const date = new Date(o.created_at || Date.now()).toLocaleString('fr-FR');
-        csv += `${o.id},"${date}","${o.customer}","${o.type}","${o.address || ''}",${o.total},${o.discount || 0},"${o.status || 'pending'}"\n`;
-      });
-      
-      const blob = new Blob([csv], { type: 'text/csv' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `orders_${Date.now()}.csv`;
-      a.click();
-      showToast('Export réussi');
-      return;
-    }
-    
-    // Export CSV via API
-    const response = await fetch(`${API}/admin/orders/export/csv`, {
-      headers: { 'x-admin-token': TOKEN }
-    });
-    const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `orders_${Date.now()}.csv`;
-    a.click();
-    showToast('Export réussi');
-  } catch (e) {
-    showToast('Erreur d\'export', 'error');
-  }
-});
-
-// === INITIALIZATION ===
-// Fonction de migration pour corriger les anciennes données
-function migrateOldData() {
-  try {
-    // Corriger les commandes
-    const ordersRaw = localStorage.getItem('admin_orders');
-    if (ordersRaw) {
-      const orders = JSON.parse(ordersRaw);
-      const fixedOrders = orders.map(o => {
-        // Convertir items en tableau si c'est une string
-        if (typeof o.items === 'string') {
-          try {
-            o.items = JSON.parse(o.items);
-          } catch {
-            o.items = [];
-          }
-        } else if (!Array.isArray(o.items)) {
-          o.items = [];
-        }
-        return o;
-      });
-      localStorage.setItem('admin_orders', JSON.stringify(fixedOrders));
-    }
-  } catch (e) {
-    console.error('Migration error:', e);
-  }
-}
-
-// Initialiser des données de démo si localStorage est vide
-function initDemoData() {
-  // Migrer les anciennes données d'abord
-  migrateOldData();
-  
-  if (!localStorage.getItem('admin_orders') || JSON.parse(localStorage.getItem('admin_orders')).length === 0) {
-    const demoOrders = [
-      {
-        id: 1,
-        customer: 'Client 1',
-        type: 'Livraison sur Millau',
-        address: '12 rue Example, Millau',
-        items: [{"name":"AMNESIA","variant":"5G","qty":1,"price":30,"lineTotal":30}],
-        total: 30,
-        discount: 0,
-        status: 'delivered',
-        created_at: new Date(Date.now() - 86400000).toISOString()
-      },
-      {
-        id: 2,
-        customer: 'Client 2',
-        type: 'Livraison extérieure (+20€)',
-        address: 'Paris',
-        items: [{"name":"NEEDLES KETA","variant":"2G","qty":2,"price":40,"lineTotal":80}],
-        total: 100,
-        discount: 0,
-        status: 'processing',
-        created_at: new Date(Date.now() - 172800000).toISOString()
-      },
-      {
-        id: 3,
-        customer: 'Client 3',
-        type: 'Livraison sur Millau',
-        address: 'Millau Centre',
-        items: [{"name":"EL JEFE","variant":"1G","qty":1,"price":50,"lineTotal":50}],
-        total: 50,
-        discount: 0,
-        status: 'pending',
-        created_at: new Date(Date.now() - 259200000).toISOString()
-      }
-    ];
-    localStorage.setItem('admin_orders', JSON.stringify(demoOrders));
-  }
-  
-  if (!localStorage.getItem('stock_data')) {
-    const initialStock = {};
-    PRODUCTS_DATA.forEach(product => {
-      product.variants.forEach(variant => {
-        const key = `${product.id}_${variant.label}`;
-        initialStock[key] = Math.floor(Math.random() * 50) + 10;
-      });
-    });
-    localStorage.setItem('stock_data', JSON.stringify(initialStock));
-  }
-  
-  if (!localStorage.getItem('stock_movements')) {
-    const demoMovements = [
-      {product_id:1, variant:'5G', type:'in', quantity:50, stock_after:65, reason:'Réapprovisionnement', created_at:new Date(Date.now() - 86400000).toISOString()},
-      {product_id:1, variant:'5G', type:'out', quantity:5, stock_after:15, reason:'Commande client', created_at:new Date(Date.now() - 172800000).toISOString()},
-      {product_id:2, variant:'2G', type:'in', quantity:30, stock_after:45, reason:'Nouvel arrivage', created_at:new Date(Date.now() - 259200000).toISOString()}
-    ];
-    localStorage.setItem('stock_movements', JSON.stringify(demoMovements));
-  }
-  
-  // Initialiser données financières de démo
-  if (!localStorage.getItem('finance_transactions')) {
-    const now = new Date();
-    const demoTransactions = [
-      {
-        type: 'revenue',
-        category: 'vente',
-        description: 'Commande #1 - AMNESIA 5G',
-        amount: 30,
-        date: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        payment: 'especes',
-        note: 'Client régulier',
-        created_at: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString()
-      },
-      {
-        type: 'revenue',
-        category: 'vente',
-        description: 'Commande #2 - NEEDLES KETA 2G x2',
-        amount: 100,
-        date: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        payment: 'cb',
-        note: 'Livraison express',
-        created_at: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString()
-      },
-      {
-        type: 'revenue',
-        category: 'vente',
-        description: 'Commande #3 - EL JEFE 1G',
-        amount: 50,
-        date: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        payment: 'crypto',
-        note: '',
-        created_at: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString()
-      },
-      {
-        type: 'expense',
-        category: 'achat_stock',
-        description: 'Réapprovisionnement AMNESIA 100G',
-        amount: 450,
-        date: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        payment: 'virement',
-        note: 'Fournisseur principal',
-        created_at: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000).toISOString()
-      },
-      {
-        type: 'expense',
-        category: 'livraison',
-        description: 'Frais de livraison - Lot du 15/12',
-        amount: 50,
-        date: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        payment: 'especes',
-        note: '',
-        created_at: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
-      },
-      {
-        type: 'expense',
-        category: 'publicite',
-        description: 'Publicité Telegram - Décembre',
-        amount: 100,
-        date: new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        payment: 'cb',
-        note: 'Campagne mensuelle',
-        created_at: new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000).toISOString()
-      },
-      {
-        type: 'revenue',
-        category: 'vente',
-        description: 'Commande #4 - LEMON X GELATO 3.5G',
-        amount: 40,
-        date: new Date(now.getTime() - 4 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        payment: 'especes',
-        note: '',
-        created_at: new Date(now.getTime() - 4 * 24 * 60 * 60 * 1000).toISOString()
-      },
-      {
-        type: 'expense',
-        category: 'salaire',
-        description: 'Salaire livreur - Décembre',
-        amount: 300,
-        date: new Date(now.getTime() - 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        payment: 'virement',
-        note: 'Paiement mensuel',
-        created_at: new Date(now.getTime() - 15 * 24 * 60 * 60 * 1000).toISOString()
-      },
-      {
-        type: 'revenue',
-        category: 'vente',
-        description: 'Commande #5 - SKITTLEZ CAKE 5G',
-        amount: 40,
-        date: new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        payment: 'cb',
-        note: 'Nouveau client',
-        created_at: new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000).toISOString()
-      },
-      {
-        type: 'expense',
-        category: 'loyer',
-        description: 'Loyer local - Décembre',
-        amount: 500,
-        date: new Date(now.getTime() - 20 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        payment: 'virement',
-        note: '',
-        created_at: new Date(now.getTime() - 20 * 24 * 60 * 60 * 1000).toISOString()
-      }
-    ];
-    localStorage.setItem('finance_transactions', JSON.stringify(demoTransactions));
-  }
-  
-  // Initialiser le solde de caisse
-  if (!localStorage.getItem('cash_balance')) {
-    localStorage.setItem('cash_balance', '1500');
-  }
-  
-  // Initialiser l'objectif mensuel
-  if (!localStorage.getItem('monthly_goal')) {
-    localStorage.setItem('monthly_goal', '5000');
-  }
-  
-  // Initialiser données employés de démo
-  if (!localStorage.getItem('employees')) {
-    const demoEmployees = [
-      {
-        name: 'Jean Dupont',
-        position: 'Livreur',
-        type: 'mensuel',
-        salary: 1800,
-        hireDate: new Date(2024, 0, 15).toISOString().split('T')[0],
-        status: 'active',
-        createdAt: new Date(2024, 0, 15).toISOString()
-      },
-      {
-        name: 'Marie Martin',
-        position: 'Préparatrice',
-        type: 'horaire',
-        salary: 15,
-        hireDate: new Date(2024, 5, 1).toISOString().split('T')[0],
-        status: 'active',
-        createdAt: new Date(2024, 5, 1).toISOString()
-      },
-      {
-        name: 'Paul Dubois',
-        position: 'Assistant',
-        type: 'mensuel',
-        salary: 1500,
-        hireDate: new Date(2024, 8, 10).toISOString().split('T')[0],
-        status: 'active',
-        createdAt: new Date(2024, 8, 10).toISOString()
-      }
-    ];
-    localStorage.setItem('employees', JSON.stringify(demoEmployees));
-  }
-  
-  // Initialiser données paies de démo
-  if (!localStorage.getItem('payroll_records')) {
-    const demoPayroll = [
-      {
-        employeeName: 'Jean Dupont',
-        employeePosition: 'Livreur',
-        month: 12,
-        year: 2024,
-        type: 'mensuel',
-        hours: 0,
-        grossAmount: 1800,
-        bonus: 100,
-        charges: 418,
-        netAmount: 1482,
-        note: 'Prime de Noël',
-        status: 'paid',
-        paymentDate: new Date(2024, 11, 30).toISOString(),
-        createdAt: new Date(2024, 11, 25).toISOString()
-      },
-      {
-        employeeName: 'Marie Martin',
-        employeePosition: 'Préparatrice',
-        month: 12,
-        year: 2024,
-        type: 'horaire',
-        hours: 120,
-        grossAmount: 1800,
-        bonus: 0,
-        charges: 396,
-        netAmount: 1404,
-        note: '120 heures travaillées',
-        status: 'paid',
-        paymentDate: new Date(2024, 11, 30).toISOString(),
-        createdAt: new Date(2024, 11, 25).toISOString()
-      },
-      {
-        employeeName: 'Paul Dubois',
-        employeePosition: 'Assistant',
-        month: 12,
-        year: 2024,
-        type: 'mensuel',
-        hours: 0,
-        grossAmount: 1500,
-        bonus: 0,
-        charges: 330,
-        netAmount: 1170,
-        note: '',
-        status: 'pending',
-        createdAt: new Date(2024, 11, 25).toISOString()
-      }
-    ];
-    localStorage.setItem('payroll_records', JSON.stringify(demoPayroll));
-  }
-}
-
-// Initialiser au chargement de la page
-initDemoData();
-
-// === STOCK ===
-async function loadStockData() {
-  populateProductSelect();
-  await loadStock();
-  await loadMovements();
-  loadStats();
-}
-
-function populateProductSelect() {
-  const select = document.getElementById('stockProduct');
-  select.innerHTML = '<option value="">Sélectionner...</option>' + 
-    PRODUCTS_DATA.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
-  
-  select.onchange = () => {
-    const productId = parseInt(select.value);
-    const product = PRODUCTS_DATA.find(p => p.id === productId);
-    const variantSelect = document.getElementById('stockVariant');
-    
-    if (product) {
-      variantSelect.innerHTML = '<option value="">Sélectionner...</option>' +
-        product.variants.map(v => `<option value="${v.label}">${v.label}</option>`).join('');
-      variantSelect.disabled = false;
-    } else {
-      variantSelect.innerHTML = '<option value="">Sélectionner...</option>';
-      variantSelect.disabled = true;
-    }
-  };
-}
-
-async function loadStock() {
-  showLoading('stockLoading');
-  try {
-    const data = await apiCall('/admin/stock');
-    const tbody = document.getElementById('stockTable');
-    
-    if (!data.ok || data.stock.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Aucun stock</td></tr>';
-      return;
-    }
-    
-    tbody.innerHTML = data.stock.map(s => {
-      const product = PRODUCTS_DATA.find(p => p.id === s.product_id);
-      const variant = product?.variants.find(v => v.label === s.variant);
-      const value = variant ? s.qty * variant.price : 0;
-      
-      let statusBadge = '<span class="badge success">OK</span>';
-      if (s.qty === 0) statusBadge = '<span class="badge danger">Rupture</span>';
-      else if (s.qty < 10) statusBadge = '<span class="badge warning">Stock bas</span>';
-      
-      return `
-        <tr>
-          <td><strong>${product?.name || 'Inconnu'}</strong></td>
-          <td>${s.variant}</td>
-          <td><strong style="color:var(--accent)">${s.qty}</strong></td>
-          <td>${statusBadge}</td>
-          <td>${fmt(value)}</td>
-          <td class="actions">
-            <button class="btn-sm btn-primary" onclick="quickAddStock(${s.product_id}, '${s.variant}')">+ Rapide</button>
-          </td>
-        </tr>
-      `;
-    }).join('');
-  } catch (e) {
-    console.error('Error loading stock:', e);
-  } finally {
-    hideLoading('stockLoading');
-  }
-}
-
-async function loadMovements() {
-  try {
-    const data = await apiCall('/admin/stock/movements');
-    const tbody = document.getElementById('movementsTable');
-    
-    if (!data.ok || data.movements.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Aucun mouvement</td></tr>';
-      return;
-    }
-    
-    tbody.innerHTML = data.movements.map(m => {
-      const product = PRODUCTS_DATA.find(p => p.id === m.product_id);
-      const typeBadge = m.type === 'in' 
-        ? '<span class="badge success">➕ Entrée</span>' 
-        : '<span class="badge danger">➖ Sortie</span>';
-      
-      return `
-        <tr>
-          <td>${new Date(m.created_at).toLocaleString('fr-FR')}</td>
-          <td><strong>${product?.name || 'Inconnu'}</strong></td>
-          <td>${m.variant}</td>
-          <td>${typeBadge}</td>
-          <td><strong>${m.quantity}</strong></td>
-          <td>${m.stock_after}</td>
-          <td class="muted">${m.reason || '-'}</td>
-        </tr>
-      `;
-    }).join('');
-  } catch (e) {
-    console.error('Error loading movements:', e);
-  }
-}
-
-async function addStockMovement(productId, variant, type, quantity, reason = '') {
-  try {
-    await apiCall('/admin/stock/movement', {
-      method: 'POST',
-      body: JSON.stringify({ product_id: productId, variant, type, quantity, reason })
-    });
-    showToast('Stock mis à jour');
-    loadStockData();
-  } catch (e) {
-    showToast('Erreur de mise à jour', 'error');
-  }
-}
-
-document.getElementById('addStockMovement')?.addEventListener('click', () => {
-  const productId = parseInt(document.getElementById('stockProduct').value);
-  const variant = document.getElementById('stockVariant').value;
-  const type = document.getElementById('stockType').value;
-  const quantity = parseInt(document.getElementById('stockQty').value);
-  const reason = document.getElementById('stockReason').value;
-  
-  if (!productId || !variant || !quantity) {
-    showToast('Veuillez remplir tous les champs', 'error');
-    return;
-  }
-  
-  addStockMovement(productId, variant, type, quantity, reason);
-  
-  document.getElementById('stockProduct').value = '';
-  document.getElementById('stockVariant').innerHTML = '<option value="">Sélectionner...</option>';
-  document.getElementById('stockVariant').disabled = true;
-  document.getElementById('stockQty').value = '1';
-  document.getElementById('stockReason').value = '';
-});
-
-function quickAddStock(productId, variant) {
-  const qty = prompt('Quantité à ajouter :', '10');
-  if (qty && !isNaN(qty) && parseInt(qty) > 0) {
-    addStockMovement(productId, variant, 'in', parseInt(qty), 'Ajout rapide');
-  }
-}
-
-// === PRODUCTS ===
-async function loadProducts() {
-  showLoading('productsLoading');
-  try {
-    const tbody = document.getElementById('productsTable');
-    tbody.innerHTML = PRODUCTS_DATA.map(p => `
-      <tr>
-        <td><strong>${p.name}</strong></td>
-        <td><span class="badge">-</span></td>
-        <td>${fmt(Math.min(...p.variants.map(v => v.price)))}</td>
-        <td>${p.variants.length} variants</td>
-        <td><span class="badge success">Actif</span></td>
-        <td class="actions">
-          <button class="btn-sm btn-primary" onclick="editProduct(${p.id})" title="Éditer">✏️</button>
-        </td>
-      </tr>
-    `).join('');
-  } catch (e) {
-    console.error('Error loading products:', e);
-  } finally {
-    hideLoading('productsLoading');
-  }
-}
-
-// Éditer un produit
-function editProduct(id) {
-  const product = PRODUCTS_DATA.find(p => p.id === id);
-  if (!product) return;
-  
-  document.getElementById('editProductName').value = product.name;
-  document.getElementById('editProductCategory').value = product.category || '';
-  document.getElementById('editProductFarm').value = product.farm || '';
-  document.getElementById('editProductActive').value = '1';
-  document.getElementById('editProductVariants').value = JSON.stringify(product.variants, null, 2);
-  
-  document.getElementById('saveProductBtn').dataset.productId = id;
-  document.getElementById('modalEditProduct').classList.add('active');
-}
-
-// Sauvegarder les modifications de produit
-document.getElementById('saveProductBtn')?.addEventListener('click', () => {
-  const id = parseInt(document.getElementById('saveProductBtn').dataset.productId);
-  if (!id) return;
-  
-  try {
-    const product = PRODUCTS_DATA.find(p => p.id === id);
-    if (!product) return;
-    
-    // Mettre à jour le produit local
-    product.name = document.getElementById('editProductName').value;
-    product.category = document.getElementById('editProductCategory').value;
-    product.farm = document.getElementById('editProductFarm').value;
-    
-    // Parser les variants
-    const variantsText = document.getElementById('editProductVariants').value;
-    product.variants = JSON.parse(variantsText);
-    
-    showToast('Produit mis à jour');
-    closeModal('modalEditProduct');
-    loadProducts();
-  } catch (e) {
-    showToast('Erreur : Vérifiez le format JSON des variants', 'error');
-    console.error('Error saving product:', e);
-  }
-});
-
-// === REVIEWS ===
-async function loadReviews() {
-  showLoading('reviewsLoading');
-  try {
-    const data = await apiCall('/admin/reviews');
-    const tbody = document.getElementById('reviewsTable');
-    
-    if (!data.ok || data.reviews.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Aucun avis</td></tr>';
-      return;
-    }
-    
-    tbody.innerHTML = data.reviews.map(r => {
-      const product = PRODUCTS_DATA.find(p => p.id === r.product_id);
-      const statusBadge = r.approved 
-        ? '<span class="badge success">Approuvé</span>' 
-        : '<span class="badge warning">En attente</span>';
-      
-      return `
-        <tr>
-          <td><strong>${product?.name || 'Produit'}</strong></td>
-          <td>${r.name || 'Anonyme'}</td>
-          <td>${'⭐'.repeat(r.stars)}</td>
-          <td>${r.text.substring(0, 50)}${r.text.length > 50 ? '...' : ''}</td>
-          <td>${new Date(r.created_at).toLocaleDateString('fr-FR')}</td>
-          <td>${statusBadge}</td>
-          <td class="actions">
-            ${!r.approved ? `<button class="btn-sm btn-success" onclick="approveReview(${r.id})">✓</button>` : ''}
-            <button class="btn-sm btn-danger" onclick="deleteReview(${r.id})">🗑️</button>
-          </td>
-        </tr>
-      `;
-    }).join('');
-  } catch (e) {
-    console.error('Error loading reviews:', e);
-  } finally {
-    hideLoading('reviewsLoading');
-  }
-}
-
-async function approveReview(id) {
-  try {
-    await apiCall(`/admin/reviews/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify({ approved: 1 })
-    });
-    showToast('Avis approuvé');
-    loadReviews();
-  } catch (e) {
-    showToast('Erreur', 'error');
-  }
-}
-
-async function deleteReview(id) {
-  if (!confirm('Supprimer cet avis ?')) return;
-  try {
-    await apiCall(`/admin/reviews/${id}`, { method: 'DELETE' });
-    showToast('Avis supprimé');
-    loadReviews();
-  } catch (e) {
-    showToast('Erreur', 'error');
-  }
-}
-
-document.getElementById('refreshReviews')?.addEventListener('click', loadReviews);
-
-// === FINANCES ===
-
-function getTransactions() {
-  try {
-    return JSON.parse(localStorage.getItem('finance_transactions') || '[]');
-  } catch {
-    return [];
-  }
-}
-
-function saveTransactions(transactions) {
-  localStorage.setItem('finance_transactions', JSON.stringify(transactions));
-}
-
-async function loadFinances() {
-  showLoading('financesLoading');
-  try {
-    loadFinanceStats();
-    loadTransactionsTable();
-    renderFinanceChart();
-    renderCategoryReport();
-  } catch (e) {
-    console.error('Error loading finances:', e);
-  } finally {
-    hideLoading('financesLoading');
-  }
-}
-
-function loadFinanceStats() {
-  const transactions = getTransactions();
-  
-  // Filtrer par type
-  const revenues = transactions.filter(t => t.type === 'revenue');
-  const expenses = transactions.filter(t => t.type === 'expense');
-  
-  const totalRevenue = revenues.reduce((sum, t) => sum + t.amount, 0);
-  const totalExpenses = expenses.reduce((sum, t) => sum + t.amount, 0);
-  const netProfit = totalRevenue - totalExpenses;
-  
-  // Balance du mois en cours
-  const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const monthTransactions = transactions.filter(t => new Date(t.date) >= monthStart);
-  const monthRevenue = monthTransactions.filter(t => t.type === 'revenue').reduce((sum, t) => sum + t.amount, 0);
-  const monthExpenses = monthTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
-  const monthBalance = monthRevenue - monthExpenses;
-  
-  document.getElementById('totalRevenue').textContent = fmt(totalRevenue);
-  document.getElementById('totalExpenses').textContent = fmt(totalExpenses);
-  document.getElementById('netProfit').textContent = fmt(netProfit);
-  document.getElementById('netProfit').style.color = netProfit >= 0 ? 'var(--success)' : 'var(--danger)';
-  document.getElementById('monthBalance').textContent = fmt(monthBalance);
-  document.getElementById('monthBalance').style.color = monthBalance >= 0 ? 'var(--success)' : 'var(--danger)';
-}
-
-function loadTransactionsTable() {
-  let transactions = getTransactions();
-  
-  // Appliquer les filtres
-  const typeFilter = document.getElementById('filterTransactionType')?.value || 'all';
-  const categoryFilter = document.getElementById('filterTransactionCategory')?.value || 'all';
-  const periodFilter = document.getElementById('filterTransactionPeriod')?.value || 'all';
-  
-  if (typeFilter !== 'all') {
-    transactions = transactions.filter(t => t.type === typeFilter);
-  }
-  
-  if (categoryFilter !== 'all') {
-    transactions = transactions.filter(t => t.category === categoryFilter);
-  }
-  
-  // Filtre par période
-  if (periodFilter !== 'all') {
-    const now = new Date();
-    let startDate;
-    
-    if (periodFilter === 'today') {
-      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    } else if (periodFilter === 'week') {
-      startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    } else if (periodFilter === 'month') {
-      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-    } else if (periodFilter === 'year') {
-      startDate = new Date(now.getFullYear(), 0, 1);
-    }
-    
-    if (startDate) {
-      transactions = transactions.filter(t => new Date(t.date) >= startDate);
-    }
-  }
-  
-  const tbody = document.getElementById('transactionsTable');
-  
-  if (transactions.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Aucune transaction</td></tr>';
-    return;
-  }
-  
-  // Trier par date décroissante
-  transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
-  
-  tbody.innerHTML = transactions.map((t, idx) => {
-    const typeBadge = t.type === 'revenue' 
-      ? '<span class="badge success">💰 Revenu</span>'
-      : '<span class="badge danger">💸 Dépense</span>';
-    
-    const categoryLabels = {
-      vente: 'Vente',
-      achat_stock: 'Achat stock',
-      livraison: 'Livraison',
-      salaire: 'Salaire',
-      loyer: 'Loyer',
-      publicite: 'Publicité',
-      autre: 'Autre'
-    };
-    
-    const amountColor = t.type === 'revenue' ? 'var(--success)' : 'var(--danger)';
-    const amountSign = t.type === 'revenue' ? '+' : '-';
-    
-    return `
-      <tr>
-        <td>${new Date(t.date).toLocaleDateString('fr-FR')}</td>
-        <td>${typeBadge}</td>
-        <td><span class="badge">${categoryLabels[t.category] || t.category}</span></td>
-        <td>${t.description}</td>
-        <td><strong style="color:${amountColor}">${amountSign}${fmt(t.amount)}</strong></td>
-        <td class="actions">
-          <button class="btn-sm btn-danger" onclick="deleteTransaction(${idx})" title="Supprimer">🗑️</button>
-        </td>
-      </tr>
-    `;
-  }).join('');
-}
-
-function deleteTransaction(index) {
-  if (!confirm('Supprimer cette transaction ?')) return;
-  
-  const transactions = getTransactions();
-  transactions.splice(index, 1);
-  saveTransactions(transactions);
-  
-  showToast('Transaction supprimée');
-  loadFinances();
-}
-
-function renderFinanceChart() {
-  const transactions = getTransactions();
-  const chartDiv = document.getElementById('financeChart');
-  
-  // 30 derniers jours
-  const days = 30;
-  const now = new Date();
-  const dailyRevenue = {};
-  const dailyExpense = {};
-  
-  // Initialiser tous les jours
-  for (let i = 0; i < days; i++) {
-    const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
-    const dateKey = date.toISOString().split('T')[0];
-    dailyRevenue[dateKey] = 0;
-    dailyExpense[dateKey] = 0;
-  }
-  
-  // Remplir avec les transactions
-  transactions.forEach(t => {
-    const dateKey = t.date;
-    if (dateKey in dailyRevenue) {
-      if (t.type === 'revenue') {
-        dailyRevenue[dateKey] += t.amount;
-      } else {
-        dailyExpense[dateKey] += t.amount;
-      }
-    }
-  });
-  
-  // Trouver le max pour la hauteur
-  const maxValue = Math.max(
-    ...Object.values(dailyRevenue),
-    ...Object.values(dailyExpense),
-    1
-  );
-  
-  // Générer les barres (simplifié - derniers 7 jours seulement pour lisibilité)
-  const dates = Object.keys(dailyRevenue).sort().slice(-7);
-  
-  chartDiv.innerHTML = dates.map(date => {
-    const revenue = dailyRevenue[date];
-    const expense = dailyExpense[date];
-    const revenueHeight = (revenue / maxValue) * 150;
-    const expenseHeight = (expense / maxValue) * 150;
-    const dayLabel = new Date(date).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' });
-    
-    return `
-      <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:8px">
-        <div style="display:flex;gap:4px;align-items:flex-end;height:150px">
-          <div style="width:20px;background:var(--success);height:${revenueHeight}px;border-radius:4px 4px 0 0" title="Revenus: ${fmt(revenue)}"></div>
-          <div style="width:20px;background:var(--danger);height:${expenseHeight}px;border-radius:4px 4px 0 0" title="Dépenses: ${fmt(expense)}"></div>
-        </div>
-        <div style="font-size:11px;color:var(--muted);text-align:center">${dayLabel}</div>
-      </div>
-    `;
-  }).join('');
-}
-
-function renderCategoryReport() {
-  const transactions = getTransactions();
-  const expenses = transactions.filter(t => t.type === 'expense');
-  
-  const categoryTotals = {};
-  expenses.forEach(t => {
-    categoryTotals[t.category] = (categoryTotals[t.category] || 0) + t.amount;
-  });
-  
-  const reportDiv = document.getElementById('categoryReport');
-  
-  if (Object.keys(categoryTotals).length === 0) {
-    reportDiv.innerHTML = '<div style="color:var(--muted);text-align:center">Aucune dépense enregistrée</div>';
-    return;
-  }
-  
-  const total = Object.values(categoryTotals).reduce((sum, v) => sum + v, 0);
-  const categoryLabels = {
-    achat_stock: 'Achat stock',
-    livraison: 'Livraison',
-    salaire: 'Salaire',
-    loyer: 'Loyer',
-    publicite: 'Publicité',
-    autre: 'Autre'
-  };
-  
-  reportDiv.innerHTML = Object.entries(categoryTotals)
-    .sort((a, b) => b[1] - a[1])
-    .map(([cat, amount]) => {
-      const percentage = (amount / total * 100).toFixed(1);
-      return `
-        <div style="margin-bottom:12px">
-          <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-            <span><strong>${categoryLabels[cat] || cat}</strong></span>
-            <span style="color:var(--accent)">${fmt(amount)} (${percentage}%)</span>
-          </div>
-          <div style="background:var(--border);height:8px;border-radius:4px;overflow:hidden">
-            <div style="background:var(--accent);height:100%;width:${percentage}%;border-radius:4px"></div>
-          </div>
-        </div>
-      `;
-    }).join('');
-}
-
-// Ajouter une transaction
-document.getElementById('addTransaction')?.addEventListener('click', () => {
-  const type = document.getElementById('transactionType').value;
-  const category = document.getElementById('transactionCategory').value;
-  const description = document.getElementById('transactionDescription').value.trim();
-  const amount = parseFloat(document.getElementById('transactionAmount').value);
-  const date = document.getElementById('transactionDate').value;
-  
-  if (!description || !amount || amount <= 0 || !date) {
-    showToast('Veuillez remplir tous les champs', 'error');
-    return;
-  }
-  
-  const transactions = getTransactions();
-  transactions.unshift({
-    type,
-    category,
-    description,
-    amount,
-    date,
-    created_at: new Date().toISOString()
-  });
-  
-  saveTransactions(transactions);
-  
-  // Reset form
-  document.getElementById('transactionDescription').value = '';
-  document.getElementById('transactionAmount').value = '';
-  document.getElementById('transactionDate').value = new Date().toISOString().split('T')[0];
-  
-  showToast('Transaction ajoutée');
-  loadFinances();
-  loadStats(); // Refresh dashboard stats
-});
-
-// Initialiser la date du jour
-document.getElementById('transactionDate').value = new Date().toISOString().split('T')[0];
-
-// Event listeners pour les filtres
-document.getElementById('filterTransactionType')?.addEventListener('change', loadTransactionsTable);
-document.getElementById('filterTransactionCategory')?.addEventListener('change', loadTransactionsTable);
-document.getElementById('filterTransactionPeriod')?.addEventListener('change', loadTransactionsTable);
-document.getElementById('refreshFinances')?.addEventListener('click', loadFinances);
-
-// Export CSV
-document.getElementById('exportFinances')?.addEventListener('click', () => {
-  const transactions = getTransactions();
-  
-  if (transactions.length === 0) {
-    showToast('Aucune transaction à exporter', 'error');
-    return;
-  }
-  
-  let csv = 'Date,Type,Catégorie,Description,Montant\n';
-  transactions.forEach(t => {
-    const typeLabel = t.type === 'revenue' ? 'Revenu' : 'Dépense';
-    csv += `"${t.date}","${typeLabel}","${t.category}","${t.description}",${t.amount}\n`;
-  });
-  
-  const blob = new Blob([csv], { type: 'text/csv' });
-  const url = window.URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `finances_${Date.now()}.csv`;
-  a.click();
-  
-  showToast('Export réussi');
-});
-
-// === SETTINGS ===
-async function loadSettings() {
-  try {
-    const data = await apiCall('/admin/settings');
-    if (data.ok) {
-      document.getElementById('settingShopName').value = data.settings.shop_name || 'DROGUA CENTER';
-      document.getElementById('settingDeliveryFee').value = data.settings.delivery_fee || '20';
-      document.getElementById('settingLoyalty').value = data.settings.loyalty_threshold || '10';
-    }
-  } catch (e) {
-    console.error('Error loading settings:', e);
-  }
-}
-
-document.getElementById('saveSettings')?.addEventListener('click', async () => {
-  try {
-    const settings = {
-      shop_name: document.getElementById('settingShopName').value,
-      delivery_fee: document.getElementById('settingDeliveryFee').value,
-      loyalty_threshold: document.getElementById('settingLoyalty').value
-    };
-    
-    await apiCall('/admin/settings', {
-      method: 'PUT',
-      body: JSON.stringify({ settings })
-    });
-    
-    showToast('Paramètres sauvegardés');
-  } catch (e) {
-    showToast('Erreur de sauvegarde', 'error');
-  }
-});
-</script>
-</body>
-</html>
+  Object.entries(reviewsObj).forEach(
