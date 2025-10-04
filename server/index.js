@@ -252,53 +252,83 @@ app.post('/api/create-order', async (req, res) => {
     
     // ========== NOTIFICATIONS TELEGRAM ==========
     const order = { id: result.lastID, customer, type, address, total: finalTotal, discount };
-    const baseMessage = formatOrder(order, items);
     
-    // 1️⃣ SUPPORT - Message détaillé avec actions à faire
+    console.log('📤 Envoi des notifications Telegram...');
+    
+    // Fonction pour échapper les caractères HTML
+    const escapeHtml = (text) => {
+      if (!text) return '';
+      return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    };
+    
+    // Message simplifié pour éviter les erreurs
+    const itemsList = items.map(item => 
+      `${escapeHtml(item.name)} - ${escapeHtml(item.variant)} x${item.qty} = ${item.lineTotal}€`
+    ).join('\n');
+    
+    // 1️⃣ SUPPORT - Message court et sécurisé
     if (SUPPORT_CHAT_ID) {
-      const supportMessage = `🔔 <b>NOUVELLE COMMANDE - Support</b>
+      try {
+        const supportMessage = `🔔 NOUVELLE COMMANDE #${result.lastID}
 
-${baseMessage}
+👤 Client: ${escapeHtml(customer.substring(0, 100))}
+📍 Type: ${escapeHtml(type)}
+💰 Total: ${finalTotal}€
 
-📱 <b>Actions requises :</b>
-✅ Contacter le client pour confirmation
-✅ Vérifier la disponibilité des produits
-✅ Coordonner avec le livreur
+📦 Articles:
+${itemsList}
 
-⚡️ Traiter cette commande rapidement
-💬 Support : @assistancenter
-      `;
-      await sendTelegramMessage(SUPPORT_CHAT_ID, supportMessage);
-      console.log('✅ Notification envoyée au SUPPORT');
+⚡ Actions: Contacter le client`;
+        
+        await sendTelegramMessage(SUPPORT_CHAT_ID, supportMessage);
+        console.log('✅ Notification SUPPORT envoyée');
+      } catch (err) {
+        console.error('❌ Erreur SUPPORT:', err.message);
+      }
     }
     
-    // 2️⃣ ADMIN - Message complet
+    // 2️⃣ ADMIN
     if (ADMIN_CHAT_ID) {
-      await sendTelegramMessage(ADMIN_CHAT_ID, baseMessage);
-      console.log('✅ Notification envoyée à l\'ADMIN');
+      try {
+        const adminMessage = `📦 Commande #${result.lastID}
+
+👤 ${escapeHtml(customer.substring(0, 100))}
+📍 ${escapeHtml(type)}
+🏠 ${escapeHtml((address || '-').substring(0, 100))}
+
+📦 Articles:
+${itemsList}
+
+${discount > 0 ? `🎁 Remise: -${discount}€\n` : ''}💰 Total: ${finalTotal}€`;
+        
+        await sendTelegramMessage(ADMIN_CHAT_ID, adminMessage);
+        console.log('✅ Notification ADMIN envoyée');
+      } catch (err) {
+        console.error('❌ Erreur ADMIN:', err.message);
+      }
     }
     
-    // 3️⃣ LIVREUR - Message anonymisé
+    // 3️⃣ LIVREUR
     if (DRIVER_CHAT_ID) {
-      const driverMessage = `🚚 <b>Nouvelle livraison #${result.lastID}</b>
+      try {
+        const driverMessage = `🚚 Livraison #${result.lastID}
 
-📍 Type : ${type}
-💰 Montant : ${finalTotal}€
-📦 Articles : ${items.length} produit(s)
+📍 ${escapeHtml(type)}
+💰 ${finalTotal}€
+📦 ${items.length} article(s)
 
-⚡️ Contactez l'admin pour les détails complets
-📞 Support : @assistancenter
-      `;
-      await sendTelegramMessage(DRIVER_CHAT_ID, driverMessage);
-      console.log('✅ Notification envoyée au LIVREUR');
+⚡ Contactez l'admin pour details`;
+        
+        await sendTelegramMessage(DRIVER_CHAT_ID, driverMessage);
+        console.log('✅ Notification LIVREUR envoyée');
+      } catch (err) {
+        console.error('❌ Erreur LIVREUR:', err.message);
+      }
     }
-    
-    res.json({ ok: true, id: result.lastID, discount });
-  } catch (error) {
-    console.error('Order error:', error);
-    res.status(500).json({ ok: false, error: 'Erreur serveur' });
-  }
-});
 
 // Geocode proxy for Mapbox
 app.get('/api/geocode', async (req, res) => {
