@@ -1317,10 +1317,16 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
   cursor:pointer;
 }
 
+@keyframes scaleIn {
+  from { transform: scale(0); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
 @media (min-width:768px){
   .grid{grid-template-columns:repeat(3,1fr);gap:20px}
   .sheet{align-items:center}
   .sheet-card{max-width:500px;border-radius:24px}
+  #orderSummarySheet .sheet-card{max-width:600px}
 }
   </style>
 </head>
@@ -1579,6 +1585,26 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
     </div>
   </section>
 
+  <!-- Order Summary Sheet -->
+  <section class="sheet hidden" id="orderSummarySheet">
+    <div class="sheet-card">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <h2 class="sheet-title">✅ Commande confirmée</h2>
+        <button class="sheet-close" id="closeOrderSummary">✕</button>
+      </div>
+      <div class="sheet-content" id="orderSummaryContent"></div>
+      <div class="sheet-footer">
+        <button class="btn-primary" id="copyOrderSummary" style="margin-bottom:10px">
+          📋 Copier le récapitulatif
+        </button>
+        <button class="btn-primary" id="closeOrderSummaryBtn" style="background:var(--bg-tertiary);color:var(--text-primary);box-shadow:none">
+          Retour à l'accueil
+        </button>
+      </div>
+    </div>
+  </section>
+
   <script>
 const PRODUCTS = [
   {id:1, name:"AMNESIA", farm:"coffee shop", video:"video/amnesia.mp4", category:"weed", 
@@ -1608,39 +1634,13 @@ const PRODUCTS = [
 ];
 
 const fmt = n => n.toFixed(2) + ' €';
-
-const API = "/api"; // Sur Netlify: remplace par l'URL complète de ton backend Railway (ex: https://XXX.up.railway.app/api)
+const API = '/api';
 
 let cart = [];
 let currentProduct = null;
 let selectedVariant = null;
 let quantity = 1;
 let selectedDelivery = 'millau';
-
-function getSavedAddress() {
-  try {
-    const data = {};
-    return data.saved_address || null;
-  } catch {
-    return null;
-  }
-}
-
-function saveAddress(address) {
-  try {
-    console.log('Address saved:', address);
-  } catch (e) {
-    console.error('Error saving address:', e);
-  }
-}
-
-function deleteSavedAddress() {
-  try {
-    console.log('Address deleted');
-  } catch (e) {
-    console.error('Error deleting address:', e);
-  }
-}
 
 function showToast(msg) {
   const toast = document.createElement('div');
@@ -1845,8 +1845,6 @@ function renderCart() {
   const deliveryFee = selectedDelivery === 'exterieur' ? 20 : 0;
   const total = subtotal + deliveryFee;
   
-  const savedAddr = getSavedAddress();
-  
   content.innerHTML = `
     ${cart.map((item, idx) => `
       <div class="cart-item">
@@ -1886,25 +1884,14 @@ function renderCart() {
     
     <div class="address-section">
       <div class="section-label">Adresse de livraison</div>
-      ${savedAddr ? `
-        <div class="saved-address">
-          <div class="saved-address-text">📍 ${savedAddr}</div>
-          <button class="clear-address-btn" id="clearSavedAddress">✕</button>
-        </div>
-      ` : ''}
       <div class="input-wrapper">
         <input 
           type="text" 
           class="input-field" 
           id="addressInput" 
           placeholder="Entrez votre adresse..."
-          value="${savedAddr || ''}"
         >
         <div class="suggestions" id="suggestions" style="display:none"></div>
-      </div>
-      <div class="checkbox-wrapper">
-        <input type="checkbox" class="checkbox" id="saveAddressCheck" ${savedAddr ? 'checked' : ''}>
-        <label class="checkbox-label" for="saveAddressCheck">Enregistrer cette adresse</label>
       </div>
     </div>
     
@@ -1937,21 +1924,10 @@ function renderCart() {
   const addressInput = content.querySelector('#addressInput');
   let timer = null;
   
-  // Base de suggestions pour les grandes villes de France
   const frenchCities = [
     'Paris 75000', 'Marseille 13000', 'Lyon 69000', 'Toulouse 31000',
     'Nice 06000', 'Nantes 44000', 'Montpellier 34000', 'Strasbourg 67000',
     'Bordeaux 33000', 'Lille 59000', 'Rennes 35000', 'Reims 51100',
-    'Saint-Étienne 42000', 'Toulon 83000', 'Le Havre 76600', 'Grenoble 38000',
-    'Dijon 21000', 'Angers 49000', 'Nîmes 30000', 'Villeurbanne 69100',
-    'Clermont-Ferrand 63000', 'Le Mans 72000', 'Aix-en-Provence 13100',
-    'Brest 29200', 'Tours 37000', 'Amiens 80000', 'Limoges 87000',
-    'Annecy 74000', 'Perpignan 66000', 'Boulogne-Billancourt 92100',
-    'Metz 57000', 'Besançon 25000', 'Orléans 45000', 'Rouen 76000',
-    'Mulhouse 68100', 'Caen 14000', 'Nancy 54000', 'Saint-Denis 93200',
-    'Argenteuil 95100', 'Montreuil 93100', 'Roubaix 59100', 'Tourcoing 59200',
-    'Nanterre 92000', 'Avignon 84000', 'Créteil 94000', 'Poitiers 86000',
-    'Fort-de-France 97200', 'Courbevoie 92400', 'Versailles 78000',
     'Millau 12100', 'Rodez 12000', 'Albi 81000'
   ];
   
@@ -1972,12 +1948,10 @@ function renderCart() {
     timer = setTimeout(() => {
       const suggestions = [];
       
-      // Recherche dans les villes
       const matchingCities = frenchCities.filter(city => 
         city.toLowerCase().includes(query)
       );
       
-      // Si c'est un numéro + type de rue, suggérer des formats
       const numberMatch = query.match(/^(\d+)\s*([a-zéèêë]*)/i);
       if (numberMatch) {
         const number = numberMatch[1];
@@ -1991,7 +1965,6 @@ function renderCart() {
           }
         });
       } else {
-        // Suggérer des villes
         matchingCities.slice(0, 5).forEach(city => {
           suggestions.push(`Adresse à ${city}`);
         });
@@ -2007,7 +1980,6 @@ function renderCart() {
         suggestionsEl.querySelectorAll('.suggestion-item').forEach(item => {
           item.onclick = function() {
             const addr = this.dataset.address;
-            // Si c'est une suggestion "Adresse à [ville]", permettre de continuer la saisie
             if (addr.startsWith('Adresse à ')) {
               const city = addr.replace('Adresse à ', '');
               addressInput.value = '';
@@ -2031,15 +2003,6 @@ function renderCart() {
       if (suggestionsEl) suggestionsEl.style.display = 'none';
     }
   });
-  
-  const clearBtn = content.querySelector('#clearSavedAddress');
-  if (clearBtn) {
-    clearBtn.onclick = () => {
-      deleteSavedAddress();
-      renderCart();
-      showToast('Adresse supprimée');
-    };
-  }
 }
 
 function openCart() {
@@ -2047,6 +2010,193 @@ function openCart() {
   document.getElementById('cartSheet').classList.remove('hidden');
   document.body.classList.add('modal-open');
 }
+
+function showOrderSummary(orderData, orderId, discount = 0) {
+  const content = document.getElementById('orderSummaryContent');
+  
+  const deliveryFee = orderData.type.includes('+20') ? 20 : 0;
+  const subtotal = orderData.items.reduce((sum, item) => sum + item.lineTotal, 0);
+  const totalWithDiscount = orderData.total;
+  
+  content.innerHTML = `
+    <div style="text-align:center;padding:20px 0">
+      <div style="width:80px;height:80px;background:var(--success);border-radius:50%;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;animation:scaleIn 0.5s ease">
+        <svg style="width:40px;height:40px;stroke:#fff;fill:none;stroke-width:3" viewBox="0 0 24 24">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+      </div>
+      <h3 style="font-size:24px;font-weight:700;margin-bottom:8px;color:var(--success)">Commande confirmée !</h3>
+      <p style="color:var(--text-secondary);font-size:16px">Numéro de commande : <strong style="color:var(--accent)">#${orderId}</strong></p>
+    </div>
+    
+    <div style="background:var(--bg-tertiary);border-radius:16px;padding:20px;margin:20px 0">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+        <div style="width:40px;height:40px;background:rgba(0,212,255,0.2);border-radius:10px;display:flex;align-items:center;justify-content:center">
+          <svg style="width:20px;height:20px;stroke:var(--accent);fill:none;stroke-width:2" viewBox="0 0 24 24">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+          </svg>
+        </div>
+        <div style="flex:1">
+          <div style="color:var(--text-muted);font-size:13px;margin-bottom:2px">Client</div>
+          <div style="font-weight:600">${orderData.customer}</div>
+        </div>
+      </div>
+      
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+        <div style="width:40px;height:40px;background:rgba(0,212,255,0.2);border-radius:10px;display:flex;align-items:center;justify-content:center">
+          <svg style="width:20px;height:20px;stroke:var(--accent);fill:none;stroke-width:2" viewBox="0 0 24 24">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+            <circle cx="12" cy="10" r="3"></circle>
+          </svg>
+        </div>
+        <div style="flex:1">
+          <div style="color:var(--text-muted);font-size:13px;margin-bottom:2px">Adresse de livraison</div>
+          <div style="font-weight:600">${orderData.address}</div>
+        </div>
+      </div>
+      
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="width:40px;height:40px;background:rgba(0,212,255,0.2);border-radius:10px;display:flex;align-items:center;justify-content:center">
+          <svg style="width:20px;height:20px;stroke:var(--accent);fill:none;stroke-width:2" viewBox="0 0 24 24">
+            <rect x="1" y="3" width="15" height="13"></rect>
+            <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+            <circle cx="5.5" cy="18.5" r="2.5"></circle>
+            <circle cx="18.5" cy="18.5" r="2.5"></circle>
+          </svg>
+        </div>
+        <div style="flex:1">
+          <div style="color:var(--text-muted);font-size:13px;margin-bottom:2px">Mode de livraison</div>
+          <div style="font-weight:600">${orderData.type}</div>
+        </div>
+      </div>
+    </div>
+    
+    <div style="margin:20px 0">
+      <h4 style="font-size:18px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px">
+        <svg style="width:20px;height:20px;stroke:var(--accent);fill:none;stroke-width:2" viewBox="0 0 24 24">
+          <circle cx="9" cy="21" r="1"></circle>
+          <circle cx="20" cy="21" r="1"></circle>
+          <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+        </svg>
+        Articles commandés
+      </h4>
+      ${orderData.items.map(item => `
+        <div style="background:var(--bg-tertiary);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-weight:600;margin-bottom:4px">${item.name}</div>
+            <div style="color:var(--text-muted);font-size:13px">${item.variant} × ${item.qty}</div>
+          </div>
+          <div style="font-size:18px;font-weight:700;color:var(--accent)">${fmt(item.lineTotal)}</div>
+        </div>
+      `).join('')}
+    </div>
+    
+    <div style="background:linear-gradient(135deg,rgba(0,212,255,0.1) 0%,rgba(118,75,162,0.1) 100%);border:2px solid var(--accent);border-radius:16px;padding:20px;margin:20px 0">
+      <div style="display:flex;justify-content:space-between;margin-bottom:12px">
+        <span style="color:var(--text-secondary)">Sous-total</span>
+        <span style="font-weight:600">${fmt(subtotal)}</span>
+      </div>
+      ${deliveryFee > 0 ? `
+        <div style="display:flex;justify-content:space-between;margin-bottom:12px">
+          <span style="color:var(--text-secondary)">Frais de livraison</span>
+          <span style="font-weight:600">${fmt(deliveryFee)}</span>
+        </div>
+      ` : ''}
+      ${discount > 0 ? `
+        <div style="display:flex;justify-content:space-between;margin-bottom:12px">
+          <span style="color:var(--success)">🎁 Remise fidélité</span>
+          <span style="font-weight:600;color:var(--success)">-${fmt(discount)}</span>
+        </div>
+      ` : ''}
+      <div style="border-top:2px solid var(--accent);margin:12px 0;padding-top:12px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:20px;font-weight:700">Total</span>
+        <span style="font-size:28px;font-weight:800;color:var(--accent)">${fmt(totalWithDiscount)}</span>
+      </div>
+    </div>
+    
+    <div style="background:var(--bg-tertiary);border-left:4px solid var(--accent);border-radius:12px;padding:16px;margin:20px 0">
+      <div style="display:flex;align-items:start;gap:12px">
+        <svg style="width:24px;height:24px;stroke:var(--accent);fill:none;stroke-width:2;flex-shrink:0;margin-top:2px" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="16" x2="12" y2="12"></line>
+          <line x1="12" y1="8" x2="12.01" y2="8"></line>
+        </svg>
+        <div>
+          <div style="font-weight:600;margin-bottom:8px;font-size:16px">Prochaines étapes</div>
+          <ul style="color:var(--text-secondary);font-size:14px;line-height:1.8;padding-left:20px;margin:0">
+            <li>Vous serez contacté par notre équipe pour confirmer votre commande</li>
+            <li>Le livreur vous contactera avant de partir</li>
+            <li>Paiement à la livraison (espèces, CB ou crypto)</li>
+            <li>Livraison rapide et discrète garantie</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    
+    <div style="text-align:center;margin-top:30px">
+      <p style="color:var(--text-muted);font-size:14px;margin-bottom:16px">
+        Une question ? Contactez notre support
+      </p>
+      <a href="https://t.me/assistancenter" target="_blank" style="display:inline-flex;align-items:center;gap:8px;background:var(--bg-tertiary);border:1px solid var(--border);border-radius:12px;padding:12px 20px;color:var(--accent);text-decoration:none;font-weight:600;transition:all 0.2s">
+        <svg style="width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2" viewBox="0 0 24 24">
+          <line x1="22" y1="2" x2="11" y2="13"></line>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+        </svg>
+        @assistancenter
+      </a>
+    </div>
+  `;
+  
+  document.getElementById('orderSummarySheet').classList.remove('hidden');
+  document.body.classList.add('modal-open');
+  
+  document.getElementById('copyOrderSummary').onclick = () => {
+    const text = `
+🎉 COMMANDE CONFIRMÉE - DROGUA CENTER
+
+📋 Numéro de commande : #${orderId}
+
+👤 Client : ${orderData.customer}
+📍 Adresse : ${orderData.address}
+🚚 Livraison : ${orderData.type}
+
+📦 ARTICLES COMMANDÉS :
+${orderData.items.map(item => `• ${item.name} - ${item.variant} × ${item.qty} = ${fmt(item.lineTotal)}`).join('\n')}
+
+💰 RÉCAPITULATIF :
+Sous-total : ${fmt(subtotal)}
+${deliveryFee > 0 ? `Frais de livraison : ${fmt(deliveryFee)}\n` : ''}${discount > 0 ? `🎁 Remise fidélité : -${fmt(discount)}\n` : ''}
+TOTAL : ${fmt(totalWithDiscount)}
+
+📞 Support : https://t.me/assistancenter
+⏰ Horaires : 7j/7 de 12H à 00H
+
+Merci de votre confiance ! 💚
+    `.trim();
+    
+    navigator.clipboard.writeText(text).then(() => {
+      showToast('✅ Récapitulatif copié dans le presse-papier');
+    }).catch(() => {
+      showToast('❌ Impossible de copier');
+    });
+  };
+}
+
+document.getElementById('closeOrderSummary')?.addEventListener('click', () => {
+  document.getElementById('orderSummarySheet').classList.add('hidden');
+  document.body.classList.remove('modal-open');
+});
+
+document.getElementById('closeOrderSummaryBtn')?.addEventListener('click', () => {
+  document.getElementById('orderSummarySheet').classList.add('hidden');
+  document.body.classList.remove('modal-open');
+  
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-home').classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+  document.querySelector('.nav-item[data-tab="home"]')?.classList.add('active');
+});
 
 document.querySelectorAll('.category-chip').forEach(chip => {
   chip.onclick = () => {
@@ -2117,11 +2267,6 @@ document.getElementById('validateOrder').onclick = async () => {
     return;
   }
   
-  const saveCheck = document.getElementById('saveAddressCheck');
-  if (saveCheck?.checked) {
-    saveAddress(address);
-  }
-  
   const deliveryType = selectedDelivery === 'millau' 
     ? 'Livraison sur Millau' 
     : 'Livraison extérieure (+20€)';
@@ -2163,21 +2308,19 @@ document.getElementById('validateOrder').onclick = async () => {
     const result = await response.json();
     
     if (result.ok) {
-      let message = `🎉 Commande #${result.id} créée avec succès !`;
-      if (result.discount > 0) {
-        message += `\n🎁 Remise fidélité : ${fmt(result.discount)}`;
-      }
-      showToast(message);
+      // Fermer le panier
+      document.getElementById('cartSheet').classList.add('hidden');
       
+      // Afficher le récapitulatif complet
+      showOrderSummary(orderData, result.id, result.discount || 0);
+      
+      // Vider le panier
       cart = [];
       updateBadge();
       
-      setTimeout(() => {
-        document.getElementById('cartSheet').classList.add('hidden');
-        document.body.classList.remove('modal-open');
-        btn.disabled = false;
-        btn.textContent = 'Valider la commande';
-      }, 2000);
+      // Réinitialiser le bouton
+      btn.disabled = false;
+      btn.textContent = 'Valider la commande';
     } else {
       throw new Error(result.error || 'Erreur lors de la création de la commande');
     }
