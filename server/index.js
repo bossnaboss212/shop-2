@@ -12,6 +12,7 @@ const PORT = process.env.PORT || 3000;
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN || '';
 const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID || '';
 const DRIVER_CHAT_ID = process.env.DRIVER_CHAT_ID || '';
+const SUPPORT_CHAT_ID = process.env.SUPPORT_CHAT_ID || ''; // ← NOUVEAU : Chat ID du support @assistancenter
 const MAPBOX_KEY = process.env.MAPBOX_KEY || '';
 const ADMIN_PASS = process.env.ADMIN_PASS || 'gangstaforlife12';
 const WEBAPP_URL = process.env.WEBAPP_URL || 'https://shop-2-production.up.railway.app';
@@ -249,15 +250,47 @@ app.post('/api/create-order', async (req, res) => {
       [`Commande #${result.lastID}`, finalTotal]
     );
     
-    // Send Telegram notifications
+    // ========== NOTIFICATIONS TELEGRAM ==========
     const order = { id: result.lastID, customer, type, address, total: finalTotal, discount };
-    const adminMessage = formatOrder(order, items);
-    await sendTelegramMessage(ADMIN_CHAT_ID, adminMessage);
+    const baseMessage = formatOrder(order, items);
     
-    // Driver notification (anonymized)
+    // 1️⃣ SUPPORT - Message détaillé avec actions à faire
+    if (SUPPORT_CHAT_ID) {
+      const supportMessage = `🔔 <b>NOUVELLE COMMANDE - Support</b>
+
+${baseMessage}
+
+📱 <b>Actions requises :</b>
+✅ Contacter le client pour confirmation
+✅ Vérifier la disponibilité des produits
+✅ Coordonner avec le livreur
+
+⚡️ Traiter cette commande rapidement
+💬 Support : @assistancenter
+      `;
+      await sendTelegramMessage(SUPPORT_CHAT_ID, supportMessage);
+      console.log('✅ Notification envoyée au SUPPORT');
+    }
+    
+    // 2️⃣ ADMIN - Message complet
+    if (ADMIN_CHAT_ID) {
+      await sendTelegramMessage(ADMIN_CHAT_ID, baseMessage);
+      console.log('✅ Notification envoyée à l\'ADMIN');
+    }
+    
+    // 3️⃣ LIVREUR - Message anonymisé
     if (DRIVER_CHAT_ID) {
-      const driverMessage = `🚚 <b>Livraison #${result.lastID}</b>\n\n📍 ${type}\n💰 ${finalTotal}€\n\nContactez l'admin pour les détails.`;
+      const driverMessage = `🚚 <b>Nouvelle livraison #${result.lastID}</b>
+
+📍 Type : ${type}
+💰 Montant : ${finalTotal}€
+📦 Articles : ${items.length} produit(s)
+
+⚡️ Contactez l'admin pour les détails complets
+📞 Support : @assistancenter
+      `;
       await sendTelegramMessage(DRIVER_CHAT_ID, driverMessage);
+      console.log('✅ Notification envoyée au LIVREUR');
     }
     
     res.json({ ok: true, id: result.lastID, discount });
@@ -1042,6 +1075,12 @@ async function start() {
     } else {
       console.log('✅ Bot Telegram activé');
       console.log(`🔗 Webhook: ${WEBAPP_URL}/bot${TELEGRAM_TOKEN}`);
+    }
+    
+    if (SUPPORT_CHAT_ID) {
+      console.log('✅ Notifications SUPPORT activées');
+    } else {
+      console.log('⚠️  SUPPORT_CHAT_ID not set - support notifications disabled');
     }
     
     if (!MAPBOX_KEY) {
