@@ -138,18 +138,35 @@ async function initDB() {
 
 // Helper functions
 async function sendTelegramMessage(chatId, message, options = {}) {
-  if (!TELEGRAM_TOKEN || !chatId) return;
+  if (!TELEGRAM_TOKEN) {
+    console.error('❌ TELEGRAM_TOKEN non défini');
+    return;
+  }
+  
+  if (!chatId) {
+    console.error('❌ chatId non défini');
+    return;
+  }
   
   try {
     const url = `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`;
-    await axios.post(url, {
+    console.log(`📡 Envoi vers Telegram (chatId: ${chatId})...`);
+    
+    const response = await axios.post(url, {
       chat_id: chatId,
       text: message,
       parse_mode: 'HTML',
       ...options
     });
+    
+    console.log('✅ Message Telegram envoyé avec succès');
+    return response.data;
   } catch (error) {
-    console.error('Telegram error:', error.message);
+    console.error('❌ Erreur Telegram:', error.message);
+    if (error.response) {
+      console.error('📄 Réponse Telegram:', error.response.data);
+    }
+    throw error;
   }
 }
 
@@ -249,80 +266,94 @@ app.post('/api/create-order', async (req, res) => {
     );
     
     // ========== NOTIFICATIONS TELEGRAM ==========
-    const order = { id: result.lastID, customer, type, address, total: finalTotal, discount };
+    console.log('📤 Préparation des notifications Telegram...');
+    console.log('🔑 TELEGRAM_TOKEN:', TELEGRAM_TOKEN ? 'Défini ✅' : 'Non défini ❌');
+    console.log('🔑 SUPPORT_CHAT_ID:', SUPPORT_CHAT_ID || 'Non défini ❌');
+    console.log('🔑 ADMIN_CHAT_ID:', ADMIN_CHAT_ID || 'Non défini ❌');
+    console.log('🔑 DRIVER_CHAT_ID:', DRIVER_CHAT_ID || 'Non défini ❌');
     
-    console.log('📤 Envoi des notifications Telegram...');
-    
-    const escapeHtml = (text) => {
-      if (!text) return '';
-      return String(text)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
-    };
-    
-    const itemsList = items.map(item => 
-      `${escapeHtml(item.name)} - ${escapeHtml(item.variant)} x${item.qty} = ${item.lineTotal}€`
-    ).join('\n');
-    
-    // 1️⃣ SUPPORT
-    if (SUPPORT_CHAT_ID) {
-      try {
-        const supportMessage = `🔔 NOUVELLE COMMANDE #${result.lastID}
+    if (!TELEGRAM_TOKEN) {
+      console.log('⚠️ TELEGRAM_TOKEN non défini - notifications désactivées');
+    } else {
+      // 1️⃣ SUPPORT - Message simplifié
+      if (SUPPORT_CHAT_ID) {
+        try {
+          console.log(`📤 Envoi au SUPPORT (${SUPPORT_CHAT_ID})...`);
+          
+          const supportMessage = `🔔 NOUVELLE COMMANDE #${result.lastID}
 
-👤 Client: ${escapeHtml(customer.substring(0, 100))}
-📍 Type: ${escapeHtml(type)}
+👤 Client: ${customer}
+📍 Type: ${type}
 💰 Total: ${finalTotal}€
 
+📦 Articles: ${items.length} produit(s)
+
+⚡ Contacter le client`;
+          
+          await sendTelegramMessage(SUPPORT_CHAT_ID, supportMessage);
+          console.log('✅ Notification SUPPORT envoyée avec succès');
+        } catch (err) {
+          console.error('❌ Erreur SUPPORT:', err.message);
+          console.error('Stack:', err.stack);
+        }
+      } else {
+        console.log('⚠️ SUPPORT_CHAT_ID non défini - notification ignorée');
+      }
+      
+      // 2️⃣ ADMIN - Message détaillé
+      if (ADMIN_CHAT_ID) {
+        try {
+          console.log(`📤 Envoi à l'ADMIN (${ADMIN_CHAT_ID})...`);
+          
+          let itemsList = '';
+          items.forEach(item => {
+            itemsList += `• ${item.name} - ${item.variant} x${item.qty} = ${item.lineTotal}€\n`;
+          });
+          
+          const adminMessage = `📦 COMMANDE #${result.lastID}
+
+👤 Client: ${customer}
+📍 Type: ${type}
+🏠 Adresse: ${address || 'Sur place'}
+
 📦 Articles:
 ${itemsList}
+${discount > 0 ? `🎁 Remise fidélité: -${discount}€\n` : ''}💰 TOTAL: ${finalTotal}€
 
-⚡ Actions: Contacter le client`;
-        
-        await sendTelegramMessage(SUPPORT_CHAT_ID, supportMessage);
-        console.log('✅ Notification SUPPORT envoyée');
-      } catch (err) {
-        console.error('❌ Erreur SUPPORT:', err.message);
+⏰ ${new Date().toLocaleString('fr-FR')}`;
+          
+          await sendTelegramMessage(ADMIN_CHAT_ID, adminMessage);
+          console.log('✅ Notification ADMIN envoyée avec succès');
+        } catch (err) {
+          console.error('❌ Erreur ADMIN:', err.message);
+          console.error('Stack:', err.stack);
+        }
+      } else {
+        console.log('⚠️ ADMIN_CHAT_ID non défini - notification ignorée');
       }
-    }
-    
-    // 2️⃣ ADMIN
-    if (ADMIN_CHAT_ID) {
-      try {
-        const adminMessage = `📦 Commande #${result.lastID}
+      
+      // 3️⃣ LIVREUR - Message court
+      if (DRIVER_CHAT_ID) {
+        try {
+          console.log(`📤 Envoi au LIVREUR (${DRIVER_CHAT_ID})...`);
+          
+          const driverMessage = `🚚 LIVRAISON #${result.lastID}
 
-👤 ${escapeHtml(customer.substring(0, 100))}
-📍 ${escapeHtml(type)}
-🏠 ${escapeHtml((address || '-').substring(0, 100))}
-
-📦 Articles:
-${itemsList}
-
-${discount > 0 ? `🎁 Remise: -${discount}€\n` : ''}💰 Total: ${finalTotal}€`;
-        
-        await sendTelegramMessage(ADMIN_CHAT_ID, adminMessage);
-        console.log('✅ Notification ADMIN envoyée');
-      } catch (err) {
-        console.error('❌ Erreur ADMIN:', err.message);
-      }
-    }
-    
-    // 3️⃣ LIVREUR
-    if (DRIVER_CHAT_ID) {
-      try {
-        const driverMessage = `🚚 Livraison #${result.lastID}
-
-📍 ${escapeHtml(type)}
+📍 ${type}
+🏠 ${address || 'Sur place'}
 💰 ${finalTotal}€
 📦 ${items.length} article(s)
 
-⚡ Contactez l'admin pour details`;
-        
-        await sendTelegramMessage(DRIVER_CHAT_ID, driverMessage);
-        console.log('✅ Notification LIVREUR envoyée');
-      } catch (err) {
-        console.error('❌ Erreur LIVREUR:', err.message);
+⚡ Contactez l'admin pour les détails`;
+          
+          await sendTelegramMessage(DRIVER_CHAT_ID, driverMessage);
+          console.log('✅ Notification LIVREUR envoyée avec succès');
+        } catch (err) {
+          console.error('❌ Erreur LIVREUR:', err.message);
+          console.error('Stack:', err.stack);
+        }
+      } else {
+        console.log('⚠️ DRIVER_CHAT_ID non défini - notification ignorée');
       }
     }
     
