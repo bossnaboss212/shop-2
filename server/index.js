@@ -12,7 +12,7 @@ const PORT = process.env.PORT || 3000;
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN || '';
 const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID || '';
 const DRIVER_CHAT_ID = process.env.DRIVER_CHAT_ID || '';
-const SUPPORT_CHAT_ID = process.env.SUPPORT_CHAT_ID || ''; // ← NOUVEAU : Chat ID du support @assistancenter
+const SUPPORT_CHAT_ID = process.env.SUPPORT_CHAT_ID || '';
 const MAPBOX_KEY = process.env.MAPBOX_KEY || '';
 const ADMIN_PASS = process.env.ADMIN_PASS || 'gangstaforlife12';
 const WEBAPP_URL = process.env.WEBAPP_URL || 'https://shop-2-production.up.railway.app';
@@ -20,8 +20,8 @@ const WEBAPP_URL = process.env.WEBAPP_URL || 'https://shop-2-production.up.railw
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));        // /server/public
-app.use(express.static(path.join(__dirname, '..', 'public')));  // /public (racine)
+app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // Database initialization
 let db;
@@ -32,7 +32,6 @@ async function initDB() {
     driver: sqlite3.Database
   });
 
-  // Create tables
   await db.exec(`
     CREATE TABLE IF NOT EXISTS orders (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -125,7 +124,6 @@ async function initDB() {
     );
   `);
 
-  // Initialize default settings if not exists
   await db.run(`
     INSERT OR IGNORE INTO settings (key, value) VALUES 
     ('shop_name', 'DROGUA CENTER'),
@@ -199,7 +197,7 @@ app.post('/api/create-order', async (req, res) => {
     const threshold = parseInt(loyaltyThreshold?.value || 10);
     
     if (loyalty && (loyalty.orders_count + 1) % threshold === 0) {
-      discount = Math.min(total * 0.1, 20); // 10% max 20€
+      discount = Math.min(total * 0.1, 20);
     }
     
     const finalTotal = total - discount;
@@ -255,7 +253,6 @@ app.post('/api/create-order', async (req, res) => {
     
     console.log('📤 Envoi des notifications Telegram...');
     
-    // Fonction pour échapper les caractères HTML
     const escapeHtml = (text) => {
       if (!text) return '';
       return String(text)
@@ -265,12 +262,11 @@ app.post('/api/create-order', async (req, res) => {
         .replace(/"/g, '&quot;');
     };
     
-    // Message simplifié pour éviter les erreurs
     const itemsList = items.map(item => 
       `${escapeHtml(item.name)} - ${escapeHtml(item.variant)} x${item.qty} = ${item.lineTotal}€`
     ).join('\n');
     
-    // 1️⃣ SUPPORT - Message court et sécurisé
+    // 1️⃣ SUPPORT
     if (SUPPORT_CHAT_ID) {
       try {
         const supportMessage = `🔔 NOUVELLE COMMANDE #${result.lastID}
@@ -329,6 +325,16 @@ ${discount > 0 ? `🎁 Remise: -${discount}€\n` : ''}💰 Total: ${finalTotal}
         console.error('❌ Erreur LIVREUR:', err.message);
       }
     }
+    
+    // ✅ RÉPONSE AU CLIENT - CODE CORRIGÉ ICI
+    console.log('✅ Commande créée avec succès');
+    res.json({ ok: true, orderId: result.lastID, discount });
+    
+  } catch (error) {
+    console.error('Create order error:', error);
+    res.status(500).json({ ok: false, error: 'Erreur serveur' });
+  }
+});
 
 // Geocode proxy for Mapbox
 app.get('/api/geocode', async (req, res) => {
@@ -356,7 +362,6 @@ app.get('/api/geocode', async (req, res) => {
 
 // === Admin API ===
 
-// Admin authentication
 let adminTokens = new Set();
 
 app.post('/api/admin/login', (req, res) => {
@@ -371,7 +376,6 @@ app.post('/api/admin/login', (req, res) => {
   }
 });
 
-// Middleware for admin routes
 function requireAdmin(req, res, next) {
   const token = req.headers['x-admin-token'];
   if (!token || !adminTokens.has(token)) {
@@ -380,27 +384,22 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-// Admin stats
 app.get('/api/admin/stats', requireAdmin, async (req, res) => {
   try {
     const stats = {};
     
-    // Total CA
     const revenue = await db.get(
       "SELECT SUM(total) as total FROM orders WHERE status != 'cancelled'"
     );
     stats.totalCA = revenue?.total || 0;
     
-    // Total orders
     const orders = await db.get(
       "SELECT COUNT(*) as count FROM orders WHERE status != 'cancelled'"
     );
     stats.totalOrders = orders?.count || 0;
     
-    // Average order
     stats.avgOrder = stats.totalOrders > 0 ? stats.totalCA / stats.totalOrders : 0;
     
-    // Top product
     const topProduct = await db.get(`
       SELECT items FROM orders WHERE status != 'cancelled'
     `);
@@ -424,14 +423,12 @@ app.get('/api/admin/stats', requireAdmin, async (req, res) => {
       stats.topProduct = '-';
     }
     
-    // Stock value and alerts
     const stock = await db.all('SELECT * FROM stock');
     stats.stockValue = 0;
     stats.stockOut = 0;
     stats.stockLow = 0;
     
     stock.forEach(s => {
-      // You'd need product prices here
       if (s.qty === 0) stats.stockOut++;
       else if (s.qty < 10) stats.stockLow++;
     });
@@ -443,7 +440,6 @@ app.get('/api/admin/stats', requireAdmin, async (req, res) => {
   }
 });
 
-// Orders management
 app.get('/api/admin/orders', requireAdmin, async (req, res) => {
   try {
     const { status, limit = 100 } = req.query;
@@ -460,7 +456,6 @@ app.get('/api/admin/orders', requireAdmin, async (req, res) => {
     
     const orders = await db.all(query, params);
     
-    // Parse items JSON for each order
     orders.forEach(order => {
       try {
         order.items = JSON.parse(order.items);
@@ -507,7 +502,6 @@ app.delete('/api/admin/orders/:id', requireAdmin, async (req, res) => {
   }
 });
 
-// Stock management
 app.get('/api/admin/stock', requireAdmin, async (req, res) => {
   try {
     const stock = await db.all('SELECT * FROM stock ORDER BY product_id, variant');
@@ -522,7 +516,6 @@ app.post('/api/admin/stock/movement', requireAdmin, async (req, res) => {
   try {
     const { product_id, variant, type, quantity, reason } = req.body;
     
-    // Get current stock
     let current = await db.get(
       'SELECT qty FROM stock WHERE product_id = ? AND variant = ?',
       [product_id, variant]
@@ -536,18 +529,15 @@ app.post('/api/admin/stock/movement', requireAdmin, async (req, res) => {
       current = { qty: 0 };
     }
     
-    // Calculate new quantity
     const newQty = type === 'in' 
       ? current.qty + quantity 
       : Math.max(0, current.qty - quantity);
     
-    // Update stock
     await db.run(
       'UPDATE stock SET qty = ? WHERE product_id = ? AND variant = ?',
       [newQty, product_id, variant]
     );
     
-    // Record movement
     await db.run(
       `INSERT INTO stock_movements (product_id, variant, type, quantity, stock_after, reason)
        VALUES (?, ?, ?, ?, ?, ?)`,
@@ -573,7 +563,6 @@ app.get('/api/admin/stock/movements', requireAdmin, async (req, res) => {
   }
 });
 
-// Finance management
 app.get('/api/admin/transactions', requireAdmin, async (req, res) => {
   try {
     const { type, category, period } = req.query;
@@ -620,7 +609,6 @@ app.post('/api/admin/transactions', requireAdmin, async (req, res) => {
       [type, category, description, amount, payment_method || '', note || '', date]
     );
     
-    // Update cash balance if payment is cash
     if (payment_method === 'especes') {
       const cashBalance = await db.get("SELECT value FROM settings WHERE key = 'cash_balance'");
       const currentBalance = parseFloat(cashBalance?.value || 0);
@@ -651,7 +639,6 @@ app.delete('/api/admin/transactions/:id', requireAdmin, async (req, res) => {
   }
 });
 
-// Reviews management
 app.get('/api/admin/reviews', requireAdmin, async (req, res) => {
   try {
     const reviews = await db.all('SELECT * FROM reviews ORDER BY created_at DESC');
@@ -686,7 +673,6 @@ app.delete('/api/admin/reviews/:id', requireAdmin, async (req, res) => {
   }
 });
 
-// Settings management
 app.get('/api/admin/settings', requireAdmin, async (req, res) => {
   try {
     const rows = await db.all('SELECT * FROM settings');
@@ -719,7 +705,6 @@ app.put('/api/admin/settings', requireAdmin, async (req, res) => {
   }
 });
 
-// Export orders to CSV
 app.get('/api/admin/orders/export/csv', requireAdmin, async (req, res) => {
   try {
     const orders = await db.all('SELECT * FROM orders ORDER BY created_at DESC');
@@ -743,7 +728,7 @@ app.get('/api/admin/orders/export/csv', requireAdmin, async (req, res) => {
   }
 });
 
-// ==================== TELEGRAM BOT SIMPLE ====================
+// ==================== TELEGRAM BOT ====================
 if (TELEGRAM_TOKEN) {
   console.log('🤖 Configuration du bot Telegram...');
 
@@ -753,7 +738,6 @@ if (TELEGRAM_TOKEN) {
       
       console.log('📩 Message reçu du bot:', JSON.stringify(req.body));
       
-      // Gestion des messages
       if (message) {
         const chatId = message.chat.id;
         const text = message.text;
@@ -929,14 +913,12 @@ Livraison rapide pendant les heures d'ouverture`;
         }
       }
       
-      // Gestion des callback queries (boutons)
       if (callback_query) {
         const chatId = callback_query.message.chat.id;
         const data = callback_query.data;
         
         console.log(`🔘 Callback reçu: ${data} de ${chatId}`);
         
-        // Répondre au callback pour enlever le "loading"
         await axios.post(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/answerCallbackQuery`, {
           callback_query_id: callback_query.id
         }).catch(err => console.error('Erreur answerCallback:', err.message));
@@ -1082,14 +1064,11 @@ Accédez au tableau de bord pour gérer :
   console.log(`✅ Bot endpoint configuré: /bot${TELEGRAM_TOKEN.substring(0, 10)}...`);
   console.log(`📍 URL complète: ${WEBAPP_URL}/bot${TELEGRAM_TOKEN.substring(0, 10)}...`);
 }
-// ==================== FIN TELEGRAM BOT ====================
 
-// Catch-all for React Router (if using React)
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Start server
 async function start() {
   await initDB();
   
