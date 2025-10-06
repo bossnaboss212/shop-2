@@ -9,17 +9,21 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Configuration Telegram Bot
-const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN || '';
-const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID || '';
-const DRIVER_CHAT_ID = process.env.DRIVER_CHAT_ID || '';
-const SUPPORT_CHAT_ID = process.env.SUPPORT_CHAT_ID || '';
+// ⚠️ IMPORTANT : Remplacez ces valeurs par vos IDs Telegram
+// Pour obtenir votre ID : envoyez un message à @userinfobot sur Telegram
+const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN || '7364804422:AAGsiuQhHUVUxb1BfXsb28lKWcot8gxHD30';
+const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID || ''; // ← REMPLACEZ ICI avec votre ID Admin
+const SUPPORT_CHAT_ID = process.env.SUPPORT_CHAT_ID || ''; // ← REMPLACEZ ICI avec l'ID du Support  
+const DRIVER_MILLAU_ID = process.env.DRIVER_MILLAU_ID || ''; // ← REMPLACEZ ICI avec l'ID du Livreur Millau
+const DRIVER_EXTERIEUR_ID = process.env.DRIVER_EXTERIEUR_ID || ''; // ← REMPLACEZ ICI avec l'ID du Livreur Extérieur
+
+// Autres configurations
 const MAPBOX_KEY = process.env.MAPBOX_KEY || '';
 const ADMIN_PASS = process.env.ADMIN_PASS || 'gangstaforlife12';
 const WEBAPP_URL = process.env.WEBAPP_URL || 'https://shop-2-production.up.railway.app';
 
-// ✅ NOUVEAU : Configuration des livreurs par zone
-const DRIVER_MILLAU_ID = process.env.DRIVER_MILLAU_ID || '';
-const DRIVER_EXTERIEUR_ID = process.env.DRIVER_EXTERIEUR_ID || '';
+// Variable legacy pour compatibilité
+const DRIVER_CHAT_ID = process.env.DRIVER_CHAT_ID || '';
 
 // Middleware
 app.use(cors());
@@ -27,7 +31,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
-// ✅ NOUVEAU : Stockage des conversations actives
+// Stockage des conversations actives et tokens admin
 let adminTokens = new Set();
 const activeConversations = new Map();
 
@@ -146,7 +150,7 @@ async function initDB() {
   console.log('✅ Database initialized');
 }
 
-// ✅ NOUVEAU : Fonction pour déterminer la zone et le livreur
+// Fonction pour déterminer la zone et le livreur
 function getDriverForDeliveryType(deliveryType) {
   // Si c'est une livraison sur Millau
   if (deliveryType.toLowerCase().includes('millau')) {
@@ -207,7 +211,7 @@ async function sendTelegramMessage(chatId, message, options = {}) {
   }
 }
 
-// ✅ NOUVEAU : Fonction pour notifier le client via le support
+// Fonction pour notifier le client via le support
 async function notifyClientViaBot(customerContact, orderId, status, estimatedTime = null) {
   if (!SUPPORT_CHAT_ID || !TELEGRAM_TOKEN) return;
   
@@ -276,6 +280,8 @@ function formatOrder(order, items) {
 // Create order
 app.post('/api/create-order', async (req, res) => {
   try {
+    console.log('📨 Nouvelle commande reçue:', JSON.stringify(req.body, null, 2));
+    
     const { customer, type, address, items, total } = req.body;
     
     // Check loyalty program
@@ -303,6 +309,8 @@ app.post('/api/create-order', async (req, res) => {
        VALUES (?, ?, ?, ?, ?, ?)`,
       [customer, type, address, JSON.stringify(items), finalTotal, discount]
     );
+    
+    console.log(`✅ Commande #${result.lastID} créée dans la base de données`);
     
     // Update loyalty
     if (loyalty) {
@@ -345,6 +353,10 @@ app.post('/api/create-order', async (req, res) => {
     
     // ========== NOTIFICATIONS TELEGRAM ==========
     console.log('📤 Préparation des notifications Telegram...');
+    console.log(`   SUPPORT_CHAT_ID: ${SUPPORT_CHAT_ID || 'NON CONFIGURÉ'}`);
+    console.log(`   ADMIN_CHAT_ID: ${ADMIN_CHAT_ID || 'NON CONFIGURÉ'}`);
+    console.log(`   DRIVER_MILLAU_ID: ${DRIVER_MILLAU_ID || 'NON CONFIGURÉ'}`);
+    console.log(`   DRIVER_EXTERIEUR_ID: ${DRIVER_EXTERIEUR_ID || 'NON CONFIGURÉ'}`);
     
     if (!TELEGRAM_TOKEN) {
       console.log('⚠️ TELEGRAM_TOKEN non défini - notifications désactivées');
@@ -403,11 +415,10 @@ ${discount > 0 ? `🎁 Remise fidélité: -${discount}€\n` : ''}💰 TOTAL: ${
       
       // 3️⃣ LIVREUR - Assignation automatique par zone
       const driverInfo = getDriverForDeliveryType(type);
+      console.log(`📤 Tentative d'envoi au ${driverInfo.driverName} (${driverInfo.driverId})...`);
 
       if (driverInfo.driverId) {
         try {
-          console.log(`📤 Envoi au ${driverInfo.driverName} (${driverInfo.driverId})...`);
-          
           // Stocker la conversation
           activeConversations.set(result.lastID, {
             driverId: driverInfo.driverId,
@@ -1052,7 +1063,7 @@ Livraison rapide pendant les heures d'ouverture`;
           
           console.log('✅ Message /help envoyé à', chatId);
         }
-        // ✅ NOUVEAU : Commande /meslivraisons (filtrée par zone)
+        // Commande /meslivraisons (filtrée par zone)
         else if (text === '/meslivraisons' || text === '/livraisons') {
           let driverZone = null;
           if (chatId.toString() === DRIVER_MILLAU_ID) {
@@ -1102,7 +1113,7 @@ Livraison rapide pendant les heures d'ouverture`;
             }
           }
         }
-        // ✅ NOUVEAU : Commande /stats (filtrée par zone)
+        // Commande /stats (filtrée par zone)
         else if (text === '/stats') {
           let driverZone = null;
           if (chatId.toString() === DRIVER_MILLAU_ID) {
@@ -1147,7 +1158,7 @@ Continue comme ça ! 🚀`;
             });
           }
         }
-        // ✅ NOUVEAU : Commande /stop (quitter conversations)
+        // Commande /stop (quitter conversations)
         else if (text === '/stop') {
           if (chatId.toString() === DRIVER_MILLAU_ID || chatId.toString() === DRIVER_EXTERIEUR_ID) {
             for (const [orderId, conv] of activeConversations.entries()) {
@@ -1163,7 +1174,7 @@ Continue comme ça ! 🚀`;
             });
           }
         }
-        // ✅ NOUVEAU : Commande /zones (admin)
+        // Commande /zones (admin)
         else if (text === '/zones' && chatId.toString() === ADMIN_CHAT_ID) {
           const statsMillau = await db.get(`
             SELECT COUNT(*) as count, SUM(total) as revenue
@@ -1200,7 +1211,7 @@ ID : ${DRIVER_EXTERIEUR_ID || 'N/A'}
             parse_mode: 'HTML'
           });
         }
-        // ✅ NOUVEAU : Gestion des messages en mode conversation
+        // Gestion des messages en mode conversation
         else if (!text.startsWith('/')) {
           let driverConversation = null;
           for (const [orderId, conv] of activeConversations.entries()) {
@@ -1247,7 +1258,7 @@ Répondez pour lui envoyer un message.
         }
       }
       
-      // ✅ GESTION DES CALLBACKS
+      // GESTION DES CALLBACKS
       if (callback_query) {
         const chatId = callback_query.message.chat.id;
         const data = callback_query.data;
@@ -1668,22 +1679,40 @@ async function start() {
       console.log(`🔗 Webhook: ${WEBAPP_URL}/bot${TELEGRAM_TOKEN}`);
     }
     
+    // Affichage de l'état des configurations
+    console.log('');
+    console.log('📍 État des configurations :');
+    
     if (SUPPORT_CHAT_ID) {
-      console.log('✅ Notifications SUPPORT activées');
+      console.log(`   ✅ Support : ${SUPPORT_CHAT_ID}`);
     } else {
-      console.log('⚠️  SUPPORT_CHAT_ID not set - support notifications disabled');
+      console.log('   ❌ SUPPORT_CHAT_ID non configuré');
     }
     
-    // ✅ NOUVEAU : Affichage des zones configurées
+    if (ADMIN_CHAT_ID) {
+      console.log(`   ✅ Admin : ${ADMIN_CHAT_ID}`);
+    } else {
+      console.log('   ❌ ADMIN_CHAT_ID non configuré');
+    }
+    
+    // Affichage des zones configurées
+    console.log('');
     console.log('📍 Zones de livraison :');
     console.log(`   🏙️  Millau : ${DRIVER_MILLAU_ID ? '✅ ' + DRIVER_MILLAU_ID : '❌ Non configuré'}`);
     console.log(`   🌐 Extérieur : ${DRIVER_EXTERIEUR_ID ? '✅ ' + DRIVER_EXTERIEUR_ID : '❌ Non configuré'}`);
     
     if (!MAPBOX_KEY) {
+      console.log('');
       console.log('⚠️  MAPBOX_KEY not set - geocoding disabled');
     }
     
     console.log('🚀 ================================');
+    console.log('');
+    console.log('⚠️  IMPORTANT : Configurez vos IDs Telegram !');
+    console.log('   1. Envoyez /start à @userinfobot sur Telegram');
+    console.log('   2. Récupérez votre ID numérique');
+    console.log('   3. Modifiez les lignes 15-18 de ce fichier');
+    console.log('');
   });
 }
 
