@@ -696,6 +696,12 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
 
 .btn-primary:active{transform:translateY(0)}
 
+.btn-primary:disabled{
+  opacity:0.5;
+  cursor:not-allowed;
+  transform:none;
+}
+
 /* ===== INFO CARDS ===== */
 .info-section{
   padding:20px;
@@ -1266,57 +1272,6 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
   background:var(--bg-tertiary);
 }
 
-.saved-address{
-  background:rgba(0,212,255,0.1);
-  border:2px solid var(--accent);
-  border-radius:12px;
-  padding:12px 16px;
-  margin-bottom:12px;
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-}
-
-.saved-address-text{
-  flex:1;
-  color:var(--accent);
-  font-weight:600;
-  font-size:14px;
-}
-
-.clear-address-btn{
-  background:transparent;
-  border:none;
-  color:var(--danger);
-  cursor:pointer;
-  font-size:20px;
-  padding:4px;
-  transition:transform 0.2s;
-}
-
-.clear-address-btn:hover{
-  transform:scale(1.2);
-}
-
-.checkbox-wrapper{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  margin-top:12px;
-}
-
-.checkbox{
-  width:20px;
-  height:20px;
-  cursor:pointer;
-}
-
-.checkbox-label{
-  color:var(--text-secondary);
-  font-size:14px;
-  cursor:pointer;
-}
-
 @keyframes scaleIn {
   from { transform: scale(0); opacity: 0; }
   to { transform: scale(1); opacity: 1; }
@@ -1883,7 +1838,63 @@ function renderCart() {
     </div>
     
     <div class="address-section">
-      <div class="section-label">Adresse de livraison</div>
+      <div class="section-label">📱 Mode de contact</div>
+      
+      <!-- Choix du mode de contact -->
+      <div style="margin-bottom:16px">
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <label style="display:flex;align-items:center;gap:10px;padding:12px;background:var(--bg-tertiary);border:2px solid var(--border);border-radius:12px;cursor:pointer;transition:all 0.2s" id="contactDirectLabel">
+            <input type="radio" name="contactMode" value="direct" id="contactDirect" checked style="width:20px;height:20px;cursor:pointer">
+            <div style="flex:1">
+              <div style="font-weight:600;margin-bottom:4px">Contact direct</div>
+              <div style="font-size:12px;color:var(--text-muted)">Entrez votre @username Telegram</div>
+            </div>
+          </label>
+          
+          <label style="display:flex;align-items:center;gap:10px;padding:12px;background:var(--bg-tertiary);border:2px solid var(--border);border-radius:12px;cursor:pointer;transition:all 0.2s" id="contactAnonymousLabel">
+            <input type="radio" name="contactMode" value="anonymous" id="contactAnonymous" style="width:20px;height:20px;cursor:pointer">
+            <div style="flex:1">
+              <div style="font-weight:600;margin-bottom:4px">🎭 Contact anonyme (recommandé)</div>
+              <div style="font-size:12px;color:var(--text-muted)">Lien temporaire Telegram</div>
+            </div>
+          </label>
+          
+          <div style="padding:12px;background:rgba(16,185,129,0.1);border:2px solid var(--success);border-radius:12px;font-size:12px;line-height:1.6">
+            <div style="font-weight:700;margin-bottom:8px;color:var(--success)">📖 Comment créer un lien anonyme :</div>
+            <ol style="margin:0;padding-left:20px;color:var(--text-secondary)">
+              <li>Ouvrez <strong>Telegram</strong> → <strong>Paramètres</strong></li>
+              <li>Allez dans <strong>Confidentialité et sécurité</strong></li>
+              <li>Cliquez sur <strong>Nouveau lien d'invitation</strong></li>
+              <li>Copiez le lien (format : <code style="background:var(--bg-primary);padding:2px 6px;border-radius:4px">t.me/+abc123</code>)</li>
+              <li>Collez-le dans le champ ci-dessous ✅</li>
+            </ol>
+            <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--success);color:var(--success);font-weight:600">
+              ✨ Le livreur ne verra AUCUNE info personnelle !
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="input-wrapper">
+        <input 
+          type="text" 
+          class="input-field" 
+          id="telegramUsername" 
+          placeholder="@votre_username"
+          style="margin-bottom:16px"
+        >
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;padding:10px;background:var(--bg-tertiary);border-radius:8px;border-left:3px solid var(--accent)" id="contactTip">
+          <div style="display:flex;gap:8px">
+            <span style="font-size:16px">💡</span>
+            <div>
+              <strong>Contact direct :</strong> Le livreur verra votre profil Telegram.<br>
+              <strong>Astuce anonyme :</strong> Utilisez un lien temporaire (t.me/+...) ou un compte secondaire.
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="section-label">📍 Adresse de livraison</div>
       <div class="input-wrapper">
         <input 
           type="text" 
@@ -1920,6 +1931,54 @@ function renderCart() {
       renderCart();
     };
   });
+  
+  // Gestion du mode de contact
+  const contactDirect = content.querySelector('#contactDirect');
+  const contactAnonymous = content.querySelector('#contactAnonymous');
+  const telegramInput = content.querySelector('#telegramUsername');
+  const contactTip = content.querySelector('#contactTip');
+  const directLabel = content.querySelector('#contactDirectLabel');
+  const anonymousLabel = content.querySelector('#contactAnonymousLabel');
+  
+  function updateContactMode() {
+    if (contactDirect.checked) {
+      telegramInput.placeholder = '@votre_username';
+      contactTip.innerHTML = `
+        <div style="display:flex;gap:8px">
+          <span style="font-size:16px">⚠️</span>
+          <div>
+            <strong style="color:var(--warning)">Attention :</strong> Le livreur verra votre profil Telegram (nom, photo, bio).<br>
+            <strong>Pour rester anonyme :</strong> Passez en mode "Contact anonyme" ci-dessus.
+          </div>
+        </div>
+      `;
+      directLabel.style.borderColor = 'var(--accent)';
+      directLabel.style.background = 'rgba(0,212,255,0.1)';
+      anonymousLabel.style.borderColor = 'var(--border)';
+      anonymousLabel.style.background = 'var(--bg-tertiary)';
+    } else {
+      telegramInput.placeholder = 't.me/+abc123xyz (lien temporaire)';
+      contactTip.innerHTML = `
+        <div style="display:flex;gap:8px">
+          <span style="font-size:16px">🎭</span>
+          <div>
+            <strong style="color:var(--success)">Anonymat total :</strong> Créez un lien temporaire dans Telegram :<br>
+            1. <strong>Paramètres</strong> → <strong>Confidentialité</strong><br>
+            2. Créez un <strong>lien d'invitation</strong> → Copiez-le ici<br>
+            3. Le livreur ne verra <strong>aucune info</strong> personnelle
+          </div>
+        </div>
+      `;
+      anonymousLabel.style.borderColor = 'var(--accent)';
+      anonymousLabel.style.background = 'rgba(0,212,255,0.1)';
+      directLabel.style.borderColor = 'var(--border)';
+      directLabel.style.background = 'var(--bg-tertiary)';
+    }
+  }
+  
+  contactDirect.addEventListener('change', updateContactMode);
+  contactAnonymous.addEventListener('change', updateContactMode);
+  updateContactMode();
   
   const addressInput = content.querySelector('#addressInput');
   let timer = null;
@@ -2038,8 +2097,8 @@ function showOrderSummary(orderData, orderId, discount = 0) {
           </svg>
         </div>
         <div style="flex:1">
-          <div style="color:var(--text-muted);font-size:13px;margin-bottom:2px">Client</div>
-          <div style="font-weight:600">${orderData.customer}</div>
+          <div style="color:var(--text-muted);font-size:13px;margin-bottom:2px">Contact Telegram</div>
+          <div style="font-weight:600">${orderData.customer.includes('t.me/+') ? '🎭 Lien anonyme' : orderData.customer}</div>
         </div>
       </div>
       
@@ -2125,8 +2184,8 @@ function showOrderSummary(orderData, orderId, discount = 0) {
         <div>
           <div style="font-weight:600;margin-bottom:8px;font-size:16px">Prochaines étapes</div>
           <ul style="color:var(--text-secondary);font-size:14px;line-height:1.8;padding-left:20px;margin:0">
-            <li>Vous serez contacté par notre équipe pour confirmer votre commande</li>
-            <li>Le livreur vous contactera avant de partir</li>
+            <li>Notre équipe va vérifier votre commande</li>
+            <li>Le livreur vous contactera sur Telegram avant de partir</li>
             <li>Paiement à la livraison (espèces, CB ou crypto)</li>
             <li>Livraison rapide et discrète garantie</li>
           </ul>
@@ -2157,7 +2216,7 @@ function showOrderSummary(orderData, orderId, discount = 0) {
 
 📋 Numéro de commande : #${orderId}
 
-👤 Client : ${orderData.customer}
+👤 Contact : ${orderData.customer}
 📍 Adresse : ${orderData.address}
 🚚 Livraison : ${orderData.type}
 
@@ -2258,6 +2317,25 @@ document.getElementById('validateOrder').onclick = async () => {
     return;
   }
   
+  const telegramInput = document.getElementById('telegramUsername');
+  const telegramUsername = telegramInput?.value.trim() || '';
+  
+  if (!telegramUsername) {
+    showToast('⚠️ Veuillez entrer votre contact Telegram');
+    if (telegramInput) telegramInput.focus();
+    return;
+  }
+  
+  // Validation basique du format
+  const isUsername = telegramUsername.startsWith('@');
+  const isTempLink = telegramUsername.includes('t.me/+') || telegramUsername.includes('t.me/joinchat');
+  
+  if (!isUsername && !isTempLink) {
+    showToast('⚠️ Format invalide. Utilisez @username ou un lien t.me/+...');
+    if (telegramInput) telegramInput.focus();
+    return;
+  }
+  
   const addressInput = document.getElementById('addressInput');
   const address = addressInput?.value.trim() || '';
   
@@ -2285,7 +2363,7 @@ document.getElementById('validateOrder').onclick = async () => {
   const total = subtotal + deliveryFee;
   
   const orderData = {
-    customer: address,
+    customer: telegramUsername,
     type: deliveryType,
     address: address,
     items: items,
@@ -2308,17 +2386,10 @@ document.getElementById('validateOrder').onclick = async () => {
     const result = await response.json();
     
     if (result.ok) {
-      // Fermer le panier
       document.getElementById('cartSheet').classList.add('hidden');
-      
-      // Afficher le récapitulatif complet
-      showOrderSummary(orderData, result.id, result.discount || 0);
-      
-      // Vider le panier
+      showOrderSummary(orderData, result.orderId, result.discount || 0);
       cart = [];
       updateBadge();
-      
-      // Réinitialiser le bouton
       btn.disabled = false;
       btn.textContent = 'Valider la commande';
     } else {
