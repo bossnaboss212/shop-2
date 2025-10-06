@@ -16,11 +16,22 @@
   --accent-dark:#00a8cc;
   --success:#10b981;
   --danger:#ef4444;
+  --warning:#f59e0b;
   --border:#ffffff10;
   --shadow-sm:0 2px 8px rgba(0,0,0,0.1);
   --shadow-md:0 4px 16px rgba(0,0,0,0.2);
   --shadow-lg:0 8px 32px rgba(0,0,0,0.3);
   --shadow-glow:0 0 20px rgba(0,212,255,0.3);
+}
+
+[data-theme="light"]{
+  --bg-primary:#f8fafc;
+  --bg-secondary:#ffffff;
+  --bg-tertiary:#f1f5f9;
+  --text-primary:#0f172a;
+  --text-secondary:#475569;
+  --text-muted:#94a3b8;
+  --border:#e2e8f0;
 }
 
 *{box-sizing:border-box;margin:0;padding:0}
@@ -31,6 +42,7 @@ body{
   color:var(--text-primary);
   overflow-x:hidden;
   -webkit-font-smoothing:antialiased;
+  transition:background 0.3s, color 0.3s;
 }
 
 body.modal-open{overflow:hidden;position:fixed;width:100%}
@@ -47,6 +59,10 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
   display:flex;
   align-items:center;
   justify-content:space-between;
+}
+
+[data-theme="light"] .header{
+  background:rgba(255,255,255,0.95);
 }
 
 .menu-btn{
@@ -107,6 +123,37 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
   50%{transform:translateY(-4px)}
 }
 
+.header-actions{
+  display:flex;
+  gap:8px;
+  align-items:center;
+}
+
+.theme-toggle{
+  background:var(--bg-tertiary);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:8px;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  transition:all 0.2s;
+}
+
+.theme-toggle:hover{
+  background:var(--bg-secondary);
+  border-color:var(--accent);
+}
+
+.theme-icon{
+  width:20px;
+  height:20px;
+  stroke:var(--text-primary);
+  fill:none;
+  stroke-width:2;
+}
+
 .cart-btn{
   background:var(--bg-tertiary);
   border:1px solid var(--border);
@@ -146,6 +193,73 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
   font-weight:700;
   min-width:20px;
   text-align:center;
+}
+
+/* ===== LOYALTY BANNER ===== */
+.loyalty-banner{
+  background:linear-gradient(135deg,var(--accent) 0%,#764ba2 100%);
+  padding:12px 20px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  cursor:pointer;
+  transition:all 0.2s;
+}
+
+.loyalty-banner:hover{
+  transform:translateY(-2px);
+  box-shadow:var(--shadow-md);
+}
+
+.loyalty-info{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  flex:1;
+}
+
+.loyalty-icon{
+  width:40px;
+  height:40px;
+  background:rgba(255,255,255,0.2);
+  border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:20px;
+}
+
+.loyalty-text{
+  flex:1;
+}
+
+.loyalty-title{
+  font-weight:700;
+  font-size:14px;
+  color:#fff;
+  margin-bottom:2px;
+}
+
+.loyalty-subtitle{
+  font-size:12px;
+  color:rgba(255,255,255,0.9);
+}
+
+.loyalty-progress{
+  width:100%;
+  height:6px;
+  background:rgba(255,255,255,0.2);
+  border-radius:3px;
+  overflow:hidden;
+  margin-top:8px;
+}
+
+.loyalty-bar{
+  height:100%;
+  background:#fff;
+  border-radius:3px;
+  transition:width 0.5s ease;
 }
 
 /* ===== MENU LATERAL ===== */
@@ -293,6 +407,10 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
   border-bottom:1px solid var(--border);
 }
 
+[data-theme="light"] .search-section{
+  background:rgba(255,255,255,0.95);
+}
+
 .search-box{
   position:relative;
 }
@@ -345,6 +463,50 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
 .filter-btn:hover{
   background:var(--accent-dark);
   transform:translateY(-50%) scale(1.05);
+}
+
+.filter-btn.active{
+  background:var(--success);
+}
+
+/* ===== SORT BAR ===== */
+.sort-bar{
+  padding:12px 20px;
+  display:flex;
+  gap:10px;
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:none;
+  border-bottom:1px solid var(--border);
+}
+
+.sort-bar::-webkit-scrollbar{display:none}
+
+.sort-chip{
+  padding:8px 16px;
+  background:var(--bg-tertiary);
+  border:2px solid var(--border);
+  border-radius:16px;
+  color:var(--text-secondary);
+  font-size:13px;
+  font-weight:600;
+  cursor:pointer;
+  transition:all 0.2s;
+  white-space:nowrap;
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+
+.sort-chip:hover{
+  background:var(--bg-secondary);
+  border-color:var(--accent);
+}
+
+.sort-chip.active{
+  background:var(--accent);
+  border-color:var(--accent);
+  color:var(--bg-primary);
 }
 
 /* ===== CATEGORIES ===== */
@@ -456,10 +618,51 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
   object-fit:cover;
 }
 
-.product-rating{
+.product-actions{
   position:absolute;
   top:12px;
   right:12px;
+  display:flex;
+  gap:8px;
+  z-index:2;
+}
+
+.product-action-btn{
+  width:36px;
+  height:36px;
+  background:rgba(0,0,0,0.7);
+  backdrop-filter:blur(10px);
+  border:none;
+  border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  transition:all 0.2s;
+}
+
+.product-action-btn:hover{
+  background:var(--accent);
+  transform:scale(1.1);
+}
+
+.product-action-btn svg{
+  width:18px;
+  height:18px;
+  stroke:var(--text-primary);
+  fill:none;
+  stroke-width:2;
+}
+
+.product-action-btn.active svg{
+  fill:var(--danger);
+  stroke:var(--danger);
+}
+
+.product-rating{
+  position:absolute;
+  top:12px;
+  left:12px;
   background:rgba(0,0,0,0.7);
   backdrop-filter:blur(10px);
   padding:6px 10px;
@@ -515,6 +718,86 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
   font-weight:700;
 }
 
+/* ===== PROMO INPUT ===== */
+.promo-section{
+  margin:20px 0;
+}
+
+.promo-input-wrapper{
+  display:flex;
+  gap:10px;
+}
+
+.promo-input{
+  flex:1;
+  padding:14px 16px;
+  background:var(--bg-tertiary);
+  border:2px solid var(--border);
+  border-radius:12px;
+  color:var(--text-primary);
+  font-size:15px;
+  text-transform:uppercase;
+  transition:all 0.2s;
+}
+
+.promo-input:focus{
+  outline:none;
+  border-color:var(--accent);
+}
+
+.promo-input.valid{
+  border-color:var(--success);
+}
+
+.promo-input.invalid{
+  border-color:var(--danger);
+}
+
+.promo-btn{
+  padding:14px 24px;
+  background:var(--accent);
+  border:none;
+  border-radius:12px;
+  color:var(--bg-primary);
+  font-weight:600;
+  cursor:pointer;
+  transition:all 0.2s;
+}
+
+.promo-btn:hover{
+  background:var(--accent-dark);
+}
+
+.promo-applied{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  background:rgba(16,185,129,0.1);
+  border:2px solid var(--success);
+  border-radius:12px;
+  padding:12px 16px;
+  margin-top:12px;
+}
+
+.promo-applied-text{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  color:var(--success);
+  font-weight:600;
+  font-size:14px;
+}
+
+.promo-remove{
+  background:transparent;
+  border:none;
+  color:var(--danger);
+  cursor:pointer;
+  font-size:18px;
+  padding:4px;
+  line-height:1;
+}
+
 /* ===== BOTTOM NAV ===== */
 .bottom-nav{
   position:fixed;
@@ -528,6 +811,10 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
   display:flex;
   justify-content:space-around;
   z-index:99;
+}
+
+[data-theme="light"] .bottom-nav{
+  background:rgba(255,255,255,0.95);
 }
 
 .nav-item{
@@ -765,6 +1052,70 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
   font-weight:600;
 }
 
+/* ===== ORDERS LIST ===== */
+.order-card{
+  background:var(--bg-tertiary);
+  border:1px solid var(--border);
+  border-radius:16px;
+  padding:16px;
+  margin-bottom:12px;
+  cursor:pointer;
+  transition:all 0.2s;
+}
+
+.order-card:hover{
+  border-color:var(--accent);
+  transform:translateY(-2px);
+}
+
+.order-header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:12px;
+}
+
+.order-number{
+  font-weight:700;
+  font-size:16px;
+  color:var(--accent);
+}
+
+.order-status{
+  padding:4px 12px;
+  border-radius:12px;
+  font-size:12px;
+  font-weight:600;
+}
+
+.order-status.delivered{
+  background:rgba(16,185,129,0.2);
+  color:var(--success);
+}
+
+.order-status.pending{
+  background:rgba(245,158,11,0.2);
+  color:var(--warning);
+}
+
+.order-date{
+  color:var(--text-muted);
+  font-size:13px;
+  margin-bottom:8px;
+}
+
+.order-items{
+  color:var(--text-secondary);
+  font-size:14px;
+  margin-bottom:8px;
+}
+
+.order-total{
+  font-weight:700;
+  font-size:18px;
+  color:var(--accent);
+}
+
 /* ===== TOAST ===== */
 .toast{
   position:fixed;
@@ -850,6 +1201,28 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
   align-items:center;
   gap:8px;
   color:var(--text-secondary);
+}
+
+.product-share-btn{
+  margin:16px 0;
+  background:var(--bg-tertiary);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:12px 20px;
+  width:100%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  cursor:pointer;
+  transition:all 0.2s;
+  color:var(--text-primary);
+  font-weight:600;
+}
+
+.product-share-btn:hover{
+  background:var(--bg-secondary);
+  border-color:var(--accent);
 }
 
 .variants-section{
@@ -988,6 +1361,10 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
   display:flex;
   gap:12px;
   z-index:10;
+}
+
+[data-theme="light"] .add-to-cart-bar{
+  background:rgba(255,255,255,0.98);
 }
 
 .price-info{
@@ -1300,6 +1677,14 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
         <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
         <span>Accueil</span>
       </button>
+      <button class="menu-item" data-page="favorites">
+        <svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+        <span>Favoris</span>
+      </button>
+      <button class="menu-item" data-page="orders">
+        <svg viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+        <span>Mes Commandes</span>
+      </button>
       <button class="menu-item" data-page="infos">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
         <span>Informations</span>
@@ -1334,15 +1719,44 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
       </div>
     </div>
     
-    <button class="cart-btn" id="cartBtn">
-      <svg class="cart-icon" viewBox="0 0 24 24">
-        <circle cx="9" cy="21" r="1"></circle>
-        <circle cx="20" cy="21" r="1"></circle>
-        <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
-      </svg>
-      <span class="badge" id="badge">0</span>
-    </button>
+    <div class="header-actions">
+      <button class="theme-toggle" id="themeToggle">
+        <svg class="theme-icon" id="themeIcon" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="5"></circle>
+          <line x1="12" y1="1" x2="12" y2="3"></line>
+          <line x1="12" y1="21" x2="12" y2="23"></line>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+          <line x1="1" y1="12" x2="3" y2="12"></line>
+          <line x1="21" y1="12" x2="23" y2="12"></line>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+        </svg>
+      </button>
+      <button class="cart-btn" id="cartBtn">
+        <svg class="cart-icon" viewBox="0 0 24 24">
+          <circle cx="9" cy="21" r="1"></circle>
+          <circle cx="20" cy="21" r="1"></circle>
+          <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+        </svg>
+        <span class="badge" id="badge">0</span>
+      </button>
+    </div>
   </header>
+
+  <!-- Loyalty Banner -->
+  <div class="loyalty-banner" id="loyaltyBanner">
+    <div class="loyalty-info">
+      <div class="loyalty-icon">🎁</div>
+      <div class="loyalty-text">
+        <div class="loyalty-title" id="loyaltyTitle">Programme fidélité</div>
+        <div class="loyalty-subtitle" id="loyaltySubtitle">0/10 commandes</div>
+        <div class="loyalty-progress">
+          <div class="loyalty-bar" id="loyaltyBar" style="width:0%"></div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Page Home -->
   <main class="page active" id="page-home">
@@ -1362,7 +1776,23 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
           <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
         </svg>
         <input type="text" class="search-input" placeholder="Rechercher un produit..." id="searchInput">
-        <button class="filter-btn">Filtrer</button>
+        <button class="filter-btn" id="filterBtn">Filtrer</button>
+      </div>
+    </section>
+
+    <!-- Sort Bar -->
+    <section class="sort-bar" id="sortBar">
+      <div class="sort-chip active" data-sort="default">
+        <span>Par défaut</span>
+      </div>
+      <div class="sort-chip" data-sort="price-asc">
+        <span>Prix ↑</span>
+      </div>
+      <div class="sort-chip" data-sort="price-desc">
+        <span>Prix ↓</span>
+      </div>
+      <div class="sort-chip" data-sort="name">
+        <span>Nom A-Z</span>
       </div>
     </section>
 
@@ -1383,6 +1813,33 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
       <span class="results-count" id="resultsCount">12 articles</span>
     </div>
     <div class="grid" id="productGrid"></div>
+  </main>
+
+  <!-- Page Favorites -->
+  <main class="page" id="page-favorites">
+    <div class="info-section">
+      <h2 class="section-title">
+        <svg style="width:32px;height:32px;stroke:var(--accent);fill:none;stroke-width:2" viewBox="0 0 24 24">
+          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+        </svg>
+        Mes Favoris
+      </h2>
+      <div id="favoritesList"></div>
+    </div>
+  </main>
+
+  <!-- Page Orders -->
+  <main class="page" id="page-orders">
+    <div class="info-section">
+      <h2 class="section-title">
+        <svg style="width:32px;height:32px;stroke:var(--accent);fill:none;stroke-width:2" viewBox="0 0 24 24">
+          <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
+          <line x1="1" y1="10" x2="23" y2="10"></line>
+        </svg>
+        Mes Commandes
+      </h2>
+      <div id="ordersList"></div>
+    </div>
   </main>
 
   <!-- Page Infos -->
@@ -1432,7 +1889,6 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
     <div class="info-section">
       <h2 class="section-title">⭐ Avis clients</h2>
       
-      <!-- Formulaire d'avis -->
       <div style="background:var(--bg-secondary);border:2px solid var(--border);border-radius:16px;padding:20px;margin-bottom:24px">
         <h3 style="font-size:18px;font-weight:700;margin-bottom:16px">Laisser un avis</h3>
         
@@ -1462,7 +1918,6 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
         </button>
       </div>
       
-      <!-- Liste des avis -->
       <div id="reviewsList"></div>
     </div>
   </main>
@@ -1492,18 +1947,19 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
       <svg class="nav-icon" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
       <span class="nav-label">Accueil</span>
     </button>
-    <button class="nav-item" data-tab="infos">
-      <svg class="nav-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-      <span class="nav-label">Infos</span>
+    <button class="nav-item" data-tab="favorites">
+      <svg class="nav-icon" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+      <span class="nav-label">Favoris</span>
+      <span class="nav-badge" id="badgeFavorites">0</span>
     </button>
     <button class="nav-item" id="cartNavBtn">
       <svg class="nav-icon" viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
       <span class="nav-label">Panier</span>
       <span class="nav-badge" id="badgeBottom">0</span>
     </button>
-    <button class="nav-item" data-tab="avis">
-      <svg class="nav-icon" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-      <span class="nav-label">Avis</span>
+    <button class="nav-item" data-tab="orders">
+      <svg class="nav-icon" viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+      <span class="nav-label">Commandes</span>
     </button>
     <button class="nav-item" data-tab="support">
       <svg class="nav-icon" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
@@ -1588,14 +2044,88 @@ const PRODUCTS = [
    variants:[{label:"3,33G",grams:3.33,price:20},{label:"5G",grams:5,price:30},{label:"10G",grams:10,price:60},{label:"50G",grams:50,price:250},{label:"100G",grams:100,price:450}]}
 ];
 
+const PROMO_CODES = {
+  'WELCOME10': { type: 'percent', value: 10, label: '10% de réduction' },
+  'FIRST20': { type: 'fixed', value: 20, label: '20€ de réduction' },
+  'VIP15': { type: 'percent', value: 15, label: '15% de réduction VIP' }
+};
+
 const fmt = n => n.toFixed(2) + ' €';
 const API = '/api';
 
 let cart = [];
+let favorites = [];
+let orders = [];
 let currentProduct = null;
 let selectedVariant = null;
 let quantity = 1;
 let selectedDelivery = 'millau';
+let currentSort = 'default';
+let currentCategory = 'all';
+let appliedPromo = null;
+let loyaltyCount = 0;
+
+// Load data
+function loadData() {
+  favorites = [];
+  orders = [];
+  loyaltyCount = 0;
+  updateLoyaltyBanner();
+}
+
+function saveFavorites() {
+  console.log('Favorites saved:', favorites);
+}
+
+function saveOrders() {
+  console.log('Orders saved:', orders);
+}
+
+function saveLoyalty() {
+  console.log('Loyalty count saved:', loyaltyCount);
+}
+
+// Theme Toggle
+function initTheme() {
+  const theme = 'dark';
+  document.body.setAttribute('data-theme', theme);
+  updateThemeIcon(theme);
+}
+
+function toggleTheme() {
+  const current = document.body.getAttribute('data-theme') || 'dark';
+  const newTheme = current === 'dark' ? 'light' : 'dark';
+  document.body.setAttribute('data-theme', newTheme);
+  updateThemeIcon(newTheme);
+}
+
+function updateThemeIcon(theme) {
+  const icon = document.getElementById('themeIcon');
+  if (theme === 'light') {
+    icon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>';
+  } else {
+    icon.innerHTML = '<circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>';
+  }
+}
+
+document.getElementById('themeToggle').onclick = toggleTheme;
+
+// Loyalty System
+function updateLoyaltyBanner() {
+  const progress = (loyaltyCount % 10) / 10 * 100;
+  const remaining = 10 - (loyaltyCount % 10);
+  
+  document.getElementById('loyaltyTitle').textContent = remaining === 10 
+    ? 'Programme fidélité actif !'
+    : `Plus que ${remaining} commande${remaining > 1 ? 's' : ''} !`;
+  
+  document.getElementById('loyaltySubtitle').textContent = `${loyaltyCount % 10}/10 commandes`;
+  document.getElementById('loyaltyBar').style.width = progress + '%';
+}
+
+document.getElementById('loyaltyBanner').onclick = () => {
+  showToast(`🎁 ${loyaltyCount % 10}/10 commandes complétées. Remise au prochain palier !`);
+};
 
 function showToast(msg) {
   const toast = document.createElement('div');
@@ -1613,16 +2143,128 @@ function updateBadge() {
   const total = cart.reduce((sum, item) => sum + item.qty, 0);
   document.getElementById('badge').textContent = total;
   document.getElementById('badgeBottom').textContent = total;
+  document.getElementById('badgeFavorites').textContent = favorites.length;
 }
 
-function renderProducts(filter = 'all') {
+// Favorites
+function toggleFavorite(productId) {
+  const idx = favorites.indexOf(productId);
+  if (idx >= 0) {
+    favorites.splice(idx, 1);
+    showToast('❌ Retiré des favoris');
+  } else {
+    favorites.push(productId);
+    showToast('❤️ Ajouté aux favoris');
+  }
+  saveFavorites();
+  updateBadge();
+  renderProducts(currentCategory, currentSort);
+  renderFavorites();
+}
+
+function renderFavorites() {
+  const list = document.getElementById('favoritesList');
+  if (favorites.length === 0) {
+    list.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:40px">Aucun favori pour le moment</div>';
+    return;
+  }
+  
+  const favProducts = PRODUCTS.filter(p => favorites.includes(p.id));
+  list.innerHTML = favProducts.map(p => {
+    const minPrice = Math.min(...p.variants.map(v => v.price));
+    return `
+      <div class="info-card" style="cursor:pointer" data-product-id="${p.id}">
+        <div style="width:60px;height:60px;border-radius:12px;overflow:hidden;flex-shrink:0;background:var(--bg-tertiary)">
+          <video style="width:100%;height:100%;object-fit:cover" autoplay muted loop playsinline>
+            <source src="${p.video}" type="video/mp4">
+          </video>
+        </div>
+        <div style="flex:1">
+          <div style="font-weight:700;margin-bottom:4px">${p.name}</div>
+          <div style="color:var(--text-muted);font-size:13px;margin-bottom:4px">${p.farm}</div>
+          <div style="color:var(--accent);font-weight:700">À partir de ${fmt(minPrice)}</div>
+        </div>
+        <button class="delete-btn" data-fav-id="${p.id}" style="background:var(--danger)">❤️</button>
+      </div>
+    `;
+  }).join('');
+  
+  list.querySelectorAll('[data-product-id]').forEach(card => {
+    card.onclick = (e) => {
+      if (!e.target.closest('.delete-btn')) {
+        openProduct(parseInt(card.dataset.productId));
+      }
+    };
+  });
+  
+  list.querySelectorAll('[data-fav-id]').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      toggleFavorite(parseInt(btn.dataset.favId));
+    };
+  });
+}
+
+// Orders
+function renderOrders() {
+  const list = document.getElementById('ordersList');
+  if (orders.length === 0) {
+    list.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:40px">Aucune commande pour le moment</div>';
+    return;
+  }
+  
+  list.innerHTML = orders.slice().reverse().map(order => `
+    <div class="order-card">
+      <div class="order-header">
+        <span class="order-number">#${order.id}</span>
+        <span class="order-status ${order.status}">${order.status === 'delivered' ? 'Livrée' : 'En cours'}</span>
+      </div>
+      <div class="order-date">${new Date(order.date).toLocaleDateString('fr-FR', {day: 'numeric', month: 'long', year: 'numeric'})}</div>
+      <div class="order-items">${order.itemCount} article${order.itemCount > 1 ? 's' : ''}</div>
+      <div class="order-total">${fmt(order.total)}</div>
+    </div>
+  `).join('');
+}
+
+// Sort & Filter
+function sortProducts(products, sortType) {
+  const sorted = [...products];
+  switch(sortType) {
+    case 'price-asc':
+      sorted.sort((a, b) => Math.min(...a.variants.map(v => v.price)) - Math.min(...b.variants.map(v => v.price)));
+      break;
+    case 'price-desc':
+      sorted.sort((a, b) => Math.min(...b.variants.map(v => v.price)) - Math.min(...a.variants.map(v => v.price)));
+      break;
+    case 'name':
+      sorted.sort((a, b) => a.name.localeCompare(b.name));
+      break;
+  }
+  return sorted;
+}
+
+document.querySelectorAll('.sort-chip').forEach(chip => {
+  chip.onclick = () => {
+    document.querySelectorAll('.sort-chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    currentSort = chip.dataset.sort;
+    renderProducts(currentCategory, currentSort);
+  };
+});
+
+function renderProducts(filter = 'all', sort = 'default') {
+  currentCategory = filter;
+  currentSort = sort;
+  
   const grid = document.getElementById('productGrid');
-  const filtered = filter === 'all' ? PRODUCTS : PRODUCTS.filter(p => p.category === filter);
+  let filtered = filter === 'all' ? PRODUCTS : PRODUCTS.filter(p => p.category === filter);
+  filtered = sortProducts(filtered, sort);
   
   document.getElementById('resultsCount').textContent = `${filtered.length} articles`;
   
   grid.innerHTML = filtered.map(p => {
     const minPrice = Math.min(...p.variants.map(v => v.price));
+    const isFav = favorites.includes(p.id);
     return `
     <div class="product-card" data-id="${p.id}">
       <div class="product-thumb">
@@ -1632,6 +2274,14 @@ function renderProducts(filter = 'all') {
         <div class="product-rating">
           <span>⭐</span>
           <span>4.8</span>
+        </div>
+        <div class="product-actions">
+          <button class="product-action-btn ${isFav ? 'active' : ''}" data-fav="${p.id}">
+            <svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+          </button>
+          <button class="product-action-btn" data-share="${p.id}">
+            <svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+          </button>
         </div>
       </div>
       <div class="product-meta">
@@ -1646,8 +2296,43 @@ function renderProducts(filter = 'all') {
   `}).join('');
   
   grid.querySelectorAll('.product-card').forEach(card => {
-    card.onclick = () => openProduct(parseInt(card.dataset.id));
+    card.onclick = (e) => {
+      if (!e.target.closest('.product-action-btn')) {
+        openProduct(parseInt(card.dataset.id));
+      }
+    };
   });
+  
+  grid.querySelectorAll('[data-fav]').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      toggleFavorite(parseInt(btn.dataset.fav));
+    };
+  });
+  
+  grid.querySelectorAll('[data-share]').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      const productId = parseInt(btn.dataset.share);
+      const product = PRODUCTS.find(p => p.id === productId);
+      shareProduct(product);
+    };
+  });
+}
+
+function shareProduct(product) {
+  const text = `🔥 Découvrez ${product.name} sur DROGUA CENTER !\n\nÀ partir de ${fmt(Math.min(...product.variants.map(v => v.price)))}\n\n👉 https://t.me/+MToYP95G9zY2ZTJk`;
+  
+  if (navigator.share) {
+    navigator.share({
+      title: product.name,
+      text: text
+    }).catch(() => {});
+  } else {
+    navigator.clipboard.writeText(text).then(() => {
+      showToast('📋 Lien copié !');
+    });
+  }
 }
 
 function openProduct(id) {
@@ -1664,6 +2349,17 @@ function openProduct(id) {
         <source src="${currentProduct.video}" type="video/mp4">
       </video>
     </div>
+    
+    <button class="product-share-btn" id="shareProductBtn">
+      <svg style="width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2" viewBox="0 0 24 24">
+        <circle cx="18" cy="5" r="3"></circle>
+        <circle cx="6" cy="12" r="3"></circle>
+        <circle cx="18" cy="19" r="3"></circle>
+        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+        <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+      </svg>
+      Partager ce produit
+    </button>
     
     <div class="product-detail-header">
       <div class="product-detail-farm">${currentProduct.farm}</div>
@@ -1708,6 +2404,8 @@ function openProduct(id) {
       </button>
     </div>
   `;
+  
+  content.querySelector('#shareProductBtn').onclick = () => shareProduct(currentProduct);
   
   content.querySelectorAll('.variant-option').forEach(opt => {
     opt.onclick = function() {
@@ -1798,7 +2496,17 @@ function renderCart() {
   
   const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
   const deliveryFee = selectedDelivery === 'exterieur' ? 20 : 0;
-  const total = subtotal + deliveryFee;
+  let discount = 0;
+  
+  if (appliedPromo) {
+    if (appliedPromo.type === 'percent') {
+      discount = subtotal * (appliedPromo.value / 100);
+    } else {
+      discount = appliedPromo.value;
+    }
+  }
+  
+  const total = subtotal + deliveryFee - discount;
   
   content.innerHTML = `
     ${cart.map((item, idx) => `
@@ -1818,6 +2526,26 @@ function renderCart() {
         </div>
       </div>
     `).join('')}
+    
+    <div class="promo-section">
+      <div class="section-label">Code promo</div>
+      ${appliedPromo ? `
+        <div class="promo-applied">
+          <span class="promo-applied-text">
+            <svg style="width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2" viewBox="0 0 24 24">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            ${appliedPromo.label}
+          </span>
+          <button class="promo-remove" id="removePromo">✕</button>
+        </div>
+      ` : `
+        <div class="promo-input-wrapper">
+          <input type="text" class="promo-input" id="promoInput" placeholder="Entrez votre code">
+          <button class="promo-btn" id="applyPromo">Appliquer</button>
+        </div>
+      `}
+    </div>
     
     <div class="delivery-section">
       <div class="section-label">Mode de livraison</div>
@@ -1840,7 +2568,6 @@ function renderCart() {
     <div class="address-section">
       <div class="section-label">📱 Mode de contact</div>
       
-      <!-- Choix du mode de contact -->
       <div style="margin-bottom:16px">
         <div style="display:flex;flex-direction:column;gap:10px">
           <label style="display:flex;align-items:center;gap:10px;padding:12px;background:var(--bg-tertiary);border:2px solid var(--border);border-radius:12px;cursor:pointer;transition:all 0.2s" id="contactDirectLabel">
@@ -1858,20 +2585,6 @@ function renderCart() {
               <div style="font-size:12px;color:var(--text-muted)">Lien temporaire Telegram</div>
             </div>
           </label>
-          
-          <div style="padding:12px;background:rgba(16,185,129,0.1);border:2px solid var(--success);border-radius:12px;font-size:12px;line-height:1.6">
-            <div style="font-weight:700;margin-bottom:8px;color:var(--success)">📖 Comment créer un lien anonyme :</div>
-            <ol style="margin:0;padding-left:20px;color:var(--text-secondary)">
-              <li>Ouvrez <strong>Telegram</strong> → <strong>Paramètres</strong></li>
-              <li>Allez dans <strong>Confidentialité et sécurité</strong></li>
-              <li>Cliquez sur <strong>Nouveau lien d'invitation</strong></li>
-              <li>Copiez le lien (format : <code style="background:var(--bg-primary);padding:2px 6px;border-radius:4px">t.me/+abc123</code>)</li>
-              <li>Collez-le dans le champ ci-dessous ✅</li>
-            </ol>
-            <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--success);color:var(--success);font-weight:600">
-              ✨ Le livreur ne verra AUCUNE info personnelle !
-            </div>
-          </div>
         </div>
       </div>
       
@@ -1883,15 +2596,6 @@ function renderCart() {
           placeholder="@votre_username"
           style="margin-bottom:16px"
         >
-        <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;padding:10px;background:var(--bg-tertiary);border-radius:8px;border-left:3px solid var(--accent)" id="contactTip">
-          <div style="display:flex;gap:8px">
-            <span style="font-size:16px">💡</span>
-            <div>
-              <strong>Contact direct :</strong> Le livreur verra votre profil Telegram.<br>
-              <strong>Astuce anonyme :</strong> Utilisez un lien temporaire (t.me/+...) ou un compte secondaire.
-            </div>
-          </div>
-        </div>
       </div>
       
       <div class="section-label">📍 Adresse de livraison</div>
@@ -1910,6 +2614,7 @@ function renderCart() {
       <div>
         <div style="color:var(--text-muted);font-size:14px;margin-bottom:4px">Sous-total : ${fmt(subtotal)}</div>
         ${deliveryFee > 0 ? `<div style="color:var(--text-muted);font-size:14px">Livraison : ${fmt(deliveryFee)}</div>` : ''}
+        ${discount > 0 ? `<div style="color:var(--success);font-size:14px">Réduction : -${fmt(discount)}</div>` : ''}
       </div>
       <span class="total-amount">${fmt(total)}</span>
     </div>
@@ -1932,43 +2637,48 @@ function renderCart() {
     };
   });
   
-  // Gestion du mode de contact
+  const applyBtn = content.querySelector('#applyPromo');
+  if (applyBtn) {
+    applyBtn.onclick = () => {
+      const input = content.querySelector('#promoInput');
+      const code = input.value.trim().toUpperCase();
+      
+      if (PROMO_CODES[code]) {
+        appliedPromo = PROMO_CODES[code];
+        showToast(`🎉 Code "${code}" appliqué !`);
+        renderCart();
+      } else {
+        input.classList.add('invalid');
+        showToast('❌ Code promo invalide');
+        setTimeout(() => input.classList.remove('invalid'), 2000);
+      }
+    };
+  }
+  
+  const removeBtn = content.querySelector('#removePromo');
+  if (removeBtn) {
+    removeBtn.onclick = () => {
+      appliedPromo = null;
+      showToast('Code promo retiré');
+      renderCart();
+    };
+  }
+  
   const contactDirect = content.querySelector('#contactDirect');
   const contactAnonymous = content.querySelector('#contactAnonymous');
   const telegramInput = content.querySelector('#telegramUsername');
-  const contactTip = content.querySelector('#contactTip');
   const directLabel = content.querySelector('#contactDirectLabel');
   const anonymousLabel = content.querySelector('#contactAnonymousLabel');
   
   function updateContactMode() {
     if (contactDirect.checked) {
       telegramInput.placeholder = '@votre_username';
-      contactTip.innerHTML = `
-        <div style="display:flex;gap:8px">
-          <span style="font-size:16px">⚠️</span>
-          <div>
-            <strong style="color:var(--warning)">Attention :</strong> Le livreur verra votre profil Telegram (nom, photo, bio).<br>
-            <strong>Pour rester anonyme :</strong> Passez en mode "Contact anonyme" ci-dessus.
-          </div>
-        </div>
-      `;
       directLabel.style.borderColor = 'var(--accent)';
       directLabel.style.background = 'rgba(0,212,255,0.1)';
       anonymousLabel.style.borderColor = 'var(--border)';
       anonymousLabel.style.background = 'var(--bg-tertiary)';
     } else {
       telegramInput.placeholder = 't.me/+abc123xyz (lien temporaire)';
-      contactTip.innerHTML = `
-        <div style="display:flex;gap:8px">
-          <span style="font-size:16px">🎭</span>
-          <div>
-            <strong style="color:var(--success)">Anonymat total :</strong> Créez un lien temporaire dans Telegram :<br>
-            1. <strong>Paramètres</strong> → <strong>Confidentialité</strong><br>
-            2. Créez un <strong>lien d'invitation</strong> → Copiez-le ici<br>
-            3. Le livreur ne verra <strong>aucune info</strong> personnelle
-          </div>
-        </div>
-      `;
       anonymousLabel.style.borderColor = 'var(--accent)';
       anonymousLabel.style.background = 'rgba(0,212,255,0.1)';
       directLabel.style.borderColor = 'var(--border)';
@@ -2164,7 +2874,7 @@ function showOrderSummary(orderData, orderId, discount = 0) {
       ` : ''}
       ${discount > 0 ? `
         <div style="display:flex;justify-content:space-between;margin-bottom:12px">
-          <span style="color:var(--success)">🎁 Remise fidélité</span>
+          <span style="color:var(--success)">🎁 Remise</span>
           <span style="font-weight:600;color:var(--success)">-${fmt(discount)}</span>
         </div>
       ` : ''}
@@ -2225,7 +2935,7 @@ ${orderData.items.map(item => `• ${item.name} - ${item.variant} × ${item.qty}
 
 💰 RÉCAPITULATIF :
 Sous-total : ${fmt(subtotal)}
-${deliveryFee > 0 ? `Frais de livraison : ${fmt(deliveryFee)}\n` : ''}${discount > 0 ? `🎁 Remise fidélité : -${fmt(discount)}\n` : ''}
+${deliveryFee > 0 ? `Frais de livraison : ${fmt(deliveryFee)}\n` : ''}${discount > 0 ? `🎁 Remise : -${fmt(discount)}\n` : ''}
 TOTAL : ${fmt(totalWithDiscount)}
 
 📞 Support : https://t.me/assistancenter
@@ -2261,7 +2971,7 @@ document.querySelectorAll('.category-chip').forEach(chip => {
   chip.onclick = () => {
     document.querySelectorAll('.category-chip').forEach(c => c.classList.remove('active'));
     chip.classList.add('active');
-    renderProducts(chip.dataset.cat);
+    renderProducts(chip.dataset.cat, currentSort);
   };
 });
 
@@ -2326,7 +3036,6 @@ document.getElementById('validateOrder').onclick = async () => {
     return;
   }
   
-  // Validation basique du format
   const isUsername = telegramUsername.startsWith('@');
   const isTempLink = telegramUsername.includes('t.me/+') || telegramUsername.includes('t.me/joinchat');
   
@@ -2360,7 +3069,23 @@ document.getElementById('validateOrder').onclick = async () => {
   
   const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
   const deliveryFee = selectedDelivery === 'exterieur' ? 20 : 0;
-  const total = subtotal + deliveryFee;
+  
+  let promoDiscount = 0;
+  if (appliedPromo) {
+    if (appliedPromo.type === 'percent') {
+      promoDiscount = subtotal * (appliedPromo.value / 100);
+    } else {
+      promoDiscount = appliedPromo.value;
+    }
+  }
+  
+  let loyaltyDiscount = 0;
+  if ((loyaltyCount + 1) % 10 === 0) {
+    loyaltyDiscount = Math.min(subtotal * 0.1, 20);
+  }
+  
+  const totalDiscount = promoDiscount + loyaltyDiscount;
+  const total = subtotal + deliveryFee - totalDiscount;
   
   const orderData = {
     customer: telegramUsername,
@@ -2370,54 +3095,54 @@ document.getElementById('validateOrder').onclick = async () => {
     total: total
   };
   
-  try {
-    const btn = document.getElementById('validateOrder');
-    btn.disabled = true;
-    btn.textContent = 'Envoi en cours...';
-    
-    const response = await fetch(`${API}/create-order`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(orderData)
-    });
-    
-    const result = await response.json();
-    
-    if (result.ok) {
-      document.getElementById('cartSheet').classList.add('hidden');
-      showOrderSummary(orderData, result.orderId, result.discount || 0);
-      cart = [];
-      updateBadge();
-      btn.disabled = false;
-      btn.textContent = 'Valider la commande';
-    } else {
-      throw new Error(result.error || 'Erreur lors de la création de la commande');
-    }
-  } catch (error) {
-    console.error('Order error:', error);
-    showToast('❌ Erreur lors de la commande');
-    const btn = document.getElementById('validateOrder');
-    btn.disabled = false;
-    btn.textContent = 'Valider la commande';
+  const orderId = 'DC' + Date.now().toString().slice(-8);
+  
+  const order = {
+    id: orderId,
+    date: new Date().toISOString(),
+    items: items,
+    itemCount: cart.reduce((sum, item) => sum + item.qty, 0),
+    total: total,
+    status: 'pending'
+  };
+  
+  orders.push(order);
+  saveOrders();
+  
+  loyaltyCount++;
+  saveLoyalty();
+  updateLoyaltyBanner();
+  
+  document.getElementById('cartSheet').classList.add('hidden');
+  showOrderSummary(orderData, orderId, totalDiscount);
+  cart = [];
+  appliedPromo = null;
+  updateBadge();
+  renderOrders();
+  
+  if (loyaltyDiscount > 0) {
+    setTimeout(() => {
+      showToast('🎉 Félicitations ! Remise fidélité appliquée !');
+    }, 1000);
   }
 };
 
 document.getElementById('searchInput').addEventListener('input', (e) => {
   const query = e.target.value.toLowerCase();
   if (query.length < 2) {
-    renderProducts('all');
+    renderProducts(currentCategory, currentSort);
     return;
   }
   const filtered = PRODUCTS.filter(p => 
     p.name.toLowerCase().includes(query) || 
     p.farm.toLowerCase().includes(query)
   );
+  const sorted = sortProducts(filtered, currentSort);
   const grid = document.getElementById('productGrid');
-  document.getElementById('resultsCount').textContent = `${filtered.length} articles`;
-  grid.innerHTML = filtered.map(p => {
+  document.getElementById('resultsCount').textContent = `${sorted.length} articles`;
+  grid.innerHTML = sorted.map(p => {
     const minPrice = Math.min(...p.variants.map(v => v.price));
+    const isFav = favorites.includes(p.id);
     return `
     <div class="product-card" data-id="${p.id}">
       <div class="product-thumb">
@@ -2427,6 +3152,14 @@ document.getElementById('searchInput').addEventListener('input', (e) => {
         <div class="product-rating">
           <span>⭐</span>
           <span>4.8</span>
+        </div>
+        <div class="product-actions">
+          <button class="product-action-btn ${isFav ? 'active' : ''}" data-fav="${p.id}">
+            <svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+          </button>
+          <button class="product-action-btn" data-share="${p.id}">
+            <svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+          </button>
         </div>
       </div>
       <div class="product-meta">
@@ -2441,25 +3174,36 @@ document.getElementById('searchInput').addEventListener('input', (e) => {
   `}).join('');
   
   grid.querySelectorAll('.product-card').forEach(card => {
-    card.onclick = () => openProduct(parseInt(card.dataset.id));
+    card.onclick = (e) => {
+      if (!e.target.closest('.product-action-btn')) {
+        openProduct(parseInt(card.dataset.id));
+      }
+    };
+  });
+  
+  grid.querySelectorAll('[data-fav]').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      toggleFavorite(parseInt(btn.dataset.fav));
+    };
+  });
+  
+  grid.querySelectorAll('[data-share]').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      const productId = parseInt(btn.dataset.share);
+      const product = PRODUCTS.find(p => p.id === productId);
+      shareProduct(product);
+    };
   });
 });
 
 function loadReviews() {
-  try {
-    const data = {};
-    return data.reviews || [];
-  } catch {
-    return [];
-  }
+  return [];
 }
 
 function saveReview(review) {
-  try {
-    console.log('Review saved:', review);
-  } catch (e) {
-    console.error('Error saving review:', e);
-  }
+  console.log('Review saved:', review);
 }
 
 function renderReviews() {
@@ -2530,9 +3274,14 @@ document.getElementById('submitReview')?.addEventListener('click', () => {
   showToast('✅ Merci pour votre avis !');
 });
 
+// Initialize
+initTheme();
+loadData();
 renderProducts();
 updateBadge();
 renderReviews();
+renderFavorites();
+renderOrders();
   </script>
 </body>
 </html>
