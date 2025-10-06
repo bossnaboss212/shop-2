@@ -1649,6 +1649,46 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
   background:var(--bg-tertiary);
 }
 
+.anonymous-info{
+  background:rgba(0,212,255,0.1);
+  border:2px solid var(--accent);
+  border-radius:16px;
+  padding:16px;
+  margin-bottom:20px;
+  display:flex;
+  align-items:start;
+  gap:12px;
+}
+
+.anonymous-icon{
+  width:32px;
+  height:32px;
+  background:var(--accent);
+  border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-shrink:0;
+  font-size:18px;
+}
+
+.anonymous-text{
+  flex:1;
+}
+
+.anonymous-title{
+  font-weight:700;
+  font-size:16px;
+  margin-bottom:4px;
+  color:var(--accent);
+}
+
+.anonymous-subtitle{
+  color:var(--text-secondary);
+  font-size:14px;
+  line-height:1.5;
+}
+
 @keyframes scaleIn {
   from { transform: scale(0); opacity: 0; }
   to { transform: scale(1); opacity: 1; }
@@ -2006,9 +2046,6 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
       </div>
       <div class="sheet-content" id="orderSummaryContent"></div>
       <div class="sheet-footer">
-        <button class="btn-primary" id="copyOrderSummary" style="margin-bottom:10px">
-          📋 Copier le récapitulatif
-        </button>
         <button class="btn-primary" id="closeOrderSummaryBtn" style="background:var(--bg-tertiary);color:var(--text-primary);box-shadow:none">
           Retour à l'accueil
         </button>
@@ -2064,6 +2101,11 @@ let currentSort = 'default';
 let currentCategory = 'all';
 let appliedPromo = null;
 let loyaltyCount = 0;
+
+// Generate anonymous client ID
+function generateClientId() {
+  return 'Client#' + Math.random().toString(36).substr(2, 6).toUpperCase();
+}
 
 // Load data
 function loadData() {
@@ -2146,7 +2188,7 @@ function updateBadge() {
   document.getElementById('badgeFavorites').textContent = favorites.length;
 }
 
-// Favorites
+// Render products and other functions (keep the same)
 function toggleFavorite(productId) {
   const idx = favorites.indexOf(productId);
   if (idx >= 0) {
@@ -2226,39 +2268,90 @@ function renderOrders() {
   `).join('');
 }
 
-// Sort & Filter
-function sortProducts(products, sortType) {
-  const sorted = [...products];
-  switch(sortType) {
-    case 'price-asc':
-      sorted.sort((a, b) => Math.min(...a.variants.map(v => v.price)) - Math.min(...b.variants.map(v => v.price)));
-      break;
-    case 'price-desc':
-      sorted.sort((a, b) => Math.min(...b.variants.map(v => v.price)) - Math.min(...a.variants.map(v => v.price)));
-      break;
-    case 'name':
-      sorted.sort((a, b) => a.name.localeCompare(b.name));
-      break;
-  }
-  return sorted;
+// Reviews
+function loadReviews() {
+  return [];
 }
 
-document.querySelectorAll('.sort-chip').forEach(chip => {
-  chip.onclick = () => {
-    document.querySelectorAll('.sort-chip').forEach(c => c.classList.remove('active'));
-    chip.classList.add('active');
-    currentSort = chip.dataset.sort;
-    renderProducts(currentCategory, currentSort);
+function saveReview(review) {
+  console.log('Review saved:', review);
+}
+
+function renderReviews() {
+  const userReviews = loadReviews();
+  const demoReviews = [
+    {name: 'Martin D.', stars: 5, text: 'Excellent service, produits de qualité !', date: new Date(Date.now() - 2*24*60*60*1000).toISOString()},
+    {name: 'Sophie L.', stars: 5, text: 'Livraison rapide et discrète, je recommande', date: new Date(Date.now() - 5*24*60*60*1000).toISOString()},
+    {name: 'Thomas B.', stars: 4, text: 'Très satisfait de ma commande', date: new Date(Date.now() - 7*24*60*60*1000).toISOString()}
+  ];
+  
+  const allReviews = [...userReviews, ...demoReviews];
+  
+  const reviewsList = document.getElementById('reviewsList');
+  if (allReviews.length === 0) {
+    reviewsList.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:40px">Aucun avis pour le moment</div>';
+    return;
+  }
+  
+  reviewsList.innerHTML = allReviews.map(r => {
+    const date = new Date(r.date);
+    const now = new Date();
+    const diffTime = Math.abs(now - date);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    let timeStr = '';
+    if (diffDays === 0) timeStr = "Aujourd'hui";
+    else if (diffDays === 1) timeStr = 'Hier';
+    else if (diffDays < 7) timeStr = `Il y a ${diffDays} jours`;
+    else if (diffDays < 30) timeStr = `Il y a ${Math.floor(diffDays / 7)} semaine${Math.floor(diffDays / 7) > 1 ? 's' : ''}`;
+    else timeStr = `Il y a ${Math.floor(diffDays / 30)} mois`;
+    
+    return `
+    <div class="info-card" style="flex-direction:column;align-items:flex-start">
+      <div style="display:flex;justify-content:space-between;width:100%;margin-bottom:8px">
+        <strong>${r.name || 'Anonyme'}</strong>
+        <span>${'⭐'.repeat(r.stars)}</span>
+      </div>
+      <p style="color:var(--text-muted);font-size:12px;margin-bottom:8px">${timeStr}</p>
+      <p style="font-size:15px">${r.text}</p>
+    </div>
+  `}).join('');
+}
+
+document.getElementById('submitReview')?.addEventListener('click', () => {
+  const name = document.getElementById('reviewName').value.trim();
+  const stars = parseInt(document.getElementById('reviewStars').value);
+  const text = document.getElementById('reviewText').value.trim();
+  
+  if (!text) {
+    showToast('⚠️ Veuillez écrire votre avis');
+    return;
+  }
+  
+  const review = {
+    name: name || 'Anonyme',
+    stars: stars,
+    text: text,
+    date: new Date().toISOString()
   };
+  
+  saveReview(review);
+  
+  document.getElementById('reviewName').value = '';
+  document.getElementById('reviewStars').value = '5';
+  document.getElementById('reviewText').value = '';
+  
+  renderReviews();
+  showToast('✅ Merci pour votre avis !');
 });
 
+// Render products and other functions (keep the same)
 function renderProducts(filter = 'all', sort = 'default') {
   currentCategory = filter;
   currentSort = sort;
   
   const grid = document.getElementById('productGrid');
   let filtered = filter === 'all' ? PRODUCTS : PRODUCTS.filter(p => p.category === filter);
-  filtered = sortProducts(filtered, sort);
   
   document.getElementById('resultsCount').textContent = `${filtered.length} articles`;
   
@@ -2320,21 +2413,6 @@ function renderProducts(filter = 'all', sort = 'default') {
   });
 }
 
-function shareProduct(product) {
-  const text = `🔥 Découvrez ${product.name} sur DROGUA CENTER !\n\nÀ partir de ${fmt(Math.min(...product.variants.map(v => v.price)))}\n\n👉 https://t.me/+MToYP95G9zY2ZTJk`;
-  
-  if (navigator.share) {
-    navigator.share({
-      title: product.name,
-      text: text
-    }).catch(() => {});
-  } else {
-    navigator.clipboard.writeText(text).then(() => {
-      showToast('📋 Lien copié !');
-    });
-  }
-}
-
 function openProduct(id) {
   currentProduct = PRODUCTS.find(p => p.id === id);
   selectedVariant = null;
@@ -2349,17 +2427,6 @@ function openProduct(id) {
         <source src="${currentProduct.video}" type="video/mp4">
       </video>
     </div>
-    
-    <button class="product-share-btn" id="shareProductBtn">
-      <svg style="width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2" viewBox="0 0 24 24">
-        <circle cx="18" cy="5" r="3"></circle>
-        <circle cx="6" cy="12" r="3"></circle>
-        <circle cx="18" cy="19" r="3"></circle>
-        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
-        <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
-      </svg>
-      Partager ce produit
-    </button>
     
     <div class="product-detail-header">
       <div class="product-detail-farm">${currentProduct.farm}</div>
@@ -2404,8 +2471,6 @@ function openProduct(id) {
       </button>
     </div>
   `;
-  
-  content.querySelector('#shareProductBtn').onclick = () => shareProduct(currentProduct);
   
   content.querySelectorAll('.variant-option').forEach(opt => {
     opt.onclick = function() {
@@ -2565,39 +2630,19 @@ function renderCart() {
       </div>
     </div>
     
-    <div class="address-section">
-      <div class="section-label">📱 Mode de contact</div>
-      
-      <div style="margin-bottom:16px">
-        <div style="display:flex;flex-direction:column;gap:10px">
-          <label style="display:flex;align-items:center;gap:10px;padding:12px;background:var(--bg-tertiary);border:2px solid var(--border);border-radius:12px;cursor:pointer;transition:all 0.2s" id="contactDirectLabel">
-            <input type="radio" name="contactMode" value="direct" id="contactDirect" checked style="width:20px;height:20px;cursor:pointer">
-            <div style="flex:1">
-              <div style="font-weight:600;margin-bottom:4px">Contact direct</div>
-              <div style="font-size:12px;color:var(--text-muted)">Entrez votre @username Telegram</div>
-            </div>
-          </label>
-          
-          <label style="display:flex;align-items:center;gap:10px;padding:12px;background:var(--bg-tertiary);border:2px solid var(--border);border-radius:12px;cursor:pointer;transition:all 0.2s" id="contactAnonymousLabel">
-            <input type="radio" name="contactMode" value="anonymous" id="contactAnonymous" style="width:20px;height:20px;cursor:pointer">
-            <div style="flex:1">
-              <div style="font-weight:600;margin-bottom:4px">🎭 Contact anonyme (recommandé)</div>
-              <div style="font-size:12px;color:var(--text-muted)">Lien temporaire Telegram</div>
-            </div>
-          </label>
+    <div class="anonymous-info">
+      <div class="anonymous-icon">🎭</div>
+      <div class="anonymous-text">
+        <div class="anonymous-title">Commande 100% anonyme</div>
+        <div class="anonymous-subtitle">
+          • Aucune donnée personnelle enregistrée<br>
+          • Communication via notre bot sécurisé<br>
+          • Paiement en espèces à la livraison
         </div>
       </div>
-      
-      <div class="input-wrapper">
-        <input 
-          type="text" 
-          class="input-field" 
-          id="telegramUsername" 
-          placeholder="@votre_username"
-          style="margin-bottom:16px"
-        >
-      </div>
-      
+    </div>
+    
+    <div class="address-section">
       <div class="section-label">📍 Adresse de livraison</div>
       <div class="input-wrapper">
         <input 
@@ -2663,32 +2708,6 @@ function renderCart() {
       renderCart();
     };
   }
-  
-  const contactDirect = content.querySelector('#contactDirect');
-  const contactAnonymous = content.querySelector('#contactAnonymous');
-  const telegramInput = content.querySelector('#telegramUsername');
-  const directLabel = content.querySelector('#contactDirectLabel');
-  const anonymousLabel = content.querySelector('#contactAnonymousLabel');
-  
-  function updateContactMode() {
-    if (contactDirect.checked) {
-      telegramInput.placeholder = '@votre_username';
-      directLabel.style.borderColor = 'var(--accent)';
-      directLabel.style.background = 'rgba(0,212,255,0.1)';
-      anonymousLabel.style.borderColor = 'var(--border)';
-      anonymousLabel.style.background = 'var(--bg-tertiary)';
-    } else {
-      telegramInput.placeholder = 't.me/+abc123xyz (lien temporaire)';
-      anonymousLabel.style.borderColor = 'var(--accent)';
-      anonymousLabel.style.background = 'rgba(0,212,255,0.1)';
-      directLabel.style.borderColor = 'var(--border)';
-      directLabel.style.background = 'var(--bg-tertiary)';
-    }
-  }
-  
-  contactDirect.addEventListener('change', updateContactMode);
-  contactAnonymous.addEventListener('change', updateContactMode);
-  updateContactMode();
   
   const addressInput = content.querySelector('#addressInput');
   let timer = null;
@@ -2807,8 +2826,8 @@ function showOrderSummary(orderData, orderId, discount = 0) {
           </svg>
         </div>
         <div style="flex:1">
-          <div style="color:var(--text-muted);font-size:13px;margin-bottom:2px">Contact Telegram</div>
-          <div style="font-weight:600">${orderData.customer.includes('t.me/+') ? '🎭 Lien anonyme' : orderData.customer}</div>
+          <div style="color:var(--text-muted);font-size:13px;margin-bottom:2px">Référence client</div>
+          <div style="font-weight:600">🎭 ${orderData.customer}</div>
         </div>
       </div>
       
@@ -2895,9 +2914,10 @@ function showOrderSummary(orderData, orderId, discount = 0) {
           <div style="font-weight:600;margin-bottom:8px;font-size:16px">Prochaines étapes</div>
           <ul style="color:var(--text-secondary);font-size:14px;line-height:1.8;padding-left:20px;margin:0">
             <li>Notre équipe va vérifier votre commande</li>
-            <li>Le livreur vous contactera sur Telegram avant de partir</li>
-            <li>Paiement à la livraison (espèces, CB ou crypto)</li>
-            <li>Livraison rapide et discrète garantie</li>
+            <li>Le livreur vous contactera via notre bot sécurisé</li>
+            <li>Communication 100% anonyme garantie</li>
+            <li>Paiement à la livraison (espèces uniquement)</li>
+            <li>Livraison rapide et discrète</li>
           </ul>
         </div>
       </div>
@@ -2905,7 +2925,7 @@ function showOrderSummary(orderData, orderId, discount = 0) {
     
     <div style="text-align:center;margin-top:30px">
       <p style="color:var(--text-muted);font-size:14px;margin-bottom:16px">
-        Une question ? Contactez notre support
+        Une question ? Contactez notre support anonyme
       </p>
       <a href="https://t.me/assistancenter" target="_blank" style="display:inline-flex;align-items:center;gap:8px;background:var(--bg-tertiary);border:1px solid var(--border);border-radius:12px;padding:12px 20px;color:var(--accent);text-decoration:none;font-weight:600;transition:all 0.2s">
         <svg style="width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2" viewBox="0 0 24 24">
@@ -2919,37 +2939,6 @@ function showOrderSummary(orderData, orderId, discount = 0) {
   
   document.getElementById('orderSummarySheet').classList.remove('hidden');
   document.body.classList.add('modal-open');
-  
-  document.getElementById('copyOrderSummary').onclick = () => {
-    const text = `
-🎉 COMMANDE CONFIRMÉE - DROGUA CENTER
-
-📋 Numéro de commande : #${orderId}
-
-👤 Contact : ${orderData.customer}
-📍 Adresse : ${orderData.address}
-🚚 Livraison : ${orderData.type}
-
-📦 ARTICLES COMMANDÉS :
-${orderData.items.map(item => `• ${item.name} - ${item.variant} × ${item.qty} = ${fmt(item.lineTotal)}`).join('\n')}
-
-💰 RÉCAPITULATIF :
-Sous-total : ${fmt(subtotal)}
-${deliveryFee > 0 ? `Frais de livraison : ${fmt(deliveryFee)}\n` : ''}${discount > 0 ? `🎁 Remise : -${fmt(discount)}\n` : ''}
-TOTAL : ${fmt(totalWithDiscount)}
-
-📞 Support : https://t.me/assistancenter
-⏰ Horaires : 7j/7 de 12H à 00H
-
-Merci de votre confiance ! 💚
-    `.trim();
-    
-    navigator.clipboard.writeText(text).then(() => {
-      showToast('✅ Récapitulatif copié dans le presse-papier');
-    }).catch(() => {
-      showToast('❌ Impossible de copier');
-    });
-  };
 }
 
 document.getElementById('closeOrderSummary')?.addEventListener('click', () => {
@@ -3027,24 +3016,6 @@ document.getElementById('validateOrder').onclick = async () => {
     return;
   }
   
-  const telegramInput = document.getElementById('telegramUsername');
-  const telegramUsername = telegramInput?.value.trim() || '';
-  
-  if (!telegramUsername) {
-    showToast('⚠️ Veuillez entrer votre contact Telegram');
-    if (telegramInput) telegramInput.focus();
-    return;
-  }
-  
-  const isUsername = telegramUsername.startsWith('@');
-  const isTempLink = telegramUsername.includes('t.me/+') || telegramUsername.includes('t.me/joinchat');
-  
-  if (!isUsername && !isTempLink) {
-    showToast('⚠️ Format invalide. Utilisez @username ou un lien t.me/+...');
-    if (telegramInput) telegramInput.focus();
-    return;
-  }
-  
   const addressInput = document.getElementById('addressInput');
   const address = addressInput?.value.trim() || '';
   
@@ -3053,6 +3024,9 @@ document.getElementById('validateOrder').onclick = async () => {
     if (addressInput) addressInput.focus();
     return;
   }
+  
+  // Generate anonymous client ID
+  const clientId = generateClientId();
   
   const deliveryType = selectedDelivery === 'millau' 
     ? 'Livraison sur Millau' 
@@ -3088,45 +3062,89 @@ document.getElementById('validateOrder').onclick = async () => {
   const total = subtotal + deliveryFee - totalDiscount;
   
   const orderData = {
-    customer: telegramUsername,
+    customer: clientId,  // Use anonymous ID instead of Telegram username
     type: deliveryType,
     address: address,
     items: items,
     total: total
   };
   
-  const orderId = 'DC' + Date.now().toString().slice(-8);
-  
-  const order = {
-    id: orderId,
-    date: new Date().toISOString(),
-    items: items,
-    itemCount: cart.reduce((sum, item) => sum + item.qty, 0),
-    total: total,
-    status: 'pending'
-  };
-  
-  orders.push(order);
-  saveOrders();
-  
-  loyaltyCount++;
-  saveLoyalty();
-  updateLoyaltyBanner();
-  
-  document.getElementById('cartSheet').classList.add('hidden');
-  showOrderSummary(orderData, orderId, totalDiscount);
-  cart = [];
-  appliedPromo = null;
-  updateBadge();
-  renderOrders();
-  
-  if (loyaltyDiscount > 0) {
-    setTimeout(() => {
-      showToast('🎉 Félicitations ! Remise fidélité appliquée !');
-    }, 1000);
+  // Send order to backend
+  try {
+    const response = await fetch(API + '/create-order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(orderData)
+    });
+    
+    const data = await response.json();
+    
+    if (data.ok) {
+      const orderId = data.orderId || 'DC' + Date.now().toString().slice(-8);
+      
+      const order = {
+        id: orderId,
+        date: new Date().toISOString(),
+        items: items,
+        itemCount: cart.reduce((sum, item) => sum + item.qty, 0),
+        total: total,
+        status: 'pending'
+      };
+      
+      orders.push(order);
+      saveOrders();
+      
+      loyaltyCount++;
+      saveLoyalty();
+      updateLoyaltyBanner();
+      
+      document.getElementById('cartSheet').classList.add('hidden');
+      showOrderSummary(orderData, orderId, totalDiscount);
+      cart = [];
+      appliedPromo = null;
+      updateBadge();
+      
+      if (loyaltyDiscount > 0) {
+        setTimeout(() => {
+          showToast('🎉 Félicitations ! Remise fidélité appliquée !');
+        }, 1000);
+      }
+    } else {
+      showToast('❌ Erreur lors de la validation. Réessayez.');
+    }
+  } catch (error) {
+    console.error('Error:', error);
+    showToast('❌ Erreur de connexion. Vérifiez votre connexion.');
   }
 };
 
+// Sort products
+function sortProducts(products, sortType) {
+  const sorted = [...products];
+  switch(sortType) {
+    case 'price-asc':
+      sorted.sort((a, b) => Math.min(...a.variants.map(v => v.price)) - Math.min(...b.variants.map(v => v.price)));
+      break;
+    case 'price-desc':
+      sorted.sort((a, b) => Math.min(...b.variants.map(v => v.price)) - Math.min(...a.variants.map(v => v.price)));
+      break;
+    case 'name':
+      sorted.sort((a, b) => a.name.localeCompare(b.name));
+      break;
+  }
+  return sorted;
+}
+
+document.querySelectorAll('.sort-chip').forEach(chip => {
+  chip.onclick = () => {
+    document.querySelectorAll('.sort-chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    currentSort = chip.dataset.sort;
+    renderProducts(currentCategory, currentSort);
+  };
+});
+
+// Search functionality
 document.getElementById('searchInput').addEventListener('input', (e) => {
   const query = e.target.value.toLowerCase();
   if (query.length < 2) {
@@ -3198,81 +3216,20 @@ document.getElementById('searchInput').addEventListener('input', (e) => {
   });
 });
 
-function loadReviews() {
-  return [];
-}
-
-function saveReview(review) {
-  console.log('Review saved:', review);
-}
-
-function renderReviews() {
-  const userReviews = loadReviews();
-  const demoReviews = [
-    {name: 'Martin D.', stars: 5, text: 'Excellent service, produits de qualité !', date: new Date(Date.now() - 2*24*60*60*1000).toISOString()},
-    {name: 'Sophie L.', stars: 5, text: 'Livraison rapide et discrète, je recommande', date: new Date(Date.now() - 5*24*60*60*1000).toISOString()},
-    {name: 'Thomas B.', stars: 4, text: 'Très satisfait de ma commande', date: new Date(Date.now() - 7*24*60*60*1000).toISOString()}
-  ];
+function shareProduct(product) {
+  const text = `🔥 Découvrez ${product.name} sur DROGUA CENTER !\n\nÀ partir de ${fmt(Math.min(...product.variants.map(v => v.price)))}\n\n👉 https://t.me/+MToYP95G9zY2ZTJk`;
   
-  const allReviews = [...userReviews, ...demoReviews];
-  
-  const reviewsList = document.getElementById('reviewsList');
-  if (allReviews.length === 0) {
-    reviewsList.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:40px">Aucun avis pour le moment</div>';
-    return;
+  if (navigator.share) {
+    navigator.share({
+      title: product.name,
+      text: text
+    }).catch(() => {});
+  } else {
+    navigator.clipboard.writeText(text).then(() => {
+      showToast('📋 Lien copié !');
+    });
   }
-  
-  reviewsList.innerHTML = allReviews.map(r => {
-    const date = new Date(r.date);
-    const now = new Date();
-    const diffTime = Math.abs(now - date);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    let timeStr = '';
-    if (diffDays === 0) timeStr = "Aujourd'hui";
-    else if (diffDays === 1) timeStr = 'Hier';
-    else if (diffDays < 7) timeStr = `Il y a ${diffDays} jours`;
-    else if (diffDays < 30) timeStr = `Il y a ${Math.floor(diffDays / 7)} semaine${Math.floor(diffDays / 7) > 1 ? 's' : ''}`;
-    else timeStr = `Il y a ${Math.floor(diffDays / 30)} mois`;
-    
-    return `
-    <div class="info-card" style="flex-direction:column;align-items:flex-start">
-      <div style="display:flex;justify-content:space-between;width:100%;margin-bottom:8px">
-        <strong>${r.name || 'Anonyme'}</strong>
-        <span>${'⭐'.repeat(r.stars)}</span>
-      </div>
-      <p style="color:var(--text-muted);font-size:12px;margin-bottom:8px">${timeStr}</p>
-      <p style="font-size:15px">${r.text}</p>
-    </div>
-  `}).join('');
 }
-
-document.getElementById('submitReview')?.addEventListener('click', () => {
-  const name = document.getElementById('reviewName').value.trim();
-  const stars = parseInt(document.getElementById('reviewStars').value);
-  const text = document.getElementById('reviewText').value.trim();
-  
-  if (!text) {
-    showToast('⚠️ Veuillez écrire votre avis');
-    return;
-  }
-  
-  const review = {
-    name: name || 'Anonyme',
-    stars: stars,
-    text: text,
-    date: new Date().toISOString()
-  };
-  
-  saveReview(review);
-  
-  document.getElementById('reviewName').value = '';
-  document.getElementById('reviewStars').value = '5';
-  document.getElementById('reviewText').value = '';
-  
-  renderReviews();
-  showToast('✅ Merci pour votre avis !');
-});
 
 // Initialize
 initTheme();
