@@ -17,11 +17,19 @@ const MAPBOX_KEY = process.env.MAPBOX_KEY || '';
 const ADMIN_PASS = process.env.ADMIN_PASS || 'gangstaforlife12';
 const WEBAPP_URL = process.env.WEBAPP_URL || 'https://shop-2-production.up.railway.app';
 
+// ✅ NOUVEAU : Configuration des livreurs par zone
+const DRIVER_MILLAU_ID = process.env.DRIVER_MILLAU_ID || '';
+const DRIVER_EXTERIEUR_ID = process.env.DRIVER_EXTERIEUR_ID || '';
+
 // Middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.static(path.join(__dirname, '..', 'public')));
+
+// ✅ NOUVEAU : Stockage des conversations actives
+let adminTokens = new Set();
+const activeConversations = new Map();
 
 // Database initialization
 let db;
@@ -42,6 +50,8 @@ async function initDB() {
       total REAL NOT NULL,
       discount REAL DEFAULT 0,
       status TEXT DEFAULT 'pending',
+      delivery_time INTEGER,
+      assigned_driver_zone TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -136,6 +146,33 @@ async function initDB() {
   console.log('✅ Database initialized');
 }
 
+// ✅ NOUVEAU : Fonction pour déterminer la zone et le livreur
+function getDriverForDeliveryType(deliveryType) {
+  // Si c'est une livraison sur Millau
+  if (deliveryType.toLowerCase().includes('millau')) {
+    return {
+      zone: 'millau',
+      driverId: DRIVER_MILLAU_ID,
+      driverName: 'Livreur Millau'
+    };
+  }
+  // Si c'est une livraison extérieure
+  else if (deliveryType.toLowerCase().includes('extérieur') || deliveryType.toLowerCase().includes('exterieur')) {
+    return {
+      zone: 'exterieur',
+      driverId: DRIVER_EXTERIEUR_ID,
+      driverName: 'Livreur Extérieur'
+    };
+  }
+  
+  // Par défaut, Millau
+  return {
+    zone: 'millau',
+    driverId: DRIVER_MILLAU_ID,
+    driverName: 'Livreur Millau'
+  };
+}
+
 // Helper functions
 async function sendTelegramMessage(chatId, message, options = {}) {
   if (!TELEGRAM_TOKEN) {
@@ -167,6 +204,47 @@ async function sendTelegramMessage(chatId, message, options = {}) {
       console.error('📄 Réponse Telegram:', error.response.data);
     }
     throw error;
+  }
+}
+
+// ✅ NOUVEAU : Fonction pour notifier le client via le support
+async function notifyClientViaBot(customerContact, orderId, status, estimatedTime = null) {
+  if (!SUPPORT_CHAT_ID || !TELEGRAM_TOKEN) return;
+  
+  let supportInstruction = '';
+  
+  if (status === 'en_route') {
+    supportInstruction = `🚚 <b>LIVRAISON DÉMARRÉE #${orderId}</b>
+
+Client : ${customerContact}
+ETA : ${estimatedTime} minutes
+
+<b>📱 TRANSMETTEZ CE MESSAGE :</b>
+---
+🚚 Votre commande #${orderId} est en route !
+⏱️ Arrivée estimée : ${estimatedTime} minutes
+Le livreur arrive bientôt ! 🚀
+---`;
+  } else if (status === 'delivered') {
+    supportInstruction = `✅ <b>LIVRAISON TERMINÉE #${orderId}</b>
+
+Client : ${customerContact}
+
+<b>📱 TRANSMETTEZ CE MESSAGE :</b>
+---
+✅ Commande #${orderId} livrée !
+Merci pour votre confiance ! 💚
+---`;
+  }
+  
+  try {
+    await axios.post(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+      chat_id: SUPPORT_CHAT_ID,
+      text: supportInstruction,
+      parse_mode: 'HTML'
+    });
+  } catch (error) {
+    console.error('Erreur notification client:', error);
   }
 }
 
@@ -267,10 +345,6 @@ app.post('/api/create-order', async (req, res) => {
     
     // ========== NOTIFICATIONS TELEGRAM ==========
     console.log('📤 Préparation des notifications Telegram...');
-    console.log('🔑 TELEGRAM_TOKEN:', TELEGRAM_TOKEN ? 'Défini ✅' : 'Non défini ❌');
-    console.log('🔑 SUPPORT_CHAT_ID:', SUPPORT_CHAT_ID || 'Non défini ❌');
-    console.log('🔑 ADMIN_CHAT_ID:', ADMIN_CHAT_ID || 'Non défini ❌');
-    console.log('🔑 DRIVER_CHAT_ID:', DRIVER_CHAT_ID || 'Non défini ❌');
     
     if (!TELEGRAM_TOKEN) {
       console.log('⚠️ TELEGRAM_TOKEN non défini - notifications désactivées');
@@ -278,8 +352,6 @@ app.post('/api/create-order', async (req, res) => {
       // 1️⃣ SUPPORT - Message simplifié
       if (SUPPORT_CHAT_ID) {
         try {
-          console.log(`📤 Envoi au SUPPORT (${SUPPORT_CHAT_ID})...`);
-          
           const supportMessage = `🔔 NOUVELLE COMMANDE #${result.lastID}
 
 👤 Client: ${customer}
@@ -291,26 +363,23 @@ app.post('/api/create-order', async (req, res) => {
 ⚡ Contacter le client`;
           
           await sendTelegramMessage(SUPPORT_CHAT_ID, supportMessage);
-          console.log('✅ Notification SUPPORT envoyée avec succès');
+          console.log('✅ Notification SUPPORT envoyée');
         } catch (err) {
           console.error('❌ Erreur SUPPORT:', err.message);
-          console.error('Stack:', err.stack);
         }
-      } else {
-        console.log('⚠️ SUPPORT_CHAT_ID non défini - notification ignorée');
       }
       
-      // 2️⃣ ADMIN - Message détaillé
+      // 2️⃣ ADMIN - Message détaillé avec zone
       if (ADMIN_CHAT_ID) {
         try {
-          console.log(`📤 Envoi à l'ADMIN (${ADMIN_CHAT_ID})...`);
+          const driverInfo = getDriverForDeliveryType(type);
           
           let itemsList = '';
           items.forEach(item => {
             itemsList += `• ${item.name} - ${item.variant} x${item.qty} = ${item.lineTotal}€\n`;
           });
           
-          const adminMessage = `📦 COMMANDE #${result.lastID}
+          const adminMessage = `📦 <b>COMMANDE #${result.lastID}</b>
 
 👤 Client: ${customer}
 📍 Type: ${type}
@@ -320,44 +389,87 @@ app.post('/api/create-order', async (req, res) => {
 ${itemsList}
 ${discount > 0 ? `🎁 Remise fidélité: -${discount}€\n` : ''}💰 TOTAL: ${finalTotal}€
 
+🚚 <b>Assigné automatiquement à :</b> ${driverInfo.driverName}
+🌍 <b>Zone :</b> ${driverInfo.zone.toUpperCase()}
+
 ⏰ ${new Date().toLocaleString('fr-FR')}`;
           
           await sendTelegramMessage(ADMIN_CHAT_ID, adminMessage);
-          console.log('✅ Notification ADMIN envoyée avec succès');
+          console.log('✅ Notification ADMIN envoyée');
         } catch (err) {
           console.error('❌ Erreur ADMIN:', err.message);
-          console.error('Stack:', err.stack);
         }
-      } else {
-        console.log('⚠️ ADMIN_CHAT_ID non défini - notification ignorée');
       }
       
-      // 3️⃣ LIVREUR - Message court
-      if (DRIVER_CHAT_ID) {
-        try {
-          console.log(`📤 Envoi au LIVREUR (${DRIVER_CHAT_ID})...`);
-          
-          const driverMessage = `🚚 LIVRAISON #${result.lastID}
+      // 3️⃣ LIVREUR - Assignation automatique par zone
+      const driverInfo = getDriverForDeliveryType(type);
 
-📍 ${type}
-🏠 ${address || 'Sur place'}
-💰 ${finalTotal}€
+      if (driverInfo.driverId) {
+        try {
+          console.log(`📤 Envoi au ${driverInfo.driverName} (${driverInfo.driverId})...`);
+          
+          // Stocker la conversation
+          activeConversations.set(result.lastID, {
+            driverId: driverInfo.driverId,
+            customerId: customer,
+            orderId: result.lastID,
+            driverInConversation: false,
+            zone: driverInfo.zone
+          });
+          
+          // Mettre à jour la commande avec la zone assignée
+          await db.run(
+            'UPDATE orders SET assigned_driver_zone = ? WHERE id = ?',
+            [driverInfo.zone, result.lastID]
+          );
+          
+          const driverMessage = `🚚 <b>NOUVELLE COMMANDE #${result.lastID}</b>
+
+📍 Type : ${type}
+🏠 Adresse : ${address || 'Sur place'}
+💰 Total à encaisser : ${finalTotal}€
 📦 ${items.length} article(s)
 
-⚡ Contactez l'admin pour les détails`;
+${items.map(item => `• ${item.name} - ${item.variant} ×${item.qty}`).join('\n')}
+
+🎭 <b>Client : Anonyme</b>
+💬 <b>Communication : Via le bot uniquement</b>
+
+⏰ ${new Date().toLocaleString('fr-FR')}`;
           
-          await sendTelegramMessage(DRIVER_CHAT_ID, driverMessage);
-          console.log('✅ Notification LIVREUR envoyée avec succès');
+          const keyboard = {
+            inline_keyboard: [
+              [{
+                text: '🚀 DÉMARRER LA LIVRAISON',
+                callback_data: `start_delivery_${result.lastID}`
+              }],
+              [{
+                text: '💬 Contacter le client',
+                callback_data: `contact_client_${result.lastID}`
+              }],
+              [{
+                text: '❌ Refuser',
+                callback_data: `refuse_delivery_${result.lastID}`
+              }]
+            ]
+          };
+          
+          await axios.post(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+            chat_id: driverInfo.driverId,
+            text: driverMessage,
+            parse_mode: 'HTML',
+            reply_markup: keyboard
+          });
+          
+          console.log(`✅ Notification envoyée au ${driverInfo.driverName} (zone: ${driverInfo.zone})`);
         } catch (err) {
-          console.error('❌ Erreur LIVREUR:', err.message);
-          console.error('Stack:', err.stack);
+          console.error(`❌ Erreur ${driverInfo.driverName}:`, err.message);
         }
       } else {
-        console.log('⚠️ DRIVER_CHAT_ID non défini - notification ignorée');
+        console.log('⚠️ Aucun livreur configuré pour cette zone');
       }
     }
     
-    // ✅ RÉPONSE AU CLIENT - CODE CORRIGÉ ICI
     console.log('✅ Commande créée avec succès');
     res.json({ ok: true, orderId: result.lastID, discount });
     
@@ -392,8 +504,6 @@ app.get('/api/geocode', async (req, res) => {
 });
 
 // === Admin API ===
-
-let adminTokens = new Set();
 
 app.post('/api/admin/login', (req, res) => {
   const { password } = req.body;
@@ -942,8 +1052,202 @@ Livraison rapide pendant les heures d'ouverture`;
           
           console.log('✅ Message /help envoyé à', chatId);
         }
+        // ✅ NOUVEAU : Commande /meslivraisons (filtrée par zone)
+        else if (text === '/meslivraisons' || text === '/livraisons') {
+          let driverZone = null;
+          if (chatId.toString() === DRIVER_MILLAU_ID) {
+            driverZone = 'millau';
+          } else if (chatId.toString() === DRIVER_EXTERIEUR_ID) {
+            driverZone = 'exterieur';
+          }
+          
+          if (driverZone) {
+            const activeDeliveries = await db.all(
+              "SELECT * FROM orders WHERE status IN ('pending', 'en_route') AND assigned_driver_zone = ? ORDER BY created_at DESC",
+              [driverZone]
+            );
+            
+            if (activeDeliveries.length === 0) {
+              await axios.post(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+                chat_id: chatId,
+                text: `📭 <b>Aucune livraison en cours</b>\n\nZone : ${driverZone.toUpperCase()}`,
+                parse_mode: 'HTML'
+              });
+            } else {
+              let message = `🚚 <b>VOS LIVRAISONS (${driverZone.toUpperCase()})</b>\n\n`;
+              
+              for (const order of activeDeliveries) {
+                const items = JSON.parse(order.items || '[]');
+                const statusEmoji = order.status === 'pending' ? '⏳' : '🚀';
+                const statusText = order.status === 'pending' ? 'En attente' : 'En route';
+                
+                message += `${statusEmoji} <b>#${order.id}</b> - ${statusText}\n`;
+                message += `📍 ${order.address}\n`;
+                message += `💰 ${order.total}€\n`;
+                message += `📦 ${items.length} article(s)\n`;
+                message += `🎭 Client : Anonyme\n`;
+                
+                if (order.status === 'en_route' && order.delivery_time) {
+                  message += `⏱️ ETA: ${order.delivery_time} min\n`;
+                }
+                
+                message += `\n`;
+              }
+              
+              await axios.post(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+                chat_id: chatId,
+                text: message,
+                parse_mode: 'HTML'
+              });
+            }
+          }
+        }
+        // ✅ NOUVEAU : Commande /stats (filtrée par zone)
+        else if (text === '/stats') {
+          let driverZone = null;
+          if (chatId.toString() === DRIVER_MILLAU_ID) {
+            driverZone = 'millau';
+          } else if (chatId.toString() === DRIVER_EXTERIEUR_ID) {
+            driverZone = 'exterieur';
+          }
+          
+          if (driverZone) {
+            const today = await db.get(`
+              SELECT COUNT(*) as count, SUM(total) as revenue
+              FROM orders 
+              WHERE status = 'delivered' 
+              AND assigned_driver_zone = ?
+              AND DATE(created_at) = DATE('now')
+            `, [driverZone]);
+            
+            const week = await db.get(`
+              SELECT COUNT(*) as count, SUM(total) as revenue
+              FROM orders 
+              WHERE status = 'delivered' 
+              AND assigned_driver_zone = ?
+              AND DATE(created_at) >= DATE('now', '-7 days')
+            `, [driverZone]);
+            
+            const statsMessage = `📊 <b>VOS STATISTIQUES (${driverZone.toUpperCase()})</b>
+
+<b>📅 AUJOURD'HUI</b>
+🚚 Livraisons : ${today?.count || 0}
+💰 CA : ${(today?.revenue || 0).toFixed(2)}€
+
+<b>📈 CETTE SEMAINE</b>
+🚚 Livraisons : ${week?.count || 0}
+💰 CA : ${(week?.revenue || 0).toFixed(2)}€
+
+Continue comme ça ! 🚀`;
+            
+            await axios.post(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+              chat_id: chatId,
+              text: statsMessage,
+              parse_mode: 'HTML'
+            });
+          }
+        }
+        // ✅ NOUVEAU : Commande /stop (quitter conversations)
+        else if (text === '/stop') {
+          if (chatId.toString() === DRIVER_MILLAU_ID || chatId.toString() === DRIVER_EXTERIEUR_ID) {
+            for (const [orderId, conv] of activeConversations.entries()) {
+              if (conv.driverId === chatId.toString()) {
+                conv.driverInConversation = false;
+                activeConversations.set(orderId, conv);
+              }
+            }
+            
+            await axios.post(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+              chat_id: chatId,
+              text: `✅ Conversations fermées`
+            });
+          }
+        }
+        // ✅ NOUVEAU : Commande /zones (admin)
+        else if (text === '/zones' && chatId.toString() === ADMIN_CHAT_ID) {
+          const statsMillau = await db.get(`
+            SELECT COUNT(*) as count, SUM(total) as revenue
+            FROM orders 
+            WHERE assigned_driver_zone = 'millau'
+            AND DATE(created_at) >= DATE('now', '-7 days')
+          `);
+          
+          const statsExterieur = await db.get(`
+            SELECT COUNT(*) as count, SUM(total) as revenue
+            FROM orders 
+            WHERE assigned_driver_zone = 'exterieur'
+            AND DATE(created_at) >= DATE('now', '-7 days')
+          `);
+          
+          const zonesMessage = `🌍 <b>CONFIGURATION DES ZONES</b>
+
+<b>🏙️ MILLAU</b>
+Livreur : ${DRIVER_MILLAU_ID ? '✅ Configuré' : '❌ Non configuré'}
+ID : ${DRIVER_MILLAU_ID || 'N/A'}
+
+<b>🌐 EXTÉRIEUR</b>
+Livreur : ${DRIVER_EXTERIEUR_ID ? '✅ Configuré' : '❌ Non configuré'}
+ID : ${DRIVER_EXTERIEUR_ID || 'N/A'}
+
+<b>📊 STATISTIQUES (7 derniers jours)</b>
+
+🏙️ Millau : ${statsMillau?.count || 0} livraisons, ${(statsMillau?.revenue || 0).toFixed(2)}€
+🌐 Extérieur : ${statsExterieur?.count || 0} livraisons, ${(statsExterieur?.revenue || 0).toFixed(2)}€`;
+          
+          await axios.post(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+            chat_id: chatId,
+            text: zonesMessage,
+            parse_mode: 'HTML'
+          });
+        }
+        // ✅ NOUVEAU : Gestion des messages en mode conversation
+        else if (!text.startsWith('/')) {
+          let driverConversation = null;
+          for (const [orderId, conv] of activeConversations.entries()) {
+            if (conv.driverId === chatId.toString() && conv.driverInConversation) {
+              driverConversation = { orderId, ...conv };
+              break;
+            }
+          }
+          
+          if (driverConversation) {
+            console.log(`📨 Livreur → Client (commande #${driverConversation.orderId})`);
+            
+            if (SUPPORT_CHAT_ID) {
+              const supportMsg = `📨 <b>MESSAGE LIVREUR → CLIENT</b>
+Commande #${driverConversation.orderId}
+
+Client : ${driverConversation.customerId}
+
+Message du livreur :
+"${text}"
+
+<b>Transmettez ce message au client :</b>
+---
+💬 Message du livreur (Commande #${driverConversation.orderId}) :
+
+${text}
+
+Répondez pour lui envoyer un message.
+---`;
+              
+              await axios.post(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+                chat_id: SUPPORT_CHAT_ID,
+                text: supportMsg,
+                parse_mode: 'HTML'
+              });
+              
+              await axios.post(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+                chat_id: chatId,
+                text: `✅ Message envoyé au client\n\n"${text}"`,
+                parse_mode: 'HTML'
+              });
+            }
+          }
+        }
       }
       
+      // ✅ GESTION DES CALLBACKS
       if (callback_query) {
         const chatId = callback_query.message.chat.id;
         const data = callback_query.data;
@@ -954,7 +1258,254 @@ Livraison rapide pendant les heures d'ouverture`;
           callback_query_id: callback_query.id
         }).catch(err => console.error('Erreur answerCallback:', err.message));
         
-        if (data === 'contact_support') {
+        // ===== DÉMARRER UNE LIVRAISON =====
+        if (data.startsWith('start_delivery_')) {
+          const orderId = data.replace('start_delivery_', '');
+          
+          const conversation = activeConversations.get(parseInt(orderId));
+          
+          if (!conversation) {
+            await axios.post(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/answerCallbackQuery`, {
+              callback_query_id: callback_query.id,
+              text: '❌ Commande introuvable',
+              show_alert: true
+            });
+            return;
+          }
+          
+          if (conversation.driverId !== chatId.toString()) {
+            await axios.post(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/answerCallbackQuery`, {
+              callback_query_id: callback_query.id,
+              text: '❌ Cette commande n\'est pas assignée à vous',
+              show_alert: true
+            });
+            return;
+          }
+          
+          const timeKeyboard = {
+            inline_keyboard: [
+              [
+                { text: '⏱️ 10 min', callback_data: `set_time_${orderId}_10` },
+                { text: '⏱️ 15 min', callback_data: `set_time_${orderId}_15` },
+                { text: '⏱️ 20 min', callback_data: `set_time_${orderId}_20` }
+              ],
+              [
+                { text: '⏱️ 30 min', callback_data: `set_time_${orderId}_30` },
+                { text: '⏱️ 45 min', callback_data: `set_time_${orderId}_45` },
+                { text: '⏱️ 60 min', callback_data: `set_time_${orderId}_60` }
+              ]
+            ]
+          };
+          
+          await axios.post(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+            chat_id: chatId,
+            text: `⏱️ <b>Temps estimé pour la livraison #${orderId} ?</b>`,
+            parse_mode: 'HTML',
+            reply_markup: timeKeyboard
+          });
+        }
+        // ===== DÉFINIR LE TEMPS ET DÉMARRER =====
+        else if (data.startsWith('set_time_')) {
+          const parts = data.replace('set_time_', '').split('_');
+          const orderId = parts[0];
+          const estimatedTime = parts[1];
+          
+          const order = await db.get('SELECT * FROM orders WHERE id = ?', [orderId]);
+          
+          if (!order) {
+            await axios.post(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/answerCallbackQuery`, {
+              callback_query_id: callback_query.id,
+              text: '❌ Commande introuvable',
+              show_alert: true
+            });
+            return;
+          }
+          
+          await db.run(
+            'UPDATE orders SET status = ?, delivery_time = ? WHERE id = ?',
+            ['en_route', estimatedTime, orderId]
+          );
+          
+          const driverMessage = `✅ <b>LIVRAISON DÉMARRÉE #${orderId}</b>
+
+⏱️ Temps estimé : ${estimatedTime} minutes
+📍 ${order.address}
+💰 ${order.total}€
+
+🎭 <b>Client : Anonyme</b>
+💬 Utilisez le bouton "Contacter" pour envoyer un message`;
+
+          const deliveryKeyboard = {
+            inline_keyboard: [
+              [{
+                text: '💬 Contacter le client',
+                callback_data: `contact_client_${orderId}`
+              }],
+              [{
+                text: '✅ LIVRAISON TERMINÉE',
+                callback_data: `complete_delivery_${orderId}`
+              }],
+              [{
+                text: '📍 Ouvrir Maps',
+                url: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.address)}`
+              }]
+            ]
+          };
+          
+          await axios.post(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+            chat_id: chatId,
+            text: driverMessage,
+            parse_mode: 'HTML',
+            reply_markup: deliveryKeyboard
+          });
+          
+          await notifyClientViaBot(order.customer, orderId, 'en_route', estimatedTime);
+          
+          await axios.post(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/answerCallbackQuery`, {
+            callback_query_id: callback_query.id,
+            text: `✅ Le client sera prévenu.`
+          });
+        }
+        // ===== CONTACTER LE CLIENT =====
+        else if (data.startsWith('contact_client_')) {
+          const orderId = data.replace('contact_client_', '');
+          
+          const conversation = activeConversations.get(parseInt(orderId));
+          
+          if (!conversation) {
+            await axios.post(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/answerCallbackQuery`, {
+              callback_query_id: callback_query.id,
+              text: '❌ Conversation introuvable',
+              show_alert: true
+            });
+            return;
+          }
+          
+          conversation.driverInConversation = true;
+          activeConversations.set(parseInt(orderId), conversation);
+          
+          const conversationMessage = `💬 <b>MODE CONVERSATION ACTIVÉ</b>
+
+Commande #${orderId}
+Client : 🎭 Anonyme
+
+Tapez votre message, il sera transmis au client.
+
+Exemples :
+• "Je suis en route"
+• "Je suis devant l'immeuble"
+• "Quel bâtiment ?"
+
+Pour quitter : /stop`;
+
+          const keyboard = {
+            inline_keyboard: [
+              [{
+                text: '❌ Quitter la conversation',
+                callback_data: `stop_conversation_${orderId}`
+              }]
+            ]
+          };
+          
+          await axios.post(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+            chat_id: chatId,
+            text: conversationMessage,
+            parse_mode: 'HTML',
+            reply_markup: keyboard
+          });
+          
+          await axios.post(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/answerCallbackQuery`, {
+            callback_query_id: callback_query.id,
+            text: '💬 Mode conversation activé'
+          });
+        }
+        // ===== QUITTER LA CONVERSATION =====
+        else if (data.startsWith('stop_conversation_')) {
+          const orderId = data.replace('stop_conversation_', '');
+          const conversation = activeConversations.get(parseInt(orderId));
+          
+          if (conversation) {
+            conversation.driverInConversation = false;
+            activeConversations.set(parseInt(orderId), conversation);
+          }
+          
+          await axios.post(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+            chat_id: chatId,
+            text: `✅ Conversation terminée`
+          });
+        }
+        // ===== CONFIRMER LA LIVRAISON =====
+        else if (data.startsWith('complete_delivery_')) {
+          const orderId = data.replace('complete_delivery_', '');
+          const order = await db.get('SELECT * FROM orders WHERE id = ?', [orderId]);
+          
+          if (!order) {
+            await axios.post(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/answerCallbackQuery`, {
+              callback_query_id: callback_query.id,
+              text: '❌ Commande introuvable',
+              show_alert: true
+            });
+            return;
+          }
+          
+          await db.run('UPDATE orders SET status = ? WHERE id = ?', ['delivered', orderId]);
+          
+          activeConversations.delete(parseInt(orderId));
+          
+          const confirmMessage = `✅ <b>LIVRAISON #${orderId} CONFIRMÉE</b>
+
+💰 Montant encaissé : ${order.total}€
+
+⚠️ Remettez l'argent à l'admin !`;
+          
+          await axios.post(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+            chat_id: chatId,
+            text: confirmMessage,
+            parse_mode: 'HTML'
+          });
+          
+          if (ADMIN_CHAT_ID) {
+            const adminMsg = `✅ <b>LIVRAISON TERMINÉE #${orderId}</b>
+
+💰 À récupérer : ${order.total}€
+📍 ${order.address}`;
+            
+            await axios.post(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+              chat_id: ADMIN_CHAT_ID,
+              text: adminMsg,
+              parse_mode: 'HTML'
+            });
+          }
+          
+          await notifyClientViaBot(order.customer, orderId, 'delivered');
+          
+          await axios.post(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/answerCallbackQuery`, {
+            callback_query_id: callback_query.id,
+            text: '✅ Livraison confirmée !'
+          });
+        }
+        // ===== REFUSER UNE LIVRAISON =====
+        else if (data.startsWith('refuse_delivery_')) {
+          const orderId = data.replace('refuse_delivery_', '');
+          
+          await db.run('UPDATE orders SET status = ? WHERE id = ?', ['cancelled', orderId]);
+          activeConversations.delete(parseInt(orderId));
+          
+          if (ADMIN_CHAT_ID) {
+            await axios.post(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+              chat_id: ADMIN_CHAT_ID,
+              text: `❌ Livraison #${orderId} refusée par le livreur`,
+              parse_mode: 'HTML'
+            });
+          }
+          
+          await axios.post(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/answerCallbackQuery`, {
+            callback_query_id: callback_query.id,
+            text: 'Livraison refusée'
+          });
+        }
+        // ===== CALLBACKS EXISTANTS =====
+        else if (data === 'contact_support') {
           const supportText = `💬 <b>SUPPORT CLIENT</b>
 
 Pour toute question ou assistance :
@@ -1122,6 +1673,11 @@ async function start() {
     } else {
       console.log('⚠️  SUPPORT_CHAT_ID not set - support notifications disabled');
     }
+    
+    // ✅ NOUVEAU : Affichage des zones configurées
+    console.log('📍 Zones de livraison :');
+    console.log(`   🏙️  Millau : ${DRIVER_MILLAU_ID ? '✅ ' + DRIVER_MILLAU_ID : '❌ Non configuré'}`);
+    console.log(`   🌐 Extérieur : ${DRIVER_EXTERIEUR_ID ? '✅ ' + DRIVER_EXTERIEUR_ID : '❌ Non configuré'}`);
     
     if (!MAPBOX_KEY) {
       console.log('⚠️  MAPBOX_KEY not set - geocoding disabled');
