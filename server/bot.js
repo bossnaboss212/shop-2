@@ -2,6 +2,37 @@ const express = require('express');
 const axios = require('axios');
 
 // ============================================================
+// BOT TELEGRAM AMÉLIORÉ - DROGUA CENTER
+// ============================================================
+// 
+// FONCTIONNALITÉS PRINCIPALES :
+// 
+// 1. CLAVIER PERSISTANT (Reply Keyboard)
+//    - Boutons toujours visibles en bas de l'écran
+//    - Navigation rapide : Menu, Boutique, Admin, Aide, Support
+//    - Activé automatiquement au premier /start
+//    - Toggle avec /keyboard
+//
+// 2. BOUTONS INLINE (Inline Keyboard)
+//    - Boutons dans les messages
+//    - WebApp pour ouvrir la boutique/admin
+//    - Liens vers canaux et support
+//
+// 3. NAVIGATION INTELLIGENTE
+//    - Bouton "🏠 Menu Principal" sur chaque écran
+//    - Édition des messages au lieu de nouveaux envois
+//    - Fallback automatique en cas d'erreur
+//
+// 4. COMMANDES DISPONIBLES
+//    /start - Menu principal
+//    /shop ou /boutique - Boutique
+//    /admin - Panneau admin
+//    /help ou /aide - Aide
+//    /keyboard - Activer/Désactiver clavier persistant
+//
+// ============================================================
+
+// ============================================================
 // CONFIGURATION
 // ============================================================
 const CONFIG = {
@@ -40,13 +71,14 @@ app.use((req, res, next) => {
 // TELEGRAM API HELPERS
 // ============================================================
 class TelegramAPI {
-  static async sendMessage(chatId, text, keyboard = null) {
+  static async sendMessage(chatId, text, keyboard = null, options = {}) {
     const url = `https://api.telegram.org/bot${CONFIG.BOT_TOKEN}/sendMessage`;
     
     const data = {
       chat_id: chatId,
       text: text,
-      parse_mode: 'HTML'
+      parse_mode: 'HTML',
+      ...options
     };
     
     if (keyboard) {
@@ -147,7 +179,8 @@ class TelegramAPI {
       { command: 'start', description: '🏠 Menu principal' },
       { command: 'shop', description: '🛒 Ouvrir la boutique' },
       { command: 'admin', description: '🔐 Panneau admin' },
-      { command: 'help', description: '❓ Aide et support' }
+      { command: 'help', description: '❓ Aide et support' },
+      { command: 'keyboard', description: '⌨️ Afficher/Masquer le clavier' }
     ];
     
     try {
@@ -186,6 +219,25 @@ class TelegramAPI {
 // KEYBOARDS (CLAVIERS)
 // ============================================================
 const Keyboards = {
+  // Clavier de réponse persistant (toujours visible)
+  replyKeyboard: {
+    keyboard: [
+      [
+        { text: '🏠 Menu Principal' },
+        { text: '🛍️ Boutique' }
+      ],
+      [
+        { text: '🔐 Admin' },
+        { text: '❓ Aide' }
+      ],
+      [
+        { text: '💬 Support' }
+      ]
+    ],
+    resize_keyboard: true,
+    persistent: true
+  },
+
   welcome: {
     inline_keyboard: [
       [
@@ -233,7 +285,7 @@ const Keyboards = {
       ],
       [
         {
-          text: '◀️ Retour au Menu',
+          text: '🏠 Menu Principal',
           callback_data: 'start'
         }
       ]
@@ -250,7 +302,7 @@ const Keyboards = {
       ],
       [
         {
-          text: '◀️ Retour au Menu',
+          text: '🏠 Menu Principal',
           callback_data: 'start'
         }
       ]
@@ -274,6 +326,12 @@ const Keyboards = {
           text: '🔐 Admin',
           callback_data: 'open_admin'
         }
+      ],
+      [
+        {
+          text: '🏠 Menu Principal',
+          callback_data: 'start'
+        }
       ]
     ]
   },
@@ -294,7 +352,17 @@ const Keyboards = {
       ],
       [
         {
-          text: '◀️ Retour',
+          text: '🛒 Boutique',
+          callback_data: 'open_shop'
+        },
+        {
+          text: 'ℹ️ Infos',
+          callback_data: 'show_info'
+        }
+      ],
+      [
+        {
+          text: '🏠 Menu Principal',
           callback_data: 'start'
         }
       ]
@@ -311,7 +379,17 @@ const Keyboards = {
       ],
       [
         {
-          text: '◀️ Retour',
+          text: '💬 Support',
+          callback_data: 'contact_support'
+        },
+        {
+          text: '❓ Aide',
+          callback_data: 'show_help'
+        }
+      ],
+      [
+        {
+          text: '🏠 Menu Principal',
           callback_data: 'start'
         }
       ]
@@ -422,20 +500,42 @@ Merci de votre confiance ! 💚`
 };
 
 // ============================================================
+// STATE MANAGEMENT (pour le clavier)
+// ============================================================
+// Stockage temporaire des utilisateurs qui ont le clavier activé
+const keyboardState = new Set();
+
+// ============================================================
 // HANDLERS (GESTIONNAIRES)
 // ============================================================
 const MessageHandlers = {
   '/start': async (chatId, firstName) => {
     try {
+      // Toujours activer le clavier au /start
       await TelegramAPI.sendMessage(
         chatId,
         Messages.welcome(firstName),
         Keyboards.welcome
       );
+      
+      // Si c'est la première fois, envoyer aussi le clavier persistant
+      if (!keyboardState.has(chatId)) {
+        await TelegramAPI.sendMessage(
+          chatId,
+          '⌨️ <i>Clavier de navigation activé ci-dessous</i>',
+          Keyboards.replyKeyboard
+        );
+        keyboardState.add(chatId);
+      }
+      
       console.log(`✅ Welcome message sent to ${chatId}`);
     } catch (error) {
       console.error(`❌ Error in /start handler:`, error);
     }
+  },
+
+  '🏠 Menu Principal': async (chatId, firstName) => {
+    await MessageHandlers['/start'](chatId, firstName);
   },
 
   '/shop': async (chatId) => {
@@ -451,6 +551,10 @@ const MessageHandlers = {
     await MessageHandlers['/shop'](chatId);
   },
 
+  '🛍️ Boutique': async (chatId) => {
+    await MessageHandlers['/shop'](chatId);
+  },
+
   '/admin': async (chatId) => {
     try {
       await TelegramAPI.sendMessage(chatId, Messages.admin, Keyboards.admin);
@@ -458,6 +562,10 @@ const MessageHandlers = {
     } catch (error) {
       console.error(`❌ Error in /admin handler:`, error);
     }
+  },
+
+  '🔐 Admin': async (chatId) => {
+    await MessageHandlers['/admin'](chatId);
   },
 
   '/help': async (chatId) => {
@@ -471,6 +579,62 @@ const MessageHandlers = {
 
   '/aide': async (chatId) => {
     await MessageHandlers['/help'](chatId);
+  },
+
+  '❓ Aide': async (chatId) => {
+    await MessageHandlers['/help'](chatId);
+  },
+
+  '💬 Support': async (chatId) => {
+    try {
+      await TelegramAPI.sendMessage(chatId, Messages.support, Keyboards.support);
+      console.log(`✅ Support message sent to ${chatId}`);
+    } catch (error) {
+      console.error(`❌ Error in support handler:`, error);
+    }
+  },
+
+  '/keyboard': async (chatId) => {
+    try {
+      // Toggle du clavier
+      if (keyboardState.has(chatId)) {
+        // Désactiver le clavier
+        const hideKeyboardText = `❌ <b>CLAVIER MASQUÉ</b>
+
+Le clavier rapide a été masqué.
+
+Pour le réactiver, utilisez la commande /keyboard`;
+
+        await TelegramAPI.sendMessage(
+          chatId, 
+          hideKeyboardText,
+          { remove_keyboard: true }
+        );
+        keyboardState.delete(chatId);
+        console.log(`✅ Keyboard disabled for ${chatId}`);
+      } else {
+        // Activer le clavier
+        const keyboardText = `⌨️ <b>CLAVIER ACTIVÉ</b>
+
+Votre clavier personnalisé est maintenant activé ! 
+
+Utilisez les boutons ci-dessous pour naviguer rapidement :
+
+🏠 <b>Menu Principal</b> - Retour à l'accueil
+🛍️ <b>Boutique</b> - Accéder au catalogue
+🔐 <b>Admin</b> - Panneau administrateur
+❓ <b>Aide</b> - Support et informations
+💬 <b>Support</b> - Contacter l'équipe
+
+<i>Pour masquer le clavier : /keyboard</i>`;
+
+        await TelegramAPI.sendMessage(chatId, keyboardText, Keyboards.replyKeyboard);
+        keyboardState.add(chatId);
+        console.log(`✅ Keyboard enabled for ${chatId}`);
+      }
+    } catch (error) {
+      console.error(`❌ Error in /keyboard handler:`, error);
+    }
   }
 };
 
@@ -525,6 +689,19 @@ const CallbackHandlers = {
       );
     } catch (error) {
       await TelegramAPI.sendMessage(chatId, Messages.support, Keyboards.support);
+    }
+  },
+
+  'show_help': async (chatId, messageId) => {
+    try {
+      await TelegramAPI.editMessageText(
+        chatId,
+        messageId,
+        Messages.help,
+        Keyboards.help
+      );
+    } catch (error) {
+      await MessageHandlers['/help'](chatId);
     }
   },
 
@@ -619,6 +796,36 @@ app.post('/setup-webhook', async (req, res) => {
     await TelegramAPI.setBotCommands();
     await TelegramAPI.setMenuButton();
     res.json({ success: true, webhook: webhookUrl });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Route pour activer le clavier persistant pour un utilisateur
+app.post('/enable-keyboard/:chatId', async (req, res) => {
+  try {
+    const { chatId } = req.params;
+    await TelegramAPI.sendMessage(
+      chatId,
+      '✅ <b>Clavier activé!</b>\n\nUtilisez les boutons ci-dessous pour naviguer rapidement.',
+      Keyboards.replyKeyboard
+    );
+    res.json({ success: true, message: 'Keyboard enabled' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Route pour désactiver le clavier persistant
+app.post('/disable-keyboard/:chatId', async (req, res) => {
+  try {
+    const { chatId } = req.params;
+    await TelegramAPI.sendMessage(
+      chatId,
+      '❌ <b>Clavier désactivé!</b>',
+      { remove_keyboard: true }
+    );
+    res.json({ success: true, message: 'Keyboard disabled' });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
