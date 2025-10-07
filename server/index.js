@@ -8,7 +8,7 @@ const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 
 const app = express();
-app.set('trust proxy', 1); // Configuration pour Railway/proxy
+app.set('trust proxy', 1);
 
 const PORT = process.env.PORT || 3000;
 
@@ -59,7 +59,7 @@ const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
   message: { ok: false, error: 'Trop de requêtes, réessayez plus tard' },
-  validate: false, // Désactive validation stricte pour Railway
+  validate: false,
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -68,7 +68,7 @@ const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
   message: { ok: false, error: 'Trop de tentatives de connexion' },
-  validate: false, // Désactive validation stricte pour Railway
+  validate: false,
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -1383,6 +1383,61 @@ if (config.telegram.token) {
   });
 }
 
+// ==================== CLAVIER PERMANENT POUR CHAQUE UTILISATEUR ====================
+function getPermanentKeyboard(chatId) {
+  const isDriver = chatId.toString() === config.telegram.driverMillauId || 
+                   chatId.toString() === config.telegram.driverExterieurId;
+  const isAdmin = chatId.toString() === config.telegram.adminChatId;
+  
+  if (isDriver) {
+    // Clavier pour les livreurs
+    return {
+      keyboard: [
+        [{ text: '📋 Mes Livraisons' }],
+        [{ text: '📊 Mes Stats' }],
+        [{ text: '🛍️ Boutique', web_app: { url: config.webapp.url } }],
+        [{ text: '❓ Aide' }]
+      ],
+      resize_keyboard: true,
+      persistent: true,
+      one_time_keyboard: false
+    };
+  } else if (isAdmin) {
+    // Clavier pour l'admin
+    return {
+      keyboard: [
+        [{ text: '📱 Mini-App', web_app: { url: config.webapp.url } }],
+        [
+          { text: '🍽️ Menu' },
+          { text: '📦 Catalogue' }
+        ],
+        [
+          { text: '📞 Contact' },
+          { text: '🔐 Admin', web_app: { url: `${config.webapp.url}/admin.html` } }
+        ]
+      ],
+      resize_keyboard: true,
+      persistent: true,
+      one_time_keyboard: false
+    };
+  } else {
+    // Clavier pour les clients normaux
+    return {
+      keyboard: [
+        [{ text: '📱 Mini-App', web_app: { url: config.webapp.url } }],
+        [
+          { text: '🍽️ Menu' },
+          { text: '📦 Catalogue' }
+        ],
+        [{ text: '📞 Contact' }]
+      ],
+      resize_keyboard: true,
+      persistent: true,
+      one_time_keyboard: false
+    };
+  }
+}
+
 async function handleTelegramMessage(message) {
   const chatId = message.chat.id;
   const text = message.text;
@@ -1390,7 +1445,26 @@ async function handleTelegramMessage(message) {
   
   console.log(`💬 Message from ${firstName} (${chatId}): ${text}`);
   
-  if (text === '/start') {
+  // Gestion des boutons du clavier permanent
+  if (text === '📱 Mini-App' || text === '🛍️ Boutique') {
+    await sendShopMessage(chatId);
+  } else if (text === '🍽️ Menu') {
+    await sendMenuMessage(chatId);
+  } else if (text === '📦 Catalogue') {
+    await sendCatalogMessage(chatId);
+  } else if (text === '📞 Contact') {
+    await sendSupportMessage(chatId);
+  } else if (text === '🔐 Admin') {
+    await sendAdminMessage(chatId);
+  } else if (text === '📋 Mes Livraisons') {
+    await sendDriverDeliveries(chatId);
+  } else if (text === '📊 Mes Stats') {
+    await sendDriverStats(chatId);
+  } else if (text === '❓ Aide') {
+    await sendHelpMessage(chatId);
+  }
+  // Commandes standards avec /
+  else if (text === '/start') {
     await sendWelcomeMessage(chatId, firstName);
   } else if (text === '/shop' || text === '/boutique') {
     await sendShopMessage(chatId);
@@ -1473,32 +1547,85 @@ async function handleTelegramCallback(callback_query) {
   }
 }
 
+// ==================== MESSAGES AVEC CLAVIER PERMANENT ====================
+
 async function sendWelcomeMessage(chatId, firstName) {
   const text = `🌟 <b>Bienvenue ${firstName} chez DROGUA CENTER !</b> 🌟
 
 Votre boutique premium accessible directement depuis Telegram.
 
-<b>🛍️ Que souhaitez-vous faire ?</b>
-
-• <b>Boutique</b> - Parcourir et commander
-• <b>Admin</b> - Gérer votre boutique
-• <b>Support</b> - Aide et assistance
+<b>🛍️ Utilisez le menu en bas pour naviguer</b>
 
 ✨ <i>Programme de fidélité actif !</i>
-Bénéficiez d'une remise tous les ${config.loyalty.defaultThreshold} achats.`;
+Bénéficiez d'une remise tous les ${config.loyalty.defaultThreshold} achats.
+
+Tapez sur les boutons ci-dessous pour commencer ! 👇`;
+
+  const keyboard = getPermanentKeyboard(chatId);
+  await telegram.sendMessage(chatId, text, { reply_markup: keyboard });
+}
+
+async function sendMenuMessage(chatId) {
+  const text = `🍽️ <b>MENU DROGUA CENTER</b>
+
+Découvrez nos différentes catégories :
+
+• 🌿 <b>Fleurs Premium</b> - Sélection de qualité
+• 💎 <b>Concentrés</b> - Extractions pures
+• 🍫 <b>Edibles</b> - Gourmandises infusées
+• 🔥 <b>Vape & Accessoires</b> - Discrétion maximale
+• 🎁 <b>Packs & Promos</b> - Offres spéciales
+
+📱 <b>Cliquez sur "Mini-App" pour voir tous les produits !</b>
+
+💎 Livraison rapide et discrète
+🎁 Programme de fidélité
+🔒 Paiement sécurisé`;
 
   const keyboard = {
     inline_keyboard: [
-      [{ text: '🛍️ Accéder à la Boutique', web_app: { url: config.webapp.url } }],
-      [{ text: '🔐 Panneau Admin', web_app: { url: `${config.webapp.url}/admin.html` } }],
-      [
-        { text: '📢 Canal Principal', url: 'https://t.me/+MToYP95G9zY2ZTJk' },
-        { text: '📸 Canal Photo', url: 'https://t.me/+usSUbJOfYsk5ZTg0' }
-      ],
-      [
-        { text: '💬 Support', callback_data: 'contact_support' },
-        { text: 'ℹ️ Infos', callback_data: 'show_info' }
-      ]
+      [{ text: '🛒 Ouvrir la Boutique Complète', web_app: { url: config.webapp.url } }]
+    ]
+  };
+  
+  await telegram.sendMessage(chatId, text, { reply_markup: keyboard });
+}
+
+async function sendCatalogMessage(chatId) {
+  const text = `📦 <b>CATALOGUE COMPLET</b>
+
+🏆 <b>Nos produits vedettes :</b>
+
+🌿 <b>Fleurs Premium</b>
+   • Amnesia Haze
+   • OG Kush
+   • Purple Haze
+   • White Widow
+
+💎 <b>Concentrés</b>
+   • Wax 80% THC
+   • Shatter
+   • Live Resin
+
+🍫 <b>Edibles</b>
+   • Brownies THC
+   • Gummies
+   • Chocolats
+
+🔥 <b>Vape & Accessoires</b>
+   • Vape Pen
+   • Cartouches
+   • Batteries
+
+💰 <b>Prix et disponibilité en temps réel</b>
+📦 <b>Stock mis à jour quotidiennement</b>
+🚚 <b>Livraison express</b>
+
+<b>📱 Ouvrez la Mini-App pour voir le catalogue complet avec photos et prix !</b>`;
+
+  const keyboard = {
+    inline_keyboard: [
+      [{ text: '🛒 Voir tous les produits', web_app: { url: config.webapp.url } }]
     ]
   };
   
@@ -1513,7 +1640,10 @@ Cliquez sur le bouton ci-dessous pour accéder à notre catalogue complet.
 💎 Livraison rapide et discrète
 🔒 Paiement sécurisé
 📦 Suivi de commande en temps réel
-🎁 Programme de fidélité actif`;
+🎁 Programme de fidélité actif
+
+<b>⏰ Horaires d'ouverture :</b>
+7j/7 de 12H à 00H (minuit)`;
 
   const keyboard = {
     inline_keyboard: [
@@ -1533,6 +1663,7 @@ Accédez au tableau de bord pour gérer :
 📦 Commandes en cours
 📋 Gestion du stock
 💰 Finances et transactions
+👥 Gestion des clients
 ⚙️ Paramètres de la boutique
 
 <i>⚠️ Authentification requise</i>`;
@@ -1567,14 +1698,17 @@ async function sendHelpMessage(chatId) {
 
 <b>⏰ Horaires d'ouverture :</b>
 7j/7 de 12H à 00H (minuit)
-Livraison rapide pendant les heures d'ouverture`;
+Livraison rapide pendant les heures d'ouverture
+
+<b>💡 Astuce :</b>
+Utilisez les boutons en bas de votre écran pour naviguer rapidement ! 👇`;
 
   const keyboard = {
     inline_keyboard: [
       [{ text: '💬 Contacter le Support', url: 'https://t.me/assistancenter' }],
       [
         { text: '🛒 Boutique', callback_data: 'open_shop' },
-        { text: '🔐 Admin', callback_data: 'open_admin' }
+        { text: 'ℹ️ Infos', callback_data: 'show_info' }
       ]
     ]
   };
@@ -1593,12 +1727,20 @@ Pour toute question ou assistance :
 
 Notre équipe est disponible <b>7j/7</b> pour vous aider !
 
-<i>Réponse sous 24h maximum</i>`;
+<i>Réponse sous 24h maximum</i>
+
+📢 <b>Rejoignez nos canaux :</b>
+• Canal Principal - Actualités et offres
+• Canal Photo - Nouveaux produits en images`;
 
   const keyboard = {
     inline_keyboard: [
       [{ text: '💬 Support Telegram', url: 'https://t.me/assistancenter' }],
-      [{ text: '📸 Snapchat', url: 'https://snapchat.com/t/l9gurvAj' }]
+      [{ text: '📸 Snapchat', url: 'https://snapchat.com/t/l9gurvAj' }],
+      [
+        { text: '📢 Canal Principal', url: 'https://t.me/+MToYP95G9zY2ZTJk' },
+        { text: '📸 Canal Photo', url: 'https://t.me/+usSUbJOfYsk5ZTg0' }
+      ]
     ]
   };
   
@@ -1665,7 +1807,7 @@ async function sendDetailedDriverDeliveries(chatId, driverZone) {
   const totalOrders = pendingOrders.length + enRouteOrders.length;
   
   if (totalOrders === 0) {
-    await telegram.sendMessage(chatId, `📭 <b>Aucune livraison en cours</b>\n\nZone : ${driverZone.toUpperCase()}`);
+    await telegram.sendMessage(chatId, `📭 <b>Aucune livraison en cours</b>\n\nZone : ${driverZone.toUpperCase()}\n\nProfitez de votre pause ! 😎`);
     return;
   }
   
