@@ -8,6 +8,7 @@ const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 
 const app = express();
+app.set('trust proxy', true); // Active le support des proxies (Railway, etc.)
 const PORT = process.env.PORT || 3000;
 
 // ==================== CONFIGURATION ====================
