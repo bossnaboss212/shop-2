@@ -24,7 +24,7 @@ const config = {
   },
   admin: {
     password: process.env.ADMIN_PASS || 'gangstaforlife12',
-    tokenExpiry: 24 * 60 * 60 * 1000, // 24 hours
+    tokenExpiry: 24 * 60 * 60 * 1000,
   },
   webapp: {
     url: process.env.WEBAPP_URL || 'https://shop-2-production.up.railway.app',
@@ -284,6 +284,22 @@ function validateOrderInput(data) {
   }
   
   return true;
+}
+
+function getTimeAgo(timestamp) {
+  const now = new Date();
+  const past = new Date(timestamp);
+  const diffMs = now - past;
+  const diffMins = Math.floor(diffMs / 60000);
+  
+  if (diffMins < 1) return 'À l\'instant';
+  if (diffMins < 60) return `Il y a ${diffMins} min`;
+  
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `Il y a ${diffHours}h`;
+  
+  const diffDays = Math.floor(diffHours / 24);
+  return `Il y a ${diffDays}j`;
 }
 
 // ==================== TELEGRAM SERVICE ====================
@@ -548,7 +564,17 @@ ${order.discount > 0 ? `🎁 Remise fidélité: -${order.discount}€\n` : ''}�
   }
   
   if (driverInfo.driverId) {
-    const driverMessage = `🚚 <b>NOUVELLE COMMANDE #${order.id}</b>
+    const allPendingOrders = await db.all(
+      "SELECT * FROM orders WHERE status = 'pending' AND assigned_driver_zone = ? ORDER BY created_at ASC",
+      [driverInfo.zone]
+    );
+    
+    const orderPosition = allPendingOrders.findIndex(o => o.id === order.id) + 1;
+    const totalPending = allPendingOrders.length;
+    
+    let driverMessage = `🚚 <b>NOUVELLE COMMANDE #${order.id}</b>
+
+🔢 <b>Position: ${orderPosition}/${totalPending}</b> ${orderPosition === 1 ? '⚡ PRIORITÉ' : ''}
 
 📍 Type: ${order.type}
 🏠 Adresse: ${order.address || 'Sur place'}
@@ -560,12 +586,24 @@ ${items.map(item => `• ${item.name} - ${item.variant} ×${item.qty}`).join('\n
 🎭 <b>Client: Anonyme</b>
 💬 <b>Communication: Via le bot uniquement</b>
 
-⏰ ${new Date(order.created_at).toLocaleString('fr-FR')}`;
+⏰ Reçue: ${new Date(order.created_at).toLocaleString('fr-FR')}`;
+
+    if (totalPending > 1) {
+      driverMessage += `\n\n━━━━━━━━━━━━━━━━━━━
+📋 <b>TOUTES VOS COMMANDES (${totalPending})</b>\n`;
+      
+      allPendingOrders.forEach((o, index) => {
+        const emoji = index === 0 ? '⚡' : (index + 1).toString() + '️⃣';
+        const highlight = o.id === order.id ? ' 🆕' : '';
+        driverMessage += `\n${emoji} #${o.id} - ${o.total}€${highlight}`;
+      });
+    }
     
     const keyboard = {
       inline_keyboard: [
-        [{ text: '🚀 DÉMARRER LA LIVRAISON', callback_data: `start_delivery_${order.id}` }],
+        [{ text: '🚀 START - DÉMARRER', callback_data: `start_delivery_${order.id}` }],
         [{ text: '💬 Contacter le client', callback_data: `contact_client_${order.id}` }],
+        [{ text: '📋 Voir toutes mes livraisons', callback_data: `my_deliveries_${driverInfo.zone}` }],
         [{ text: '❌ Refuser', callback_data: `refuse_delivery_${order.id}` }]
       ]
     };
@@ -1411,6 +1449,11 @@ async function handleTelegramCallback(callback_query) {
   } else if (data.startsWith('refuse_delivery_')) {
     const orderId = data.replace('refuse_delivery_', '');
     await refuseDelivery(chatId, orderId);
+  } else if (data.startsWith('my_deliveries_')) {
+    const zone = data.replace('my_deliveries_', '');
+    await sendDetailedDriverDeliveries(chatId, zone);
+  } else if (data === 'driver_stats') {
+    await sendDriverStats(chatId);
   } else if (data === 'contact_support') {
     await sendSupportMessage(chatId);
   } else if (data === 'show_info') {
@@ -1597,37 +1640,90 @@ async function sendDriverDeliveries(chatId) {
   
   if (!driverZone) return;
   
-  const activeDeliveries = await db.all(
-    "SELECT * FROM orders WHERE status IN ('pending', 'en_route') AND assigned_driver_zone = ? ORDER BY created_at DESC",
+  await sendDetailedDriverDeliveries(chatId, driverZone);
+}
+
+async function sendDetailedDriverDeliveries(chatId, driverZone) {
+  const pendingOrders = await db.all(
+    "SELECT * FROM orders WHERE status = 'pending' AND assigned_driver_zone = ? ORDER BY created_at ASC",
     [driverZone]
   );
   
-  if (activeDeliveries.length === 0) {
+  const enRouteOrders = await db.all(
+    "SELECT * FROM orders WHERE status = 'en_route' AND assigned_driver_zone = ? ORDER BY created_at ASC",
+    [driverZone]
+  );
+  
+  const totalOrders = pendingOrders.length + enRouteOrders.length;
+  
+  if (totalOrders === 0) {
     await telegram.sendMessage(chatId, `📭 <b>Aucune livraison en cours</b>\n\nZone : ${driverZone.toUpperCase()}`);
     return;
   }
   
-  let message = `🚚 <b>VOS LIVRAISONS (${driverZone.toUpperCase()})</b>\n\n`;
+  let message = `🚚 <b>VOS LIVRAISONS (${driverZone.toUpperCase()})</b>\n`;
+  message += `📊 Total: ${totalOrders} commande(s)\n`;
+  message += `━━━━━━━━━━━━━━━━━━━\n\n`;
   
-  for (const order of activeDeliveries) {
-    const items = JSON.parse(order.items || '[]');
-    const statusEmoji = order.status === 'pending' ? '⏳' : '🚀';
-    const statusText = order.status === 'pending' ? 'En attente' : 'En route';
+  if (enRouteOrders.length > 0) {
+    message += `🚀 <b>EN COURS DE LIVRAISON (${enRouteOrders.length})</b>\n\n`;
     
-    message += `${statusEmoji} <b>#${order.id}</b> - ${statusText}\n`;
-    message += `📍 ${order.address}\n`;
-    message += `💰 ${order.total}€\n`;
-    message += `📦 ${items.length} article(s)\n`;
-    message += `🎭 Client : Anonyme\n`;
+    enRouteOrders.forEach((order, index) => {
+      const items = JSON.parse(order.items || '[]');
+      const timeAgo = getTimeAgo(order.created_at);
+      
+      message += `🚀 <b>#${order.id}</b> ${index === 0 ? '⚡ PRIORITÉ' : ''}\n`;
+      message += `📍 ${order.address}\n`;
+      message += `💰 ${order.total}€ | 📦 ${items.length} article(s)\n`;
+      if (order.delivery_time) {
+        message += `⏱️ ETA: ${order.delivery_time} min\n`;
+      }
+      message += `🕐 ${timeAgo}\n\n`;
+    });
     
-    if (order.status === 'en_route' && order.delivery_time) {
-      message += `⏱️ ETA: ${order.delivery_time} min\n`;
-    }
-    
-    message += `\n`;
+    message += `━━━━━━━━━━━━━━━━━━━\n\n`;
   }
   
-  await telegram.sendMessage(chatId, message);
+  if (pendingOrders.length > 0) {
+    message += `⏳ <b>EN ATTENTE (${pendingOrders.length})</b>\n`;
+    message += `<i>Ordre de priorité (du plus ancien au plus récent)</i>\n\n`;
+    
+    pendingOrders.forEach((order, index) => {
+      const items = JSON.parse(order.items || '[]');
+      const timeAgo = getTimeAgo(order.created_at);
+      const priorityEmoji = index === 0 ? '⚡' : (index + 1).toString() + '️⃣';
+      
+      message += `${priorityEmoji} <b>#${order.id}</b>${index === 0 ? ' ⚡ À FAIRE EN PREMIER' : ''}\n`;
+      message += `📍 ${order.address}\n`;
+      message += `💰 ${order.total}€ | 📦 ${items.length} article(s)\n`;
+      message += `🕐 ${timeAgo}\n\n`;
+    });
+  }
+  
+  message += `━━━━━━━━━━━━━━━━━━━\n`;
+  message += `💡 <i>Les commandes les plus anciennes sont prioritaires</i>`;
+  
+  const keyboard = {
+    inline_keyboard: []
+  };
+  
+  if (pendingOrders.length > 0) {
+    keyboard.inline_keyboard.push([
+      { text: `🚀 START #${pendingOrders[0].id}`, callback_data: `start_delivery_${pendingOrders[0].id}` }
+    ]);
+  }
+  
+  if (enRouteOrders.length > 0) {
+    keyboard.inline_keyboard.push([
+      { text: `✅ TERMINER #${enRouteOrders[0].id}`, callback_data: `complete_delivery_${enRouteOrders[0].id}` }
+    ]);
+  }
+  
+  keyboard.inline_keyboard.push([
+    { text: '🔄 Actualiser', callback_data: `my_deliveries_${driverZone}` }
+  ]);
+  
+  await telegram.sendMessage(chatId, message, { reply_markup: keyboard });
 }
 
 async function sendDriverStats(chatId) {
@@ -1793,7 +1889,12 @@ async function startDelivery(chatId, orderId, estimatedTime) {
     ['en_route', estimatedTime, orderId]
   );
   
-  const message = `✅ <b>LIVRAISON DÉMARRÉE #${orderId}</b>
+  const remainingOrders = await db.all(
+    "SELECT * FROM orders WHERE status = 'pending' AND assigned_driver_zone = ? ORDER BY created_at ASC",
+    [order.assigned_driver_zone]
+  );
+  
+  let message = `✅ <b>LIVRAISON DÉMARRÉE #${orderId}</b>
 
 ⏱️ Temps estimé : ${estimatedTime} minutes
 📍 ${order.address}
@@ -1802,11 +1903,27 @@ async function startDelivery(chatId, orderId, estimatedTime) {
 🎭 <b>Client : Anonyme</b>
 💬 Utilisez le bouton "Contacter" pour envoyer un message`;
 
+  if (remainingOrders.length > 0) {
+    message += `\n\n━━━━━━━━━━━━━━━━━━━
+📋 <b>COMMANDES EN ATTENTE (${remainingOrders.length})</b>
+<i>À faire après celle-ci :</i>\n`;
+    
+    remainingOrders.slice(0, 5).forEach((o, index) => {
+      const emoji = index === 0 ? '⚡' : (index + 1).toString() + '️⃣';
+      message += `\n${emoji} #${o.id} - ${o.total}€`;
+    });
+    
+    if (remainingOrders.length > 5) {
+      message += `\n\n... et ${remainingOrders.length - 5} autre(s)`;
+    }
+  }
+
   const keyboard = {
     inline_keyboard: [
       [{ text: '💬 Contacter le client', callback_data: `contact_client_${orderId}` }],
       [{ text: '✅ LIVRAISON TERMINÉE', callback_data: `complete_delivery_${orderId}` }],
-      [{ text: '📍 Ouvrir Maps', url: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.address)}` }]
+      [{ text: '📍 Ouvrir Maps', url: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.address)}` }],
+      [{ text: '📋 Voir toutes mes livraisons', callback_data: `my_deliveries_${order.assigned_driver_zone}` }]
     ]
   };
   
@@ -1870,13 +1987,54 @@ async function completeDelivery(chatId, orderId) {
   await db.run('UPDATE orders SET status = ? WHERE id = ?', ['delivered', orderId]);
   activeConversations.delete(parseInt(orderId));
   
-  const message = `✅ <b>LIVRAISON #${orderId} CONFIRMÉE</b>
+  const nextOrder = await db.get(
+    "SELECT * FROM orders WHERE status = 'pending' AND assigned_driver_zone = ? ORDER BY created_at ASC LIMIT 1",
+    [order.assigned_driver_zone]
+  );
+  
+  const remainingCount = await db.get(
+    "SELECT COUNT(*) as count FROM orders WHERE status = 'pending' AND assigned_driver_zone = ?",
+    [order.assigned_driver_zone]
+  );
+  
+  let message = `✅ <b>LIVRAISON #${orderId} CONFIRMÉE</b>
 
 💰 Montant encaissé : ${order.total}€
 
 ⚠️ Remettez l'argent à l'admin !`;
-  
-  await telegram.sendMessage(chatId, message);
+
+  if (nextOrder) {
+    const nextItems = JSON.parse(nextOrder.items || '[]');
+    message += `\n\n━━━━━━━━━━━━━━━━━━━
+⚡ <b>PROCHAINE COMMANDE PRIORITAIRE</b>
+
+📦 #${nextOrder.id}
+📍 ${nextOrder.address}
+💰 ${nextOrder.total}€
+📦 ${nextItems.length} article(s)
+
+📋 ${remainingCount.count} commande(s) restante(s)`;
+    
+    const keyboard = {
+      inline_keyboard: [
+        [{ text: `🚀 START #${nextOrder.id}`, callback_data: `start_delivery_${nextOrder.id}` }],
+        [{ text: '📋 Voir toutes mes livraisons', callback_data: `my_deliveries_${order.assigned_driver_zone}` }],
+        [{ text: '📊 Mes statistiques', callback_data: 'driver_stats' }]
+      ]
+    };
+    
+    await telegram.sendMessage(chatId, message, { reply_markup: keyboard });
+  } else {
+    message += `\n\n🎉 <b>AUCUNE COMMANDE EN ATTENTE</b>\n\nBravo ! Toutes les livraisons sont terminées ! 🚀`;
+    
+    const keyboard = {
+      inline_keyboard: [
+        [{ text: '📊 Voir mes statistiques', callback_data: 'driver_stats' }]
+      ]
+    };
+    
+    await telegram.sendMessage(chatId, message, { reply_markup: keyboard });
+  }
   
   if (config.telegram.adminChatId) {
     const adminMsg = `✅ <b>LIVRAISON TERMINÉE #${orderId}</b>
