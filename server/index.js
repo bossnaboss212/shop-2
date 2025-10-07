@@ -13,7 +13,7 @@ const PORT = process.env.PORT || 3000;
 // ==================== CONFIGURATION ====================
 const config = {
   telegram: {
-    token: process.env.TELEGRAM_TOKEN || '',
+    token: process.env.TELEGRAM_TOKEN || '7364804422:AAGsiuQhHUVUxb1BfXsb28lKWcot8gxHD30',
     adminChatId: process.env.ADMIN_CHAT_ID || '',
     supportChatId: process.env.SUPPORT_CHAT_ID || '',
     driverMillauId: process.env.DRIVER_MILLAU_ID || '',
@@ -50,12 +50,11 @@ const config = {
 
 // ==================== SECURITY MIDDLEWARE ====================
 app.use(helmet({
-  contentSecurityPolicy: false, // Disable for web apps
+  contentSecurityPolicy: false,
 }));
 
-// Rate limiters
 const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 15 * 60 * 1000,
   max: 100,
   message: { ok: false, error: 'Trop de requêtes, réessayez plus tard' },
 });
@@ -210,10 +209,25 @@ async function initDB() {
       last_order_date DATETIME
     );
 
+    CREATE TABLE IF NOT EXISTS customers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      contact TEXT NOT NULL UNIQUE,
+      status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'approved', 'blocked')),
+      first_order_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+      approved_date DATETIME,
+      approved_by TEXT,
+      blocked_reason TEXT,
+      notes TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
     CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
     CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date DESC);
     CREATE INDEX IF NOT EXISTS idx_stock_movements_created_at ON stock_movements(created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_customers_status ON customers(status);
+    CREATE INDEX IF NOT EXISTS idx_customers_contact ON customers(contact);
+    CREATE INDEX IF NOT EXISTS idx_customers_created_at ON customers(created_at DESC);
   `);
 
   await db.run(`
@@ -234,16 +248,6 @@ class ValidationError extends Error {
     super(message);
     this.name = 'ValidationError';
   }
-}
-
-function validateEmail(email) {
-  const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return re.test(email);
-}
-
-function validatePhone(phone) {
-  const re = /^[\d\s\+\-\(\)]{8,20}$/;
-  return re.test(phone);
 }
 
 function sanitizeString(str, maxLength = 500) {
@@ -270,7 +274,6 @@ function validateOrderInput(data) {
     throw new ValidationError('Montant invalide');
   }
   
-  // Validate each item
   for (const item of items) {
     if (!item.product_id || !item.name || !item.variant || !item.qty || !item.lineTotal) {
       throw new ValidationError('Données article invalides');
@@ -283,7 +286,7 @@ function validateOrderInput(data) {
   return true;
 }
 
-// ==================== TELEGRAM HELPERS ====================
+// ==================== TELEGRAM SERVICE ====================
 class TelegramService {
   constructor(token) {
     this.token = token;
@@ -328,32 +331,6 @@ class TelegramService {
       console.error('❌ Answer callback error:', error.message);
     }
   }
-
-  formatOrderMessage(order, items, includeZone = false) {
-    let message = `📦 <b>COMMANDE #${order.id}</b>\n\n`;
-    message += `👤 Client: ${order.customer}\n`;
-    message += `📍 Type: ${order.type}\n`;
-    if (order.address) message += `🏠 Adresse: ${order.address}\n`;
-    
-    message += `\n📦 Articles:\n`;
-    items.forEach(item => {
-      message += `• ${item.name} - ${item.variant} ×${item.qty} = ${item.lineTotal}€\n`;
-    });
-    
-    if (order.discount > 0) {
-      message += `\n🎁 Remise fidélité: -${order.discount}€`;
-    }
-    
-    message += `\n💰 <b>TOTAL: ${order.total}€</b>`;
-    
-    if (includeZone && order.assigned_driver_zone) {
-      message += `\n🌍 Zone: ${order.assigned_driver_zone.toUpperCase()}`;
-    }
-    
-    message += `\n⏰ ${new Date(order.created_at).toLocaleString('fr-FR')}`;
-    
-    return message;
-  }
 }
 
 const telegram = new TelegramService(config.telegram.token);
@@ -372,12 +349,56 @@ function getDriverForDeliveryType(deliveryType) {
     }
   }
   
-  // Default to Millau
   return {
     zone: 'millau',
     driverId: config.telegram.driverMillauId,
     driverName: 'Millau'
   };
+}
+
+// ==================== CUSTOMER VALIDATION ====================
+async function getOrCreateCustomer(contact) {
+  let customer = await db.get(
+    'SELECT * FROM customers WHERE contact = ?',
+    [contact]
+  );
+  
+  if (!customer) {
+    try {
+      const result = await db.run(
+        'INSERT INTO customers (contact, status) VALUES (?, ?)',
+        [contact, 'pending']
+      );
+      
+      customer = await db.get(
+        'SELECT * FROM customers WHERE id = ?',
+        [result.lastID]
+      );
+      
+      console.log(`🆕 New customer registered: ${contact} (ID: ${customer.id})`);
+    } catch (error) {
+      if (error.message && error.message.includes('UNIQUE')) {
+        customer = await db.get(
+          'SELECT * FROM customers WHERE contact = ?',
+          [contact]
+        );
+        console.log(`ℹ️ Customer already exists: ${contact}`);
+      } else {
+        throw error;
+      }
+    }
+  }
+  
+  return customer;
+}
+
+async function isCustomerBlocked(contact) {
+  const customer = await db.get(
+    'SELECT status, blocked_reason FROM customers WHERE contact = ?',
+    [contact]
+  );
+  
+  return customer && customer.status === 'blocked' ? customer : null;
 }
 
 // ==================== LOYALTY SYSTEM ====================
@@ -442,10 +463,57 @@ async function updateStockForOrder(items, orderId) {
 }
 
 // ==================== NOTIFICATION SYSTEM ====================
+async function notifyNewCustomerOrder(order, items, customerRecord) {
+  if (config.telegram.adminChatId) {
+    const message = `🆕 <b>NOUVEAU CLIENT - VALIDATION REQUISE</b>
+
+📦 <b>Commande #${order.id}</b>
+
+👤 <b>Client:</b> ${order.customer}
+📅 <b>Première commande:</b> ${new Date(customerRecord.first_order_date).toLocaleString('fr-FR')}
+
+📍 Type: ${order.type}
+🏠 Adresse: ${order.address || 'Sur place'}
+
+📦 <b>Articles:</b>
+${items.map(item => `• ${item.name} - ${item.variant} ×${item.qty} = ${item.lineTotal}€`).join('\n')}
+
+💰 <b>TOTAL: ${order.total}€</b>
+
+⚠️ <b>Cette commande nécessite votre validation</b>
+👇 Utilisez les boutons ci-dessous`;
+
+    const keyboard = {
+      inline_keyboard: [
+        [
+          { text: '✅ APPROUVER', callback_data: `approve_${order.id}` },
+          { text: '❌ BLOQUER', callback_data: `block_${order.id}` }
+        ],
+        [
+          { text: '📋 Voir détails', callback_data: `details_${order.id}` }
+        ]
+      ]
+    };
+
+    await telegram.sendMessage(config.telegram.adminChatId, message, { reply_markup: keyboard });
+  }
+  
+  if (config.telegram.supportChatId) {
+    const supportMessage = `🆕 <b>NOUVEAU CLIENT</b>
+
+📦 Commande #${order.id}
+👤 Client: ${order.customer}
+💰 Total: ${order.total}€
+
+⏳ En attente de validation admin`;
+    
+    await telegram.sendMessage(config.telegram.supportChatId, supportMessage);
+  }
+}
+
 async function notifyNewOrder(order, items) {
   const driverInfo = getDriverForDeliveryType(order.type);
   
-  // Notify support
   if (config.telegram.supportChatId) {
     const supportMessage = `🔔 NOUVELLE COMMANDE #${order.id}
 
@@ -459,13 +527,26 @@ async function notifyNewOrder(order, items) {
     await telegram.sendMessage(config.telegram.supportChatId, supportMessage);
   }
   
-  // Notify admin
   if (config.telegram.adminChatId) {
-    const adminMessage = telegram.formatOrderMessage(order, items, true);
+    let adminMessage = `📦 <b>COMMANDE #${order.id}</b>
+
+👤 Client: ${order.customer}
+📍 Type: ${order.type}
+🏠 Adresse: ${order.address || 'Sur place'}
+
+📦 Articles:
+${items.map(item => `• ${item.name} - ${item.variant} ×${item.qty} = ${item.lineTotal}€`).join('\n')}
+
+${order.discount > 0 ? `🎁 Remise fidélité: -${order.discount}€\n` : ''}💰 TOTAL: ${order.total}€
+
+🚚 <b>Assigné à:</b> ${driverInfo.driverName}
+🌍 <b>Zone:</b> ${driverInfo.zone.toUpperCase()}
+
+⏰ ${new Date(order.created_at).toLocaleString('fr-FR')}`;
+    
     await telegram.sendMessage(config.telegram.adminChatId, adminMessage);
   }
   
-  // Notify driver
   if (driverInfo.driverId) {
     const driverMessage = `🚚 <b>NOUVELLE COMMANDE #${order.id}</b>
 
@@ -491,7 +572,6 @@ ${items.map(item => `• ${item.name} - ${item.variant} ×${item.qty}`).join('\n
     
     await telegram.sendMessage(driverInfo.driverId, driverMessage, { reply_markup: keyboard });
     
-    // Store conversation
     activeConversations.set(order.id, {
       driverId: driverInfo.driverId,
       customerId: order.customer,
@@ -500,7 +580,6 @@ ${items.map(item => `• ${item.name} - ${item.variant} ×${item.qty}`).join('\n
       zone: driverInfo.zone
     });
     
-    // Update order with assigned zone
     await db.run(
       'UPDATE orders SET assigned_driver_zone = ? WHERE id = ?',
       [driverInfo.zone, order.id]
@@ -543,7 +622,6 @@ Merci pour votre confiance ! 💚
 
 // ==================== PUBLIC ROUTES ====================
 
-// Health check
 app.get('/health', (req, res) => {
   res.json({ 
     status: 'ok', 
@@ -553,57 +631,93 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Create order
 app.post('/api/create-order', apiLimiter, async (req, res) => {
   try {
     console.log('📨 New order received');
     
-    // Validate input
     validateOrderInput(req.body);
     
     const { customer, type, address, items, total } = req.body;
     
-    // Sanitize inputs
     const sanitizedCustomer = sanitizeString(customer, 100);
     const sanitizedType = sanitizeString(type, 50);
     const sanitizedAddress = sanitizeString(address, 200);
     
-    // Calculate loyalty discount
-    const { discount } = await calculateLoyaltyDiscount(sanitizedCustomer, total);
-    const finalTotal = total - discount;
+    const blockedCustomer = await isCustomerBlocked(sanitizedCustomer);
+    if (blockedCustomer) {
+      const reason = blockedCustomer.blocked_reason || 'Compte bloqué';
+      console.log(`🚫 Blocked customer attempt: ${sanitizedCustomer}`);
+      return res.status(403).json({ 
+        ok: false, 
+        error: `Votre compte a été bloqué. Raison: ${reason}. Contactez le support.`
+      });
+    }
     
-    // Insert order
+    const customerRecord = await getOrCreateCustomer(sanitizedCustomer);
+    
+    if (!customerRecord) {
+      return res.status(500).json({ 
+        ok: false, 
+        error: 'Erreur lors de la création du profil client' 
+      });
+    }
+    
+    const isNewCustomer = customerRecord.status === 'pending';
+    const isApproved = customerRecord.status === 'approved';
+    
+    let discount = 0;
+    if (isApproved) {
+      const loyaltyResult = await calculateLoyaltyDiscount(sanitizedCustomer, total);
+      discount = loyaltyResult.discount;
+    }
+    
+    const finalTotal = total - discount;
+    const orderStatus = isNewCustomer ? 'pending_approval' : 'pending';
+    
     const result = await db.run(
-      `INSERT INTO orders (customer, type, address, items, total, discount) 
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [sanitizedCustomer, sanitizedType, sanitizedAddress, JSON.stringify(items), finalTotal, discount]
+      `INSERT INTO orders (customer, type, address, items, total, discount, status) 
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [sanitizedCustomer, sanitizedType, sanitizedAddress, JSON.stringify(items), finalTotal, discount, orderStatus]
     );
     
     const orderId = result.lastID;
-    console.log(`✅ Order #${orderId} created`);
+    console.log(`✅ Order #${orderId} created with status: ${orderStatus}`);
     
-    // Update loyalty
-    await updateLoyaltyProgram(sanitizedCustomer);
+    if (isApproved) {
+      await updateLoyaltyProgram(sanitizedCustomer);
+    }
     
-    // Update stock
     await updateStockForOrder(items, orderId);
     
-    // Add transaction
-    await db.run(
-      `INSERT INTO transactions (type, category, description, amount, payment_method, date)
-       VALUES ('revenue', 'vente', ?, ?, 'online', DATE('now'))`,
-      [`Commande #${orderId}`, finalTotal]
-    );
+    if (!isNewCustomer) {
+      await db.run(
+        `INSERT INTO transactions (type, category, description, amount, payment_method, date)
+         VALUES ('revenue', 'vente', ?, ?, 'online', DATE('now'))`,
+        [`Commande #${orderId}`, finalTotal]
+      );
+    }
     
-    // Get full order for notifications
     const order = await db.get('SELECT * FROM orders WHERE id = ?', [orderId]);
     
-    // Send notifications (non-blocking)
-    notifyNewOrder(order, items).catch(err => 
-      console.error('Notification error:', err.message)
-    );
-    
-    res.json({ ok: true, orderId, discount });
+    if (isNewCustomer) {
+      await notifyNewCustomerOrder(order, items, customerRecord).catch(err => 
+        console.error('Notification error:', err.message)
+      );
+      
+      res.json({ 
+        ok: true, 
+        orderId, 
+        discount,
+        requiresApproval: true,
+        message: 'Votre commande est en attente de validation. Vous serez notifié sous peu.' 
+      });
+    } else {
+      await notifyNewOrder(order, items).catch(err => 
+        console.error('Notification error:', err.message)
+      );
+      
+      res.json({ ok: true, orderId, discount });
+    }
     
   } catch (error) {
     console.error('Create order error:', error);
@@ -616,7 +730,6 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
   }
 });
 
-// Geocode proxy
 app.get('/api/geocode', apiLimiter, async (req, res) => {
   if (!config.mapbox.key) {
     return res.json({ features: [] });
@@ -656,7 +769,6 @@ function requireAdmin(req, res, next) {
 
 // ==================== ADMIN ROUTES ====================
 
-// Admin login
 app.post('/api/admin/login', authLimiter, (req, res) => {
   const { password } = req.body;
   
@@ -669,7 +781,6 @@ app.post('/api/admin/login', authLimiter, (req, res) => {
   }
 });
 
-// Admin stats
 app.get('/api/admin/stats', requireAdmin, async (req, res) => {
   try {
     const stats = {};
@@ -686,7 +797,6 @@ app.get('/api/admin/stats', requireAdmin, async (req, res) => {
     
     stats.avgOrder = stats.totalOrders > 0 ? stats.totalCA / stats.totalOrders : 0;
     
-    // Top product
     const allOrders = await db.all("SELECT items FROM orders WHERE status != 'cancelled'");
     const productCounts = {};
     
@@ -702,7 +812,6 @@ app.get('/api/admin/stats', requireAdmin, async (req, res) => {
     const sorted = Object.entries(productCounts).sort((a, b) => b[1] - a[1]);
     stats.topProduct = sorted[0]?.[0] || '-';
     
-    // Stock stats
     const stock = await db.all('SELECT * FROM stock');
     stats.stockOut = stock.filter(s => s.qty === 0).length;
     stats.stockLow = stock.filter(s => s.qty > 0 && s.qty < 10).length;
@@ -714,7 +823,6 @@ app.get('/api/admin/stats', requireAdmin, async (req, res) => {
   }
 });
 
-// Get orders
 app.get('/api/admin/orders', requireAdmin, async (req, res) => {
   try {
     const { status, limit = 100 } = req.query;
@@ -727,7 +835,7 @@ app.get('/api/admin/orders', requireAdmin, async (req, res) => {
     }
     
     query += ' ORDER BY created_at DESC LIMIT ?';
-    params.push(Math.min(parseInt(limit), 500)); // Max 500
+    params.push(Math.min(parseInt(limit), 500));
     
     const orders = await db.all(query, params);
     
@@ -746,13 +854,11 @@ app.get('/api/admin/orders', requireAdmin, async (req, res) => {
   }
 });
 
-// Update order
 app.put('/api/admin/orders/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const updates = req.body;
     
-    // Prevent ID update
     delete updates.id;
     
     if (Object.keys(updates).length === 0) {
@@ -771,7 +877,6 @@ app.put('/api/admin/orders/:id', requireAdmin, async (req, res) => {
   }
 });
 
-// Delete order
 app.delete('/api/admin/orders/:id', requireAdmin, async (req, res) => {
   try {
     await db.run('DELETE FROM orders WHERE id = ?', [req.params.id]);
@@ -782,7 +887,6 @@ app.delete('/api/admin/orders/:id', requireAdmin, async (req, res) => {
   }
 });
 
-// Stock routes
 app.get('/api/admin/stock', requireAdmin, async (req, res) => {
   try {
     const stock = await db.all('SELECT * FROM stock ORDER BY product_id, variant');
@@ -852,7 +956,6 @@ app.get('/api/admin/stock/movements', requireAdmin, async (req, res) => {
   }
 });
 
-// Transaction routes
 app.get('/api/admin/transactions', requireAdmin, async (req, res) => {
   try {
     const { type, category, period } = req.query;
@@ -937,7 +1040,6 @@ app.delete('/api/admin/transactions/:id', requireAdmin, async (req, res) => {
   }
 });
 
-// Review routes
 app.get('/api/admin/reviews', requireAdmin, async (req, res) => {
   try {
     const reviews = await db.all('SELECT * FROM reviews ORDER BY created_at DESC');
@@ -972,7 +1074,6 @@ app.delete('/api/admin/reviews/:id', requireAdmin, async (req, res) => {
   }
 });
 
-// Settings routes
 app.get('/api/admin/settings', requireAdmin, async (req, res) => {
   try {
     const rows = await db.all('SELECT * FROM settings');
@@ -1005,7 +1106,6 @@ app.put('/api/admin/settings', requireAdmin, async (req, res) => {
   }
 });
 
-// Export orders
 app.get('/api/admin/orders/export/csv', requireAdmin, async (req, res) => {
   try {
     const orders = await db.all('SELECT * FROM orders ORDER BY created_at DESC');
@@ -1022,9 +1122,193 @@ app.get('/api/admin/orders/export/csv', requireAdmin, async (req, res) => {
     
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', 'attachment; filename=orders.csv');
-    res.send('\uFEFF' + csv); // Add BOM for Excel
+    res.send('\uFEFF' + csv);
   } catch (error) {
     console.error('Export error:', error);
+    res.status(500).json({ ok: false, error: 'Erreur serveur' });
+  }
+});
+
+// ==================== CUSTOMER MANAGEMENT ROUTES ====================
+
+app.get('/api/admin/customers', requireAdmin, async (req, res) => {
+  try {
+    const { status } = req.query;
+    let query = 'SELECT c.*, COUNT(o.id) as total_orders, SUM(o.total) as total_spent FROM customers c LEFT JOIN orders o ON c.contact = o.customer WHERE 1=1';
+    const params = [];
+    
+    if (status && status !== 'all') {
+      query += ' AND c.status = ?';
+      params.push(status);
+    }
+    
+    query += ' GROUP BY c.id ORDER BY c.created_at DESC';
+    
+    const customers = await db.all(query, params);
+    res.json({ ok: true, customers });
+  } catch (error) {
+    console.error('Customers error:', error);
+    res.status(500).json({ ok: false, error: 'Erreur serveur' });
+  }
+});
+
+app.get('/api/admin/customers/:contact', requireAdmin, async (req, res) => {
+  try {
+    const { contact } = req.params;
+    
+    const customer = await db.get(
+      'SELECT * FROM customers WHERE contact = ?',
+      [contact]
+    );
+    
+    if (!customer) {
+      return res.status(404).json({ ok: false, error: 'Client introuvable' });
+    }
+    
+    const orders = await db.all(
+      'SELECT * FROM orders WHERE customer = ? ORDER BY created_at DESC',
+      [contact]
+    );
+    
+    const stats = await db.get(
+      `SELECT 
+        COUNT(*) as total_orders,
+        SUM(total) as total_spent,
+        AVG(total) as avg_order
+       FROM orders 
+       WHERE customer = ? AND status != 'cancelled'`,
+      [contact]
+    );
+    
+    res.json({ 
+      ok: true, 
+      customer: {
+        ...customer,
+        orders,
+        stats
+      }
+    });
+  } catch (error) {
+    console.error('Customer details error:', error);
+    res.status(500).json({ ok: false, error: 'Erreur serveur' });
+  }
+});
+
+app.post('/api/admin/customers/:contact/approve', requireAdmin, async (req, res) => {
+  try {
+    const { contact } = req.params;
+    
+    const customer = await db.get(
+      'SELECT * FROM customers WHERE contact = ?',
+      [contact]
+    );
+    
+    if (!customer) {
+      return res.status(404).json({ ok: false, error: 'Client introuvable' });
+    }
+    
+    if (customer.status === 'approved') {
+      return res.json({ ok: true, message: 'Client déjà approuvé' });
+    }
+    
+    await db.run(
+      'UPDATE customers SET status = ?, approved_date = CURRENT_TIMESTAMP WHERE contact = ?',
+      ['approved', contact]
+    );
+    
+    const pendingOrders = await db.all(
+      'SELECT * FROM orders WHERE customer = ? AND status = ?',
+      [contact, 'pending_approval']
+    );
+    
+    await db.run(
+      'UPDATE orders SET status = ? WHERE customer = ? AND status = ?',
+      ['pending', contact, 'pending_approval']
+    );
+    
+    for (const order of pendingOrders) {
+      await db.run(
+        `INSERT INTO transactions (type, category, description, amount, payment_method, date)
+         VALUES ('revenue', 'vente', ?, ?, 'online', DATE('now'))`,
+        [`Commande #${order.id}`, order.total]
+      );
+      
+      try {
+        const items = JSON.parse(order.items);
+        await notifyNewOrder(order, items);
+      } catch (err) {
+        console.error(`Error notifying for order #${order.id}:`, err);
+      }
+    }
+    
+    console.log(`✅ Customer ${contact} approved`);
+    res.json({ ok: true, ordersApproved: pendingOrders.length });
+  } catch (error) {
+    console.error('Approve customer error:', error);
+    res.status(500).json({ ok: false, error: 'Erreur serveur' });
+  }
+});
+
+app.post('/api/admin/customers/:contact/block', requireAdmin, async (req, res) => {
+  try {
+    const { contact } = req.params;
+    const { reason } = req.body;
+    
+    const customer = await db.get(
+      'SELECT * FROM customers WHERE contact = ?',
+      [contact]
+    );
+    
+    if (!customer) {
+      return res.status(404).json({ ok: false, error: 'Client introuvable' });
+    }
+    
+    if (customer.status === 'blocked') {
+      return res.json({ ok: true, message: 'Client déjà bloqué' });
+    }
+    
+    await db.run(
+      'UPDATE customers SET status = ?, blocked_reason = ? WHERE contact = ?',
+      ['blocked', reason || 'Bloqué par admin', contact]
+    );
+    
+    const cancelledOrders = await db.all(
+      'SELECT id FROM orders WHERE customer = ? AND status IN (?, ?)',
+      [contact, 'pending', 'pending_approval']
+    );
+    
+    await db.run(
+      'UPDATE orders SET status = ? WHERE customer = ? AND status IN (?, ?)',
+      ['cancelled', contact, 'pending', 'pending_approval']
+    );
+    
+    for (const [orderId, conv] of activeConversations.entries()) {
+      if (conv.customerId === contact) {
+        activeConversations.delete(orderId);
+      }
+    }
+    
+    console.log(`🚫 Customer ${contact} blocked`);
+    res.json({ ok: true, ordersCancelled: cancelledOrders.length });
+  } catch (error) {
+    console.error('Block customer error:', error);
+    res.status(500).json({ ok: false, error: 'Erreur serveur' });
+  }
+});
+
+app.put('/api/admin/customers/:contact', requireAdmin, async (req, res) => {
+  try {
+    const { contact } = req.params;
+    const { notes } = req.body;
+    
+    await db.run(
+      'UPDATE customers SET notes = ? WHERE contact = ?',
+      [notes || '', contact]
+    );
+    
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Update customer error:', error);
     res.status(500).json({ ok: false, error: 'Erreur serveur' });
   }
 });
@@ -1060,7 +1344,6 @@ async function handleTelegramMessage(message) {
   
   console.log(`💬 Message from ${firstName} (${chatId}): ${text}`);
   
-  // Command handlers
   if (text === '/start') {
     await sendWelcomeMessage(chatId, firstName);
   } else if (text === '/shop' || text === '/boutique') {
@@ -1089,6 +1372,26 @@ async function handleTelegramCallback(callback_query) {
   console.log(`🔘 Callback: ${data} from ${chatId}`);
   
   await telegram.answerCallback(callback_query.id);
+  
+  if (data.startsWith('approve_')) {
+    const orderId = data.replace('approve_', '');
+    if (/^\d+$/.test(orderId)) {
+      await approveCustomerFromTelegram(chatId, orderId);
+      return;
+    }
+  } else if (data.startsWith('block_')) {
+    const orderId = data.replace('block_', '');
+    if (/^\d+$/.test(orderId)) {
+      await blockCustomerFromTelegram(chatId, orderId);
+      return;
+    }
+  } else if (data.startsWith('details_')) {
+    const orderId = data.replace('details_', '');
+    if (/^\d+$/.test(orderId)) {
+      await sendOrderCustomerDetails(chatId, orderId);
+      return;
+    }
+  }
   
   if (data.startsWith('start_delivery_')) {
     const orderId = data.replace('start_delivery_', '');
@@ -1119,7 +1422,6 @@ async function handleTelegramCallback(callback_query) {
   }
 }
 
-// Bot message handlers (continued in next section due to length)
 async function sendWelcomeMessage(chatId, firstName) {
   const text = `🌟 <b>Bienvenue ${firstName} chez DROGUA CENTER !</b> 🌟
 
@@ -1599,12 +1901,263 @@ async function refuseDelivery(chatId, orderId) {
   await telegram.sendMessage(chatId, '❌ Livraison refusée');
 }
 
-// ==================== FALLBACK ROUTE ====================
+async function approveCustomerFromTelegram(chatId, orderId) {
+  if (chatId.toString() !== config.telegram.adminChatId) {
+    await telegram.sendMessage(chatId, '❌ Action non autorisée');
+    return;
+  }
+  
+  try {
+    const order = await db.get('SELECT * FROM orders WHERE id = ?', [orderId]);
+    
+    if (!order) {
+      await telegram.sendMessage(chatId, '❌ Commande introuvable');
+      return;
+    }
+    
+    const contact = order.customer;
+    const customer = await db.get('SELECT * FROM customers WHERE contact = ?', [contact]);
+    
+    if (!customer) {
+      await telegram.sendMessage(chatId, '❌ Client introuvable');
+      return;
+    }
+    
+    if (customer.status === 'approved') {
+      await telegram.sendMessage(chatId, '✅ Ce client est déjà approuvé');
+      return;
+    }
+    
+    await db.run(
+      'UPDATE customers SET status = ?, approved_date = CURRENT_TIMESTAMP, approved_by = ? WHERE contact = ?',
+      ['approved', 'Admin via Telegram', contact]
+    );
+    
+    const pendingOrders = await db.all(
+      'SELECT * FROM orders WHERE customer = ? AND status = ?',
+      [contact, 'pending_approval']
+    );
+    
+    for (const pendingOrder of pendingOrders) {
+      await db.run(
+        'UPDATE orders SET status = ? WHERE id = ?',
+        ['pending', pendingOrder.id]
+      );
+      
+      await db.run(
+        `INSERT INTO transactions (type, category, description, amount, payment_method, date)
+         VALUES ('revenue', 'vente', ?, ?, 'online', DATE('now'))`,
+        [`Commande #${pendingOrder.id}`, pendingOrder.total]
+      );
+      
+      try {
+        const items = JSON.parse(pendingOrder.items);
+        await notifyNewOrder(pendingOrder, items);
+      } catch (err) {
+        console.error(`Error notifying driver for order #${pendingOrder.id}:`, err);
+      }
+    }
+    
+    const message = `✅ <b>CLIENT APPROUVÉ</b>
+
+👤 Client: ${contact}
+📦 ${pendingOrders.length} commande(s) validée(s)
+
+Les livreurs ont été notifiés.
+Le client peut maintenant commander librement.`;
+    
+    await telegram.sendMessage(chatId, message);
+    
+    if (config.telegram.supportChatId) {
+      await telegram.sendMessage(
+        config.telegram.supportChatId, 
+        `✅ Client ${contact} approuvé par l'admin\n${pendingOrders.length} commande(s) en cours de traitement`
+      );
+    }
+    
+    console.log(`✅ Customer ${contact} approved from Telegram (order #${orderId})`);
+  } catch (error) {
+    console.error('Approve customer error:', error);
+    await telegram.sendMessage(chatId, '❌ Erreur lors de l\'approbation');
+  }
+}
+
+async function blockCustomerFromTelegram(chatId, orderId) {
+  if (chatId.toString() !== config.telegram.adminChatId) {
+    await telegram.sendMessage(chatId, '❌ Action non autorisée');
+    return;
+  }
+  
+  try {
+    const order = await db.get('SELECT * FROM orders WHERE id = ?', [orderId]);
+    
+    if (!order) {
+      await telegram.sendMessage(chatId, '❌ Commande introuvable');
+      return;
+    }
+    
+    const contact = order.customer;
+    
+    await db.run(
+      'UPDATE customers SET status = ?, blocked_reason = ? WHERE contact = ?',
+      ['blocked', 'Bloqué par admin via Telegram', contact]
+    );
+    
+    const cancelledOrders = await db.all(
+      'SELECT * FROM orders WHERE customer = ? AND status IN (?, ?)',
+      [contact, 'pending', 'pending_approval']
+    );
+    
+    await db.run(
+      'UPDATE orders SET status = ? WHERE customer = ? AND status IN (?, ?)',
+      ['cancelled', contact, 'pending', 'pending_approval']
+    );
+    
+    for (const [convOrderId, conv] of activeConversations.entries()) {
+      if (conv.customerId === contact) {
+        activeConversations.delete(convOrderId);
+      }
+    }
+    
+    const message = `🚫 <b>CLIENT BLOQUÉ</b>
+
+👤 Client: ${contact}
+📦 ${cancelledOrders.length} commande(s) annulée(s)
+
+Le client ne peut plus commander.`;
+    
+    await telegram.sendMessage(chatId, message);
+    
+    if (config.telegram.supportChatId) {
+      await telegram.sendMessage(
+        config.telegram.supportChatId, 
+        `🚫 Client ${contact} bloqué par l'admin`
+      );
+    }
+    
+    console.log(`🚫 Customer ${contact} blocked from Telegram (order #${orderId})`);
+  } catch (error) {
+    console.error('Block customer error:', error);
+    await telegram.sendMessage(chatId, '❌ Erreur lors du blocage');
+  }
+}
+
+async function sendOrderCustomerDetails(chatId, orderId) {
+  if (chatId.toString() !== config.telegram.adminChatId) {
+    await telegram.sendMessage(chatId, '❌ Action non autorisée');
+    return;
+  }
+  
+  try {
+    const order = await db.get('SELECT * FROM orders WHERE id = ?', [orderId]);
+    
+    if (!order) {
+      await telegram.sendMessage(chatId, '❌ Commande introuvable');
+      return;
+    }
+    
+    const contact = order.customer;
+    await sendCustomerDetails(chatId, contact);
+  } catch (error) {
+    console.error('Send order customer details error:', error);
+    await telegram.sendMessage(chatId, '❌ Erreur lors de la récupération des détails');
+  }
+}
+
+async function sendCustomerDetails(chatId, contact) {
+  if (chatId.toString() !== config.telegram.adminChatId) {
+    await telegram.sendMessage(chatId, '❌ Action non autorisée');
+    return;
+  }
+  
+  try {
+    const customer = await db.get(
+      'SELECT * FROM customers WHERE contact = ?',
+      [contact]
+    );
+    
+    if (!customer) {
+      await telegram.sendMessage(chatId, '❌ Client introuvable');
+      return;
+    }
+    
+    const stats = await db.get(
+      `SELECT 
+        COUNT(*) as total_orders,
+        SUM(CASE WHEN status != 'cancelled' THEN total ELSE 0 END) as total_spent,
+        COUNT(CASE WHEN status = 'delivered' THEN 1 END) as delivered_orders,
+        COUNT(CASE WHEN status = 'cancelled' THEN 1 END) as cancelled_orders,
+        COUNT(CASE WHEN status = 'pending_approval' THEN 1 END) as pending_orders
+       FROM orders 
+       WHERE customer = ?`,
+      [contact]
+    );
+    
+    const lastOrders = await db.all(
+      'SELECT id, total, status, created_at FROM orders WHERE customer = ? ORDER BY created_at DESC LIMIT 5',
+      [contact]
+    );
+    
+    const statusEmoji = {
+      'pending': '⏳',
+      'approved': '✅',
+      'blocked': '🚫'
+    };
+    
+    let message = `📋 <b>DÉTAILS CLIENT</b>
+
+👤 <b>Contact:</b> ${contact}
+📊 <b>Statut:</b> ${statusEmoji[customer.status] || '❓'} ${customer.status.toUpperCase()}
+📅 <b>Inscrit le:</b> ${new Date(customer.first_order_date).toLocaleString('fr-FR')}`;
+
+    if (customer.approved_date && customer.status === 'approved') {
+      message += `\n✅ <b>Approuvé le:</b> ${new Date(customer.approved_date).toLocaleString('fr-FR')}`;
+    }
+
+    message += `\n\n<b>📈 STATISTIQUES</b>
+🛒 Total commandes: ${stats.total_orders}
+✅ Livrées: ${stats.delivered_orders}
+❌ Annulées: ${stats.cancelled_orders}`;
+
+    if (stats.pending_orders > 0) {
+      message += `\n⏳ En attente: ${stats.pending_orders}`;
+    }
+
+    message += `\n💰 CA total: ${(stats.total_spent || 0).toFixed(2)}€`;
+
+    if (customer.notes) {
+      message += `\n\n📝 <b>Notes:</b> ${customer.notes}`;
+    }
+    
+    if (customer.blocked_reason) {
+      message += `\n\n⚠️ <b>Raison blocage:</b> ${customer.blocked_reason}`;
+    }
+    
+    if (lastOrders.length > 0) {
+      message += `\n\n<b>📦 DERNIÈRES COMMANDES</b>`;
+      lastOrders.forEach(order => {
+        const statusIcon = {
+          'pending': '⏳',
+          'pending_approval': '🔍',
+          'en_route': '🚚',
+          'delivered': '✅',
+          'cancelled': '❌'
+        };
+        message += `\n${statusIcon[order.status] || '📦'} #${order.id} - ${order.total}€ (${new Date(order.created_at).toLocaleDateString('fr-FR')})`;
+      });
+    }
+    
+    await telegram.sendMessage(chatId, message);
+  } catch (error) {
+    console.error('Send customer details error:', error);
+    await telegram.sendMessage(chatId, '❌ Erreur lors de la récupération des détails');
+  }
+}
+
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// ==================== SERVER START ====================
 async function start() {
   try {
     await initDB();
@@ -1638,7 +2191,6 @@ async function start() {
   }
 }
 
-// Graceful shutdown
 process.on('SIGTERM', async () => {
   console.log('📛 SIGTERM received, closing server...');
   if (db) await db.close();
