@@ -8,7 +8,8 @@ const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 
 const app = express();
-app.set('trust proxy', true); // Active le support des proxies (Railway, etc.)
+app.set('trust proxy', 1); // Configuration pour Railway/proxy
+
 const PORT = process.env.PORT || 3000;
 
 // ==================== CONFIGURATION ====================
@@ -58,12 +59,18 @@ const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
   message: { ok: false, error: 'Trop de requêtes, réessayez plus tard' },
+  validate: false, // Désactive validation stricte pour Railway
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
   message: { ok: false, error: 'Trop de tentatives de connexion' },
+  validate: false, // Désactive validation stricte pour Railway
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
 // ==================== MIDDLEWARE ====================
