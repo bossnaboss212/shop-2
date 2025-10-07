@@ -958,9 +958,14 @@
         <input type="text" id="searchProducts" placeholder="🔍 Rechercher un produit..." oninput="App.searchProducts()">
         <select id="filterCategory" onchange="App.filterProducts()">
           <option value="all">Toutes catégories</option>
+          <option value="blanche">blanche</option>
+          <option value="keta">keta</option>
+          <option value="mdma">mdma</option>
+          <option value="bonbon">bonbon</option>
+          <option value="cali">cali</option>
           <option value="fleurs">🌿 Fleurs</option>
+          <option value="filtré">filtré</option>
           <option value="resines">🟫 Résines</option>
-          <option value="edibles">🍪 Edibles</option>
         </select>
         <button onclick="App.addNewProduct()" style="background:var(--success)">➕ Nouveau produit</button>
         <button onclick="App.refreshProducts()">🔄 Actualiser</button>
@@ -1497,27 +1502,27 @@ const App = {
       '50G': { price: 250, stock: 10 },
       '100G': { price: 450, stock: 5 }
     }},
-    { id: 2, name: 'EL JEFE', category: 'fleurs', buyPrice: 14, variants: {
+    { id: 2, name: 'EL JEFE', category: 'blanche', buyPrice: 14, variants: {
       '0.5G': { price: 30, stock: 20 },
       '1G': { price: 50, stock: 15 },
       '2G': { price: 100, stock: 10 },
       '5G': { price: 250, stock: 5 },
       '10G': { price: 430, stock: 3 }
     }},
-    { id: 3, name: 'DEMBELE', category: 'fleurs', buyPrice: 1.1, variants: {
+    { id: 3, name: 'DEMBELE', category: 'resines', buyPrice: 1.1, variants: {
       '3.5G': { price: 20, stock: 60 },
       '5G': { price: 30, stock: 50 },
       '10G': { price: 50, stock: 40 },
       '50G': { price: 190, stock: 15 },
       '100G': { price: 370, stock: 8 }
     }},
-    { id: 4, name: 'LEMON X GELATO', category: 'fleurs', buyPrice: 3.4, variants: {
+    { id: 4, name: 'LEMON X GELATO', category: 'cali', buyPrice: 3.4, variants: {
       '1.66G': { price: 20, stock: 25 },
       '3.5G': { price: 40, stock: 20 },
       '5G': { price: 60, stock: 15 },
       '10G': { price: 110, stock: 10 }
     }},
-    { id: 5, name: 'GEORGIA PIE', category: 'fleurs', buyPrice: 3.4, variants: {
+    { id: 5, name: 'GEORGIA PIE', category: 'cali', buyPrice: 3.4, variants: {
       '1.66G': { price: 20, stock: 25 },
       '3.5G': { price: 40, stock: 20 },
       '5G': { price: 60, stock: 15 },
@@ -1525,33 +1530,33 @@ const App = {
     }},
     
     // Résines
-    { id: 6, name: 'NEEDLES KETA', category: 'resines', buyPrice: 4, variants: {
+    { id: 6, name: 'NEEDLES KETA', category: 'keta', buyPrice: 4, variants: {
       '1G': { price: 20, stock: 30 },
       '2G': { price: 40, stock: 25 },
       '3G': { price: 50, stock: 20 },
       '5G': { price: 80, stock: 15 },
       '10G': { price: 150, stock: 10 }
     }},
-    { id: 7, name: 'CHAMPAGNE', category: 'resines', buyPrice: 3.5, variants: {
+    { id: 7, name: 'CHAMPAGNE', category: 'mdma', buyPrice: 3.5, variants: {
       '1G': { price: 20, stock: 35 },
       '2G': { price: 40, stock: 30 },
       '3G': { price: 50, stock: 25 },
       '5G': { price: 80, stock: 20 },
       '10G': { price: 150, stock: 12 }
     }},
-    { id: 8, name: 'SKITTLEZ CAKE 120u', category: 'resines', buyPrice: 2, variants: {
+    { id: 8, name: 'SKITTLEZ CAKE 120u', category: 'filtré', buyPrice: 2, variants: {
       '2.5G': { price: 20, stock: 40 },
       '5G': { price: 40, stock: 35 },
       '10G': { price: 70, stock: 25 },
       '50G': { price: 290, stock: 8 }
     }},
-    { id: 9, name: 'PISTACCHIO 73u', category: 'resines', buyPrice: 1.8, variants: {
+    { id: 9, name: 'PISTACCHIO 73u', category: 'filtré', buyPrice: 1.8, variants: {
       '3G': { price: 20, stock: 0 },
       '5G': { price: 50, stock: 0 },
       '10G': { price: 90, stock: 0 },
       '50G': { price: 250, stock: 0 }
     }},
-    { id: 10, name: 'FRESH FROZEN', category: 'resines', buyPrice: 3.2, variants: {
+    { id: 10, name: 'FRESH FROZEN', category: 'filtré', buyPrice: 3.2, variants: {
       '1.1G': { price: 20, stock: 18 },
       '2.3G': { price: 40, stock: 15 },
       '3.5G': { price: 50, stock: 12 },
@@ -1560,7 +1565,7 @@ const App = {
     }},
     
     // Edibles
-    { id: 11, name: 'DOMINO 280mg', category: 'edibles', buyPrice: 2.5, variants: {
+    { id: 11, name: 'DOMINO 280mg', category: 'bonbon', buyPrice: 2.5, variants: {
       '3 unités': { price: 20, stock: 50 },
       '10 unités': { price: 60, stock: 30 },
       '50 unités': { price: 150, stock: 10 }
@@ -2820,9 +2825,14 @@ const App = {
 
   getCategoryBadge(category) {
     const badges = {
+      blanche: 'blanche',
+      keta: 'keta',
+      mdma: 'mdma',
+      bonbon: 'bonbon',
+      cali: 'cali',
       fleurs: '🌿 Fleurs',
       resines: '🟫 Résines',
-      edibles: '🍪 Edibles'
+      filtré: 'filtré'
     };
     return badges[category] || category;
   },
