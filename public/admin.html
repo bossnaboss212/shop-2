@@ -1495,68 +1495,68 @@ const App = {
   // Catalogue complet des produits
   productCatalog: [
     // Fleurs
-    { id: 1, name: 'AMNESIA', category: 'fleurs', buyPrice: 1.2, variants: {
+    { id: 1, name: 'AMNESIA', category: 'fleurs', buyPrice: 2.8, variants: {
       '3.33G': { price: 20, stock: 50 },
       '5G': { price: 30, stock: 45 },
       '10G': { price: 60, stock: 30 },
       '50G': { price: 250, stock: 10 },
       '100G': { price: 450, stock: 5 }
     }},
-    { id: 2, name: 'EL JEFE', category: 'blanche', buyPrice: 14, variants: {
+    { id: 2, name: 'EL JEFE', category: 'blanche', buyPrice: 17.5, variants: {
       '0.5G': { price: 30, stock: 20 },
       '1G': { price: 50, stock: 15 },
       '2G': { price: 100, stock: 10 },
       '5G': { price: 250, stock: 5 },
       '10G': { price: 430, stock: 3 }
     }},
-    { id: 3, name: 'DEMBELE', category: 'resines', buyPrice: 1.1, variants: {
+    { id: 3, name: 'DEMBELE', category: 'resines', buyPrice: 2.7, variants: {
       '3.5G': { price: 20, stock: 60 },
       '5G': { price: 30, stock: 50 },
       '10G': { price: 50, stock: 40 },
       '50G': { price: 190, stock: 15 },
       '100G': { price: 370, stock: 8 }
     }},
-    { id: 4, name: 'LEMON X GELATO', category: 'cali', buyPrice: 3.4, variants: {
+    { id: 4, name: 'LEMON X GELATO', category: 'cali', buyPrice: 5.3, variants: {
       '1.66G': { price: 20, stock: 25 },
       '3.5G': { price: 40, stock: 20 },
       '5G': { price: 60, stock: 15 },
       '10G': { price: 110, stock: 10 }
     }},
-    { id: 5, name: 'GEORGIA PIE', category: 'cali', buyPrice: 3.4, variants: {
+    { id: 5, name: 'GEORGIA PIE', category: 'cali', buyPrice: 5.3, variants: {
       '1.66G': { price: 20, stock: 25 },
       '3.5G': { price: 40, stock: 20 },
       '5G': { price: 60, stock: 15 },
       '10G': { price: 110, stock: 10 }
     }},
     
-    // Résines
-    { id: 6, name: 'NEEDLES KETA', category: 'keta', buyPrice: 4, variants: {
+    // Substances
+    { id: 6, name: 'NEEDLES KETA', category: 'keta', buyPrice: 3.9, variants: {
       '1G': { price: 20, stock: 30 },
       '2G': { price: 40, stock: 25 },
       '3G': { price: 50, stock: 20 },
       '5G': { price: 80, stock: 15 },
       '10G': { price: 150, stock: 10 }
     }},
-    { id: 7, name: 'CHAMPAGNE', category: 'mdma', buyPrice: 3.5, variants: {
+    { id: 7, name: 'CHAMPAGNE', category: 'mdma', buyPrice: 3.9, variants: {
       '1G': { price: 20, stock: 35 },
       '2G': { price: 40, stock: 30 },
       '3G': { price: 50, stock: 25 },
       '5G': { price: 80, stock: 20 },
       '10G': { price: 150, stock: 12 }
     }},
-    { id: 8, name: 'SKITTLEZ CAKE 120u', category: 'filtré', buyPrice: 2, variants: {
+    { id: 8, name: 'SKITTLEZ CAKE 120u', category: 'filtré', buyPrice: 3, variants: {
       '2.5G': { price: 20, stock: 40 },
       '5G': { price: 40, stock: 35 },
       '10G': { price: 70, stock: 25 },
       '50G': { price: 290, stock: 8 }
     }},
-    { id: 9, name: 'PISTACCHIO 73u', category: 'filtré', buyPrice: 1.8, variants: {
+    { id: 9, name: 'PISTACCHIO 73u', category: 'filtré', buyPrice: 3, variants: {
       '3G': { price: 20, stock: 0 },
       '5G': { price: 50, stock: 0 },
       '10G': { price: 90, stock: 0 },
       '50G': { price: 250, stock: 0 }
     }},
-    { id: 10, name: 'FRESH FROZEN', category: 'filtré', buyPrice: 3.2, variants: {
+    { id: 10, name: 'FRESH FROZEN', category: 'filtré', buyPrice: 8, variants: {
       '1.1G': { price: 20, stock: 18 },
       '2.3G': { price: 40, stock: 15 },
       '3.5G': { price: 50, stock: 12 },
@@ -1565,10 +1565,17 @@ const App = {
     }},
     
     // Edibles
-    { id: 11, name: 'DOMINO 280mg', category: 'bonbon', buyPrice: 2.5, variants: {
+    { id: 11, name: 'DOMINO 280mg', category: 'bonbon', buyPrice: 1.5, variants: {
       '3 unités': { price: 20, stock: 50 },
       '10 unités': { price: 60, stock: 30 },
       '50 unités': { price: 150, stock: 10 }
+    }},
+    { id: 12, name: 'PURPLE HAZE', category: 'fleurs', buyPrice: 2.7, variants: {
+      '3.33G': { price: 20, stock: 45 },
+      '5G': { price: 30, stock: 40 },
+      '10G': { price: 60, stock: 35 },
+      '50G': { price: 250, stock: 12 },
+      '100G': { price: 480, stock: 6 }
     }}
   ],
 
@@ -1771,9 +1778,15 @@ const App = {
       try {
         const parsed = JSON.parse(savedData);
         this.state.data = parsed;
+        
         // Restaurer la caisse si elle existe
         if (parsed.cash) {
           this.state.cash = parsed.cash;
+        }
+        
+        // Restaurer le catalogue de produits si il existe
+        if (parsed.products && parsed.products.length > 0) {
+          this.productCatalog = parsed.products;
         }
       } catch (e) {
         this.state.data.orders = this.demoData.orders;
@@ -1799,6 +1812,7 @@ const App = {
 
   // Sauvegarder les données
   saveData() {
+    this.state.data.products = this.productCatalog; // Sauvegarder le catalogue
     localStorage.setItem(this.config.STORAGE_KEYS.DATA, JSON.stringify(this.state.data));
   },
 
@@ -2131,11 +2145,91 @@ const App = {
 
   // Actions sur les commandes
   viewOrder(id) {
-    this.showToast(`Affichage de la commande #${id}`);
+    const order = this.state.data.orders.find(o => o.id === id);
+    if (!order) return;
+    
+    this.showModal(`Détails de la commande #${id}`, `
+      <div style="line-height:1.8">
+        <p><strong>📅 Date:</strong> ${order.date}</p>
+        <p><strong>👤 Client:</strong> ${order.customer}</p>
+        <p><strong>🛍️ Produits:</strong> ${order.products}</p>
+        <p><strong>💰 Total:</strong> ${this.formatCurrency(order.total)}</p>
+        <p><strong>📊 Statut:</strong> ${this.getStatusBadge(order.status)}</p>
+        <p><strong>💳 Paiement:</strong> <span class="badge">${order.payment}</span></p>
+      </div>
+      <div style="margin-top:20px;display:grid;gap:12px">
+        <button onclick="App.updateOrderStatus(${id}, 'processing')" style="background:var(--info)">🔄 Mettre en traitement</button>
+        <button onclick="App.updateOrderStatus(${id}, 'delivered')" style="background:var(--success)">✅ Marquer comme livré</button>
+        <button onclick="App.updateOrderStatus(${id}, 'cancelled')" style="background:var(--danger)">❌ Annuler</button>
+      </div>
+    `);
   },
 
   editOrder(id) {
-    this.showToast(`Édition de la commande #${id}`);
+    const order = this.state.data.orders.find(o => o.id === id);
+    if (!order) return;
+    
+    this.showModal(`Éditer la commande #${id}`, `
+      <div class="form-group">
+        <label>Client</label>
+        <input type="text" id="editOrderCustomer" value="${order.customer}">
+      </div>
+      <div class="form-group">
+        <label>Produits</label>
+        <input type="text" id="editOrderProducts" value="${order.products}">
+      </div>
+      <div class="form-group">
+        <label>Total (€)</label>
+        <input type="number" id="editOrderTotal" value="${order.total}" step="0.01">
+      </div>
+      <div class="form-group">
+        <label>Statut</label>
+        <select id="editOrderStatus">
+          <option value="pending" ${order.status === 'pending' ? 'selected' : ''}>En attente</option>
+          <option value="processing" ${order.status === 'processing' ? 'selected' : ''}>En traitement</option>
+          <option value="delivered" ${order.status === 'delivered' ? 'selected' : ''}>Livré</option>
+          <option value="cancelled" ${order.status === 'cancelled' ? 'selected' : ''}>Annulé</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Paiement</label>
+        <select id="editOrderPayment">
+          <option ${order.payment === 'Espèces' ? 'selected' : ''}>Espèces</option>
+          <option ${order.payment === 'CB' ? 'selected' : ''}>CB</option>
+          <option ${order.payment === 'Crypto' ? 'selected' : ''}>Crypto</option>
+          <option ${order.payment === 'Virement' ? 'selected' : ''}>Virement</option>
+        </select>
+      </div>
+      <button onclick="App.saveOrderEdit(${id})">💾 Sauvegarder</button>
+    `);
+  },
+  
+  updateOrderStatus(id, status) {
+    const order = this.state.data.orders.find(o => o.id === id);
+    if (order) {
+      order.status = status;
+      this.saveData();
+      this.loadOrders();
+      this.closeModal();
+      this.showToast(`Commande #${id} mise à jour`, 'success');
+    }
+  },
+  
+  saveOrderEdit(id) {
+    const order = this.state.data.orders.find(o => o.id === id);
+    if (order) {
+      order.customer = document.getElementById('editOrderCustomer').value;
+      order.products = document.getElementById('editOrderProducts').value;
+      order.total = parseFloat(document.getElementById('editOrderTotal').value);
+      order.status = document.getElementById('editOrderStatus').value;
+      order.payment = document.getElementById('editOrderPayment').value;
+      
+      this.saveData();
+      this.loadOrders();
+      this.updateStats();
+      this.closeModal();
+      this.showToast('Commande mise à jour', 'success');
+    }
   },
 
   deleteOrder(id) {
@@ -2149,7 +2243,82 @@ const App = {
   },
 
   addNewOrder() {
-    this.showToast('Ouverture du formulaire de nouvelle commande');
+    this.showModal('Nouvelle commande', `
+      <div class="form-group">
+        <label>Client</label>
+        <select id="newOrderCustomer">
+          <option value="">Sélectionner un client...</option>
+          ${this.state.data.customers.map(c => `<option value="${c.name}">${c.name}</option>`).join('')}
+          <option value="new">➕ Nouveau client...</option>
+        </select>
+      </div>
+      <div class="form-group" id="newCustomerName" style="display:none">
+        <label>Nom du nouveau client</label>
+        <input type="text" id="newOrderCustomerName" placeholder="Nom complet">
+      </div>
+      <div class="form-group">
+        <label>Produits</label>
+        <textarea id="newOrderProducts" rows="3" placeholder="Ex: AMNESIA 5G, EL JEFE 1G"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Total (€)</label>
+        <input type="number" id="newOrderTotal" step="0.01" min="0" placeholder="0.00">
+      </div>
+      <div class="form-group">
+        <label>Paiement</label>
+        <select id="newOrderPayment">
+          <option>Espèces</option>
+          <option>CB</option>
+          <option>Crypto</option>
+          <option>Virement</option>
+        </select>
+      </div>
+      <button onclick="App.saveNewOrder()">💾 Créer la commande</button>
+    `);
+    
+    document.getElementById('newOrderCustomer').addEventListener('change', (e) => {
+      const newCustomerDiv = document.getElementById('newCustomerName');
+      newCustomerDiv.style.display = e.target.value === 'new' ? 'block' : 'none';
+    });
+  },
+  
+  saveNewOrder() {
+    let customer = document.getElementById('newOrderCustomer').value;
+    
+    if (customer === 'new') {
+      customer = document.getElementById('newOrderCustomerName').value;
+      if (!customer) {
+        this.showToast('Veuillez entrer le nom du client', 'error');
+        return;
+      }
+    }
+    
+    const products = document.getElementById('newOrderProducts').value;
+    const total = parseFloat(document.getElementById('newOrderTotal').value);
+    const payment = document.getElementById('newOrderPayment').value;
+    
+    if (!customer || !products || !total) {
+      this.showToast('Veuillez remplir tous les champs', 'error');
+      return;
+    }
+    
+    const newOrder = {
+      id: Math.max(...this.state.data.orders.map(o => o.id), 0) + 1,
+      date: new Date().toLocaleDateString('fr-FR'),
+      customer: customer,
+      products: products,
+      total: total,
+      status: 'pending',
+      payment: payment
+    };
+    
+    this.state.data.orders.unshift(newOrder);
+    this.saveData();
+    this.loadOrders();
+    this.updateStats();
+    this.updateQuickStats();
+    this.closeModal();
+    this.showToast('Commande créée avec succès', 'success');
   },
 
   exportOrders() {
@@ -2164,18 +2333,133 @@ const App = {
   },
 
   searchOrders() {
-    // Implémentation de la recherche
-    this.showToast('Recherche en cours...');
+    const searchTerm = document.getElementById('searchOrders').value.toLowerCase();
+    const filterStatus = document.getElementById('filterStatus').value;
+    
+    let filteredOrders = this.state.data.orders;
+    
+    if (searchTerm) {
+      filteredOrders = filteredOrders.filter(order =>
+        order.customer.toLowerCase().includes(searchTerm) ||
+        order.products.toLowerCase().includes(searchTerm) ||
+        order.id.toString().includes(searchTerm)
+      );
+    }
+    
+    if (filterStatus !== 'all') {
+      filteredOrders = filteredOrders.filter(order => order.status === filterStatus);
+    }
+    
+    this.displayFilteredOrders(filteredOrders);
   },
 
   filterOrders() {
-    // Implémentation du filtre
-    this.showToast('Filtrage des commandes...');
+    this.searchOrders(); // Utilise la même logique
+  },
+  
+  displayFilteredOrders(orders) {
+    const tbody = document.getElementById('ordersTable');
+    
+    if (orders.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Aucune commande trouvée</td></tr>';
+      return;
+    }
+    
+    tbody.innerHTML = orders.map(order => `
+      <tr>
+        <td><strong>#${order.id}</strong></td>
+        <td>${order.date}</td>
+        <td>${order.customer}</td>
+        <td>${order.products}</td>
+        <td><strong>${this.formatCurrency(order.total)}</strong></td>
+        <td>${this.getStatusBadge(order.status)}</td>
+        <td><span class="badge">${order.payment}</span></td>
+        <td class="actions">
+          <button class="btn-sm btn-primary" onclick="App.viewOrder(${order.id})">👁️</button>
+          <button class="btn-sm btn-success" onclick="App.editOrder(${order.id})">✏️</button>
+          <button class="btn-sm btn-danger" onclick="App.deleteOrder(${order.id})">🗑️</button>
+        </td>
+      </tr>
+    `).join('');
   },
 
   // Actions sur les produits
   editProduct(id) {
-    this.showToast(`Édition du produit #${id}`);
+    const product = this.productCatalog.find(p => p.id === id);
+    if (!product) return;
+    
+    const variantsHtml = Object.entries(product.variants).map(([variant, data]) => `
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;padding:12px;background:var(--bg-secondary);border-radius:8px;margin-bottom:8px">
+        <div>
+          <label style="font-size:11px;color:var(--muted)">Variant</label>
+          <input type="text" value="${variant}" disabled style="background:var(--card)">
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--muted)">Prix (€)</label>
+          <input type="number" id="price_${variant.replace(/[^a-zA-Z0-9]/g, '_')}" value="${data.price}" step="0.01">
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--muted)">Stock</label>
+          <input type="number" id="stock_${variant.replace(/[^a-zA-Z0-9]/g, '_')}" value="${data.stock}">
+        </div>
+      </div>
+    `).join('');
+    
+    this.showModal(`Éditer ${product.name}`, `
+      <div class="form-group">
+        <label>Nom du produit</label>
+        <input type="text" id="editProductName" value="${product.name}">
+      </div>
+      <div class="form-group">
+        <label>Catégorie</label>
+        <select id="editProductCategory">
+          <option value="fleurs" ${product.category === 'fleurs' ? 'selected' : ''}>🌿 Fleurs</option>
+          <option value="resines" ${product.category === 'resines' ? 'selected' : ''}>🟫 Résines</option>
+          <option value="cali" ${product.category === 'cali' ? 'selected' : ''}>Cali</option>
+          <option value="filtré" ${product.category === 'filtré' ? 'selected' : ''}>Filtré</option>
+          <option value="bonbon" ${product.category === 'bonbon' ? 'selected' : ''}>Bonbon</option>
+          <option value="blanche" ${product.category === 'blanche' ? 'selected' : ''}>Blanche</option>
+          <option value="keta" ${product.category === 'keta' ? 'selected' : ''}>Keta</option>
+          <option value="mdma" ${product.category === 'mdma' ? 'selected' : ''}>MDMA</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Prix d'achat (€/g ou unité)</label>
+        <input type="number" id="editProductBuyPrice" value="${product.buyPrice}" step="0.01">
+      </div>
+      <div class="form-group">
+        <label>Variants</label>
+        ${variantsHtml}
+      </div>
+      <button onclick="App.saveProductEdit(${id})">💾 Sauvegarder</button>
+    `);
+  },
+  
+  saveProductEdit(id) {
+    const product = this.productCatalog.find(p => p.id === id);
+    if (!product) return;
+    
+    product.name = document.getElementById('editProductName').value;
+    product.category = document.getElementById('editProductCategory').value;
+    product.buyPrice = parseFloat(document.getElementById('editProductBuyPrice').value);
+    
+    Object.keys(product.variants).forEach(variant => {
+      const variantId = variant.replace(/[^a-zA-Z0-9]/g, '_');
+      const priceInput = document.getElementById(`price_${variantId}`);
+      const stockInput = document.getElementById(`stock_${variantId}`);
+      
+      if (priceInput && stockInput) {
+        product.variants[variant].price = parseFloat(priceInput.value);
+        product.variants[variant].stock = parseInt(stockInput.value);
+      }
+    });
+    
+    this.saveData();
+    this.loadProducts();
+    this.loadStock();
+    this.updateStats();
+    this.closeModal();
+    this.showToast('Produit mis à jour', 'success');
   },
 
   viewProductStock(id) {
@@ -2190,11 +2474,129 @@ const App = {
   },
 
   deleteProduct(id) {
-    this.showToast('Les produits du catalogue ne peuvent pas être supprimés');
+    if (id <= 12) {
+      this.showToast('Les produits du catalogue de base ne peuvent pas être supprimés', 'warning');
+      return;
+    }
+    
+    if (confirm('Supprimer ce produit ?')) {
+      const index = this.productCatalog.findIndex(p => p.id === id);
+      if (index !== -1) {
+        this.productCatalog.splice(index, 1);
+        this.saveData();
+        this.loadProducts();
+        this.loadStock();
+        this.updateStats();
+        this.showToast('Produit supprimé', 'success');
+      }
+    }
   },
 
   addNewProduct() {
-    this.showToast('Ouverture du formulaire de nouveau produit');
+    this.showModal('Nouveau produit', `
+      <div class="form-group">
+        <label>Nom du produit</label>
+        <input type="text" id="newProductName" placeholder="Ex: GELATO">
+      </div>
+      <div class="form-group">
+        <label>Catégorie</label>
+        <select id="newProductCategory">
+          <option value="fleurs">🌿 Fleurs</option>
+          <option value="resines">🟫 Résines</option>
+          <option value="cali">Cali</option>
+          <option value="filtré">Filtré</option>
+          <option value="bonbon">Bonbon</option>
+          <option value="blanche">Blanche</option>
+          <option value="keta">Keta</option>
+          <option value="mdma">MDMA</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Prix d'achat (€/g ou unité)</label>
+        <input type="number" id="newProductBuyPrice" step="0.01" min="0" placeholder="0.00">
+      </div>
+      <div class="form-group">
+        <label>Variant 1 (Ex: 5G)</label>
+        <input type="text" id="variant1Name" placeholder="5G">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <div>
+          <label style="font-size:12px;color:var(--muted)">Prix (€)</label>
+          <input type="number" id="variant1Price" step="0.01" placeholder="30">
+        </div>
+        <div>
+          <label style="font-size:12px;color:var(--muted)">Stock</label>
+          <input type="number" id="variant1Stock" placeholder="50">
+        </div>
+      </div>
+      <button onclick="App.saveNewProduct()">💾 Créer le produit</button>
+      <p style="margin-top:12px;font-size:12px;color:var(--muted)">💡 Vous pourrez ajouter plus de variants après création</p>
+    `);
+  },
+  
+  saveNewProduct() {
+    const name = document.getElementById('newProductName').value.trim();
+    const category = document.getElementById('newProductCategory').value;
+    const buyPrice = parseFloat(document.getElementById('newProductBuyPrice').value);
+    const variantName = document.getElementById('variant1Name').value.trim();
+    const variantPrice = parseFloat(document.getElementById('variant1Price').value);
+    const variantStock = parseInt(document.getElementById('variant1Stock').value);
+    
+    // Validation
+    if (!name) {
+      this.showToast('Veuillez entrer un nom de produit', 'error');
+      return;
+    }
+    
+    if (!buyPrice || buyPrice <= 0) {
+      this.showToast('Veuillez entrer un prix d\'achat valide', 'error');
+      return;
+    }
+    
+    if (!variantName) {
+      this.showToast('Veuillez entrer un nom de variant', 'error');
+      return;
+    }
+    
+    if (!variantPrice || variantPrice <= 0) {
+      this.showToast('Veuillez entrer un prix de vente valide', 'error');
+      return;
+    }
+    
+    if (isNaN(variantStock) || variantStock < 0) {
+      this.showToast('Veuillez entrer un stock valide', 'error');
+      return;
+    }
+    
+    // Créer le nouveau produit
+    const newProduct = {
+      id: Math.max(...this.productCatalog.map(p => p.id), 0) + 1,
+      name: name,
+      category: category,
+      buyPrice: buyPrice,
+      variants: {
+        [variantName]: {
+          price: variantPrice,
+          stock: variantStock
+        }
+      }
+    };
+    
+    // Ajouter au catalogue
+    this.productCatalog.push(newProduct);
+    
+    // Sauvegarder
+    this.saveData();
+    
+    // Recharger les affichages
+    this.loadProducts();
+    this.loadStock();
+    this.updateStats();
+    this.initCalculator();
+    
+    // Fermer et notifier
+    this.closeModal();
+    this.showToast(`Produit "${name}" créé avec succès !`, 'success');
   },
 
   refreshProducts() {
@@ -2203,11 +2605,65 @@ const App = {
   },
 
   searchProducts() {
-    this.showToast('Recherche en cours...');
+    const searchTerm = document.getElementById('searchProducts').value.toLowerCase();
+    const filterCategory = document.getElementById('filterCategory').value;
+    
+    let filteredProducts = this.productCatalog;
+    
+    if (searchTerm) {
+      filteredProducts = filteredProducts.filter(product =>
+        product.name.toLowerCase().includes(searchTerm) ||
+        product.category.toLowerCase().includes(searchTerm) ||
+        product.id.toString().includes(searchTerm)
+      );
+    }
+    
+    if (filterCategory !== 'all') {
+      filteredProducts = filteredProducts.filter(product => product.category === filterCategory);
+    }
+    
+    this.displayFilteredProducts(filteredProducts);
   },
 
   filterProducts() {
-    this.showToast('Filtrage des produits...');
+    this.searchProducts(); // Utilise la même logique
+  },
+  
+  displayFilteredProducts(products) {
+    const tbody = document.getElementById('productsTable');
+    
+    if (products.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Aucun produit trouvé</td></tr>';
+      return;
+    }
+    
+    tbody.innerHTML = products.map(product => {
+      const variants = Object.keys(product.variants).length;
+      const prices = Object.values(product.variants).map(v => v.price);
+      const minPrice = Math.min(...prices);
+      const totalStock = Object.values(product.variants).reduce((sum, v) => sum + v.stock, 0);
+      
+      let status = 'active';
+      if (totalStock === 0) status = 'out';
+      else if (totalStock < 20) status = 'low';
+      
+      return `
+        <tr>
+          <td><strong>#${product.id}</strong></td>
+          <td><strong>${product.name}</strong></td>
+          <td><span class="badge">${this.getCategoryBadge(product.category)}</span></td>
+          <td>${variants} variants</td>
+          <td>${this.formatCurrency(minPrice)}</td>
+          <td>${totalStock} unités</td>
+          <td>${this.getStockBadge(status)}</td>
+          <td class="actions">
+            <button class="btn-sm btn-primary" onclick="App.editProduct(${product.id})">✏️</button>
+            <button class="btn-sm btn-success" onclick="App.viewProductStock(${product.id})">📊</button>
+            <button class="btn-sm btn-danger" onclick="App.deleteProduct(${product.id})">🗑️</button>
+          </td>
+        </tr>
+      `;
+    }).join('');
   },
 
   // Actions sur le stock
@@ -2307,7 +2763,68 @@ const App = {
   },
 
   sendMessage(id) {
-    this.showToast(`Envoi d'un message au client #${id}`);
+    const customer = this.state.data.customers.find(c => c.id === id);
+    if (!customer) return;
+    
+    this.showModal(`Message à ${customer.name}`, `
+      <div class="form-group">
+        <label>Destinataire</label>
+        <input type="text" value="${customer.name} (${customer.email})" disabled>
+      </div>
+      <div class="form-group">
+        <label>Canal</label>
+        <select id="messageChannel">
+          <option value="email">📧 Email</option>
+          <option value="sms">📱 SMS (${customer.phone})</option>
+          <option value="whatsapp">💬 WhatsApp</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Modèle de message</label>
+        <select id="messageTemplate" onchange="App.loadMessageTemplate()">
+          <option value="">Message personnalisé</option>
+          <option value="promo">🎉 Promotion spéciale</option>
+          <option value="stock">📦 Nouveau stock disponible</option>
+          <option value="reminder">⏰ Rappel de commande</option>
+          <option value="thanks">💝 Remerciement</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Message</label>
+        <textarea id="messageContent" rows="5" placeholder="Votre message..."></textarea>
+      </div>
+      <button onclick="App.sendCustomerMessage(${id})">📤 Envoyer</button>
+    `);
+  },
+  
+  loadMessageTemplate() {
+    const template = document.getElementById('messageTemplate').value;
+    const textarea = document.getElementById('messageContent');
+    
+    const templates = {
+      promo: '🎉 Bonjour ! Promotion exclusive pour vous : -20% sur votre prochaine commande avec le code VIP20. Valable jusqu\'au dimanche !',
+      stock: '📦 Bonne nouvelle ! Le produit que vous aimez est de nouveau en stock. Passez commande dès maintenant !',
+      reminder: '⏰ Bonjour ! Votre commande est prête à être récupérée. N\'oubliez pas de passer nous voir.',
+      thanks: '💝 Merci pour votre commande ! Votre satisfaction est notre priorité. À très bientôt !'
+    };
+    
+    if (template && templates[template]) {
+      textarea.value = templates[template];
+    }
+  },
+  
+  sendCustomerMessage(id) {
+    const channel = document.getElementById('messageChannel').value;
+    const content = document.getElementById('messageContent').value;
+    
+    if (!content) {
+      this.showToast('Veuillez écrire un message', 'error');
+      return;
+    }
+    
+    // Simulation d'envoi
+    this.closeModal();
+    this.showToast(`Message envoyé via ${channel === 'email' ? 'email' : channel === 'sms' ? 'SMS' : 'WhatsApp'}`, 'success');
   },
 
   deleteCustomer(id) {
@@ -2321,7 +2838,63 @@ const App = {
   },
 
   addNewCustomer() {
-    this.showToast('Ouverture du formulaire de nouveau client');
+    this.showModal('Nouveau client', `
+      <div class="form-group">
+        <label>Nom complet</label>
+        <input type="text" id="newCustomerName" placeholder="Ex: Pierre Dubois">
+      </div>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="newCustomerEmail" placeholder="pierre@email.com">
+      </div>
+      <div class="form-group">
+        <label>Téléphone</label>
+        <input type="tel" id="newCustomerPhone" placeholder="06 12 34 56 78">
+      </div>
+      <div class="form-group">
+        <label>Statut</label>
+        <select id="newCustomerStatus">
+          <option value="new">🆕 Nouveau</option>
+          <option value="regular">👤 Régulier</option>
+          <option value="vip">⭐ VIP</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Notes</label>
+        <textarea id="newCustomerNotes" rows="3" placeholder="Informations supplémentaires..."></textarea>
+      </div>
+      <button onclick="App.saveNewCustomer()">💾 Créer le client</button>
+    `);
+  },
+  
+  saveNewCustomer() {
+    const name = document.getElementById('newCustomerName').value;
+    const email = document.getElementById('newCustomerEmail').value;
+    const phone = document.getElementById('newCustomerPhone').value;
+    const status = document.getElementById('newCustomerStatus').value;
+    
+    if (!name || !email || !phone) {
+      this.showToast('Veuillez remplir tous les champs obligatoires', 'error');
+      return;
+    }
+    
+    const newCustomer = {
+      id: Math.max(...this.state.data.customers.map(c => c.id), 0) + 1,
+      name: name,
+      email: email,
+      phone: phone,
+      orders: 0,
+      totalSpent: 0,
+      status: status
+    };
+    
+    this.state.data.customers.push(newCustomer);
+    this.saveData();
+    this.loadCustomers();
+    this.updateStats();
+    this.updateQuickStats();
+    this.closeModal();
+    this.showToast('Client créé avec succès', 'success');
   },
 
   exportCustomers() {
@@ -2336,11 +2909,55 @@ const App = {
   },
 
   searchCustomers() {
-    this.showToast('Recherche en cours...');
+    const searchTerm = document.getElementById('searchCustomers').value.toLowerCase();
+    const filterType = document.getElementById('filterCustomerType').value;
+    
+    let filteredCustomers = this.state.data.customers;
+    
+    if (searchTerm) {
+      filteredCustomers = filteredCustomers.filter(customer =>
+        customer.name.toLowerCase().includes(searchTerm) ||
+        customer.email.toLowerCase().includes(searchTerm) ||
+        customer.phone.includes(searchTerm) ||
+        customer.id.toString().includes(searchTerm)
+      );
+    }
+    
+    if (filterType !== 'all') {
+      filteredCustomers = filteredCustomers.filter(customer => customer.status === filterType);
+    }
+    
+    this.displayFilteredCustomers(filteredCustomers);
   },
 
   filterCustomers() {
-    this.showToast('Filtrage des clients...');
+    this.searchCustomers(); // Utilise la même logique
+  },
+  
+  displayFilteredCustomers(customers) {
+    const tbody = document.getElementById('customersTable');
+    
+    if (customers.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Aucun client trouvé</td></tr>';
+      return;
+    }
+    
+    tbody.innerHTML = customers.map(customer => `
+      <tr>
+        <td><strong>#${customer.id}</strong></td>
+        <td><strong>${customer.name}</strong></td>
+        <td>${customer.email}</td>
+        <td>${customer.phone}</td>
+        <td>${customer.orders} commandes</td>
+        <td><strong>${this.formatCurrency(customer.totalSpent)}</strong></td>
+        <td>${this.getCustomerBadge(customer.status)}</td>
+        <td class="actions">
+          <button class="btn-sm btn-primary" onclick="App.viewCustomer(${customer.id})">👁️</button>
+          <button class="btn-sm btn-success" onclick="App.sendMessage(${customer.id})">💬</button>
+          <button class="btn-sm btn-danger" onclick="App.deleteCustomer(${customer.id})">🗑️</button>
+        </td>
+      </tr>
+    `).join('');
   },
 
   // Paramètres
@@ -2386,6 +3003,7 @@ const App = {
       orders: this.state.data.orders,
       products: this.productCatalog,
       customers: this.state.data.customers,
+      cash: this.state.cash,
       exportDate: new Date().toISOString(),
       version: '2.0.0'
     };
