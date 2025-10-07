@@ -214,6 +214,11 @@
       transform: translateY(0);
     }
 
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
     #dash {
       display: none;
       animation: fadeIn 0.5s ease;
@@ -740,6 +745,11 @@
         text-align: center;
       }
       
+      .header-actions {
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      
       .stats {
         grid-template-columns: 1fr;
       }
@@ -785,6 +795,9 @@
         <span>DROGUA CENTER</span>
       </h1>
       <div class="header-actions">
+        <button id="syncBtn" onclick="App.manualSync()" style="padding:10px 20px;margin:0;background:var(--info)" title="Synchroniser avec la boutique">
+          🔄 Sync
+        </button>
         <button id="notifBtn" onclick="App.toggleNotifications()" style="padding:10px;margin:0;background:transparent;color:var(--text)">
           🔔 <span id="notifCount" style="background:var(--danger);color:white;padding:2px 6px;border-radius:10px;font-size:10px;display:none">0</span>
         </button>
@@ -819,6 +832,10 @@
       <div class="quick-stat">
         <div class="label">Nouveaux clients</div>
         <div class="value" id="newCustomers">0</div>
+      </div>
+      <div class="quick-stat" style="background:var(--info);color:white" title="Synchronisation automatique avec la boutique">
+        <div class="label" style="color:rgba(255,255,255,0.8)">Boutique</div>
+        <div class="value" style="color:white;font-size:16px" id="syncStatus">🔄 Actif</div>
       </div>
     </div>
 
@@ -1436,6 +1453,24 @@
         <button onclick="App.importData()" style="background:var(--warning);margin-right:12px">📤 Importer des données</button>
         <button onclick="App.clearAllData()" style="background:var(--danger)">🗑️ Effacer toutes les données</button>
       </div>
+      
+      <div class="chart-container" style="margin-top:24px">
+        <h3>🔄 Synchronisation boutique</h3>
+        <p style="color:var(--muted);margin-bottom:16px">
+          La synchronisation automatique vérifie les nouvelles commandes de la boutique toutes les 5 secondes.
+        </p>
+        <div style="padding:16px;background:var(--bg-secondary);border-radius:12px;margin-bottom:16px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <span>Statut de la synchronisation:</span>
+            <span style="color:var(--success);font-weight:700">✅ Active</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span>Dernière synchronisation:</span>
+            <span id="lastSyncTime">Maintenant</span>
+          </div>
+        </div>
+        <button onclick="App.manualSync()">🔄 Synchroniser maintenant</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1466,7 +1501,8 @@ const App = {
       AUTH: 'admin_auth',
       THEME: 'admin_theme',
       DATA: 'admin_data'
-    }
+    },
+    SYNC_INTERVAL: 5000 // 5 secondes
   },
 
   // État de l'application
@@ -1477,8 +1513,10 @@ const App = {
     maxAttempts: 5,
     lockoutTime: null,
     notifications: [],
+    syncInterval: null,
+    lastSyncTime: null,
     cash: {
-      total: 2500, // Caisse de départ
+      total: 2500,
       transactions: [],
       dailyIncome: 0,
       dailyExpense: 0
@@ -1494,7 +1532,6 @@ const App = {
 
   // Catalogue complet des produits
   productCatalog: [
-    // Fleurs
     { id: 1, name: 'AMNESIA', category: 'fleurs', buyPrice: 2.8, variants: {
       '3.33G': { price: 20, stock: 50 },
       '5G': { price: 30, stock: 45 },
@@ -1528,8 +1565,6 @@ const App = {
       '5G': { price: 60, stock: 15 },
       '10G': { price: 110, stock: 10 }
     }},
-    
-    // Substances
     { id: 6, name: 'NEEDLES KETA', category: 'keta', buyPrice: 3.9, variants: {
       '1G': { price: 20, stock: 30 },
       '2G': { price: 40, stock: 25 },
@@ -1563,8 +1598,6 @@ const App = {
       '5G': { price: 80, stock: 8 },
       '10G': { price: 160, stock: 5 }
     }},
-    
-    // Edibles
     { id: 11, name: 'DOMINO 280mg', category: 'bonbon', buyPrice: 1.5, variants: {
       '3 unités': { price: 20, stock: 50 },
       '10 unités': { price: 60, stock: 30 },
@@ -1581,30 +1614,21 @@ const App = {
 
   // Données de démonstration
   demoData: {
-    orders: [
-      {id: 1, date: new Date().toLocaleDateString('fr-FR'), customer: 'Jean Dupont', products: 'AMNESIA 5G', total: 30, status: 'delivered', payment: 'Espèces'},
-      {id: 2, date: new Date().toLocaleDateString('fr-FR'), customer: 'Marie Martin', products: 'EL JEFE 1G + NEEDLES 2G', total: 90, status: 'pending', payment: 'CB'},
-      {id: 3, date: new Date().toLocaleDateString('fr-FR'), customer: 'Paul Durand', products: 'DEMBELE 10G', total: 50, status: 'processing', payment: 'Crypto'},
-      {id: 4, date: new Date(Date.now() - 86400000).toLocaleDateString('fr-FR'), customer: 'Sophie Bernard', products: 'SKITTLEZ CAKE 5G', total: 40, status: 'delivered', payment: 'Espèces'},
-      {id: 5, date: new Date(Date.now() - 172800000).toLocaleDateString('fr-FR'), customer: 'Luc Moreau', products: 'GEORGIA PIE 10G', total: 110, status: 'delivered', payment: 'CB'}
-    ],
+    orders: [],
     customers: [
       {id: 1, name: 'Jean Dupont', email: 'jean@email.com', phone: '06 12 34 56 78', orders: 12, totalSpent: 1450, status: 'vip'},
       {id: 2, name: 'Marie Martin', email: 'marie@email.com', phone: '06 98 76 54 32', orders: 5, totalSpent: 425, status: 'regular'},
-      {id: 3, name: 'Paul Durand', email: 'paul@email.com', phone: '07 11 22 33 44', orders: 2, totalSpent: 150, status: 'new'},
-      {id: 4, name: 'Sophie Bernard', email: 'sophie@email.com', phone: '06 55 66 77 88', orders: 8, totalSpent: 890, status: 'regular'},
-      {id: 5, name: 'Luc Moreau', email: 'luc@email.com', phone: '07 99 88 77 66', orders: 15, totalSpent: 2100, status: 'vip'}
+      {id: 3, name: 'Paul Durand', email: 'paul@email.com', phone: '07 11 22 33 44', orders: 2, totalSpent: 150, status: 'new'}
     ]
   },
 
   // Initialisation
   init() {
-    // Vérifier l'authentification
     if (localStorage.getItem(this.config.STORAGE_KEYS.AUTH) === 'true') {
       this.showDashboard();
+      this.startAutoSync();
     }
 
-    // Charger le thème sauvegardé
     const savedTheme = localStorage.getItem(this.config.STORAGE_KEYS.THEME) || 'dark';
     document.body.setAttribute('data-theme', savedTheme);
     const toggle = document.getElementById('themeToggle');
@@ -1612,29 +1636,28 @@ const App = {
       toggle.classList.add('light');
     }
 
-    // Initialiser les événements
     this.initEvents();
-
-    // Charger les données
     this.loadData();
+    this.syncShopOrders();
+    
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'shop_orders' || e.key === 'cart') {
+        this.syncShopOrders();
+      }
+    });
   },
 
-  // Initialisation des événements
   initEvents() {
-    // Enter pour se connecter
     document.getElementById('pass')?.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') this.handleLogin();
     });
 
-    // Gestion des onglets
     document.querySelectorAll('.tab-btn').forEach(btn => {
       btn.addEventListener('click', (e) => this.switchTab(e.target.dataset.tab));
     });
   },
 
-  // Connexion
   handleLogin() {
-    // Vérifier si le compte est verrouillé
     if (this.state.lockoutTime && Date.now() < this.state.lockoutTime) {
       const remainingTime = Math.ceil((this.state.lockoutTime - Date.now()) / 60000);
       this.showToast(`Compte verrouillé. Réessayez dans ${remainingTime} minute(s)`, 'error');
@@ -1644,14 +1667,13 @@ const App = {
     const password = document.getElementById('pass').value;
     
     if (btoa(password) === this.config.PASSWORD_HASH) {
-      // Connexion réussie
       this.state.loginAttempts = 0;
       this.state.lockoutTime = null;
       localStorage.setItem(this.config.STORAGE_KEYS.AUTH, 'true');
       this.showDashboard();
       this.showToast('Connexion réussie !', 'success');
+      this.startAutoSync();
     } else {
-      // Connexion échouée
       this.state.loginAttempts++;
       
       if (this.state.loginAttempts >= this.state.maxAttempts) {
@@ -1666,15 +1688,14 @@ const App = {
     }
   },
 
-  // Déconnexion
   logout() {
     if (confirm('Êtes-vous sûr de vouloir vous déconnecter ?')) {
+      this.stopAutoSync();
       localStorage.removeItem(this.config.STORAGE_KEYS.AUTH);
       location.reload();
     }
   },
 
-  // Afficher le dashboard
   showDashboard() {
     document.getElementById('auth').style.display = 'none';
     document.getElementById('dash').style.display = 'block';
@@ -1682,7 +1703,189 @@ const App = {
     this.loadDashboard();
   },
 
-  // Charger le dashboard
+  // === SYNCHRONISATION AVEC LA BOUTIQUE ===
+  syncShopOrders() {
+    try {
+      const shopOrders = JSON.parse(localStorage.getItem('shop_orders') || '[]');
+      
+      if (shopOrders.length === 0) return;
+      
+      const existingOrderIds = this.state.data.orders.map(o => o.shopOrderId || o.id);
+      const newOrders = shopOrders.filter(order => !existingOrderIds.includes(order.id));
+      
+      if (newOrders.length > 0) {
+        newOrders.forEach(shopOrder => {
+          const adminOrder = {
+            id: Math.max(...this.state.data.orders.map(o => o.id), 0) + 1,
+            shopOrderId: shopOrder.id,
+            date: new Date(shopOrder.timestamp).toLocaleDateString('fr-FR'),
+            customer: shopOrder.name || 'Client',
+            products: this.formatOrderProducts(shopOrder.items),
+            total: shopOrder.total,
+            status: 'pending',
+            payment: shopOrder.paymentMethod || 'Espèces',
+            email: shopOrder.email || '',
+            phone: shopOrder.phone || '',
+            deliveryAddress: shopOrder.deliveryAddress || '',
+            deliveryType: shopOrder.deliveryType || ''
+          };
+          
+          this.state.data.orders.unshift(adminOrder);
+          
+          if (shopOrder.paymentMethod === 'Espèces') {
+            this.state.cash.total += shopOrder.total;
+            this.state.cash.transactions.push({
+              id: Date.now() + Math.random(),
+              date: new Date().toISOString(),
+              type: 'income',
+              amount: shopOrder.total,
+              category: 'sale',
+              description: `Commande #${shopOrder.id} - ${shopOrder.name}`,
+              balanceAfter: this.state.cash.total
+            });
+          }
+          
+          this.updateStockFromOrder(shopOrder.items);
+        });
+        
+        this.saveData();
+        this.saveCashData();
+        
+        this.showNotification(
+          `🎉 ${newOrders.length} nouvelle${newOrders.length > 1 ? 's' : ''} commande${newOrders.length > 1 ? 's' : ''} !`,
+          'success'
+        );
+        
+        if (this.state.isLoggedIn) {
+          this.loadOrders();
+          this.updateStats();
+          this.updateQuickStats();
+          this.loadCashier();
+          this.updateActivityFeed();
+        }
+        
+        this.updateNotificationBadge(newOrders.length);
+      }
+      
+      this.state.lastSyncTime = new Date();
+      const lastSyncEl = document.getElementById('lastSyncTime');
+      if (lastSyncEl) {
+        lastSyncEl.textContent = 'À l\'instant';
+      }
+    } catch (error) {
+      console.error('Erreur de synchronisation:', error);
+    }
+  },
+
+  formatOrderProducts(items) {
+    if (!items || items.length === 0) return 'Produits non spécifiés';
+    
+    return items.map(item => {
+      const variantText = item.variant && item.variant !== 'default' ? ` ${item.variant}` : '';
+      return `${item.name}${variantText} x${item.quantity}`;
+    }).join(', ');
+  },
+
+  updateStockFromOrder(items) {
+    if (!items || items.length === 0) return;
+    
+    items.forEach(item => {
+      const product = this.productCatalog.find(p => 
+        p.name.toLowerCase() === item.name.toLowerCase()
+      );
+      
+      if (product && item.variant && product.variants[item.variant]) {
+        product.variants[item.variant].stock -= item.quantity;
+        if (product.variants[item.variant].stock < 0) {
+          product.variants[item.variant].stock = 0;
+        }
+      }
+    });
+    
+    this.saveData();
+  },
+
+  updateNotificationBadge(count) {
+    const badge = document.getElementById('notifCount');
+    if (badge) {
+      const currentCount = parseInt(badge.textContent) || 0;
+      const newCount = currentCount + count;
+      badge.textContent = newCount;
+      badge.style.display = newCount > 0 ? 'inline-block' : 'none';
+    }
+  },
+
+  showNotification(message, type = 'success') {
+    this.showToast(message, type);
+    this.playNotificationSound();
+    
+    this.state.notifications.unshift({
+      id: Date.now(),
+      message: message,
+      type: type,
+      timestamp: new Date().toISOString(),
+      read: false
+    });
+    
+    if (this.state.notifications.length > 50) {
+      this.state.notifications = this.state.notifications.slice(0, 50);
+    }
+  },
+
+  playNotificationSound() {
+    try {
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.frequency.value = 800;
+      oscillator.type = 'sine';
+      
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.3);
+    } catch (e) {
+      // Ignorer les erreurs de son
+    }
+  },
+
+  startAutoSync() {
+    this.syncInterval = setInterval(() => {
+      this.syncShopOrders();
+    }, this.config.SYNC_INTERVAL);
+  },
+
+  stopAutoSync() {
+    if (this.syncInterval) {
+      clearInterval(this.syncInterval);
+    }
+  },
+
+  manualSync() {
+    const btn = document.getElementById('syncBtn');
+    if (btn) {
+      btn.innerHTML = '🔄 <div class="spinner" style="width:16px;height:16px;border-width:2px;display:inline-block;vertical-align:middle;margin-left:4px"></div>';
+      btn.disabled = true;
+    }
+    
+    this.syncShopOrders();
+    
+    setTimeout(() => {
+      if (btn) {
+        btn.innerHTML = '✅ Sync';
+        setTimeout(() => {
+          btn.innerHTML = '🔄 Sync';
+          btn.disabled = false;
+        }, 1500);
+      }
+    }, 500);
+  },
+
   loadDashboard() {
     this.updateStats();
     this.updateQuickStats();
@@ -1698,7 +1901,6 @@ const App = {
     this.initCalculator();
   },
 
-  // Mise à jour des statistiques
   updateStats() {
     const orders = this.state.data.orders;
     const totalRevenue = orders.reduce((sum, order) => sum + order.total, 0);
@@ -1709,7 +1911,6 @@ const App = {
     document.getElementById('topProduct').textContent = 'AMNESIA';
     document.getElementById('topProductSales').textContent = '35 ventes ce mois';
     
-    // Calculer la valeur du stock
     let stockValue = 0;
     let stockItems = 0;
     let lowStock = 0;
@@ -1731,12 +1932,10 @@ const App = {
       `<span style="color:var(--danger)">${outOfStock} ruptures</span> • <span style="color:var(--warning)">${lowStock} stock bas</span>`;
   },
 
-  // Mise à jour des statistiques rapides
   updateQuickStats() {
     const today = new Date();
     const orders = this.state.data.orders;
     
-    // Calculer les revenus
     const todayRevenue = orders
       .filter(o => new Date(o.date).toDateString() === today.toDateString())
       .reduce((sum, o) => sum + o.total, 0);
@@ -1746,7 +1945,6 @@ const App = {
     document.getElementById('monthRevenue').textContent = this.formatCurrency(8750);
     document.getElementById('activeOrders').textContent = orders.filter(o => o.status === 'pending' || o.status === 'processing').length;
     
-    // Compter les stocks bas
     let lowStockCount = 0;
     this.productCatalog.forEach(product => {
       Object.values(product.variants).forEach(variant => {
@@ -1758,7 +1956,6 @@ const App = {
     document.getElementById('newCustomers').textContent = this.state.data.customers.filter(c => c.status === 'new').length;
   },
 
-  // Changer d'onglet
   switchTab(tabName) {
     document.querySelectorAll('.tab-btn').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.tab === tabName);
@@ -1771,7 +1968,6 @@ const App = {
     this.state.currentTab = tabName;
   },
 
-  // Charger les données
   loadData() {
     const savedData = localStorage.getItem(this.config.STORAGE_KEYS.DATA);
     if (savedData) {
@@ -1779,12 +1975,10 @@ const App = {
         const parsed = JSON.parse(savedData);
         this.state.data = parsed;
         
-        // Restaurer la caisse si elle existe
         if (parsed.cash) {
           this.state.cash = parsed.cash;
         }
         
-        // Restaurer le catalogue de produits si il existe
         if (parsed.products && parsed.products.length > 0) {
           this.productCatalog = parsed.products;
         }
@@ -1799,7 +1993,6 @@ const App = {
       this.state.data.products = this.productCatalog;
     }
     
-    // Charger les transactions de caisse sauvegardées
     const savedCash = localStorage.getItem('cash_data');
     if (savedCash) {
       try {
@@ -1810,13 +2003,11 @@ const App = {
     }
   },
 
-  // Sauvegarder les données
   saveData() {
-    this.state.data.products = this.productCatalog; // Sauvegarder le catalogue
+    this.state.data.products = this.productCatalog;
     localStorage.setItem(this.config.STORAGE_KEYS.DATA, JSON.stringify(this.state.data));
   },
 
-  // Charger les commandes
   loadOrders() {
     const tbody = document.getElementById('ordersTable');
     const orders = this.state.data.orders;
@@ -1844,12 +2035,10 @@ const App = {
     `).join('');
   },
 
-  // Charger les produits
   loadProducts() {
     const tbody = document.getElementById('productsTable');
     const products = this.productCatalog;
     
-    // Mettre à jour le sélecteur de produits pour le stock
     const stockProductSelect = document.getElementById('stockProduct');
     if (stockProductSelect) {
       stockProductSelect.innerHTML = '<option value="">Sélectionner un produit...</option>' +
@@ -1885,7 +2074,6 @@ const App = {
     }).join('');
   },
 
-  // Charger le stock
   loadStock() {
     const tbody = document.getElementById('stockTable');
     let stockRows = [];
@@ -1921,7 +2109,6 @@ const App = {
     tbody.innerHTML = stockRows.join('');
   },
 
-  // Charger les clients
   loadCustomers() {
     const tbody = document.getElementById('customersTable');
     const customers = this.state.data.customers;
@@ -1949,18 +2136,16 @@ const App = {
     `).join('');
   },
 
-  // Charger les finances
   loadFinances() {
     const orders = this.state.data.orders;
     const revenue = orders.reduce((sum, o) => sum + o.total, 0);
-    const expenses = revenue * 0.35; // Estimation des coûts à 35%
+    const expenses = revenue * 0.35;
     const profit = revenue - expenses;
     
     document.getElementById('monthlyRevenue').textContent = this.formatCurrency(revenue);
     document.getElementById('monthlyExpenses').textContent = this.formatCurrency(expenses);
     document.getElementById('netProfit').textContent = this.formatCurrency(profit);
     
-    // Afficher la caisse actuelle
     document.getElementById('currentCash').textContent = this.formatCurrency(this.state.cash.total);
     const today = new Date().toDateString();
     const todayTransactions = this.state.cash.transactions.filter(t => 
@@ -1978,10 +2163,8 @@ const App = {
     document.getElementById('cashDetails').innerHTML = 
       `<span style="color:var(--success)">Entrées: ${this.formatCurrency(todayIncome)}</span> • <span style="color:var(--danger)">Sorties: ${this.formatCurrency(todayExpense)}</span>`;
     
-    // Initialiser le calculateur
     this.initCalculator();
     
-    // Tableau de rentabilité
     const tbody = document.getElementById('profitTable');
     const profitData = [
       {product: 'AMNESIA', sales: 35, revenue: 1750, cost: 420, profit: 1330, margin: 76},
@@ -2003,9 +2186,7 @@ const App = {
     `).join('');
   },
 
-  // Charger les analytics
   loadAnalytics() {
-    // Graphique des catégories
     const categoryChart = document.getElementById('categoryChart');
     if (categoryChart) {
       categoryChart.innerHTML = `
@@ -2039,7 +2220,6 @@ const App = {
       `;
     }
     
-    // Graphique des zones
     const zoneChart = document.getElementById('zoneChart');
     if (zoneChart) {
       zoneChart.innerHTML = `
@@ -2074,31 +2254,97 @@ const App = {
     }
   },
 
-  // Mise à jour du flux d'activité
   updateActivityFeed() {
-    const activities = [
-      { text: 'Nouvelle commande #' + (this.state.data.orders.length + 1), time: 'Il y a 2 min', icon: '📦' },
-      { text: 'Stock AMNESIA mis à jour', time: 'Il y a 5 min', icon: '📊' },
-      { text: 'Nouvel avis 5⭐ sur EL JEFE', time: 'Il y a 12 min', icon: '⭐' },
-      { text: 'Client VIP ajouté', time: 'Il y a 15 min', icon: '👥' },
-      { text: 'Paiement reçu #' + this.state.data.orders.length, time: 'Il y a 20 min', icon: '💰' }
-    ];
-    
     const feed = document.getElementById('activityFeed');
-    if (feed) {
-      feed.innerHTML = activities.map(activity => `
-        <div style="padding:12px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
-          <div>
-            <div style="font-weight:600">${activity.text}</div>
-            <div style="font-size:12px;color:var(--muted);margin-top:4px">${activity.time}</div>
-          </div>
-          <span style="font-size:20px">${activity.icon}</span>
+    if (!feed) return;
+    
+    const activities = [];
+    
+    const recentOrders = this.state.data.orders.slice(0, 5);
+    recentOrders.forEach(order => {
+      const timeAgo = this.getTimeAgo(order.date);
+      activities.push({
+        text: `Nouvelle commande #${order.id} - ${order.customer}`,
+        time: timeAgo,
+        icon: '📦',
+        type: 'order'
+      });
+    });
+    
+    let lowStockCount = 0;
+    this.productCatalog.forEach(product => {
+      Object.entries(product.variants).forEach(([variant, data]) => {
+        if (data.stock > 0 && data.stock < 10 && lowStockCount < 3) {
+          activities.push({
+            text: `Stock bas: ${product.name} ${variant} (${data.stock} restants)`,
+            time: 'Stock',
+            icon: '⚠️',
+            type: 'alert'
+          });
+          lowStockCount++;
+        }
+      });
+    });
+    
+    const recentCashTransactions = this.state.cash.transactions.slice(-3).reverse();
+    recentCashTransactions.forEach(trans => {
+      const timeAgo = this.getTimeAgo(trans.date);
+      activities.push({
+        text: trans.description || `Transaction ${trans.type}`,
+        time: timeAgo,
+        icon: trans.type === 'income' ? '💰' : '💸',
+        type: 'cash'
+      });
+    });
+    
+    const sortedActivities = activities
+      .sort((a, b) => {
+        const priority = { order: 0, alert: 1, cash: 2 };
+        return priority[a.type] - priority[b.type];
+      })
+      .slice(0, 10);
+    
+    if (sortedActivities.length === 0) {
+      feed.innerHTML = '<div class="empty-state">Aucune activité récente</div>';
+      return;
+    }
+    
+    feed.innerHTML = sortedActivities.map(activity => `
+      <div style="padding:12px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;transition:var(--transition);cursor:pointer" onmouseover="this.style.background='var(--card-hover)'" onmouseout="this.style.background='transparent'">
+        <div>
+          <div style="font-weight:600;font-size:13px">${activity.text}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px">${activity.time}</div>
         </div>
-      `).join('');
+        <span style="font-size:20px">${activity.icon}</span>
+      </div>
+    `).join('');
+  },
+
+  getTimeAgo(dateString) {
+    try {
+      let date;
+      if (dateString.includes('/')) {
+        const parts = dateString.split('/');
+        date = new Date(parts[2], parts[1] - 1, parts[0]);
+      } else {
+        date = new Date(dateString);
+      }
+      
+      const now = new Date();
+      const diff = now - date;
+      
+      if (diff < 0) return 'À venir';
+      if (diff < 60000) return 'À l\'instant';
+      if (diff < 3600000) return `Il y a ${Math.floor(diff / 60000)} min`;
+      if (diff < 86400000) return `Il y a ${Math.floor(diff / 3600000)}h`;
+      if (diff < 172800000) return 'Hier';
+      if (diff < 604800000) return `Il y a ${Math.floor(diff / 86400000)} jours`;
+      return dateString;
+    } catch (e) {
+      return dateString;
     }
   },
 
-  // Mise à jour des top produits
   updateTopProducts() {
     const topProducts = document.getElementById('topProductsChart');
     if (topProducts) {
@@ -2124,7 +2370,6 @@ const App = {
     }
   },
 
-  // Mise à jour des options de variants
   updateVariantOptions() {
     const productId = document.getElementById('stockProduct').value;
     const variantSelect = document.getElementById('stockVariant');
@@ -2143,7 +2388,6 @@ const App = {
     }
   },
 
-  // Actions sur les commandes
   viewOrder(id) {
     const order = this.state.data.orders.find(o => o.id === id);
     if (!order) return;
@@ -2156,6 +2400,9 @@ const App = {
         <p><strong>💰 Total:</strong> ${this.formatCurrency(order.total)}</p>
         <p><strong>📊 Statut:</strong> ${this.getStatusBadge(order.status)}</p>
         <p><strong>💳 Paiement:</strong> <span class="badge">${order.payment}</span></p>
+        ${order.email ? `<p><strong>📧 Email:</strong> ${order.email}</p>` : ''}
+        ${order.phone ? `<p><strong>📱 Téléphone:</strong> ${order.phone}</p>` : ''}
+        ${order.deliveryAddress ? `<p><strong>📍 Adresse:</strong> ${order.deliveryAddress}</p>` : ''}
       </div>
       <div style="margin-top:20px;display:grid;gap:12px">
         <button onclick="App.updateOrderStatus(${id}, 'processing')" style="background:var(--info)">🔄 Mettre en traitement</button>
@@ -2354,7 +2601,7 @@ const App = {
   },
 
   filterOrders() {
-    this.searchOrders(); // Utilise la même logique
+    this.searchOrders();
   },
   
   displayFilteredOrders(orders) {
@@ -2383,7 +2630,6 @@ const App = {
     `).join('');
   },
 
-  // Actions sur les produits
   editProduct(id) {
     const product = this.productCatalog.find(p => p.id === id);
     if (!product) return;
@@ -2542,7 +2788,6 @@ const App = {
     const variantPrice = parseFloat(document.getElementById('variant1Price').value);
     const variantStock = parseInt(document.getElementById('variant1Stock').value);
     
-    // Validation
     if (!name) {
       this.showToast('Veuillez entrer un nom de produit', 'error');
       return;
@@ -2568,7 +2813,6 @@ const App = {
       return;
     }
     
-    // Créer le nouveau produit
     const newProduct = {
       id: Math.max(...this.productCatalog.map(p => p.id), 0) + 1,
       name: name,
@@ -2582,19 +2826,15 @@ const App = {
       }
     };
     
-    // Ajouter au catalogue
     this.productCatalog.push(newProduct);
     
-    // Sauvegarder
     this.saveData();
     
-    // Recharger les affichages
     this.loadProducts();
     this.loadStock();
     this.updateStats();
     this.initCalculator();
     
-    // Fermer et notifier
     this.closeModal();
     this.showToast(`Produit "${name}" créé avec succès !`, 'success');
   },
@@ -2626,7 +2866,7 @@ const App = {
   },
 
   filterProducts() {
-    this.searchProducts(); // Utilise la même logique
+    this.searchProducts();
   },
   
   displayFilteredProducts(products) {
@@ -2666,7 +2906,6 @@ const App = {
     }).join('');
   },
 
-  // Actions sur le stock
   quickAddStock(productName, variant) {
     const qty = prompt(`Quantité à ajouter pour ${productName} ${variant}:`, '10');
     if (qty && !isNaN(qty)) {
@@ -2714,7 +2953,6 @@ const App = {
       this.updateStats();
       this.showToast(`${qty} unités ajoutées au stock`, 'success');
       
-      // Réinitialiser le formulaire
       document.getElementById('stockProduct').value = '';
       document.getElementById('stockVariant').value = '';
       document.getElementById('stockVariant').disabled = true;
@@ -2740,7 +2978,6 @@ const App = {
       this.updateStats();
       this.showToast('Stock ajusté', 'success');
       
-      // Réinitialiser le formulaire
       document.getElementById('stockProduct').value = '';
       document.getElementById('stockVariant').value = '';
       document.getElementById('stockVariant').disabled = true;
@@ -2748,7 +2985,6 @@ const App = {
     }
   },
 
-  // Actions sur les clients
   viewCustomer(id) {
     const customer = this.state.data.customers.find(c => c.id === id);
     if (customer) {
@@ -2822,7 +3058,6 @@ const App = {
       return;
     }
     
-    // Simulation d'envoi
     this.closeModal();
     this.showToast(`Message envoyé via ${channel === 'email' ? 'email' : channel === 'sms' ? 'SMS' : 'WhatsApp'}`, 'success');
   },
@@ -2931,7 +3166,7 @@ const App = {
   },
 
   filterCustomers() {
-    this.searchCustomers(); // Utilise la même logique
+    this.searchCustomers();
   },
   
   displayFilteredCustomers(customers) {
@@ -2960,7 +3195,6 @@ const App = {
     `).join('');
   },
 
-  // Paramètres
   showSettings() {
     this.switchTab('settings');
   },
@@ -2990,7 +3224,6 @@ const App = {
       return;
     }
     
-    // Note: En production, vérifier l'ancien mot de passe côté serveur
     this.showToast('Mot de passe mis à jour (simulation)', 'success');
     
     document.getElementById('oldPassword').value = '';
@@ -3019,7 +3252,7 @@ const App = {
   },
 
   importData() {
-    this.showToast('Fonction d\'import en développement');
+    this.showToast('Fonction d\'import en développement', 'warning');
   },
 
   clearAllData() {
@@ -3034,11 +3267,9 @@ const App = {
 
   // === FONCTIONS CAISSE ===
   loadCashier() {
-    // Mettre à jour l'affichage de la caisse
     document.getElementById('cashTotal').textContent = this.formatCurrency(this.state.cash.total);
     document.getElementById('cashLastUpdate').textContent = new Date().toLocaleTimeString('fr-FR');
     
-    // Calculer les totaux du jour
     const today = new Date().toDateString();
     const todayTransactions = this.state.cash.transactions.filter(t => 
       new Date(t.date).toDateString() === today
@@ -3058,15 +3289,12 @@ const App = {
     document.getElementById('todayExpenseCount').textContent = todayTransactions.filter(t => t.type === 'expense').length;
     document.getElementById('todayBalance').textContent = this.formatCurrency(todayIncome - todayExpense);
     
-    // Mettre à jour la barre de progression
     const total = todayIncome + todayExpense || 1;
     const balancePercent = (todayIncome / total) * 100;
     document.getElementById('balanceBar').style.width = balancePercent + '%';
     
-    // Charger l'historique
     this.loadTransactionHistory();
     
-    // Mettre à jour la caisse dans les finances
     document.getElementById('currentCash').textContent = this.formatCurrency(this.state.cash.total);
     document.getElementById('cashDetails').innerHTML = 
       `<span style="color:var(--success)">Entrées: ${this.formatCurrency(todayIncome)}</span> • <span style="color:var(--danger)">Sorties: ${this.formatCurrency(todayExpense)}</span>`;
@@ -3077,7 +3305,7 @@ const App = {
     const today = new Date().toDateString();
     const todayTransactions = this.state.cash.transactions.filter(t => 
       new Date(t.date).toDateString() === today
-    ).reverse(); // Plus récent en premier
+    ).reverse();
     
     if (todayTransactions.length === 0) {
       tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Aucune transaction aujourd\'hui</td></tr>';
@@ -3111,23 +3339,20 @@ const App = {
       return;
     }
     
-    // Vérifier si la caisse a assez pour une sortie
     if (type === 'expense' && amount > this.state.cash.total) {
       this.showToast('Caisse insuffisante pour cette sortie', 'error');
       return;
     }
     
-    // Calculer le nouveau total
     let newTotal = this.state.cash.total;
     if (type === 'income') {
       newTotal += amount;
     } else if (type === 'expense') {
       newTotal -= amount;
     } else if (type === 'adjustment') {
-      newTotal = amount; // Ajustement direct
+      newTotal = amount;
     }
     
-    // Créer la transaction
     const transaction = {
       id: Date.now(),
       date: new Date().toISOString(),
@@ -3138,17 +3363,13 @@ const App = {
       balanceAfter: newTotal
     };
     
-    // Ajouter la transaction
     this.state.cash.transactions.push(transaction);
     this.state.cash.total = newTotal;
     
-    // Sauvegarder
     this.saveCashData();
     
-    // Recharger l'affichage
     this.loadCashier();
     
-    // Réinitialiser le formulaire
     document.getElementById('transAmount').value = '';
     document.getElementById('transDescription').value = '';
     
@@ -3166,14 +3387,12 @@ const App = {
     const transaction = todayTransactions[index];
     if (!transaction) return;
     
-    // Inverser l'effet de la transaction
     if (transaction.type === 'income') {
       this.state.cash.total -= transaction.amount;
     } else if (transaction.type === 'expense') {
       this.state.cash.total += transaction.amount;
     }
     
-    // Retirer la transaction
     const transIndex = this.state.cash.transactions.findIndex(t => t.id === transaction.id);
     this.state.cash.transactions.splice(transIndex, 1);
     
@@ -3252,7 +3471,6 @@ const App = {
     `;
     
     if (confirm(message + '\n\nConfirmer la clôture ?')) {
-      // Sauvegarder un rapport de clôture
       const report = {
         date: new Date().toISOString(),
         income: todayIncome,
@@ -3262,14 +3480,12 @@ const App = {
         transactions: todayTransactions.length
       };
       
-      // Sauvegarder le rapport
       let reports = JSON.parse(localStorage.getItem('cash_reports') || '[]');
       reports.push(report);
       localStorage.setItem('cash_reports', JSON.stringify(reports));
       
       this.showToast('Caisse clôturée avec succès', 'success');
       
-      // Optionnel : exporter automatiquement
       this.exportCashReport(report);
     }
   },
@@ -3344,14 +3560,12 @@ const App = {
       return;
     }
     
-    // Calculer les coûts et bénéfices
     const totalCost = buyPrice * weight;
     const unitProfit = sellPrice - totalCost;
     const margin = ((unitProfit / sellPrice) * 100).toFixed(1);
     const totalRevenue = sellPrice * quantity;
     const totalProfit = unitProfit * quantity;
     
-    // Afficher les résultats
     document.getElementById('resultCost').textContent = this.formatCurrency(totalCost);
     document.getElementById('resultSell').textContent = this.formatCurrency(sellPrice);
     document.getElementById('resultUnitProfit').textContent = this.formatCurrency(unitProfit);
@@ -3359,7 +3573,6 @@ const App = {
     document.getElementById('resultTotalProfit').textContent = this.formatCurrency(totalProfit);
     document.getElementById('resultTotalRevenue').textContent = this.formatCurrency(totalRevenue);
     
-    // Colorer selon la marge
     const marginElement = document.getElementById('resultMargin');
     const profitElement = document.getElementById('resultTotalProfit');
     
@@ -3376,19 +3589,64 @@ const App = {
     
     document.getElementById('profitResults').style.display = 'block';
     
-    // Auto-remplir le prix d'achat si un produit est sélectionné
     if (productId && !document.getElementById('calcBuyPrice').value) {
       const product = this.productCatalog.find(p => p.id == productId);
       if (product) {
         document.getElementById('calcBuyPrice').value = product.buyPrice;
-        this.calculateProfit(); // Recalculer
+        this.calculateProfit();
       }
     }
   },
 
   // Notifications
   toggleNotifications() {
-    this.showToast('Panneau de notifications');
+    const notifications = this.state.notifications.slice(0, 10);
+    
+    if (notifications.length === 0) {
+      this.showModal('🔔 Notifications', '<p class="empty-state">Aucune notification</p>');
+      return;
+    }
+    
+    const notifHtml = notifications.map(notif => `
+      <div style="padding:12px;border-bottom:1px solid var(--border);${notif.read ? 'opacity:0.6' : ''}">
+        <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px">
+          <div style="font-weight:600">${notif.message}</div>
+          <span style="font-size:11px;color:var(--muted);white-space:nowrap;margin-left:12px">
+            ${this.formatTime(notif.timestamp)}
+          </span>
+        </div>
+      </div>
+    `).join('');
+    
+    this.showModal('🔔 Notifications', `
+      <div style="max-height:400px;overflow-y:auto">
+        ${notifHtml}
+      </div>
+      <button onclick="App.clearNotifications()" style="margin-top:16px;background:var(--danger)">
+        🗑️ Effacer toutes les notifications
+      </button>
+    `);
+    
+    this.state.notifications.forEach(n => n.read = true);
+    this.updateNotificationBadge(0);
+  },
+
+  clearNotifications() {
+    this.state.notifications = [];
+    this.updateNotificationBadge(0);
+    this.closeModal();
+    this.showToast('Notifications effacées', 'success');
+  },
+
+  formatTime(timestamp) {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diff = now - date;
+    
+    if (diff < 60000) return 'À l\'instant';
+    if (diff < 3600000) return `Il y a ${Math.floor(diff / 60000)} min`;
+    if (diff < 86400000) return `Il y a ${Math.floor(diff / 3600000)}h`;
+    return date.toLocaleDateString('fr-FR');
   },
 
   // Thème
