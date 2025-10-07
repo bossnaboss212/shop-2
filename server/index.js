@@ -1406,13 +1406,13 @@ function getPermanentKeyboard(chatId) {
     // Clavier pour l'admin
     return {
       keyboard: [
-        [{ text: '📱 Mini-App', web_app: { url: config.webapp.url } }],
+        [{ text: '🛒 Ouvrir la Boutique', web_app: { url: config.webapp.url } }],
         [
-          { text: '🍽️ Menu' },
-          { text: '📦 Catalogue' }
+          { text: 'ℹ️ Info' },
+          { text: '📞 Contact' }
         ],
         [
-          { text: '📞 Contact' },
+          { text: '📖 Comment Commander' },
           { text: '🔐 Admin', web_app: { url: `${config.webapp.url}/admin.html` } }
         ]
       ],
@@ -1424,12 +1424,12 @@ function getPermanentKeyboard(chatId) {
     // Clavier pour les clients normaux
     return {
       keyboard: [
-        [{ text: '📱 Mini-App', web_app: { url: config.webapp.url } }],
+        [{ text: '🛒 Ouvrir la Boutique', web_app: { url: config.webapp.url } }],
         [
-          { text: '🍽️ Menu' },
-          { text: '📦 Catalogue' }
+          { text: 'ℹ️ Info' },
+          { text: '📞 Contact' }
         ],
-        [{ text: '📞 Contact' }]
+        [{ text: '📖 Comment Commander' }]
       ],
       resize_keyboard: true,
       persistent: true,
@@ -1446,14 +1446,14 @@ async function handleTelegramMessage(message) {
   console.log(`💬 Message from ${firstName} (${chatId}): ${text}`);
   
   // Gestion des boutons du clavier permanent
-  if (text === '📱 Mini-App' || text === '🛍️ Boutique') {
+  if (text === '🛒 Ouvrir la Boutique' || text === '🛍️ Boutique' || text === '📱 Mini-App') {
     await sendShopMessage(chatId);
-  } else if (text === '🍽️ Menu') {
-    await sendMenuMessage(chatId);
-  } else if (text === '📦 Catalogue') {
-    await sendCatalogMessage(chatId);
+  } else if (text === 'ℹ️ Info') {
+    await sendInfoMessage(chatId);
   } else if (text === '📞 Contact') {
     await sendSupportMessage(chatId);
+  } else if (text === '📖 Comment Commander') {
+    await sendHowToOrderMessage(chatId);
   } else if (text === '🔐 Admin') {
     await sendAdminMessage(chatId);
   } else if (text === '📋 Mes Livraisons') {
@@ -1562,73 +1562,6 @@ Bénéficiez d'une remise tous les ${config.loyalty.defaultThreshold} achats.
 Tapez sur les boutons ci-dessous pour commencer ! 👇`;
 
   const keyboard = getPermanentKeyboard(chatId);
-  await telegram.sendMessage(chatId, text, { reply_markup: keyboard });
-}
-
-async function sendMenuMessage(chatId) {
-  const text = `🍽️ <b>MENU DROGUA CENTER</b>
-
-Découvrez nos différentes catégories :
-
-• 🌿 <b>Fleurs Premium</b> - Sélection de qualité
-• 💎 <b>Concentrés</b> - Extractions pures
-• 🍫 <b>Edibles</b> - Gourmandises infusées
-• 🔥 <b>Vape & Accessoires</b> - Discrétion maximale
-• 🎁 <b>Packs & Promos</b> - Offres spéciales
-
-📱 <b>Cliquez sur "Mini-App" pour voir tous les produits !</b>
-
-💎 Livraison rapide et discrète
-🎁 Programme de fidélité
-🔒 Paiement sécurisé`;
-
-  const keyboard = {
-    inline_keyboard: [
-      [{ text: '🛒 Ouvrir la Boutique Complète', web_app: { url: config.webapp.url } }]
-    ]
-  };
-  
-  await telegram.sendMessage(chatId, text, { reply_markup: keyboard });
-}
-
-async function sendCatalogMessage(chatId) {
-  const text = `📦 <b>CATALOGUE COMPLET</b>
-
-🏆 <b>Nos produits vedettes :</b>
-
-🌿 <b>Fleurs Premium</b>
-   • Amnesia Haze
-   • OG Kush
-   • Purple Haze
-   • White Widow
-
-💎 <b>Concentrés</b>
-   • Wax 80% THC
-   • Shatter
-   • Live Resin
-
-🍫 <b>Edibles</b>
-   • Brownies THC
-   • Gummies
-   • Chocolats
-
-🔥 <b>Vape & Accessoires</b>
-   • Vape Pen
-   • Cartouches
-   • Batteries
-
-💰 <b>Prix et disponibilité en temps réel</b>
-📦 <b>Stock mis à jour quotidiennement</b>
-🚚 <b>Livraison express</b>
-
-<b>📱 Ouvrez la Mini-App pour voir le catalogue complet avec photos et prix !</b>`;
-
-  const keyboard = {
-    inline_keyboard: [
-      [{ text: '🛒 Voir tous les produits', web_app: { url: config.webapp.url } }]
-    ]
-  };
-  
   await telegram.sendMessage(chatId, text, { reply_markup: keyboard });
 }
 
@@ -1774,6 +1707,53 @@ Merci de votre confiance ! 💚`;
   const keyboard = {
     inline_keyboard: [
       [{ text: '🛒 Commander Maintenant', web_app: { url: config.webapp.url } }]
+    ]
+  };
+  
+  await telegram.sendMessage(chatId, text, { reply_markup: keyboard });
+}
+
+async function sendHowToOrderMessage(chatId) {
+  const text = `📖 <b>COMMENT COMMANDER ?</b>
+
+<b>🛒 C'est très simple :</b>
+
+<b>1️⃣ Ouvrir la Boutique</b>
+   • Cliquez sur "🛒 Ouvrir la Boutique"
+   • Parcourez notre catalogue
+
+<b>2️⃣ Ajouter au Panier</b>
+   • Sélectionnez vos produits
+   • Choisissez les quantités
+   • Vérifiez votre panier
+
+<b>3️⃣ Choisir la Livraison</b>
+   • 🏠 Millau (gratuit)
+   • 🌍 Extérieur (+20€)
+
+<b>4️⃣ Confirmer</b>
+   • Entrez votre adresse
+   • Validez la commande
+   • Vous serez contacté par notre équipe
+
+<b>💰 Paiement :</b>
+Espèces à la livraison
+
+<b>🎁 Programme Fidélité :</b>
+Remise automatique tous les ${config.loyalty.defaultThreshold} achats !
+
+<b>⏰ Horaires :</b>
+7j/7 de 12H à 00H (minuit)
+
+Des questions ? Contactez le support ! 💬`;
+
+  const keyboard = {
+    inline_keyboard: [
+      [{ text: '🛒 Commander Maintenant', web_app: { url: config.webapp.url } }],
+      [
+        { text: '💬 Support', url: 'https://t.me/assistancenter' },
+        { text: 'ℹ️ Plus d\'infos', callback_data: 'show_info' }
+      ]
     ]
   };
   
