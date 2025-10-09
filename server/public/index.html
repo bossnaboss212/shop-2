@@ -1726,7 +1726,6 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
   </section>
 
   <script>
-// ⚠️ IMPORTANT: REMPLACEZ "video/..." PAR VOS VRAIS CHEMINS DE VIDÉOS
 const PRODUCTS = [
   {id:1, name:"AMNESIA", farm:"coffee shop", video:"video/amnesia.MP4", category:"weed", 
    variants:[{label:"3,33G",grams:3.33,price:20},{label:"5G",grams:5,price:30},{label:"10G",grams:10,price:60},{label:"50G",grams:50,price:250},{label:"100G",grams:100,price:450}]},
@@ -1760,6 +1759,7 @@ const PROMO_CODES = {
   'VIP15': { type: 'percent', value: 15, label: '15% de réduction VIP' }
 };
 
+// ✅ CORRECTION: Utiliser API_URL
 const API_URL = 'https://drogua-backend-sxgy.onrender.com/api';
 const fmt = n => n.toFixed(2) + ' €';
 
@@ -1820,7 +1820,6 @@ function showToast(msg) {
 const DataManager = {
   save(key, data) {
     try {
-      // Si c'est une string simple, on la sauvegarde directement
       if (typeof data === 'string') {
         localStorage.setItem(key, data);
       } else {
@@ -1838,12 +1837,10 @@ const DataManager = {
       const data = localStorage.getItem(key);
       if (!data) return defaultValue;
       
-      // Si ça commence par { ou [, c'est du JSON
       if (data.startsWith('{') || data.startsWith('[')) {
         return JSON.parse(data);
       }
       
-      // Sinon, c'est une string simple
       return data;
     } catch (e) {
       console.error('Error loading data:', e);
@@ -2806,6 +2803,7 @@ function openCart() {
   document.body.classList.add('modal-open');
 }
 
+// ✅ FONCTION CORRIGÉE avec API_URL
 async function validateOrder() {
   if (CartManager.items.length === 0) {
     showToast('⚠️ Votre panier est vide');
@@ -2881,20 +2879,25 @@ async function validateOrder() {
       total: total
     };
     
-    const response = await fetch(API + '/create-order', {
+    // ✅ UTILISER API_URL (correction appliquée)
+    console.log('🔄 Envoi vers:', API_URL + '/create-order');
+    
+    const response = await fetch(API_URL + '/create-order', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify(orderData)
     });
     
     if (!response.ok) {
-      throw new Error('Network error');
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
     
     const data = await response.json();
     
     if (data.ok) {
-      const orderId = data.orderId || 'DC' + Date.now().toString().slice(-8);
+      const orderId = data.orderId;
       
       const order = {
         id: orderId,
@@ -2906,42 +2909,49 @@ async function validateOrder() {
       };
       
       OrdersManager.add(order);
-LoyaltyManager.addOrder(orderId, total);
-
-// 🔥 NOUVEAU : Sauvegarder pour l'admin
-const shopOrders = JSON.parse(localStorage.getItem('shop_orders') || '[]');
-shopOrders.push({
-  id: orderId,
-  timestamp: new Date().toISOString(),
-  name: orderData.customer,
-  items: orderData.items.map(item => ({
-    name: item.name,
-    variant: item.variant,
-    quantity: item.qty,
-    price: item.price
-  })),
-  total: total,
-  paymentMethod: 'Espèces',
-  email: '',
-  phone: '',
-  deliveryAddress: orderData.address,
-  deliveryType: orderData.type
-});
-localStorage.setItem('shop_orders', JSON.stringify(shopOrders));
-
-CartManager.clear();
-appliedPromo = null;
-
-document.getElementById('cartSheet').classList.add('hidden');
-showOrderSummary(orderData, orderId, totalDiscount);
+      LoyaltyManager.addOrder(orderId, total);
+      
+      // Sauvegarder pour l'admin
+      const shopOrders = JSON.parse(localStorage.getItem('shop_orders') || '[]');
+      shopOrders.push({
+        id: orderId,
+        timestamp: new Date().toISOString(),
+        name: orderData.customer,
+        items: orderData.items.map(item => ({
+          name: item.name,
+          variant: item.variant,
+          quantity: item.qty,
+          price: item.price
+        })),
+        total: total,
+        paymentMethod: 'Espèces',
+        email: '',
+        phone: '',
+        deliveryAddress: orderData.address,
+        deliveryType: orderData.type
+      });
+      localStorage.setItem('shop_orders', JSON.stringify(shopOrders));
+      
+      CartManager.clear();
+      appliedPromo = null;
+      
+      document.getElementById('cartSheet').classList.add('hidden');
+      showOrderSummary(orderData, orderId, totalDiscount);
+      
+      console.log('✅ Commande créée:', orderId);
       
     } else {
       throw new Error(data.error || 'Erreur inconnue');
     }
     
   } catch (error) {
-    console.error('Error:', error);
-    showToast('❌ Erreur lors de la validation. Réessayez.');
+    console.error('❌ Erreur:', error);
+    
+    if (error.message.includes('Failed to fetch')) {
+      showToast('❌ Impossible de contacter le serveur.');
+    } else {
+      showToast('❌ Erreur lors de la validation. Réessayez.');
+    }
   } finally {
     btn.disabled = false;
     btn.classList.remove('loading');
@@ -3319,13 +3329,10 @@ function initEventListeners() {
 }
 
 function init() {
-  // Nettoyer les données corrompues si nécessaire
   try {
-    // Test de lecture du localStorage
     const testTheme = localStorage.getItem('theme');
     const testCart = localStorage.getItem('cart');
     
-    // Si on détecte un problème, on nettoie
     if (testCart) {
       try {
         JSON.parse(testCart);
@@ -3336,7 +3343,6 @@ function init() {
     }
   } catch (e) {
     console.error('❌ Erreur localStorage:', e);
-    // On continue quand même sans localStorage
   }
   
   try {
@@ -3356,6 +3362,7 @@ function init() {
     FavoritesManager.updateUI();
     
     console.log('✅ DROGUA CENTER v2.0 - Chargé avec succès');
+    console.log('🔥 API Backend:', API_URL);
     console.log('💡 Pour réinitialiser : localStorage.clear() puis F5');
   } catch (error) {
     console.error('❌ Erreur initialisation:', error);
