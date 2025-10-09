@@ -2906,12 +2906,34 @@ async function validateOrder() {
       };
       
       OrdersManager.add(order);
-      LoyaltyManager.addOrder(orderId, total);
-      CartManager.clear();
-      appliedPromo = null;
-      
-      document.getElementById('cartSheet').classList.add('hidden');
-      showOrderSummary(orderData, orderId, totalDiscount);
+LoyaltyManager.addOrder(orderId, total);
+
+// 🔥 NOUVEAU : Sauvegarder pour l'admin
+const shopOrders = JSON.parse(localStorage.getItem('shop_orders') || '[]');
+shopOrders.push({
+  id: orderId,
+  timestamp: new Date().toISOString(),
+  name: orderData.customer,
+  items: orderData.items.map(item => ({
+    name: item.name,
+    variant: item.variant,
+    quantity: item.qty,
+    price: item.price
+  })),
+  total: total,
+  paymentMethod: 'Espèces',
+  email: '',
+  phone: '',
+  deliveryAddress: orderData.address,
+  deliveryType: orderData.type
+});
+localStorage.setItem('shop_orders', JSON.stringify(shopOrders));
+
+CartManager.clear();
+appliedPromo = null;
+
+document.getElementById('cartSheet').classList.add('hidden');
+showOrderSummary(orderData, orderId, totalDiscount);
       
     } else {
       throw new Error(data.error || 'Erreur inconnue');
