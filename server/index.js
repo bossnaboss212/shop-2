@@ -113,7 +113,108 @@ class TokenStore {
 }
 
 const adminTokens = new TokenStore(config.admin.tokenExpiry);
-const activeConversations = new Map();
+
+// ==================== CHAT SYSTEM ====================
+class ChatManager {
+  constructor() {
+    this.activeConversations = new Map();
+  }
+  
+  createConversation(orderId, driverId, clientTelegramId) {
+    this.activeConversations.set(orderId, {
+      orderId,
+      driverId,
+      clientTelegramId,
+      driverActive: false,
+      clientActive: false,
+      messagesCount: 0,
+      startedAt: Date.now(),
+      lastActivity: Date.now()
+    });
+    console.log(`💬 Conversation created for order #${orderId}`);
+  }
+  
+  getConversation(orderId) {
+    return this.activeConversations.get(orderId);
+  }
+  
+  findConversationByChatId(chatId, role) {
+    for (const [orderId, conv] of this.activeConversations.entries()) {
+      if (role === 'driver' && conv.driverId === chatId.toString() && conv.driverActive) {
+        return { orderId, ...conv };
+      }
+      if (role === 'client' && conv.clientTelegramId === chatId.toString() && conv.clientActive) {
+        return { orderId, ...conv };
+      }
+    }
+    return null;
+  }
+  
+  activateDriver(orderId) {
+    const conv = this.activeConversations.get(orderId);
+    if (conv) {
+      conv.driverActive = true;
+      conv.lastActivity = Date.now();
+      this.activeConversations.set(orderId, conv);
+    }
+  }
+  
+  activateClient(orderId) {
+    const conv = this.activeConversations.get(orderId);
+    if (conv) {
+      conv.clientActive = true;
+      conv.lastActivity = Date.now();
+      this.activeConversations.set(orderId, conv);
+    }
+  }
+  
+  deactivateDriver(orderId) {
+    const conv = this.activeConversations.get(orderId);
+    if (conv) {
+      conv.driverActive = false;
+      this.activeConversations.set(orderId, conv);
+    }
+  }
+  
+  deactivateClient(orderId) {
+    const conv = this.activeConversations.get(orderId);
+    if (conv) {
+      conv.clientActive = false;
+      this.activeConversations.set(orderId, conv);
+    }
+  }
+  
+  closeConversation(orderId) {
+    this.activeConversations.delete(orderId);
+    console.log(`🔒 Conversation closed for order #${orderId}`);
+  }
+  
+  incrementMessageCount(orderId) {
+    const conv = this.activeConversations.get(orderId);
+    if (conv) {
+      conv.messagesCount++;
+      conv.lastActivity = Date.now();
+      this.activeConversations.set(orderId, conv);
+    }
+  }
+  
+  cleanupInactive() {
+    const now = Date.now();
+    const timeout = 2 * 60 * 60 * 1000; // 2 heures
+    
+    for (const [orderId, conv] of this.activeConversations.entries()) {
+      if (now - conv.lastActivity > timeout) {
+        this.activeConversations.delete(orderId);
+        console.log(`🧹 Auto-closed inactive conversation #${orderId}`);
+      }
+    }
+  }
+}
+
+const chatManager = new ChatManager();
+
+// Cleanup automatique toutes les 30 minutes
+setInterval(() => chatManager.cleanupInactive(), 30 * 60 * 1000);
 
 // ==================== DATABASE ====================
 let db;
@@ -136,6 +237,7 @@ async function initDB() {
       status TEXT DEFAULT 'pending',
       delivery_time INTEGER,
       assigned_driver_zone TEXT,
+      client_telegram_id TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -229,6 +331,27 @@ async function initDB() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
+    CREATE TABLE IF NOT EXISTS telegram_clients (
+      telegram_id TEXT PRIMARY KEY,
+      contact TEXT UNIQUE,
+      first_name TEXT,
+      username TEXT,
+      registered_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      last_seen DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS chat_messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      order_id INTEGER NOT NULL,
+      sender_type TEXT NOT NULL CHECK(sender_type IN ('driver', 'client')),
+      sender_id TEXT NOT NULL,
+      message TEXT NOT NULL,
+      delivered INTEGER DEFAULT 0,
+      read INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (order_id) REFERENCES orders(id)
+    );
+
     CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
     CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date DESC);
@@ -236,6 +359,8 @@ async function initDB() {
     CREATE INDEX IF NOT EXISTS idx_customers_status ON customers(status);
     CREATE INDEX IF NOT EXISTS idx_customers_contact ON customers(contact);
     CREATE INDEX IF NOT EXISTS idx_customers_created_at ON customers(created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_chat_messages_order ON chat_messages(order_id, created_at);
+    CREATE INDEX IF NOT EXISTS idx_telegram_clients_contact ON telegram_clients(contact);
   `);
 
   await db.run(`
@@ -247,7 +372,7 @@ async function initDB() {
     ('monthly_goal', '5000')
   `);
 
-  console.log('✅ Database initialized with indexes');
+  console.log('✅ Database initialized with chat system');
 }
 
 // ==================== UTILITIES ====================
@@ -308,6 +433,279 @@ function getTimeAgo(timestamp) {
   
   const diffDays = Math.floor(diffHours / 24);
   return `Il y a ${diffDays}j`;
+}
+
+// ==================== CLIENT TELEGRAM REGISTRATION ====================
+
+async function registerTelegramClient(message) {
+  const telegramId = message.chat.id.toString();
+  const firstName = message.from.first_name || 'Client';
+  const username = message.from.username || null;
+  
+  try {
+    await db.run(`
+      INSERT OR REPLACE INTO telegram_clients (telegram_id, first_name, username, last_seen)
+      VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+    `, [telegramId, firstName, username]);
+    
+    console.log(`✅ Telegram client registered: ${telegramId} (${firstName})`);
+    return true;
+  } catch (error) {
+    console.error('Error registering telegram client:', error);
+    return false;
+  }
+}
+
+async function linkTelegramToContact(telegramId, contact) {
+  try {
+    await db.run(`
+      UPDATE telegram_clients SET contact = ? WHERE telegram_id = ?
+    `, [contact, telegramId]);
+    
+    console.log(`🔗 Linked Telegram ${telegramId} to contact ${contact}`);
+    return true;
+  } catch (error) {
+    console.error('Error linking telegram to contact:', error);
+    return false;
+  }
+}
+
+async function getClientTelegramId(contact) {
+  const result = await db.get(
+    'SELECT telegram_id FROM telegram_clients WHERE contact = ?',
+    [contact]
+  );
+  return result?.telegram_id || null;
+}
+
+async function getClientContact(telegramId) {
+  const result = await db.get(
+    'SELECT contact FROM telegram_clients WHERE telegram_id = ?',
+    [telegramId]
+  );
+  return result?.contact || null;
+}
+
+// ==================== BIDIRECTIONAL MESSAGING ====================
+
+async function saveMessage(orderId, senderType, senderId, message) {
+  try {
+    await db.run(`
+      INSERT INTO chat_messages (order_id, sender_type, sender_id, message)
+      VALUES (?, ?, ?, ?)
+    `, [orderId, senderType, senderId, message]);
+    
+    chatManager.incrementMessageCount(orderId);
+  } catch (error) {
+    console.error('Error saving message:', error);
+  }
+}
+
+async function relayDriverMessage(driverChatId, text, conv) {
+  console.log(`📤 Driver → Client (order #${conv.orderId}): "${text}"`);
+  
+  await saveMessage(conv.orderId, 'driver', driverChatId.toString(), text);
+  
+  const clientMsg = `🚚 <b>Votre livreur</b> (Commande #${conv.orderId})
+
+💬 ${text}
+
+<i>Répondez directement pour lui parler</i>`;
+  
+  const clientKeyboard = {
+    inline_keyboard: [
+      [{ text: '✍️ Répondre (tapez votre message)', callback_data: 'noop' }],
+      [{ text: '❌ Fermer conversation', callback_data: `end_conv_${conv.orderId}` }]
+    ]
+  };
+  
+  try {
+    await telegram.sendMessage(conv.clientTelegramId, clientMsg, { 
+      reply_markup: clientKeyboard 
+    });
+    
+    chatManager.activateClient(conv.orderId);
+    
+    await telegram.sendMessage(driverChatId, `✅ Message envoyé
+
+"${text}"
+
+⏳ <i>En attente de réponse du client...</i>`);
+    
+    if (config.telegram.supportChatId) {
+      await telegram.sendMessage(config.telegram.supportChatId, 
+        `📨 Driver → Client (#${conv.orderId})\n💬 "${text}"`
+      );
+    }
+  } catch (error) {
+    console.error('Error relaying driver message:', error);
+    
+    await telegram.sendMessage(driverChatId, 
+      '⚠️ Erreur temporaire. Le support va transmettre votre message.'
+    );
+    
+    if (config.telegram.supportChatId) {
+      const order = await db.get('SELECT customer FROM orders WHERE id = ?', [conv.orderId]);
+      await telegram.sendMessage(config.telegram.supportChatId, 
+        `🚨 URGENT - Erreur de transmission
+        
+Commande #${conv.orderId}
+Client: ${order?.customer}
+Message du livreur: "${text}"
+
+Transmettez manuellement au client.`
+      );
+    }
+  }
+}
+
+async function relayClientMessage(clientChatId, text, conv) {
+  console.log(`📤 Client → Driver (order #${conv.orderId}): "${text}"`);
+  
+  await saveMessage(conv.orderId, 'client', clientChatId.toString(), text);
+  
+  const driverMsg = `👤 <b>Message du client</b> (Commande #${conv.orderId})
+
+💬 ${text}
+
+<i>Tapez votre réponse ci-dessous</i>`;
+  
+  try {
+    await telegram.sendMessage(conv.driverId, driverMsg);
+    
+    await telegram.sendMessage(clientChatId, `✅ Message envoyé au livreur
+
+"${text}"
+
+🚚 <i>Le livreur va vous répondre...</i>`);
+    
+    if (config.telegram.supportChatId) {
+      await telegram.sendMessage(config.telegram.supportChatId, 
+        `📨 Client → Driver (#${conv.orderId})\n💬 "${text}"`
+      );
+    }
+  } catch (error) {
+    console.error('Error relaying client message:', error);
+    
+    await telegram.sendMessage(clientChatId, 
+      '⚠️ Erreur temporaire. Nous allons transmettre votre message.'
+    );
+    
+    if (config.telegram.supportChatId) {
+      await telegram.sendMessage(config.telegram.supportChatId, 
+        `🚨 URGENT - Erreur transmission client
+        
+Commande #${conv.orderId}
+Message: "${text}"
+
+Transmettez au livreur.`
+      );
+    }
+  }
+}
+
+async function stopConversationForOrder(chatId, orderId) {
+  const conv = chatManager.getConversation(orderId);
+  
+  if (!conv) {
+    await telegram.sendMessage(chatId, 'ℹ️ Conversation déjà fermée');
+    return;
+  }
+  
+  const isDriver = conv.driverId === chatId.toString();
+  const isClient = conv.clientTelegramId === chatId.toString();
+  
+  if (isDriver) {
+    chatManager.deactivateDriver(orderId);
+    await telegram.sendMessage(chatId, '✅ Conversation fermée');
+    
+    try {
+      await telegram.sendMessage(conv.clientTelegramId, 
+        `⚠️ Le livreur a fermé la conversation (Commande #${orderId})`
+      );
+    } catch (e) {}
+  }
+  
+  if (isClient) {
+    chatManager.deactivateClient(orderId);
+    await telegram.sendMessage(chatId, '✅ Conversation fermée');
+    
+    try {
+      await telegram.sendMessage(conv.driverId, 
+        `⚠️ Le client a fermé la conversation (Commande #${orderId})`
+      );
+    } catch (e) {}
+  }
+}
+
+async function showChatHistory(chatId, orderId) {
+  const messages = await db.all(
+    `SELECT * FROM chat_messages 
+     WHERE order_id = ? 
+     ORDER BY created_at ASC 
+     LIMIT 50`,
+    [orderId]
+  );
+  
+  if (messages.length === 0) {
+    await telegram.sendMessage(chatId, 'ℹ️ Aucun message dans l\'historique');
+    return;
+  }
+  
+  let history = `📜 <b>HISTORIQUE CONVERSATION #${orderId}</b>\n`;
+  history += `Total: ${messages.length} message(s)\n`;
+  history += `━━━━━━━━━━━━━━━━━━━\n\n`;
+  
+  for (const msg of messages) {
+    const emoji = msg.sender_type === 'driver' ? '🚚' : '👤';
+    const time = new Date(msg.created_at).toLocaleTimeString('fr-FR', { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    });
+    
+    history += `${emoji} <b>${msg.sender_type === 'driver' ? 'Livreur' : 'Client'}</b> [${time}]\n`;
+    history += `💬 ${msg.message}\n\n`;
+  }
+  
+  await telegram.sendMessage(chatId, history);
+}
+
+async function stopUserConversations(chatId) {
+  let closed = 0;
+  
+  for (const [orderId, conv] of chatManager.activeConversations.entries()) {
+    if (conv.driverId === chatId.toString()) {
+      chatManager.deactivateDriver(orderId);
+      closed++;
+      
+      try {
+        await telegram.sendMessage(conv.clientTelegramId, 
+          `⚠️ Le livreur a fermé la conversation pour la commande #${orderId}`
+        );
+      } catch (e) {}
+    }
+    
+    if (conv.clientTelegramId === chatId.toString()) {
+      chatManager.deactivateClient(orderId);
+      closed++;
+      
+      try {
+        await telegram.sendMessage(conv.driverId, 
+          `⚠️ Le client a fermé la conversation pour la commande #${orderId}`
+        );
+      } catch (e) {}
+    }
+  }
+  
+  if (closed > 0) {
+    await telegram.sendMessage(chatId, 
+      `✅ ${closed} conversation(s) fermée(s)`
+    );
+  } else {
+    await telegram.sendMessage(chatId, 
+      'ℹ️ Aucune conversation active'
+    );
+  }
 }
 
 // ==================== TELEGRAM SERVICE ====================
@@ -618,13 +1016,11 @@ ${items.map(item => `• ${item.name} - ${item.variant} ×${item.qty}`).join('\n
     
     await telegram.sendMessage(driverInfo.driverId, driverMessage, { reply_markup: keyboard });
     
-    activeConversations.set(order.id, {
-      driverId: driverInfo.driverId,
-      customerId: order.customer,
-      orderId: order.id,
-      driverInConversation: false,
-      zone: driverInfo.zone
-    });
+    // Créer la conversation (sans l'activer encore)
+    const clientTelegramId = order.client_telegram_id || await getClientTelegramId(order.customer);
+    if (clientTelegramId) {
+      chatManager.createConversation(order.id, driverInfo.driverId, clientTelegramId);
+    }
     
     await db.run(
       'UPDATE orders SET assigned_driver_zone = ? WHERE id = ?',
@@ -720,10 +1116,13 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
     const finalTotal = total - discount;
     const orderStatus = isNewCustomer ? 'pending_approval' : 'pending';
     
+    // Récupérer l'ID Telegram du client s'il existe
+    const clientTelegramId = await getClientTelegramId(sanitizedCustomer);
+    
     const result = await db.run(
-      `INSERT INTO orders (customer, type, address, items, total, discount, status) 
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [sanitizedCustomer, sanitizedType, sanitizedAddress, JSON.stringify(items), finalTotal, discount, orderStatus]
+      `INSERT INTO orders (customer, type, address, items, total, discount, status, client_telegram_id) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [sanitizedCustomer, sanitizedType, sanitizedAddress, JSON.stringify(items), finalTotal, discount, orderStatus, clientTelegramId]
     );
     
     const orderId = result.lastID;
@@ -1328,9 +1727,10 @@ app.post('/api/admin/customers/:contact/block', requireAdmin, async (req, res) =
       ['cancelled', contact, 'pending', 'pending_approval']
     );
     
-    for (const [orderId, conv] of activeConversations.entries()) {
-      if (conv.customerId === contact) {
-        activeConversations.delete(orderId);
+    for (const [orderId, conv] of chatManager.activeConversations.entries()) {
+      const order = await db.get('SELECT customer FROM orders WHERE id = ?', [orderId]);
+      if (order && order.customer === contact) {
+        chatManager.closeConversation(orderId);
       }
     }
     
@@ -1390,7 +1790,6 @@ function getPermanentKeyboard(chatId) {
   const isAdmin = chatId.toString() === config.telegram.adminChatId;
   
   if (isDriver) {
-    // Clavier pour les livreurs
     return {
       keyboard: [
         [{ text: '📋 Mes Livraisons' }],
@@ -1403,7 +1802,6 @@ function getPermanentKeyboard(chatId) {
       one_time_keyboard: false
     };
   } else if (isAdmin) {
-    // Clavier pour l'admin
     return {
       keyboard: [
         [{ text: '🛒 Ouvrir la Boutique', web_app: { url: config.webapp.url } }],
@@ -1421,7 +1819,6 @@ function getPermanentKeyboard(chatId) {
       one_time_keyboard: false
     };
   } else {
-    // Clavier pour les clients normaux
     return {
       keyboard: [
         [{ text: '🛒 Ouvrir la Boutique', web_app: { url: config.webapp.url } }],
@@ -1443,45 +1840,74 @@ async function handleTelegramMessage(message) {
   const text = message.text;
   const firstName = message.from.first_name || 'Client';
   
+  await registerTelegramClient(message);
+  
   console.log(`💬 Message from ${firstName} (${chatId}): ${text}`);
   
-  // Gestion des boutons du clavier permanent
   if (text === '🛒 Ouvrir la Boutique' || text === '🛍️ Boutique' || text === '📱 Mini-App') {
     await sendShopMessage(chatId);
+    return;
   } else if (text === 'ℹ️ Info') {
     await sendInfoMessage(chatId);
+    return;
   } else if (text === '📞 Contact') {
     await sendSupportMessage(chatId);
+    return;
   } else if (text === '📖 Comment Commander') {
     await sendHowToOrderMessage(chatId);
+    return;
   } else if (text === '🔐 Admin') {
     await sendAdminMessage(chatId);
+    return;
   } else if (text === '📋 Mes Livraisons') {
     await sendDriverDeliveries(chatId);
+    return;
   } else if (text === '📊 Mes Stats') {
     await sendDriverStats(chatId);
+    return;
   } else if (text === '❓ Aide') {
     await sendHelpMessage(chatId);
+    return;
   }
-  // Commandes standards avec /
-  else if (text === '/start') {
+  
+  if (text === '/start') {
     await sendWelcomeMessage(chatId, firstName);
+    return;
   } else if (text === '/shop' || text === '/boutique') {
     await sendShopMessage(chatId);
+    return;
   } else if (text === '/admin') {
     await sendAdminMessage(chatId);
+    return;
   } else if (text === '/help' || text === '/aide') {
     await sendHelpMessage(chatId);
+    return;
   } else if (text === '/meslivraisons' || text === '/livraisons') {
     await sendDriverDeliveries(chatId);
+    return;
   } else if (text === '/stats') {
     await sendDriverStats(chatId);
+    return;
   } else if (text === '/stop') {
-    await stopDriverConversations(chatId);
+    await stopUserConversations(chatId);
+    return;
   } else if (text === '/zones' && chatId.toString() === config.telegram.adminChatId) {
     await sendZoneStats(chatId);
-  } else if (!text.startsWith('/')) {
-    await handleDriverMessage(chatId, text);
+    return;
+  }
+  
+  if (!text.startsWith('/')) {
+    const driverConv = chatManager.findConversationByChatId(chatId, 'driver');
+    if (driverConv) {
+      await relayDriverMessage(chatId, text, driverConv);
+      return;
+    }
+    
+    const clientConv = chatManager.findConversationByChatId(chatId, 'client');
+    if (clientConv) {
+      await relayClientMessage(chatId, text, clientConv);
+      return;
+    }
   }
 }
 
@@ -1492,6 +1918,22 @@ async function handleTelegramCallback(callback_query) {
   console.log(`🔘 Callback: ${data} from ${chatId}`);
   
   await telegram.answerCallback(callback_query.id);
+  
+  if (data === 'noop') {
+    return;
+  }
+  
+  if (data.startsWith('end_conv_')) {
+    const orderId = parseInt(data.replace('end_conv_', ''));
+    await stopConversationForOrder(chatId, orderId);
+    return;
+  }
+  
+  if (data.startsWith('chat_history_')) {
+    const orderId = parseInt(data.replace('chat_history_', ''));
+    await showChatHistory(chatId, orderId);
+    return;
+  }
   
   if (data.startsWith('approve_')) {
     const orderId = data.replace('approve_', '');
@@ -1524,7 +1966,7 @@ async function handleTelegramCallback(callback_query) {
     await startDriverConversation(chatId, orderId);
   } else if (data.startsWith('stop_conversation_')) {
     const orderId = data.replace('stop_conversation_', '');
-    await stopDriverConversation(chatId, orderId);
+    await stopConversationForOrder(chatId, parseInt(orderId));
   } else if (data.startsWith('complete_delivery_')) {
     const orderId = data.replace('complete_delivery_', '');
     await completeDelivery(chatId, orderId);
@@ -1930,62 +2372,15 @@ ID : ${config.telegram.driverExterieurId || 'N/A'}
   await telegram.sendMessage(chatId, message);
 }
 
-async function stopDriverConversations(chatId) {
-  if (chatId.toString() !== config.telegram.driverMillauId && 
-      chatId.toString() !== config.telegram.driverExterieurId) return;
-  
-  for (const [orderId, conv] of activeConversations.entries()) {
-    if (conv.driverId === chatId.toString()) {
-      conv.driverInConversation = false;
-      activeConversations.set(orderId, conv);
-    }
-  }
-  
-  await telegram.sendMessage(chatId, `✅ Conversations fermées`);
-}
-
-async function handleDriverMessage(chatId, text) {
-  let driverConversation = null;
-  for (const [orderId, conv] of activeConversations.entries()) {
-    if (conv.driverId === chatId.toString() && conv.driverInConversation) {
-      driverConversation = { orderId, ...conv };
-      break;
-    }
-  }
-  
-  if (!driverConversation) return;
-  
-  console.log(`📨 Driver → Client (order #${driverConversation.orderId})`);
-  
-  if (config.telegram.supportChatId) {
-    const supportMsg = `📨 <b>MESSAGE LIVREUR → CLIENT</b>
-Commande #${driverConversation.orderId}
-
-Client : ${driverConversation.customerId}
-
-Message du livreur :
-"${text}"
-
-<b>Transmettez ce message au client :</b>
----
-💬 Message du livreur (Commande #${driverConversation.orderId}) :
-
-${text}
-
-Répondez pour lui envoyer un message.
----`;
-    
-    await telegram.sendMessage(config.telegram.supportChatId, supportMsg);
-    await telegram.sendMessage(chatId, `✅ Message envoyé au client\n\n"${text}"`);
-  }
-}
-
 async function showDeliveryTimeOptions(chatId, orderId) {
-  const conversation = activeConversations.get(parseInt(orderId));
+  const conv = chatManager.getConversation(parseInt(orderId));
   
-  if (!conversation || conversation.driverId !== chatId.toString()) {
-    await telegram.sendMessage(chatId, '❌ Cette commande n\'est pas assignée à vous');
-    return;
+  if (!conv) {
+    const order = await db.get('SELECT * FROM orders WHERE id = ?', [orderId]);
+    if (!order) {
+      await telegram.sendMessage(chatId, '❌ Commande introuvable');
+      return;
+    }
   }
   
   const keyboard = {
@@ -2062,48 +2457,112 @@ async function startDelivery(chatId, orderId, estimatedTime) {
 }
 
 async function startDriverConversation(chatId, orderId) {
-  const conversation = activeConversations.get(parseInt(orderId));
+  const order = await db.get('SELECT * FROM orders WHERE id = ?', [orderId]);
   
-  if (!conversation) {
-    await telegram.sendMessage(chatId, '❌ Conversation introuvable');
+  if (!order) {
+    await telegram.sendMessage(chatId, '❌ Commande introuvable');
     return;
   }
   
-  conversation.driverInConversation = true;
-  activeConversations.set(parseInt(orderId), conversation);
+  let clientTelegramId = order.client_telegram_id;
   
-  const message = `💬 <b>MODE CONVERSATION ACTIVÉ</b>
+  if (!clientTelegramId) {
+    clientTelegramId = await getClientTelegramId(order.customer);
+  }
+  
+  if (!clientTelegramId) {
+    await telegram.sendMessage(chatId, 
+      `⚠️ <b>Client non disponible sur Telegram</b>
+
+Le client n'a pas encore interagi avec le bot.
+
+<b>📱 Options :</b>
+1. Le support transmettra vos messages
+2. Attendez que le client démarre le bot
+
+<b>💡 Conseil :</b>
+Demandez au support de dire au client d'ouvrir le bot Telegram.`
+    );
+    
+    if (config.telegram.supportChatId) {
+      await telegram.sendMessage(config.telegram.supportChatId,
+        `⚠️ Livreur tente de contacter client
 
 Commande #${orderId}
-Client : 🎭 Anonyme
+Client: ${order.customer}
 
-Tapez votre message, il sera transmis au client.
+👉 Dites au client d'ouvrir le bot Telegram pour activer le chat direct.`
+      );
+    }
+    return;
+  }
+  
+  let conv = chatManager.getConversation(parseInt(orderId));
+  if (!conv) {
+    chatManager.createConversation(parseInt(orderId), chatId.toString(), clientTelegramId);
+    conv = chatManager.getConversation(parseInt(orderId));
+  }
+  
+  chatManager.activateDriver(parseInt(orderId));
+  
+  const driverMessage = `💬 <b>CHAT DIRECT ACTIVÉ</b>
 
-Exemples :
-• "Je suis en route"
-• "Je suis devant l'immeuble"
-• "Quel bâtiment ?"
+📦 Commande #${orderId}
+🔒 Communication sécurisée et anonyme
 
-Pour quitter : /stop`;
+✅ <b>Vous pouvez maintenant discuter avec le client</b>
+
+Tapez simplement votre message ci-dessous, il sera transmis instantanément.
+
+<b>💡 Exemples de messages :</b>
+• "Je pars maintenant, j'arrive dans 10 minutes"
+• "Je suis devant, quel bâtiment?"
+• "Je ne trouve pas l'adresse, pouvez-vous m'aider?"
+
+<b>📱 Le client recevra une notification</b> pour chaque message.
+
+Pour fermer : /stop ou utilisez le bouton ci-dessous`;
 
   const keyboard = {
     inline_keyboard: [
-      [{ text: '❌ Quitter la conversation', callback_data: `stop_conversation_${orderId}` }]
+      [{ text: '📜 Voir historique', callback_data: `chat_history_${orderId}` }],
+      [{ text: '❌ Fermer conversation', callback_data: `stop_conversation_${orderId}` }]
     ]
   };
   
-  await telegram.sendMessage(chatId, message, { reply_markup: keyboard });
-}
+  await telegram.sendMessage(chatId, driverMessage, { reply_markup: keyboard });
+  
+  const clientMessage = `📱 <b>Votre livreur souhaite vous contacter</b>
 
-async function stopDriverConversation(chatId, orderId) {
-  const conversation = activeConversations.get(parseInt(orderId));
+📦 Commande #${orderId}
+🚚 Livraison en cours
+
+💬 <b>Chat direct activé !</b>
+
+Votre livreur peut maintenant vous envoyer des messages pour faciliter la livraison.
+
+✅ <b>Vous pouvez lui répondre directement</b> en tapant votre message.
+
+<i>⏳ En attente du premier message...</i>`;
+
+  const clientKeyboard = {
+    inline_keyboard: [
+      [{ text: '✍️ Prêt à discuter', callback_data: 'noop' }]
+    ]
+  };
   
-  if (conversation) {
-    conversation.driverInConversation = false;
-    activeConversations.set(parseInt(orderId), conversation);
+  try {
+    await telegram.sendMessage(clientTelegramId, clientMessage, { 
+      reply_markup: clientKeyboard 
+    });
+    
+    chatManager.activateClient(parseInt(orderId));
+  } catch (error) {
+    console.error('Cannot notify client:', error);
+    await telegram.sendMessage(chatId, 
+      '⚠️ Impossible de notifier le client. Le support va le contacter.'
+    );
   }
-  
-  await telegram.sendMessage(chatId, `✅ Conversation terminée`);
 }
 
 async function completeDelivery(chatId, orderId) {
@@ -2115,7 +2574,24 @@ async function completeDelivery(chatId, orderId) {
   }
   
   await db.run('UPDATE orders SET status = ? WHERE id = ?', ['delivered', orderId]);
-  activeConversations.delete(parseInt(orderId));
+  
+  const conv = chatManager.getConversation(parseInt(orderId));
+  if (conv) {
+    try {
+      await telegram.sendMessage(conv.clientTelegramId, 
+        `✅ <b>Livraison terminée !</b>
+
+📦 Commande #${orderId} livrée avec succès
+
+💚 Merci pour votre confiance !
+La conversation est maintenant fermée.
+
+N'hésitez pas à recommander ! 🛒`
+      );
+    } catch (e) {}
+    
+    chatManager.closeConversation(parseInt(orderId));
+  }
   
   const nextOrder = await db.get(
     "SELECT * FROM orders WHERE status = 'pending' AND assigned_driver_zone = ? ORDER BY created_at ASC LIMIT 1",
@@ -2180,7 +2656,7 @@ async function completeDelivery(chatId, orderId) {
 
 async function refuseDelivery(chatId, orderId) {
   await db.run('UPDATE orders SET status = ? WHERE id = ?', ['cancelled', orderId]);
-  activeConversations.delete(parseInt(orderId));
+  chatManager.closeConversation(parseInt(orderId));
   
   if (config.telegram.adminChatId) {
     await telegram.sendMessage(config.telegram.adminChatId, `❌ Livraison #${orderId} refusée par le livreur`);
@@ -2301,9 +2777,10 @@ async function blockCustomerFromTelegram(chatId, orderId) {
       ['cancelled', contact, 'pending', 'pending_approval']
     );
     
-    for (const [convOrderId, conv] of activeConversations.entries()) {
-      if (conv.customerId === contact) {
-        activeConversations.delete(convOrderId);
+    for (const [convOrderId, conv] of chatManager.activeConversations.entries()) {
+      const convOrder = await db.get('SELECT customer FROM orders WHERE id = ?', [convOrderId]);
+      if (convOrder && convOrder.customer === contact) {
+        chatManager.closeConversation(convOrderId);
       }
     }
     
@@ -2345,24 +2822,7 @@ async function sendOrderCustomerDetails(chatId, orderId) {
     }
     
     const contact = order.customer;
-    await sendCustomerDetails(chatId, contact);
-  } catch (error) {
-    console.error('Send order customer details error:', error);
-    await telegram.sendMessage(chatId, '❌ Erreur lors de la récupération des détails');
-  }
-}
-
-async function sendCustomerDetails(chatId, contact) {
-  if (chatId.toString() !== config.telegram.adminChatId) {
-    await telegram.sendMessage(chatId, '❌ Action non autorisée');
-    return;
-  }
-  
-  try {
-    const customer = await db.get(
-      'SELECT * FROM customers WHERE contact = ?',
-      [contact]
-    );
+    const customer = await db.get('SELECT * FROM customers WHERE contact = ?', [contact]);
     
     if (!customer) {
       await telegram.sendMessage(chatId, '❌ Client introuvable');
@@ -2378,11 +2838,6 @@ async function sendCustomerDetails(chatId, contact) {
         COUNT(CASE WHEN status = 'pending_approval' THEN 1 END) as pending_orders
        FROM orders 
        WHERE customer = ?`,
-      [contact]
-    );
-    
-    const lastOrders = await db.all(
-      'SELECT id, total, status, created_at FROM orders WHERE customer = ? ORDER BY created_at DESC LIMIT 5',
       [contact]
     );
     
@@ -2421,23 +2876,9 @@ async function sendCustomerDetails(chatId, contact) {
       message += `\n\n⚠️ <b>Raison blocage:</b> ${customer.blocked_reason}`;
     }
     
-    if (lastOrders.length > 0) {
-      message += `\n\n<b>📦 DERNIÈRES COMMANDES</b>`;
-      lastOrders.forEach(order => {
-        const statusIcon = {
-          'pending': '⏳',
-          'pending_approval': '🔍',
-          'en_route': '🚚',
-          'delivered': '✅',
-          'cancelled': '❌'
-        };
-        message += `\n${statusIcon[order.status] || '📦'} #${order.id} - ${order.total}€ (${new Date(order.created_at).toLocaleDateString('fr-FR')})`;
-      });
-    }
-    
     await telegram.sendMessage(chatId, message);
   } catch (error) {
-    console.error('Send customer details error:', error);
+    console.error('Send order customer details error:', error);
     await telegram.sendMessage(chatId, '❌ Erreur lors de la récupération des détails');
   }
 }
@@ -2471,6 +2912,7 @@ async function start() {
       console.log(`   Driver Millau: ${config.telegram.driverMillauId ? '✅' : '❌'}`);
       console.log(`   Driver Extérieur: ${config.telegram.driverExterieurId ? '✅' : '❌'}`);
       console.log(`   Mapbox: ${config.mapbox.key ? '✅' : '❌'}`);
+      console.log('💬 Chat System: ✅ Enabled');
       console.log('🚀 ================================');
     });
   } catch (error) {
