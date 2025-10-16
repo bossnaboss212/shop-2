@@ -941,19 +941,47 @@ async function notifyNewOrder(order, items) {
 
 👤 Client: ${order.customer}
 📍 Type: ${order.type}
+🏠 Adresse: ${order.address || 'Sur place'}
 💰 Total: ${order.total}€
 📦 Articles: ${items.length} produit(s)
 
-⚡ Contacter le client`;
+⚡ Contacter le client si besoin`;
     
     await telegram.sendMessage(config.telegram.supportChatId, supportMessage);
   }
   
   if (config.telegram.adminChatId) {
+    // Récupérer les infos client complètes
+    const customerInfo = await db.get('SELECT * FROM customers WHERE contact = ?', [order.customer]);
+    const telegramInfo = await db.get('SELECT * FROM telegram_clients WHERE contact = ?', [order.customer]);
+    
     let adminMessage = `📦 <b>COMMANDE #${order.id}</b>
 
-👤 Client: ${order.customer}
-📍 Type: ${order.type}
+👤 <b>Client: ${order.customer}</b>`;
+
+    if (telegramInfo) {
+      adminMessage += `\n📱 Telegram: @${telegramInfo.username || telegramInfo.telegram_id}`;
+      adminMessage += `\n✅ Compte Telegram: Vérifié`;
+    } else {
+      adminMessage += `\n⚠️ Compte Telegram: Non lié`;
+    }
+
+    if (customerInfo) {
+      const statusEmoji = {
+        'pending': '⏳',
+        'approved': '✅',
+        'blocked': '🚫'
+      };
+      adminMessage += `\n${statusEmoji[customerInfo.status] || '❓'} Statut: ${customerInfo.status.toUpperCase()}`;
+      
+      const totalOrders = await db.get(
+        'SELECT COUNT(*) as count FROM orders WHERE customer = ? AND status = "delivered"',
+        [order.customer]
+      );
+      adminMessage += `\n📊 Commandes livrées: ${totalOrders?.count || 0}`;
+    }
+
+    adminMessage += `\n\n📍 Type: ${order.type}
 🏠 Adresse: ${order.address || 'Sur place'}
 
 📦 Articles:
@@ -2645,8 +2673,12 @@ N'hésitez pas à recommander ! 🛒`
   if (config.telegram.adminChatId) {
     const adminMsg = `✅ <b>LIVRAISON TERMINÉE #${orderId}</b>
 
+👤 Client: ${order.customer}
+📍 ${order.address}
 💰 À récupérer : ${order.total}€
-📍 ${order.address}`;
+
+🚚 Livreur: ${order.assigned_driver_zone}
+⏰ Terminée: ${new Date().toLocaleString('fr-FR')}`;
     
     await telegram.sendMessage(config.telegram.adminChatId, adminMsg);
   }
