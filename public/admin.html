@@ -648,6 +648,7 @@
           <option value="blanche">⚪ Blanche</option>
           <option value="cali">🌟 Cali</option>
           <option value="keta">💎 Keta</option>
+          <option value="mdma">🌈 MDMA</option>
         </select>
         <button onclick="addProduct()" style="background:var(--success)">➕ Nouveau</button>
         <button onclick="exportProducts()" style="background:var(--info)">📥 Export</button>
@@ -1006,7 +1007,7 @@
 </audio>
 
 <script>
-console.log('🚀 ADMIN ULTRA PRO v5.0 - Version Complète');
+console.log('🚀 ADMIN ULTRA PRO v5.1 - VERSION CORRIGÉE AVEC LOCALSTORAGE');
 
 const CONFIG = {
   PASSWORD_HASH: CryptoJS.SHA256('admin').toString(),
@@ -1037,121 +1038,123 @@ const state = {
   filteredLogs: []
 };
 
+// ===== LOCALSTORAGE SYNC - CORRECTION DU BUG =====
+function saveToLocalStorage() {
+  try {
+    localStorage.setItem('products', JSON.stringify(state.products));
+    localStorage.setItem('orders', JSON.stringify(state.orders));
+    localStorage.setItem('caisse', JSON.stringify(state.caisse));
+    localStorage.setItem('clients', JSON.stringify(state.clients));
+    localStorage.setItem('promos', JSON.stringify(state.promos));
+    localStorage.setItem('livreurs', JSON.stringify(state.livreurs));
+    localStorage.setItem('stockHistory', JSON.stringify(state.stockHistory));
+    localStorage.setItem('logs', JSON.stringify(state.logs));
+    localStorage.setItem('admins', JSON.stringify(state.admins));
+    console.log('✅ Données sauvegardées dans localStorage');
+    return true;
+  } catch (e) {
+    console.error('❌ Erreur sauvegarde:', e);
+    return false;
+  }
+}
+
+function loadFromLocalStorage() {
+  try {
+    const products = localStorage.getItem('products');
+    const orders = localStorage.getItem('orders');
+    const caisse = localStorage.getItem('caisse');
+    const clients = localStorage.getItem('clients');
+    const promos = localStorage.getItem('promos');
+    const livreurs = localStorage.getItem('livreurs');
+    const stockHistory = localStorage.getItem('stockHistory');
+    const logs = localStorage.getItem('logs');
+    const admins = localStorage.getItem('admins');
+    
+    if (products) state.products = JSON.parse(products);
+    if (orders) state.orders = JSON.parse(orders);
+    if (caisse) state.caisse = JSON.parse(caisse);
+    if (clients) state.clients = JSON.parse(clients);
+    if (promos) state.promos = JSON.parse(promos);
+    if (livreurs) state.livreurs = JSON.parse(livreurs);
+    if (stockHistory) state.stockHistory = JSON.parse(stockHistory);
+    if (logs) state.logs = JSON.parse(logs);
+    if (admins) state.admins = JSON.parse(admins);
+    
+    console.log('✅ Données chargées depuis localStorage');
+    return state.products.length > 0;
+  } catch (e) {
+    console.error('❌ Erreur chargement:', e);
+    return false;
+  }
+}
+
 // Données RÉELLES - DROGUA CENTER
 function initDemoData() {
-  state.products = [
-    // COCAINE 🧊
-    { id: 1, name: 'EL JEFE ❄️', category: 'blanche', buyPrice: 17.5, variants: { '0.5g': { price: 30, stock: 100, grams: 0.5 }, '1g': { price: 60, stock: 100, grams: 1 }, '2g': { price: 120, stock: 100, grams: 2 }, '5g': { price: 300, stock: 100, grams: 5 }, '10g': { price: 450, stock: 100, grams: 10 } }, sales: 245 },
-    
-    // KETAMINE☁️
-    { id: 2, name: 'NEEDLES 🧖‍♂️', category: 'keta', buyPrice: 3.5, variants: { '1g': { price: 20, stock: 80, grams: 1 }, '2g': { price: 40, stock: 80, grams: 2 }, '3g': { price: 50, stock: 80, grams: 3 }, '5g': { price: 80, stock: 70, grams: 5 }, '10g': { price: 150, stock: 70, grams: 10 } }, sales: 198 },
-    
-    // MDMA & EXTASIE🌈
-    { id: 3, name: 'DOMINOS 280mg', category: 'mdma', buyPrice: 0.5, variants: { '3 tzs': { price: 20, stock: 100, grams: 0.84 } }, sales: 156 },
-    { id: 4, name: 'CHAMPAGNE 🍾', category: 'mdma', buyPrice: 6, variants: { '1g': { price: 30, stock: 70, grams: 1 }, '2g': { price: 50, stock: 70, grams: 2 }, '3g': { price: 70, stock: 60, grams: 3 }, '5g': { price: 120, stock: 60, grams: 5 }, '10g': { price: 220, stock: 60, grams: 10 } }, sales: 189 },
-    
-    // CALI WEED🇺🇸
-    { id: 5, name: '🍋‍🟩 LEMON X GELATO', category: 'cali', buyPrice: 5.5, variants: { '1.75g': { price: 20, stock: 60, grams: 1.75 }, '3.5g': { price: 40, stock: 60, grams: 3.5 }, '5g': { price: 60, stock: 100, grams: 5 }, '10g': { price: 110, stock: 100, grams: 10 } }, sales: 234 },
-    { id: 6, name: '🍑 GEORGIA PIE', category: 'cali', buyPrice: 5.5, variants: { '1.75g': { price: 20, stock: 60, grams: 1.75 }, '3.5g': { price: 40, stock: 60, grams: 3.5 }, '5g': { price: 60, stock: 100, grams: 5 }, '10g': { price: 110, stock: 100, grams: 10 } }, sales: 212 },
-    
-    // WEED🌳
-    { id: 7, name: '🇪🇸 AMNESIA', category: 'fleurs', buyPrice: 2.7, variants: { '3.66g': { price: 20, stock: 60, grams: 3.66 }, '5g': { price: 30, stock: 60, grams: 5 }, '10g': { price: 60, stock: 100, grams: 10 }, '50g': { price: 260, stock: 100, grams: 50 } }, sales: 312 },
-    
-    // 🧽MOUSSEUX🧽
-    { id: 8, name: '🍫 KIT KAT', category: 'resines', buyPrice: 2.7, variants: { '3.65g': { price: 20, stock: 40, grams: 3.65 }, '5g': { price: 30, stock: 60, grams: 5 }, '10g': { price: 50, stock: 100, grams: 10 }, '50g': { price: 190, stock: 100, grams: 50 }, '100g': { price: 370, stock: 100, grams: 100 } }, sales: 287 },
-    
-    // DRY-SIFT🍯
-    { id: 9, name: '🧑🏻‍🎤 QUADRO 73U', category: 'resines', buyPrice: 3, variants: { '3g': { price: 20, stock: 40, grams: 3 }, '4.5g': { price: 30, stock: 60, grams: 4.5 }, '10g': { price: 60, stock: 100, grams: 10 } }, sales: 178 },
-    { id: 10, name: '🍬 SKITTLEZ 120U', category: 'resines', buyPrice: 3, variants: { '2.5g': { price: 20, stock: 100, grams: 2.5 }, '5g': { price: 40, stock: 100, grams: 5 }, '10g': { price: 70, stock: 100, grams: 10 } }, sales: 167 }
-  ];
-
-  const now = Date.now();
-  state.orders = [
-    { id: 'ORD001', timestamp: new Date(now - 86400000 * 6).toISOString(), name: 'Marc Dubois', email: 'marc.d@mail.fr', phone: '0612345678', total: 60, status: 'delivered', items: [{ name: 'EL JEFE ❄️', variant: '1g', qty: 1 }] },
-    { id: 'ORD002', timestamp: new Date(now - 86400000 * 6).toISOString(), name: 'Sophie Laurent', email: 'sophie.l@mail.fr', phone: '0623456789', total: 110, status: 'delivered', items: [{ name: '🍑 GEORGIA PIE', variant: '10g', qty: 1 }] },
-    { id: 'ORD003', timestamp: new Date(now - 86400000 * 5).toISOString(), name: 'Thomas Martin', email: 'thomas.m@mail.fr', phone: '0634567890', total: 100, status: 'delivered', items: [{ name: 'NEEDLES 🧖‍♂️', variant: '5g', qty: 1 }, { name: 'DOMINOS 280mg', variant: '3 tzs', qty: 1 }] },
-    { id: 'ORD004', timestamp: new Date(now - 86400000 * 5).toISOString(), name: 'Karim Ben', email: 'karim.b@mail.fr', phone: '0645678901', total: 300, status: 'delivered', items: [{ name: 'EL JEFE ❄️', variant: '5g', qty: 1 }] },
-    { id: 'ORD005', timestamp: new Date(now - 86400000 * 4).toISOString(), name: 'Julie Petit', email: 'julie.p@mail.fr', phone: '0656789012', total: 240, status: 'delivered', items: [{ name: 'EL JEFE ❄️', variant: '2g', qty: 2 }] },
-    { id: 'ORD006', timestamp: new Date(now - 86400000 * 4).toISOString(), name: 'Ahmed Ziani', email: 'ahmed.z@mail.fr', phone: '0667890123', total: 120, status: 'delivered', items: [{ name: '🍋‍🟩 LEMON X GELATO', variant: '5g', qty: 2 }] },
-    { id: 'ORD007', timestamp: new Date(now - 86400000 * 3).toISOString(), name: 'Emma Bernard', email: 'emma.b@mail.fr', phone: '0678901234', total: 90, status: 'delivered', items: [{ name: 'CHAMPAGNE 🍾', variant: '3g', qty: 1 }, { name: 'DOMINOS 280mg', variant: '3 tzs', qty: 1 }] },
-    { id: 'ORD008', timestamp: new Date(now - 86400000 * 3).toISOString(), name: 'Lucas Moreau', email: 'lucas.m@mail.fr', phone: '0689012345', total: 60, status: 'delivered', items: [{ name: '🇪🇸 AMNESIA', variant: '10g', qty: 1 }] },
-    { id: 'ORD009', timestamp: new Date(now - 86400000 * 2).toISOString(), name: 'Yasmine Farah', email: 'yasmine.f@mail.fr', phone: '0690123456', total: 150, status: 'delivered', items: [{ name: 'NEEDLES 🧖‍♂️', variant: '10g', qty: 1 }] },
-    { id: 'ORD010', timestamp: new Date(now - 86400000 * 2).toISOString(), name: 'Maxime Dubois', email: 'maxime.d@mail.fr', phone: '0601234567', total: 190, status: 'delivered', items: [{ name: '🍫 KIT KAT', variant: '50g', qty: 1 }] },
-    { id: 'ORD011', timestamp: new Date(now - 86400000 * 2).toISOString(), name: 'Sarah Cohen', email: 'sarah.c@mail.fr', phone: '0612345670', total: 80, status: 'delivered', items: [{ name: '🍑 GEORGIA PIE', variant: '3.5g', qty: 2 }] },
-    { id: 'ORD012', timestamp: new Date(now - 86400000).toISOString(), name: 'Kevin Richard', email: 'kevin.r@mail.fr', phone: '0623456780', total: 220, status: 'delivered', items: [{ name: 'CHAMPAGNE 🍾', variant: '10g', qty: 1 }] },
-    { id: 'ORD013', timestamp: new Date(now - 86400000).toISOString(), name: 'Fatima El', email: 'fatima.e@mail.fr', phone: '0634567891', total: 70, status: 'delivered', items: [{ name: '🍬 SKITTLEZ 120U', variant: '10g', qty: 1 }] },
-    { id: 'ORD014', timestamp: new Date(now - 43200000).toISOString(), name: 'Pierre Leroy', email: 'pierre.l@mail.fr', phone: '0645678902', total: 100, status: 'pending', items: [{ name: '🍫 KIT KAT', variant: '10g', qty: 2 }] },
-    { id: 'ORD015', timestamp: new Date(now - 21600000).toISOString(), name: 'Nadia Benali', email: 'nadia.b@mail.fr', phone: '0656789013', total: 450, status: 'pending', items: [{ name: 'EL JEFE ❄️', variant: '10g', qty: 1 }] },
-    { id: 'ORD016', timestamp: new Date(now - 10800000).toISOString(), name: 'Dylan Lopez', email: 'dylan.l@mail.fr', phone: '0667890124', total: 220, status: 'pending', items: [{ name: '🍋‍🟩 LEMON X GELATO', variant: '10g', qty: 2 }] },
-    { id: 'ORD017', timestamp: new Date(now - 7200000).toISOString(), name: 'Léa Fontaine', email: 'lea.f@mail.fr', phone: '0678901235', total: 120, status: 'pending', items: [{ name: 'CHAMPAGNE 🍾', variant: '5g', qty: 1 }] },
-    { id: 'ORD018', timestamp: new Date(now - 3600000).toISOString(), name: 'Rachid Amara', email: 'rachid.a@mail.fr', phone: '0689012346', total: 180, status: 'pending', items: [{ name: 'EL JEFE ❄️', variant: '2g', qty: 1 }, { name: '🧑🏻‍🎤 QUADRO 73U', variant: '10g', qty: 1 }] },
-    { id: 'ORD019', timestamp: new Date(now - 1800000).toISOString(), name: 'Chloé Girard', email: 'chloe.g@mail.fr', phone: '0690123457', total: 90, status: 'pending', items: [{ name: 'NEEDLES 🧖‍♂️', variant: '3g', qty: 1 }, { name: 'DOMINOS 280mg', variant: '3 tzs', qty: 2 }] },
-    { id: 'ORD020', timestamp: new Date(now - 900000).toISOString(), name: 'Mohamed Ali', email: 'mohamed.a@mail.fr', phone: '0601234568', total: 80, status: 'pending', items: [{ name: '🇪🇸 AMNESIA', variant: '5g', qty: 2 }, { name: 'DOMINOS 280mg', variant: '3 tzs', qty: 2 }] }
-  ];
-
-  state.caisse = [
-    { id: 1, timestamp: new Date(now - 86400000 * 7).toISOString(), type: 'in', amount: 5000, reason: 'Capital initial', balance: 5000 },
-    { id: 2, timestamp: new Date(now - 86400000 * 6).toISOString(), type: 'in', amount: 320, reason: 'Ventes journée (ORD001, ORD002)', balance: 5320 },
-    { id: 3, timestamp: new Date(now - 86400000 * 6).toISOString(), type: 'out', amount: 800, reason: 'Achat stock fleurs', balance: 4520 },
-    { id: 4, timestamp: new Date(now - 86400000 * 5).toISOString(), type: 'in', amount: 448, reason: 'Ventes journée (ORD003, ORD004)', balance: 4968 },
-    { id: 5, timestamp: new Date(now - 86400000 * 5).toISOString(), type: 'out', amount: 150, reason: 'Frais de livraison', balance: 4818 },
-    { id: 6, timestamp: new Date(now - 86400000 * 4).toISOString(), type: 'in', amount: 605, reason: 'Ventes journée (ORD005, ORD006)', balance: 5423 },
-    { id: 7, timestamp: new Date(now - 86400000 * 4).toISOString(), type: 'out', amount: 500, reason: 'Achat stock résines', balance: 4923 },
-    { id: 8, timestamp: new Date(now - 86400000 * 3).toISOString(), type: 'in', amount: 275, reason: 'Ventes journée (ORD007, ORD008)', balance: 5198 },
-    { id: 9, timestamp: new Date(now - 86400000 * 3).toISOString(), type: 'out', amount: 200, reason: 'Salaires livreurs', balance: 4998 },
-    { id: 10, timestamp: new Date(now - 86400000 * 2).toISOString(), type: 'in', amount: 695, reason: 'Ventes journée (ORD009, ORD010, ORD011)', balance: 5693 },
-    { id: 11, timestamp: new Date(now - 86400000 * 2).toISOString(), type: 'out', amount: 1200, reason: 'Réappro stock blanche', balance: 4493 },
-    { id: 12, timestamp: new Date(now - 86400000).toISOString(), type: 'in', amount: 330, reason: 'Ventes journée (ORD012, ORD013)', balance: 4823 },
-    { id: 13, timestamp: new Date(now - 86400000).toISOString(), type: 'out', amount: 100, reason: 'Fournitures emballage', balance: 4723 },
-    { id: 14, timestamp: new Date(now - 43200000).toISOString(), type: 'out', amount: 50, reason: 'Essence livreurs', balance: 4673 }
-  ];
-
-  state.promos = [
-    { id: 1, code: 'WELCOME10', discount: 10, type: 'percentage', maxUses: 100, uses: 23, expires: '2025-12-31', active: true },
-    { id: 2, code: 'SUMMER25', discount: 25, type: 'percentage', maxUses: 50, uses: 45, expires: '2025-08-31', active: true },
-    { id: 3, code: 'FIXED20', discount: 20, type: 'fixed', maxUses: 200, uses: 67, expires: '2025-12-31', active: true },
-    { id: 4, code: 'VIP15', discount: 15, type: 'percentage', maxUses: 30, uses: 12, expires: '2025-11-30', active: true },
-    { id: 5, code: 'BLACKFRIDAY', discount: 30, type: 'percentage', maxUses: 100, uses: 89, expires: '2025-11-30', active: false },
-    { id: 6, code: 'FIRSTORDER', discount: 15, type: 'fixed', maxUses: 500, uses: 234, expires: '2025-12-31', active: true },
-    { id: 7, code: 'REFERRAL', discount: 10, type: 'fixed', maxUses: 1000, uses: 456, expires: '2026-01-31', active: true }
-  ];
-
-  state.livreurs = [
-    { id: 1, name: 'Livreur Millau', phone: '06XXXXXXXX', zone: 'Millau (12100)', deliveries: 387, active: true },
-    { id: 2, name: 'Livreur Rodez', phone: '06XXXXXXXX', zone: 'Rodez (12000)', deliveries: 412, active: true },
-    { id: 3, name: 'Livreur Séverac', phone: '06XXXXXXXX', zone: 'Séverac-le-Château (12150)', deliveries: 298, active: true },
-    { id: 4, name: 'Livreur Saint-Affrique', phone: '06XXXXXXXX', zone: 'Saint-Affrique (12400)', deliveries: 356, active: true },
-    { id: 5, name: 'Livreur Lozère', phone: '06XXXXXXXX', zone: 'Lozère (48) - Limitrophe', deliveries: 234, active: true },
-    { id: 6, name: 'Livreur Aveyron Nord', phone: '06XXXXXXXX', zone: 'Aveyron Nord (12)', deliveries: 189, active: false },
-    { id: 7, name: 'Livreur Aveyron Sud', phone: '06XXXXXXXX', zone: 'Aveyron Sud (12)', deliveries: 267, active: true }
-  ];
-
-  state.admins = [
-    { id: 1, name: 'Admin Principal', email: 'admin@drogua.com', role: 'Super Admin', lastLogin: new Date().toISOString(), active: true },
-    { id: 2, name: 'Manager Ops', email: 'ops@drogua.com', role: 'Gestionnaire', lastLogin: new Date(now - 3600000).toISOString(), active: true }
-  ];
+  // Essayer de charger depuis localStorage
+  const hasData = loadFromLocalStorage();
   
-  // Logs réalistes
-  state.logs = [
-    { id: Date.now() + 1, type: 'connexion', action: 'Login', details: 'Connexion administrateur réussie', user: 'Admin Principal', timestamp: new Date(now - 900000).toISOString() },
-    { id: Date.now() + 2, type: 'commande', action: 'Nouvelle commande', details: 'Commande ORD020 créée - 95€', user: 'Système', timestamp: new Date(now - 900000).toISOString() },
-    { id: Date.now() + 3, type: 'commande', action: 'Nouvelle commande', details: 'Commande ORD019 créée - 125€', user: 'Système', timestamp: new Date(now - 1800000).toISOString() },
-    { id: Date.now() + 4, type: 'commande', action: 'Nouvelle commande', details: 'Commande ORD018 créée - 334€', user: 'Système', timestamp: new Date(now - 3600000).toISOString() },
-    { id: Date.now() + 5, type: 'stock', action: 'Réappro', details: 'Amnesia Haze 1g: +50', user: 'Admin Principal', timestamp: new Date(now - 7200000).toISOString() },
-    { id: Date.now() + 6, type: 'caisse', action: 'Sortie', details: '50€ - Essence livreurs', user: 'Admin Principal', timestamp: new Date(now - 43200000).toISOString() },
-    { id: Date.now() + 7, type: 'commande', action: 'Livraison', details: 'Commande ORD013 livrée', user: 'Livreur Millau', timestamp: new Date(now - 86400000).toISOString() },
-    { id: Date.now() + 8, type: 'caisse', action: 'Sortie', details: '100€ - Fournitures emballage', user: 'Manager Ops', timestamp: new Date(now - 86400000).toISOString() },
-    { id: Date.now() + 9, type: 'stock', action: 'Réappro', details: 'Hash Marocain 3g: +30', user: 'Admin Principal', timestamp: new Date(now - 86400000 * 2).toISOString() },
-    { id: Date.now() + 10, type: 'caisse', action: 'Sortie', details: '1200€ - Réappro stock blanche', user: 'Admin Principal', timestamp: new Date(now - 86400000 * 2).toISOString() },
-    { id: Date.now() + 11, type: 'promo', action: 'Création', details: 'Code REFERRAL créé', user: 'Admin Principal', timestamp: new Date(now - 86400000 * 3).toISOString() },
-    { id: Date.now() + 12, type: 'produit', action: 'Création', details: 'Produit Ketamine Liquid créé', user: 'Admin Principal', timestamp: new Date(now - 86400000 * 4).toISOString() },
-    { id: Date.now() + 13, type: 'système', action: 'Backup', details: 'Backup complet exporté', user: 'Admin Principal', timestamp: new Date(now - 86400000 * 5).toISOString() },
-    { id: Date.now() + 14, type: 'connexion', action: 'Login', details: 'Connexion administrateur réussie', user: 'Manager Ops', timestamp: new Date(now - 86400000 * 5).toISOString() }
-  ];
+  // Si pas de données, initialiser avec les données par défaut
+  if (!hasData) {
+    console.log('📦 Initialisation des données par défaut...');
+    
+    state.products = [
+      { id: 1, name: 'EL JEFE ❄️', category: 'blanche', buyPrice: 17.5, image: 'https://images.unsplash.com/photo-1518544801976-3e159e50e5bb?w=500', video: '', variants: { '0.5g': { price: 30, stock: 100, grams: 0.5 }, '1g': { price: 60, stock: 100, grams: 1 }, '2g': { price: 120, stock: 100, grams: 2 }, '5g': { price: 300, stock: 100, grams: 5 }, '10g': { price: 450, stock: 100, grams: 10 } }, sales: 245 },
+      { id: 2, name: 'NEEDLES 🧖‍♂️', category: 'keta', buyPrice: 3.5, image: 'https://images.unsplash.com/photo-1559181567-c3190ca9959b?w=500', video: '', variants: { '1g': { price: 20, stock: 80, grams: 1 }, '2g': { price: 40, stock: 80, grams: 2 }, '3g': { price: 50, stock: 80, grams: 3 }, '5g': { price: 80, stock: 70, grams: 5 }, '10g': { price: 150, stock: 70, grams: 10 } }, sales: 198 },
+      { id: 3, name: 'DOMINOS 280mg', category: 'mdma', buyPrice: 0.5, image: 'https://images.unsplash.com/photo-1587622835881-394da30e7c4b?w=500', video: '', variants: { '3 tzs': { price: 20, stock: 100, grams: 0.84 } }, sales: 156 },
+      { id: 4, name: 'CHAMPAGNE 🍾', category: 'mdma', buyPrice: 6, image: 'https://images.unsplash.com/photo-1470337458703-46ad1756a187?w=500', video: '', variants: { '1g': { price: 30, stock: 70, grams: 1 }, '2g': { price: 50, stock: 70, grams: 2 }, '3g': { price: 70, stock: 60, grams: 3 }, '5g': { price: 120, stock: 60, grams: 5 }, '10g': { price: 220, stock: 60, grams: 10 } }, sales: 189 },
+      { id: 5, name: '🍋‍🟩 LEMON X GELATO', category: 'cali', buyPrice: 5.5, image: 'https://images.unsplash.com/photo-1536964549340-75ed854e7e5c?w=500', video: '', variants: { '1.75g': { price: 20, stock: 60, grams: 1.75 }, '3.5g': { price: 40, stock: 60, grams: 3.5 }, '5g': { price: 60, stock: 100, grams: 5 }, '10g': { price: 110, stock: 100, grams: 10 } }, sales: 234 },
+      { id: 6, name: '🍑 GEORGIA PIE', category: 'cali', buyPrice: 5.5, image: 'https://images.unsplash.com/photo-1464375117522-1311d6a5b81f?w=500', video: '', variants: { '1.75g': { price: 20, stock: 60, grams: 1.75 }, '3.5g': { price: 40, stock: 60, grams: 3.5 }, '5g': { price: 60, stock: 100, grams: 5 }, '10g': { price: 110, stock: 100, grams: 10 } }, sales: 212 },
+      { id: 7, name: '🇪🇸 AMNESIA', category: 'fleurs', buyPrice: 2.7, image: 'https://images.unsplash.com/photo-1583912267550-d974996ce8a8?w=500', video: '', variants: { '3.66g': { price: 20, stock: 60, grams: 3.66 }, '5g': { price: 30, stock: 60, grams: 5 }, '10g': { price: 60, stock: 100, grams: 10 }, '50g': { price: 260, stock: 100, grams: 50 } }, sales: 312 },
+      { id: 8, name: '🍫 KIT KAT', category: 'resines', buyPrice: 2.7, image: 'https://images.unsplash.com/photo-1515023115689-589c33041d3c?w=500', video: '', variants: { '3.65g': { price: 20, stock: 40, grams: 3.65 }, '5g': { price: 30, stock: 60, grams: 5 }, '10g': { price: 50, stock: 100, grams: 10 }, '50g': { price: 190, stock: 100, grams: 50 }, '100g': { price: 370, stock: 100, grams: 100 } }, sales: 287 },
+      { id: 9, name: '🧑🏻‍🎤 QUADRO 73U', category: 'resines', buyPrice: 3, image: 'https://images.unsplash.com/photo-1598966739654-5e9cef5e8e0c?w=500', video: '', variants: { '3g': { price: 20, stock: 40, grams: 3 }, '4.5g': { price: 30, stock: 60, grams: 4.5 }, '10g': { price: 60, stock: 100, grams: 10 } }, sales: 178 },
+      { id: 10, name: '🍬 SKITTLEZ 120U', category: 'resines', buyPrice: 3, image: 'https://images.unsplash.com/photo-1595475207225-428b62bda831?w=500', video: '', variants: { '2.5g': { price: 20, stock: 100, grams: 2.5 }, '5g': { price: 40, stock: 100, grams: 5 }, '10g': { price: 70, stock: 100, grams: 10 } }, sales: 167 }
+    ];
+
+    const now = Date.now();
+    state.orders = [];
+    
+    const startBalance = 5000;
+    state.caisse = [
+      { id: 1, timestamp: new Date(now - 86400000 * 7).toISOString(), type: 'in', amount: startBalance, reason: 'Capital initial', balance: startBalance }
+    ];
+
+    state.promos = [
+      { id: 1, code: 'WELCOME10', discount: 10, type: 'percentage', maxUses: 100, uses: 23, expires: '2025-12-31', active: true },
+      { id: 2, code: 'SUMMER25', discount: 25, type: 'percentage', maxUses: 50, uses: 45, expires: '2025-08-31', active: true },
+      { id: 3, code: 'FIXED20', discount: 20, type: 'fixed', maxUses: 200, uses: 67, expires: '2025-12-31', active: true }
+    ];
+
+    state.livreurs = [
+      { id: 1, name: 'Livreur Millau', phone: '06XXXXXXXX', zone: 'Millau (12100)', deliveries: 387, active: true },
+      { id: 2, name: 'Livreur Rodez', phone: '06XXXXXXXX', zone: 'Rodez (12000)', deliveries: 412, active: true }
+    ];
+
+    state.admins = [
+      { id: 1, name: 'Admin Principal', email: 'admin@drogua.com', role: 'Super Admin', lastLogin: new Date().toISOString(), active: true }
+    ];
+    
+    state.logs = [
+      { id: Date.now(), type: 'système', action: 'Initialisation', details: 'Système initialisé avec les données par défaut', user: 'Système', timestamp: new Date().toISOString() }
+    ];
+    
+    state.stockHistory = [];
+    state.clients = [];
+    
+    // Sauvegarder immédiatement dans localStorage
+    saveToLocalStorage();
+    console.log('✅ Données sauvegardées dans localStorage');
+  }
 
   syncClients();
   state.lastOrderCount = state.orders.length;
 }
+
+// Auto-save toutes les 5 secondes
+setInterval(() => {
+  if (state.authenticated) {
+    saveToLocalStorage();
+  }
+}, 5000);
 
 const fmt = (a) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(a || 0);
 
@@ -1184,6 +1187,7 @@ function addLog(type, action, details) {
     timestamp: new Date().toISOString()
   });
   if (state.logs.length > 200) state.logs = state.logs.slice(0, 200);
+  saveToLocalStorage();
 }
 
 function toggleSound() {
@@ -1262,6 +1266,7 @@ function logout() {
   if (confirm('Voulez-vous vraiment vous déconnecter ?')) {
     if (state.syncInterval) clearInterval(state.syncInterval);
     state.authenticated = false;
+    saveToLocalStorage();
     addLog('connexion', 'Logout', 'Déconnexion');
     location.reload();
   }
@@ -1325,6 +1330,7 @@ function syncClients() {
   });
   
   state.clients = Object.values(clientsMap);
+  saveToLocalStorage();
 }
 
 function updateSyncStatus(status = 'ok') {
@@ -1343,22 +1349,17 @@ function updateSyncStatus(status = 'ok') {
 function manualSync() {
   syncClients();
   updateAllStats();
+  saveToLocalStorage();
   document.getElementById('lastSync').textContent = new Date().toLocaleTimeString('fr-FR');
   showToast('🔄 Synchronisation réussie', 'success');
   updateSyncStatus('ok');
 }
 
 function startAutoSync() {
-  const prevCount = state.orders.length;
   state.syncInterval = setInterval(() => {
     syncClients();
     updateAllStats();
-    
-    if (state.orders.length > prevCount) {
-      playNotification();
-      showToast('🎉 Nouvelle commande reçue', 'success');
-    }
-    
+    saveToLocalStorage();
     document.getElementById('lastSync').textContent = new Date().toLocaleTimeString('fr-FR');
   }, CONFIG.SYNC_INTERVAL);
 }
@@ -1603,6 +1604,7 @@ function deliverOrder(id) {
   const order = state.orders.find(o => o.id === id);
   if (order) {
     order.status = 'delivered';
+    saveToLocalStorage();
     showToast('✅ Commande marquée comme livrée', 'success');
     addLog('commande', 'Livraison', `Commande ${id} livrée`);
     loadOrders();
@@ -1615,6 +1617,7 @@ function cancelOrder(id) {
     const order = state.orders.find(o => o.id === id);
     if (order) {
       order.status = 'cancelled';
+      saveToLocalStorage();
       showToast('❌ Commande annulée', 'success');
       addLog('commande', 'Annulation', `Commande ${id} annulée`);
       loadOrders();
@@ -1672,11 +1675,16 @@ function loadProducts() {
   tbody.innerHTML = products.map(p => {
     const totalStock = Object.values(p.variants || {}).reduce((sum, v) => sum + v.stock, 0);
     const avgPrice = Object.values(p.variants || {}).reduce((sum, v) => sum + v.price, 0) / Object.keys(p.variants || {}).length;
-    const categoryEmoji = { fleurs: '🌿', resines: '🟫', blanche: '⚪', cali: '🌟', keta: '💎' }[p.category] || '📦';
+    const categoryEmoji = { fleurs: '🌿', resines: '🟫', blanche: '⚪', cali: '🌟', keta: '💎', mdma: '🌈' }[p.category] || '📦';
     
     return `
       <tr onclick="viewProduct(${p.id})">
-        <td><strong>${p.name}</strong></td>
+        <td>
+          <div style="display:flex;align-items:center;gap:12px">
+            ${p.image ? `<img src="${p.image}" style="width:40px;height:40px;object-fit:cover;border-radius:8px">` : '<div style="width:40px;height:40px;background:var(--bg-secondary);border-radius:8px;display:flex;align-items:center;justify-content:center">📦</div>'}
+            <strong>${p.name}</strong>
+          </div>
+        </td>
         <td>${categoryEmoji}</td>
         <td>${fmt(avgPrice)}</td>
         <td>${totalStock} unités</td>
@@ -1701,15 +1709,20 @@ function viewProduct(id) {
   `).join('');
   
   showModal(product.name, `
+    ${product.image ? `<div style="margin-bottom:16px"><img src="${product.image}" style="width:100%;max-height:200px;object-fit:cover;border-radius:12px"></div>` : ''}
+    ${product.video ? `<div style="margin-bottom:16px"><video src="${product.video}" controls style="width:100%;border-radius:12px"></video></div>` : ''}
     <div style="margin-bottom:16px">
       <strong>Catégorie:</strong> ${product.category}<br>
       <strong>Prix d'achat:</strong> ${fmt(product.buyPrice)}/g<br>
-      <strong>Ventes totales:</strong> ${product.sales || 0}
+      <strong>Ventes totales:</strong> ${product.sales || 0}<br>
+      <strong>Image:</strong> ${product.image ? '✅ Oui' : '❌ Non'}<br>
+      <strong>Vidéo:</strong> ${product.video ? '✅ Oui' : '❌ Non'}
     </div>
     <div>
       <strong>Variants:</strong>
       ${variants}
     </div>
+    <button onclick="editProductMedia(${id})" style="background:var(--info);margin-top:16px">📸 Modifier médias</button>
   `);
 }
 
@@ -1727,11 +1740,21 @@ function addProduct() {
         <option value="blanche">⚪ Blanche</option>
         <option value="cali">🌟 Cali</option>
         <option value="keta">💎 Keta</option>
+        <option value="mdma">🌈 MDMA</option>
       </select>
     </div>
     <div class="form-group">
       <label>Prix d'achat (€/g)</label>
-      <input type="number" id="newProductBuyPrice" placeholder="5">
+      <input type="number" id="newProductBuyPrice" placeholder="5" step="0.1">
+    </div>
+    <div class="form-group">
+      <label>URL Image</label>
+      <input type="url" id="newProductImage" placeholder="https://exemple.com/image.jpg">
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">Utilisez Unsplash, Imgur ou votre hébergeur</div>
+    </div>
+    <div class="form-group">
+      <label>URL Vidéo (optionnel)</label>
+      <input type="url" id="newProductVideo" placeholder="https://exemple.com/video.mp4">
     </div>
     <button onclick="saveNewProduct()" style="background:var(--success)">✅ Créer</button>
   `);
@@ -1741,9 +1764,11 @@ function saveNewProduct() {
   const name = document.getElementById('newProductName').value;
   const category = document.getElementById('newProductCategory').value;
   const buyPrice = parseFloat(document.getElementById('newProductBuyPrice').value);
+  const image = document.getElementById('newProductImage').value;
+  const video = document.getElementById('newProductVideo').value;
   
   if (!name || !buyPrice) {
-    showToast('❌ Remplissez tous les champs', 'error');
+    showToast('❌ Remplissez tous les champs requis', 'error');
     return;
   }
   
@@ -1752,6 +1777,8 @@ function saveNewProduct() {
     name,
     category,
     buyPrice,
+    image: image || 'https://images.unsplash.com/photo-1557821552-17105176677c?w=500',
+    video: video || '',
     variants: {
       '1g': { price: buyPrice * 2, stock: 0, grams: 1 }
     },
@@ -1759,6 +1786,7 @@ function saveNewProduct() {
   };
   
   state.products.push(newProduct);
+  saveToLocalStorage(); // ✅ CORRECTION
   closeModal();
   loadProducts();
   updateAllStats();
@@ -1766,13 +1794,118 @@ function saveNewProduct() {
   addLog('produit', 'Création', `Produit ${name} créé`);
 }
 
+function editProductMedia(id) {
+  const product = state.products.find(p => p.id === id);
+  if (!product) return;
+  
+  showModal(`📸 Médias - ${product.name}`, `
+    <div class="form-group">
+      <label>URL Image</label>
+      <input type="url" id="editProductImage" value="${product.image || ''}" placeholder="https://exemple.com/image.jpg">
+      ${product.image ? `<img src="${product.image}" style="width:100%;margin-top:8px;border-radius:8px;max-height:150px;object-fit:cover">` : ''}
+    </div>
+    <div class="form-group">
+      <label>URL Vidéo (optionnel)</label>
+      <input type="url" id="editProductVideo" value="${product.video || ''}" placeholder="https://exemple.com/video.mp4">
+    </div>
+    <div style="background:var(--bg-secondary);padding:12px;border-radius:8px;margin-bottom:16px">
+      <div style="font-size:12px;color:var(--muted)">
+        <strong>💡 Hébergeurs gratuits recommandés :</strong><br>
+        • Images : <a href="https://unsplash.com" target="_blank" style="color:var(--accent)">Unsplash</a>, <a href="https://imgur.com" target="_blank" style="color:var(--accent)">Imgur</a><br>
+        • Vidéos : <a href="https://streamable.com" target="_blank" style="color:var(--accent)">Streamable</a>, Vimeo
+      </div>
+    </div>
+    <button onclick="saveProductMedia(${id})" style="background:var(--success)">✅ Enregistrer</button>
+  `);
+}
+
+function saveProductMedia(id) {
+  const product = state.products.find(p => p.id === id);
+  if (!product) return;
+  
+  const image = document.getElementById('editProductImage').value;
+  const video = document.getElementById('editProductVideo').value;
+  
+  product.image = image;
+  product.video = video;
+  
+  saveToLocalStorage();
+  closeModal();
+  loadProducts();
+  showToast('✅ Médias mis à jour', 'success');
+  addLog('produit', 'Modification', `Médias de ${product.name} modifiés`);
+}
+
 function editProduct(id) {
-  showToast('🔧 Fonction d\'édition à venir', 'info');
+  const product = state.products.find(p => p.id === id);
+  if (!product) return;
+  
+  showModal(`✏️ Modifier - ${product.name}`, `
+    <div class="form-group">
+      <label>Nom du produit</label>
+      <input type="text" id="editProductName" value="${product.name}" placeholder="Ex: Blue Dream">
+    </div>
+    <div class="form-group">
+      <label>Catégorie</label>
+      <select id="editProductCategory">
+        <option value="fleurs" ${product.category === 'fleurs' ? 'selected' : ''}>🌿 Fleurs</option>
+        <option value="resines" ${product.category === 'resines' ? 'selected' : ''}>🟫 Résines</option>
+        <option value="blanche" ${product.category === 'blanche' ? 'selected' : ''}>⚪ Blanche</option>
+        <option value="cali" ${product.category === 'cali' ? 'selected' : ''}>🌟 Cali</option>
+        <option value="keta" ${product.category === 'keta' ? 'selected' : ''}>💎 Keta</option>
+        <option value="mdma" ${product.category === 'mdma' ? 'selected' : ''}>🌈 MDMA</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Prix d'achat (€/g)</label>
+      <input type="number" id="editProductBuyPrice" value="${product.buyPrice}" placeholder="5" step="0.1">
+    </div>
+    <div class="form-group">
+      <label>URL Image</label>
+      <input type="url" id="editProductImage" value="${product.image || ''}" placeholder="https://exemple.com/image.jpg">
+      ${product.image ? `<img src="${product.image}" style="width:100%;margin-top:8px;border-radius:8px;max-height:120px;object-fit:cover">` : ''}
+    </div>
+    <div class="form-group">
+      <label>URL Vidéo (optionnel)</label>
+      <input type="url" id="editProductVideo" value="${product.video || ''}" placeholder="https://exemple.com/video.mp4">
+    </div>
+    <button onclick="saveEditedProduct(${id})" style="background:var(--success)">✅ Enregistrer</button>
+  `);
+}
+
+function saveEditedProduct(id) {
+  const product = state.products.find(p => p.id === id);
+  if (!product) return;
+  
+  const name = document.getElementById('editProductName').value;
+  const category = document.getElementById('editProductCategory').value;
+  const buyPrice = parseFloat(document.getElementById('editProductBuyPrice').value);
+  const image = document.getElementById('editProductImage').value;
+  const video = document.getElementById('editProductVideo').value;
+  
+  if (!name || !buyPrice) {
+    showToast('❌ Remplissez tous les champs requis', 'error');
+    return;
+  }
+  
+  product.name = name;
+  product.category = category;
+  product.buyPrice = buyPrice;
+  product.image = image;
+  product.video = video;
+  
+  saveToLocalStorage();
+  closeModal();
+  loadProducts();
+  updateAllStats();
+  showToast('✅ Produit modifié', 'success');
+  addLog('produit', 'Modification', `Produit ${name} modifié`);
 }
 
 function deleteProduct(id) {
   if (confirm('Supprimer ce produit ?')) {
     state.products = state.products.filter(p => p.id !== id);
+    saveToLocalStorage(); // ✅ CORRECTION
     loadProducts();
     updateAllStats();
     showToast('🗑️ Produit supprimé', 'success');
@@ -1912,6 +2045,7 @@ function confirmRestock(productName, variantName) {
       user: state.currentUser
     });
     
+    saveToLocalStorage(); // ✅ CORRECTION
     closeModal();
     loadStock();
     updateAllStats();
@@ -2133,6 +2267,7 @@ function saveCashMovement(type) {
     balance: newBalance
   });
   
+  saveToLocalStorage(); // ✅ CORRECTION
   closeModal();
   loadCaisse();
   updateAllStats();
@@ -2150,6 +2285,7 @@ function deleteCashMovement(id) {
       m.balance = balance;
     });
     
+    saveToLocalStorage(); // ✅ CORRECTION
     loadCaisse();
     updateAllStats();
     showToast('🗑️ Mouvement supprimé', 'success');
@@ -2349,6 +2485,7 @@ function savePromo() {
     active: true
   });
   
+  saveToLocalStorage(); // ✅ CORRECTION
   closeModal();
   loadPromos();
   updateAllStats();
@@ -2360,6 +2497,7 @@ function togglePromo(id) {
   const promo = state.promos.find(p => p.id === id);
   if (promo) {
     promo.active = !promo.active;
+    saveToLocalStorage(); // ✅ CORRECTION
     loadPromos();
     updateAllStats();
     showToast(`${promo.active ? '✅ Promo activée' : '⏸️ Promo désactivée'}`, 'success');
@@ -2369,6 +2507,7 @@ function togglePromo(id) {
 function deletePromo(id) {
   if (confirm('Supprimer cette promo ?')) {
     state.promos = state.promos.filter(p => p.id !== id);
+    saveToLocalStorage(); // ✅ CORRECTION
     loadPromos();
     updateAllStats();
     showToast('🗑️ Promo supprimée', 'success');
@@ -2436,6 +2575,7 @@ function saveLivreur() {
     active: true
   });
   
+  saveToLocalStorage(); // ✅ CORRECTION
   closeModal();
   loadLivreurs();
   updateAllStats();
@@ -2447,6 +2587,7 @@ function toggleLivreur(id) {
   const livreur = state.livreurs.find(l => l.id === id);
   if (livreur) {
     livreur.active = !livreur.active;
+    saveToLocalStorage(); // ✅ CORRECTION
     loadLivreurs();
     updateAllStats();
     showToast(`${livreur.active ? '✅ Livreur activé' : '⏸️ Livreur désactivé'}`, 'success');
@@ -2456,6 +2597,7 @@ function toggleLivreur(id) {
 function deleteLivreur(id) {
   if (confirm('Supprimer ce livreur ?')) {
     state.livreurs = state.livreurs.filter(l => l.id !== id);
+    saveToLocalStorage(); // ✅ CORRECTION
     loadLivreurs();
     updateAllStats();
     showToast('🗑️ Livreur supprimé', 'success');
@@ -2691,6 +2833,7 @@ function saveAdmin() {
     active: true
   });
   
+  saveToLocalStorage(); // ✅ CORRECTION
   closeModal();
   loadAdmins();
   showToast('✅ Admin créé', 'success');
@@ -2748,7 +2891,7 @@ function importAllData() {
           if (data.logs) state.logs = data.logs;
           if (data.admins) state.admins = data.admins;
           
-          manualSync();
+          saveToLocalStorage(); // ✅ CORRECTION
           showToast('✅ Import réussi', 'success');
           addLog('système', 'Import', 'Données importées');
           location.reload();
@@ -2765,19 +2908,7 @@ function importAllData() {
 function resetData() {
   if (confirm('ATTENTION : Supprimer toutes les données ?')) {
     if (confirm('Cette action est IRRÉVERSIBLE. Continuer ?')) {
-      state.products = [];
-      state.orders = [];
-      state.caisse = [];
-      state.stockHistory = [];
-      state.clients = [];
-      state.promos = [];
-      state.livreurs = [];
-      state.logs = [];
-      
-      initDemoData();
-      manualSync();
-      showToast('✅ Données réinitialisées', 'success');
-      addLog('système', 'Reset', 'Toutes les données réinitialisées');
+      localStorage.clear();
       location.reload();
     }
   }
@@ -2839,7 +2970,8 @@ function showDashboard() {
   loadLogs();
   startAutoSync();
   
-  console.log('✅ Dashboard ULTRA chargé - Version complète');
+  console.log('✅ Dashboard ULTRA chargé avec localStorage sync');
+  console.log('📦 Produits:', state.products.length);
 }
 
 function init() {
