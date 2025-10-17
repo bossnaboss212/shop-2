@@ -3,11 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Admin Panel Pro - DROGUA CENTER</title>
+  <title>Admin Panel - DROGUA CENTER</title>
   
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
   
   <style>
@@ -26,28 +24,9 @@
       --danger: #ef4444;
       --warning: #f59e0b;
       --info: #3b82f6;
-      --purple: #a855f7;
-      --pink: #ec4899;
-      --gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      --gradient-success: linear-gradient(135deg, #10b981 0%, #059669 100%);
-      --gradient-warning: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-      --gradient-danger: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
       --shadow-md: 0 4px 12px rgba(0,0,0,0.3);
       --shadow-lg: 0 10px 30px rgba(0,0,0,0.4);
       --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-
-    [data-theme="light"] {
-      --bg: #f8fafc;
-      --bg-secondary: #ffffff;
-      --card: #ffffff;
-      --card-hover: #f1f5f9;
-      --text: #1e293b;
-      --text-secondary: #475569;
-      --muted: #94a3b8;
-      --border: #e2e8f0;
-      --shadow-md: 0 4px 12px rgba(0,0,0,0.1);
-      --shadow-lg: 0 10px 30px rgba(0,0,0,0.15);
     }
 
     * {
@@ -61,40 +40,13 @@
       background: var(--bg);
       color: var(--text);
       min-height: 100vh;
-      transition: var(--transition);
       overflow-x: hidden;
-      overflow-y: auto;
-    }
-
-    html {
-      overflow-y: scroll;
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    @keyframes slideIn {
-      from { transform: translateX(400px); opacity: 0; }
-      to { transform: translateX(0); opacity: 1; }
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
-
-    @keyframes shimmer {
-      0% { background-position: -1000px 0; }
-      100% { background-position: 1000px 0; }
     }
 
     .container {
       max-width: 1600px;
       margin: 0 auto;
       padding: 20px;
-      width: 100%;
     }
 
     .header {
@@ -107,40 +59,23 @@
       align-items: center;
       box-shadow: var(--shadow-md);
       border: 1px solid var(--border);
-      flex-wrap: wrap;
       gap: 12px;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .header::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: -100%;
-      width: 100%;
-      height: 100%;
-      background: linear-gradient(90deg, transparent, rgba(91, 163, 245, 0.1), transparent);
-      animation: shimmer 3s infinite;
+      flex-wrap: wrap;
     }
 
     .header h1 {
       font-size: 24px;
       font-weight: 800;
-      background: var(--gradient);
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       -webkit-background-clip: text;
       background-clip: text;
       -webkit-text-fill-color: transparent;
-      position: relative;
-      z-index: 1;
     }
 
     .header-actions {
       display: flex;
       gap: 12px;
       flex-wrap: wrap;
-      position: relative;
-      z-index: 1;
     }
 
     #auth {
@@ -151,14 +86,13 @@
       border-radius: 24px;
       border: 1px solid var(--border);
       box-shadow: var(--shadow-lg);
-      animation: fadeIn 0.5s;
     }
 
     #auth h2 {
       font-size: 32px;
       margin-bottom: 30px;
       text-align: center;
-      background: var(--gradient);
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       -webkit-background-clip: text;
       background-clip: text;
       -webkit-text-fill-color: transparent;
@@ -184,7 +118,7 @@
     }
 
     button {
-      background: var(--gradient);
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
       border: none;
       cursor: pointer;
@@ -203,90 +137,34 @@
 
     #dash {
       display: none;
-      animation: fadeIn 0.5s;
-      width: 100%;
     }
 
-    /* AMÉLIORATION: Quick Stats avec glassmorphism */
-    .quick-stats {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-      gap: 12px;
-      margin-bottom: 24px;
-    }
-
-    .quick-stat {
-      background: linear-gradient(135deg, var(--card) 0%, var(--card-hover) 100%);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 16px;
-      position: relative;
-      overflow: hidden;
-      transition: var(--transition);
-      cursor: pointer;
-    }
-
-    .quick-stat::before {
-      content: '';
-      position: absolute;
-      top: -50%;
-      right: -50%;
-      width: 200%;
-      height: 200%;
-      background: radial-gradient(circle, rgba(91, 163, 245, 0.15) 0%, transparent 70%);
-      opacity: 0;
-      transition: var(--transition);
-    }
-
-    .quick-stat:hover::before {
-      opacity: 1;
-    }
-
-    .quick-stat:hover {
-      transform: translateY(-4px);
-      box-shadow: var(--shadow-lg);
-      border-color: var(--accent);
-    }
-
-    .quick-stat-icon {
-      font-size: 24px;
-      margin-bottom: 8px;
-      display: block;
-    }
-
-    .quick-stat .label {
-      font-size: 10px;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      margin-bottom: 6px;
+    .sync-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid var(--success);
+      border-radius: 12px;
+      font-size: 12px;
       font-weight: 600;
-    }
-
-    .quick-stat .value {
-      font-size: 20px;
-      font-weight: 800;
-      background: var(--gradient);
-      -webkit-background-clip: text;
-      background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-
-    .quick-stat .trend {
-      font-size: 11px;
-      margin-top: 6px;
-      font-weight: 600;
-    }
-
-    .trend.up {
       color: var(--success);
     }
 
-    .trend.down {
-      color: var(--danger);
+    .sync-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--success);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
     }
 
-    /* AMÉLIORATION: Stats Cards plus modernes */
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
     .stats {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -300,19 +178,6 @@
       border-radius: 20px;
       border: 1px solid var(--border);
       transition: var(--transition);
-      position: relative;
-      overflow: hidden;
-    }
-
-    .stat-card::after {
-      content: '';
-      position: absolute;
-      top: 0;
-      right: 0;
-      width: 100px;
-      height: 100px;
-      background: radial-gradient(circle, var(--accent-light) 0%, transparent 70%);
-      opacity: 0.3;
     }
 
     .stat-card:hover {
@@ -321,58 +186,23 @@
       border-color: var(--accent);
     }
 
-    .stat-card-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: 16px;
-    }
-
     .stat-card h3 {
       font-size: 13px;
       color: var(--muted);
       text-transform: uppercase;
       letter-spacing: 1px;
       font-weight: 600;
-    }
-
-    .stat-card-icon {
-      font-size: 32px;
-      opacity: 0.6;
+      margin-bottom: 12px;
     }
 
     .stat-card .value {
       font-size: 32px;
       font-weight: 800;
-      background: var(--gradient);
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       -webkit-background-clip: text;
       background-clip: text;
       -webkit-text-fill-color: transparent;
-      margin-bottom: 12px;
-      position: relative;
-      z-index: 1;
-    }
-
-    .stat-card .change {
-      font-size: 14px;
-      font-weight: 600;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 4px 12px;
-      border-radius: 20px;
-      position: relative;
-      z-index: 1;
-    }
-
-    .stat-card .change.positive {
-      background: rgba(16, 185, 129, 0.15);
-      color: var(--success);
-    }
-
-    .stat-card .change.negative {
-      background: rgba(239, 68, 68, 0.15);
-      color: var(--danger);
+      margin-bottom: 8px;
     }
 
     .tabs {
@@ -406,260 +236,16 @@
     }
 
     .tab-btn.active {
-      background: var(--gradient);
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
     }
 
     .tab-content {
       display: none;
-      width: 100%;
-      min-height: auto;
     }
 
     .tab-content.active {
       display: block;
-    }
-
-    /* AMÉLIORATION: Chart containers avec meilleur style */
-    .chart-container {
-      background: var(--card);
-      padding: 20px;
-      border-radius: 20px;
-      border: 1px solid var(--border);
-      margin-bottom: 20px;
-      transition: var(--transition);
-    }
-
-    .chart-container:hover {
-      box-shadow: var(--shadow-lg);
-    }
-
-    .chart-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 16px;
-    }
-
-    .chart-container h3 {
-      font-size: 16px;
-      font-weight: 700;
-    }
-
-    .chart-container canvas {
-      max-height: 250px !important;
-    }
-
-    .chart-controls {
-      display: flex;
-      gap: 8px;
-    }
-
-    .chart-btn {
-      padding: 8px 16px;
-      background: var(--bg-secondary);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      font-size: 12px;
-      color: var(--text);
-      cursor: pointer;
-      transition: var(--transition);
-    }
-
-    .chart-btn:hover {
-      background: var(--accent);
-      color: white;
-      border-color: var(--accent);
-    }
-
-    .chart-btn.active {
-      background: var(--accent);
-      color: white;
-      border-color: var(--accent);
-    }
-
-    /* AMÉLIORATION: Grid layouts plus flexibles */
-    .dashboard-grid {
-      display: grid;
-      grid-template-columns: repeat(12, 1fr);
-      gap: 20px;
-      margin-bottom: 20px;
-      width: 100%;
-    }
-
-    .grid-col-12 { grid-column: span 12; }
-    .grid-col-8 { grid-column: span 8; }
-    .grid-col-6 { grid-column: span 6; }
-    .grid-col-4 { grid-column: span 4; }
-
-    @media (max-width: 1024px) {
-      .grid-col-8, .grid-col-6, .grid-col-4 {
-        grid-column: span 12;
-      }
-    }
-
-    /* AMÉLIORATION: Activity feed plus attractif */
-    .activity-feed {
-      max-height: 300px;
-      overflow-y: auto;
-    }
-
-    .activity-item {
-      padding: 12px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      gap: 12px;
-      transition: var(--transition);
-      cursor: pointer;
-      position: relative;
-    }
-
-    .activity-item::before {
-      content: '';
-      position: absolute;
-      left: 0;
-      top: 0;
-      height: 100%;
-      width: 3px;
-      background: var(--accent);
-      transform: scaleY(0);
-      transition: var(--transition);
-    }
-
-    .activity-item:hover {
-      background: var(--card-hover);
-    }
-
-    .activity-item:hover::before {
-      transform: scaleY(1);
-    }
-
-    .activity-icon {
-      font-size: 20px;
-      width: 40px;
-      height: 40px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: var(--accent-light);
-      border-radius: 12px;
-      flex-shrink: 0;
-    }
-
-    .activity-content {
-      flex: 1;
-    }
-
-    .activity-title {
-      font-weight: 600;
-      margin-bottom: 4px;
-    }
-
-    .activity-time {
-      font-size: 12px;
-      color: var(--muted);
-    }
-
-    /* AMÉLIORATION: Mini widgets */
-    .mini-widget {
-      background: var(--bg-secondary);
-      padding: 12px;
-      border-radius: 12px;
-      border: 1px solid var(--border);
-      margin-bottom: 12px;
-    }
-
-    .mini-widget-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 8px;
-    }
-
-    .mini-widget-title {
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .mini-widget-value {
-      font-size: 18px;
-      font-weight: 800;
-      color: var(--text);
-    }
-
-    .progress-bar {
-      width: 100%;
-      height: 8px;
-      background: var(--border);
-      border-radius: 8px;
-      overflow: hidden;
-      margin: 12px 0;
-    }
-
-    .progress-fill {
-      height: 100%;
-      background: var(--gradient);
-      border-radius: 8px;
-      transition: width 0.5s ease;
-    }
-
-    /* AMÉLIORATION: Badges plus stylés */
-    .badge {
-      background: var(--accent-light);
-      color: var(--accent);
-      padding: 6px 12px;
-      border-radius: 20px;
-      font-size: 11px;
-      font-weight: 700;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .badge.success {
-      background: rgba(16, 185, 129, 0.15);
-      color: var(--success);
-    }
-
-    .badge.warning {
-      background: rgba(245, 158, 11, 0.15);
-      color: var(--warning);
-    }
-
-    .badge.danger {
-      background: rgba(239, 68, 68, 0.15);
-      color: var(--danger);
-    }
-
-    .badge.purple {
-      background: rgba(168, 85, 247, 0.15);
-      color: var(--purple);
-    }
-
-    /* Live indicator */
-    .live-indicator {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 16px;
-      background: rgba(239, 68, 68, 0.15);
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--danger);
-    }
-
-    .live-dot {
-      width: 8px;
-      height: 8px;
-      background: var(--danger);
-      border-radius: 50%;
-      animation: pulse 2s infinite;
     }
 
     .toolbar {
@@ -712,12 +298,6 @@
       font-size: 12px;
       text-transform: uppercase;
       letter-spacing: 1px;
-      cursor: pointer;
-      user-select: none;
-    }
-
-    th.sortable:hover {
-      background: var(--card-hover);
     }
 
     tbody tr {
@@ -742,6 +322,33 @@
     .btn-danger { background: var(--danger); color: white; }
     .btn-warning { background: var(--warning); color: white; }
 
+    .badge {
+      background: var(--accent-light);
+      color: var(--accent);
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      display: inline-flex;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .badge.success {
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--success);
+    }
+
+    .badge.warning {
+      background: rgba(245, 158, 11, 0.15);
+      color: var(--warning);
+    }
+
+    .badge.danger {
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--danger);
+    }
+
     .toast-container {
       position: fixed;
       top: 24px;
@@ -763,6 +370,11 @@
       animation: slideIn 0.3s;
     }
 
+    @keyframes slideIn {
+      from { transform: translateX(400px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+
     .toast.error { border-left-color: var(--danger); }
     .toast.warning { border-left-color: var(--warning); }
 
@@ -780,7 +392,6 @@
 
     .modal.active {
       display: flex;
-      animation: fadeIn 0.3s;
     }
 
     .modal-content {
@@ -811,15 +422,6 @@
       padding: 0;
       width: 32px;
       height: 32px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 8px;
-    }
-
-    .modal-close:hover {
-      background: var(--accent-light);
-      color: var(--accent);
     }
 
     .form-group {
@@ -836,88 +438,18 @@
       letter-spacing: 0.5px;
     }
 
-    .form-group input,
-    .form-group select,
-    .form-group textarea {
-      margin: 0;
-    }
-
-    .theme-toggle {
-      width: 50px;
-      height: 26px;
-      background: var(--border);
-      border-radius: 26px;
-      position: relative;
-      cursor: pointer;
-      transition: var(--transition);
-      padding: 0;
-      margin: 0;
-    }
-
-    .theme-toggle::after {
-      content: '🌙';
-      position: absolute;
-      top: 3px;
-      left: 3px;
-      width: 20px;
-      height: 20px;
-      background: var(--bg);
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 12px;
-      transition: var(--transition);
-    }
-
-    .theme-toggle.light {
-      background: var(--accent);
-    }
-
-    .theme-toggle.light::after {
-      content: '☀️';
-      left: calc(100% - 23px);
-      background: white;
-    }
-
-    .pagination {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 8px;
-      margin-top: 20px;
-      padding: 16px;
+    .chart-container {
       background: var(--card);
-      border-radius: 12px;
+      padding: 20px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      margin-bottom: 20px;
     }
 
-    .pagination button {
-      width: 40px;
-      height: 40px;
-      padding: 0;
-      margin: 0;
-      border-radius: 8px;
-    }
-
-    .pagination button.active {
-      background: var(--accent);
-    }
-
-    .notif-badge {
-      position: relative;
-      display: inline-block;
-    }
-
-    .notif-count {
-      position: absolute;
-      top: -8px;
-      right: -8px;
-      background: var(--danger);
-      color: white;
-      padding: 2px 6px;
-      border-radius: 10px;
-      font-size: 10px;
+    .chart-container h3 {
+      font-size: 16px;
       font-weight: 700;
+      margin-bottom: 16px;
     }
 
     @media (max-width: 768px) {
@@ -933,27 +465,22 @@
       .toolbar {
         flex-direction: column;
       }
-
-      .quick-stats {
-        grid-template-columns: repeat(2, 1fr);
-      }
     }
   </style>
 </head>
-<body data-theme="dark">
+<body>
 
 <div class="container">
   <!-- Login -->
   <div id="auth">
-    <h2>🚀 Admin Panel Pro</h2>
+    <h2>🚀 Admin Panel</h2>
     <div>
       <input id="pass" type="password" placeholder="Mot de passe" autocomplete="current-password">
       <button onclick="login()">Se connecter</button>
-      <p id="loginAttempts" style="text-align:center;margin-top:12px;color:var(--danger);font-size:12px;display:none"></p>
     </div>
     <div style="text-align:center;margin-top:20px;color:var(--muted);font-size:13px">
       <p>🔒 Mot de passe : <strong style="color:var(--accent)">admin</strong></p>
-      <p style="margin-top:8px">🔐 Sécurité SHA-256</p>
+      <p style="margin-top:8px">🔐 Chiffrement SHA-256</p>
     </div>
   </div>
 
@@ -963,143 +490,36 @@
     <div class="header">
       <h1>🎯 DROGUA CENTER</h1>
       <div class="header-actions">
-        <div class="live-indicator">
-          <span class="live-dot"></span>
-          LIVE
+        <div class="sync-badge" id="syncBadge">
+          <span class="sync-dot"></span>
+          <span id="syncStatus">Synchronisé</span>
         </div>
-        <button onclick="syncOrders()" style="padding:10px 20px;margin:0;background:var(--info)" title="Sync toutes les 5s">🔄 Sync</button>
-        <button onclick="autoBackup()" style="padding:10px 20px;margin:0;background:var(--warning)" title="Backup automatique">💾 Backup</button>
-        <button onclick="toggleNotifications()" class="notif-badge" style="padding:10px 20px;margin:0;background:transparent;color:var(--text)">
-          🔔
-          <span id="notifCount" class="notif-count" style="display:none">0</span>
-        </button>
-        <button onclick="toggleTheme()" class="theme-toggle" id="themeToggle"></button>
+        <button onclick="manualSync()" style="padding:10px 20px;margin:0;background:var(--info)" title="Synchroniser maintenant">🔄 Sync</button>
         <button onclick="showTab('settings')" style="padding:10px 20px;margin:0;background:var(--accent)">⚙️</button>
         <button onclick="logout()" style="padding:10px 20px;margin:0;background:var(--danger)">🚪</button>
       </div>
     </div>
 
-    <!-- AMÉLIORATION: Quick Stats Cards redesignées -->
-    <div class="quick-stats">
-      <div class="quick-stat">
-        <span class="quick-stat-icon">💰</span>
-        <div class="label">Aujourd'hui</div>
-        <div class="value" id="todayRevenue">0€</div>
-        <div class="trend" id="todayTrend">-</div>
-      </div>
-      <div class="quick-stat">
-        <span class="quick-stat-icon">📅</span>
-        <div class="label">Cette semaine</div>
-        <div class="value" id="weekRevenue">0€</div>
-        <div class="trend" id="weekTrend">-</div>
-      </div>
-      <div class="quick-stat">
-        <span class="quick-stat-icon">📊</span>
-        <div class="label">Ce mois</div>
-        <div class="value" id="monthRevenue">0€</div>
-        <div class="trend" id="monthTrend">-</div>
-      </div>
-      <div class="quick-stat">
-        <span class="quick-stat-icon">📦</span>
-        <div class="label">Commandes actives</div>
-        <div class="value" id="activeOrders">0</div>
-        <div class="trend" id="ordersTrend">-</div>
-      </div>
-      <div class="quick-stat">
-        <span class="quick-stat-icon">⚠️</span>
-        <div class="label">Stock faible</div>
-        <div class="value" id="lowStock" style="color:var(--warning)">0</div>
-        <div class="trend" id="stockTrend">-</div>
-      </div>
-      <div class="quick-stat">
-        <span class="quick-stat-icon">👥</span>
-        <div class="label">Total clients</div>
-        <div class="value" id="totalCustomersQuick">0</div>
-        <div class="trend" id="customersTrend">-</div>
-      </div>
-      <div class="quick-stat">
-        <span class="quick-stat-icon">⭐</span>
-        <div class="label">Clients VIP</div>
-        <div class="value" id="vipCustomers">0</div>
-        <div class="trend" id="vipTrend">-</div>
-      </div>
-      <div class="quick-stat" style="background:linear-gradient(135deg, var(--info) 0%, #2563eb 100%);color:white">
-        <span class="quick-stat-icon" style="filter:brightness(2)">🔄</span>
-        <div class="label" style="color:rgba(255,255,255,0.9)">Sync Auto</div>
-        <div class="value" style="color:white;-webkit-text-fill-color:white" id="syncStatus">Actif</div>
-        <div class="trend" style="color:rgba(255,255,255,0.8)">5s</div>
-      </div>
-    </div>
-
-    <!-- AMÉLIORATION: Stats avec icônes et meilleurs indicateurs -->
+    <!-- Stats -->
     <div class="stats">
       <div class="stat-card">
-        <div class="stat-card-header">
-          <h3>💰 Chiffre d'affaires</h3>
-          <span class="stat-card-icon">💎</span>
-        </div>
+        <h3>💰 Chiffre d'affaires</h3>
         <div class="value" id="totalRevenue">0,00 €</div>
-        <div class="change" id="revenueChange">Démarrage</div>
-        <div class="progress-bar" style="margin-top:16px">
-          <div class="progress-fill" id="revenueProgress" style="width:0%"></div>
-        </div>
       </div>
       
       <div class="stat-card">
-        <div class="stat-card-header">
-          <h3>📦 Commandes</h3>
-          <span class="stat-card-icon">🛒</span>
-        </div>
+        <h3>📦 Commandes</h3>
         <div class="value" id="totalOrders">0</div>
-        <div class="change" id="ordersChange">Démarrage</div>
-        <div class="progress-bar" style="margin-top:16px">
-          <div class="progress-fill" id="ordersProgress" style="width:0%;background:var(--gradient-success)"></div>
-        </div>
       </div>
       
       <div class="stat-card">
-        <div class="stat-card-header">
-          <h3>🛒 Panier moyen</h3>
-          <span class="stat-card-icon">💳</span>
-        </div>
-        <div class="value" id="avgCart">0,00 €</div>
-        <div class="change" id="cartChange">Démarrage</div>
-        <div class="progress-bar" style="margin-top:16px">
-          <div class="progress-fill" id="cartProgress" style="width:0%;background:var(--gradient-warning)"></div>
-        </div>
+        <h3>🛍 Produits</h3>
+        <div class="value" id="totalProducts">0</div>
       </div>
       
       <div class="stat-card">
-        <div class="stat-card-header">
-          <h3>💎 Valeur stock</h3>
-          <span class="stat-card-icon">📊</span>
-        </div>
+        <h3>💎 Valeur stock</h3>
         <div class="value" id="stockValue">0,00 €</div>
-        <div class="change" id="stockChange">Stock initial</div>
-        <div class="progress-bar" style="margin-top:16px">
-          <div class="progress-fill" id="stockProgress" style="width:55%"></div>
-        </div>
-      </div>
-      
-      <div class="stat-card">
-        <div class="stat-card-header">
-          <h3>⚠️ Alertes stock</h3>
-          <span class="stat-card-icon">🔔</span>
-        </div>
-        <div class="value" style="color:var(--warning)" id="stockAlerts">0</div>
-        <div class="change" id="alertsChange">Aucune alerte</div>
-      </div>
-      
-      <div class="stat-card">
-        <div class="stat-card-header">
-          <h3>💶 Caisse actuelle</h3>
-          <span class="stat-card-icon">💵</span>
-        </div>
-        <div class="value" id="cashTotal">0,00 €</div>
-        <div class="change" id="cashChange">Démarrage</div>
-        <div class="progress-bar" style="margin-top:16px">
-          <div class="progress-fill" id="cashProgress" style="width:0%;background:var(--gradient-success)"></div>
-        </div>
       </div>
     </div>
 
@@ -1108,203 +528,74 @@
       <button class="tab-btn active" onclick="showTab('dashboard')">📊 Dashboard</button>
       <button class="tab-btn" onclick="showTab('orders')">📦 Commandes</button>
       <button class="tab-btn" onclick="showTab('products')">🛍 Produits</button>
-      <button class="tab-btn" onclick="showTab('stock')">📈 Stock</button>
-      <button class="tab-btn" onclick="showTab('customers')">👥 Clients</button>
-      <button class="tab-btn" onclick="showTab('finances')">💰 Finances</button>
-      <button class="tab-btn" onclick="showTab('cashier')">💶 Caisse</button>
-      <button class="tab-btn" onclick="showTab('analytics')">📊 Analytics</button>
       <button class="tab-btn" onclick="showTab('settings')">⚙️ Paramètres</button>
     </div>
 
-    <!-- AMÉLIORATION: Dashboard Tab avec meilleur layout -->
+    <!-- Dashboard Tab -->
     <div class="tab-content active" id="tab-dashboard">
-      <div class="dashboard-grid">
-        <!-- Graphique principal des ventes -->
-        <div class="grid-col-8">
-          <div class="chart-container">
-            <div class="chart-header">
-              <h3>📈 Évolution des ventes</h3>
-              <div class="chart-controls">
-                <button class="chart-btn active" onclick="changeSalesChart('week')">7 jours</button>
-                <button class="chart-btn" onclick="changeSalesChart('month')">30 jours</button>
-                <button class="chart-btn" onclick="changeSalesChart('year')">Année</button>
-              </div>
-            </div>
-            <canvas id="salesChart"></canvas>
-          </div>
-        </div>
-
-        <!-- Mini widgets et activité -->
-        <div class="grid-col-4">
-          <div class="chart-container">
-            <h3>🎯 Objectifs du mois</h3>
-            <div class="mini-widget">
-              <div class="mini-widget-header">
-                <span class="mini-widget-title">Chiffre d'affaires</span>
-                <span style="font-size:20px">💰</span>
-              </div>
-              <div class="mini-widget-value">15,450€ / 20,000€</div>
-              <div class="progress-bar">
-                <div class="progress-fill" style="width:77%"></div>
-              </div>
-            </div>
-            
-            <div class="mini-widget">
-              <div class="mini-widget-header">
-                <span class="mini-widget-title">Commandes</span>
-                <span style="font-size:20px">📦</span>
-              </div>
-              <div class="mini-widget-value">142 / 200</div>
-              <div class="progress-bar">
-                <div class="progress-fill" style="width:71%;background:var(--gradient-success)"></div>
-              </div>
-            </div>
-            
-            <div class="mini-widget">
-              <div class="mini-widget-header">
-                <span class="mini-widget-title">Nouveaux clients</span>
-                <span style="font-size:20px">👥</span>
-              </div>
-              <div class="mini-widget-value">28 / 40</div>
-              <div class="progress-bar">
-                <div class="progress-fill" style="width:70%;background:var(--gradient-warning)"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Top produits et catégories -->
-        <div class="grid-col-6">
-          <div class="chart-container">
-            <div class="chart-header">
-              <h3>🏆 Top 5 Produits</h3>
-              <span class="badge success">Best sellers</span>
-            </div>
-            <canvas id="topProductsChart"></canvas>
-          </div>
+      <div class="chart-container">
+        <h3>📈 Évolution des ventes (7 derniers jours)</h3>
+        <canvas id="salesChart"></canvas>
+      </div>
+      
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px">
+        <div class="chart-container">
+          <h3>🔥 Activité récente</h3>
+          <div id="recentActivity" style="max-height:300px;overflow-y:auto"></div>
         </div>
         
-        <div class="grid-col-6">
-          <div class="chart-container">
-            <div class="chart-header">
-              <h3>📊 Ventes par catégorie</h3>
-              <span class="badge purple">Distribution</span>
+        <div class="chart-container">
+          <h3>📊 Statistiques rapides</h3>
+          <div style="display:grid;gap:12px">
+            <div style="display:flex;justify-content:space-between;padding:12px;background:var(--bg-secondary);border-radius:8px">
+              <span>Commandes en attente</span>
+              <strong id="pendingOrders">0</strong>
             </div>
-            <canvas id="categoryChart"></canvas>
-          </div>
-        </div>
-
-        <!-- Activité temps réel -->
-        <div class="grid-col-6">
-          <div class="chart-container">
-            <div class="chart-header">
-              <h3>🔴 Activité en temps réel</h3>
-              <div class="live-indicator">
-                <span class="live-dot"></span>
-                LIVE
-              </div>
+            <div style="display:flex;justify-content:space-between;padding:12px;background:var(--bg-secondary);border-radius:8px">
+              <span>Commandes livrées</span>
+              <strong id="deliveredOrders">0</strong>
             </div>
-            <div class="activity-feed" id="activityFeed"></div>
-          </div>
-        </div>
-
-        <!-- Analytics avancées -->
-        <div class="grid-col-6">
-          <div class="chart-container">
-            <div class="chart-header">
-              <h3>📊 Performance hebdomadaire</h3>
-              <span class="badge">7 jours</span>
+            <div style="display:flex;justify-content:space-between;padding:12px;background:var(--bg-secondary);border-radius:8px">
+              <span>Commandes annulées</span>
+              <strong id="cancelledOrders">0</strong>
             </div>
-            <canvas id="advancedChart"></canvas>
-          </div>
-        </div>
-
-        <!-- Métriques de performance -->
-        <div class="grid-col-12">
-          <div class="chart-container">
-            <h3 style="margin-bottom:16px">⚡ Indicateurs de performance</h3>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">
-              <div class="mini-widget">
-                <div class="mini-widget-header">
-                  <span class="mini-widget-title">Taux de conversion</span>
-                  <span style="color:var(--success)">↗</span>
-                </div>
-                <div class="mini-widget-value" style="color:var(--success)">24.5%</div>
-              </div>
-              <div class="mini-widget">
-                <div class="mini-widget-header">
-                  <span class="mini-widget-title">Taux de rétention</span>
-                  <span style="color:var(--success)">↗</span>
-                </div>
-                <div class="mini-widget-value" style="color:var(--success)">67%</div>
-              </div>
-              <div class="mini-widget">
-                <div class="mini-widget-header">
-                  <span class="mini-widget-title">Note moyenne</span>
-                  <span style="color:var(--warning)">⭐</span>
-                </div>
-                <div class="mini-widget-value" style="color:var(--warning)">4.7/5</div>
-              </div>
-              <div class="mini-widget">
-                <div class="mini-widget-header">
-                  <span class="mini-widget-title">Rotation stock</span>
-                  <span style="color:var(--info)">🔄</span>
-                </div>
-                <div class="mini-widget-value" style="color:var(--info)">3.2x</div>
-              </div>
-              <div class="mini-widget">
-                <div class="mini-widget-header">
-                  <span class="mini-widget-title">Valeur vie client</span>
-                  <span style="color:var(--purple)">💎</span>
-                </div>
-                <div class="mini-widget-value" style="color:var(--purple)">485€</div>
-              </div>
-              <div class="mini-widget">
-                <div class="mini-widget-header">
-                  <span class="mini-widget-title">Marge moyenne</span>
-                  <span style="color:var(--success)">💰</span>
-                </div>
-                <div class="mini-widget-value" style="color:var(--success)">68%</div>
-              </div>
+            <div style="display:flex;justify-content:space-between;padding:12px;background:var(--bg-secondary);border-radius:8px">
+              <span>Produits en stock bas</span>
+              <strong id="lowStockProducts" style="color:var(--warning)">0</strong>
             </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Orders Tab (reste identique) -->
+    <!-- Orders Tab -->
     <div class="tab-content" id="tab-orders">
       <div class="toolbar">
         <input type="text" id="searchOrders" placeholder="🔍 Rechercher..." oninput="searchOrders()">
         <select id="filterStatus" onchange="filterOrders()">
           <option value="all">Tous</option>
           <option value="pending">⏳ En attente</option>
-          <option value="processing">🔄 En traitement</option>
           <option value="delivered">✅ Livré</option>
           <option value="cancelled">❌ Annulé</option>
         </select>
-        <button onclick="addOrder()" style="background:var(--success)">➕ Nouveau</button>
-        <button onclick="exportOrdersPDF()">📄 PDF</button>
-        <button onclick="exportOrdersExcel()">📊 Excel</button>
-        <button onclick="exportData('orders')">📥 JSON</button>
+        <button onclick="exportOrders()" style="background:var(--info)">📥 Exporter</button>
       </div>
 
       <div class="table-container">
         <table>
           <thead>
             <tr>
-              <th class="sortable" onclick="sortTable('orders', 'id')">ID</th>
-              <th class="sortable" onclick="sortTable('orders', 'date')">Date</th>
-              <th class="sortable" onclick="sortTable('orders', 'customer')">Client</th>
-              <th>Produits</th>
-              <th class="sortable" onclick="sortTable('orders', 'total')">Total</th>
+              <th>ID</th>
+              <th>Date</th>
+              <th>Client</th>
+              <th>Articles</th>
+              <th>Total</th>
               <th>Statut</th>
-              <th>Paiement</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody id="ordersTable">
-            <tr><td colspan="8" style="text-align:center;padding:40px;color:var(--muted)">Aucune commande</td></tr>
+            <tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted)">Aucune commande</td></tr>
           </tbody>
         </table>
       </div>
@@ -1318,343 +609,79 @@
           <option value="all">Toutes</option>
           <option value="fleurs">🌿 Fleurs</option>
           <option value="resines">🟫 Résines</option>
-          <option value="blanche">Blanche</option>
-          <option value="cali">Cali</option>
-          <option value="keta">Keta</option>
+          <option value="blanche">⚪ Blanche</option>
+          <option value="cali">🌟 Cali</option>
+          <option value="keta">💎 Keta</option>
         </select>
         <button onclick="addProduct()" style="background:var(--success)">➕ Nouveau</button>
-        <button onclick="exportData('products')">📥 Export</button>
+        <button onclick="exportProducts()" style="background:var(--info)">📥 Exporter</button>
       </div>
 
       <div class="table-container">
         <table>
           <thead>
             <tr>
-              <th class="sortable" onclick="sortTable('products', 'id')">ID</th>
-              <th class="sortable" onclick="sortTable('products', 'name')">Nom</th>
+              <th>ID</th>
+              <th>Nom</th>
               <th>Catégorie</th>
               <th>Variants</th>
-              <th>Prix Min</th>
-              <th>Stock</th>
+              <th>Stock Total</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody id="productsTable">
-            <tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted)">Chargement...</td></tr>
+            <tr><td colspan="6" style="text-align:center;padding:40px;color:var(--muted)">Chargement...</td></tr>
           </tbody>
         </table>
-      </div>
-    </div>
-    
-    <!-- Stock Tab -->
-    <div class="tab-content" id="tab-stock">
-      <div class="toolbar">
-        <select id="stockProduct" onchange="updateVariantOptions()">
-          <option value="">Produit...</option>
-        </select>
-        <select id="stockVariant" disabled>
-          <option value="">Variant...</option>
-        </select>
-        <input type="number" id="stockQty" placeholder="Quantité" min="0">
-        <button onclick="addStock()" style="background:var(--success)">➕ Ajouter</button>
-        <button onclick="adjustStock()" style="background:var(--warning)">⚖️ Ajuster</button>
-      </div>
-
-      <div class="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>Produit</th>
-              <th>Variant</th>
-              <th>Stock</th>
-              <th>Prix achat</th>
-              <th>Prix vente</th>
-              <th>Valeur</th>
-              <th>Statut</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="stockTable"></tbody>
-        </table>
-      </div>
-    </div>
-    
-    <!-- Customers Tab -->
-    <div class="tab-content" id="tab-customers">
-      <div class="toolbar">
-        <input type="text" id="searchCustomers" placeholder="🔍 Rechercher..." oninput="searchCustomers()">
-        <select id="filterCustomerType" onchange="filterCustomers()">
-          <option value="all">Tous</option>
-          <option value="vip">⭐ VIP</option>
-          <option value="regular">👤 Régulier</option>
-          <option value="new">🆕 Nouveau</option>
-        </select>
-        <button onclick="addCustomer()" style="background:var(--success)">➕ Nouveau</button>
-        <button onclick="exportCustomersExcel()">📊 Excel</button>
-        <button onclick="exportData('customers')">📥 JSON</button>
-      </div>
-
-      <div class="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th class="sortable" onclick="sortTable('customers', 'id')">ID</th>
-              <th class="sortable" onclick="sortTable('customers', 'name')">Nom</th>
-              <th>Email</th>
-              <th>Téléphone</th>
-              <th>Commandes</th>
-              <th>Total</th>
-              <th>Statut</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="customersTable">
-            <tr><td colspan="8" style="text-align:center;padding:40px;color:var(--muted)">Aucun client</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-    
-    <!-- Finances Tab -->
-    <div class="tab-content" id="tab-finances">
-      <div class="stats">
-        <div class="stat-card">
-          <h3>💵 Revenus mois</h3>
-          <div class="value" id="monthlyRevenue">0€</div>
-        </div>
-        <div class="stat-card">
-          <h3>💸 Dépenses mois</h3>
-          <div class="value" style="color:var(--danger)" id="monthlyExpenses">0€</div>
-        </div>
-        <div class="stat-card">
-          <h3>💰 Bénéfice net</h3>
-          <div class="value" id="netProfit">0€</div>
-        </div>
-      </div>
-
-      <!-- Calculateur -->
-      <div class="chart-container">
-        <h3>🧮 Calculateur rentabilité</h3>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px">
-          <div>
-            <label style="display:block;margin-bottom:8px;font-size:12px">Poids (g)</label>
-            <input type="number" id="calcWeight" placeholder="10" step="0.1" oninput="calculateProfit()">
-          </div>
-          <div>
-            <label style="display:block;margin-bottom:8px;font-size:12px">Prix achat (€/g)</label>
-            <input type="number" id="calcBuyPrice" placeholder="1.5" step="0.01" oninput="calculateProfit()">
-          </div>
-          <div>
-            <label style="display:block;margin-bottom:8px;font-size:12px">Prix vente (€)</label>
-            <input type="number" id="calcSellPrice" placeholder="50" step="0.01" oninput="calculateProfit()">
-          </div>
-          <div>
-            <label style="display:block;margin-bottom:8px;font-size:12px">Quantité</label>
-            <input type="number" id="calcQuantity" placeholder="1" value="1" min="1" oninput="calculateProfit()">
-          </div>
-        </div>
-        
-        <div id="profitResults" style="display:none;margin-top:20px;padding:20px;background:var(--bg-secondary);border-radius:12px">
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px">
-            <div style="text-align:center;padding:12px;background:var(--card);border-radius:8px">
-              <div style="font-size:11px;color:var(--muted)">Coût</div>
-              <div style="font-size:20px;font-weight:700;color:var(--danger)" id="resultCost">0€</div>
-            </div>
-            <div style="text-align:center;padding:12px;background:var(--card);border-radius:8px">
-              <div style="font-size:11px;color:var(--muted)">Bénéfice unit</div>
-              <div style="font-size:20px;font-weight:700;color:var(--success)" id="resultUnitProfit">0€</div>
-            </div>
-            <div style="text-align:center;padding:12px;background:var(--card);border-radius:8px">
-              <div style="font-size:11px;color:var(--muted)">Marge %</div>
-              <div style="font-size:20px;font-weight:700;color:var(--warning)" id="resultMargin">0%</div>
-            </div>
-            <div style="text-align:center;padding:12px;background:var(--card);border-radius:8px;border:2px solid var(--success)">
-              <div style="font-size:11px;color:var(--muted)">Bénéfice total</div>
-              <div style="font-size:24px;font-weight:800;color:var(--success)" id="resultTotalProfit">0€</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Rentabilité produits -->
-      <div class="chart-container">
-        <h3>📊 Rentabilité par produit</h3>
-        <div class="table-container" style="box-shadow:none;border:none">
-          <table>
-            <thead>
-              <tr>
-                <th>Produit</th>
-                <th>Ventes</th>
-                <th>CA</th>
-                <th>Coût</th>
-                <th>Bénéfice</th>
-                <th>Marge %</th>
-              </tr>
-            </thead>
-            <tbody id="profitTable">
-              <tr><td colspan="6" style="text-align:center;padding:20px">Calcul...</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-    
-    <!-- Cashier Tab -->
-    <div class="tab-content" id="tab-cashier">
-      <div class="stats">
-        <div class="stat-card" style="background:var(--gradient);color:white">
-          <h3 style="color:white">💶 CAISSE</h3>
-          <div class="value" style="font-size:48px;color:white;-webkit-text-fill-color:white" id="cashierTotal">0€</div>
-        </div>
-        <div class="stat-card">
-          <h3>➕ Entrées jour</h3>
-          <div class="value" style="color:var(--success)" id="todayIncome">0€</div>
-        </div>
-        <div class="stat-card">
-          <h3>➖ Sorties jour</h3>
-          <div class="value" style="color:var(--danger)" id="todayExpense">0€</div>
-        </div>
-        <div class="stat-card">
-          <h3>📊 Balance</h3>
-          <div class="value" id="todayBalance">0€</div>
-        </div>
-      </div>
-
-      <!-- Transaction -->
-      <div class="chart-container">
-        <h3>💸 Transaction</h3>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px">
-          <select id="transType">
-            <option value="income">➕ Entrée</option>
-            <option value="expense">➖ Sortie</option>
-            <option value="adjustment">⚖️ Ajustement</option>
-          </select>
-          <input type="number" id="transAmount" placeholder="Montant €" step="0.01">
-          <select id="transCategory">
-            <option value="sale">Vente</option>
-            <option value="purchase">Achat</option>
-            <option value="expense">Dépense</option>
-            <option value="other">Autre</option>
-          </select>
-          <input type="text" id="transDescription" placeholder="Description">
-        </div>
-        <button onclick="addTransaction()" style="margin-top:16px;background:var(--success)">💾 Enregistrer</button>
-      </div>
-
-      <!-- Actions & Historique -->
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:24px">
-        <div class="chart-container">
-          <h3>⚡ Actions</h3>
-          <div style="display:grid;gap:12px">
-            <button onclick="quickSale(20)" style="background:var(--success);padding:16px">💵 Vente 20€</button>
-            <button onclick="quickSale(50)" style="background:var(--success);padding:16px">💵 Vente 50€</button>
-            <button onclick="quickSale(100)" style="background:var(--success);padding:16px">💵 Vente 100€</button>
-            <button onclick="countCash()" style="background:var(--info);padding:16px">🔢 Compter</button>
-            <button onclick="closeCashRegister()" style="background:var(--warning);padding:16px">🔒 Clôturer</button>
-          </div>
-        </div>
-
-        <div class="chart-container">
-          <h3>📜 Historique</h3>
-          <div id="recentTransactions" style="max-height:400px;overflow-y:auto"></div>
-        </div>
-
-        <div class="chart-container">
-          <h3>📊 Semaine</h3>
-          <div id="weekCashSummary"></div>
-        </div>
-      </div>
-    </div>
-    
-    <!-- Analytics Tab -->
-    <div class="tab-content" id="tab-analytics">
-      <div class="stats">
-        <div class="stat-card">
-          <h3>📈 Taux conversion</h3>
-          <div class="value">24.5%</div>
-        </div>
-        <div class="stat-card">
-          <h3>🔄 Rétention</h3>
-          <div class="value">67%</div>
-        </div>
-        <div class="stat-card">
-          <h3>⭐ Note</h3>
-          <div class="value">4.7/5</div>
-        </div>
-      </div>
-
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
-        <div class="chart-container">
-          <h3>📊 Ventes catégorie</h3>
-          <canvas id="analyticsCategoryChart"></canvas>
-        </div>
-        <div class="chart-container">
-          <h3>🌍 Ventes zone</h3>
-          <canvas id="analyticsZoneChart"></canvas>
-        </div>
       </div>
     </div>
     
     <!-- Settings Tab -->
     <div class="tab-content" id="tab-settings">
       <div class="chart-container">
-        <h3>⚙️ Général</h3>
-        <div class="form-group">
-          <label>Nom</label>
-          <input type="text" id="shopName" value="DROGUA CENTER">
+        <h3>🔄 Synchronisation</h3>
+        <p style="margin-bottom:16px;color:var(--text-secondary)">
+          L'admin se synchronise automatiquement avec la boutique toutes les 2 secondes.
+        </p>
+        <div style="background:var(--bg-secondary);padding:16px;border-radius:12px;margin-bottom:16px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+            <span>État :</span>
+            <strong id="syncState" style="color:var(--success)">✓ Actif</strong>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+            <span>Dernière sync :</span>
+            <strong id="lastSync">Jamais</strong>
+          </div>
+          <div style="display:flex;justify-content:space-between">
+            <span>Intervalle :</span>
+            <strong>2 secondes</strong>
+          </div>
         </div>
-        <div class="form-group">
-          <label>Email</label>
-          <input type="email" id="shopEmail" value="contact@drogua.center">
-        </div>
-        <div class="form-group">
-          <label>Téléphone</label>
-          <input type="tel" id="shopPhone" value="06 XX XX XX XX">
-        </div>
-        <button onclick="saveSettings()">💾 Sauvegarder</button>
+        <button onclick="manualSync()">🔄 Synchroniser maintenant</button>
       </div>
 
       <div class="chart-container">
         <h3>🔒 Sécurité</h3>
         <div class="form-group">
-          <label>Ancien</label>
-          <input type="password" id="oldPassword">
+          <label>Nouveau mot de passe</label>
+          <input type="password" id="newPassword" placeholder="Minimum 4 caractères">
         </div>
         <div class="form-group">
-          <label>Nouveau</label>
-          <input type="password" id="newPassword">
+          <label>Confirmer le mot de passe</label>
+          <input type="password" id="confirmPassword" placeholder="Confirmez le mot de passe">
         </div>
-        <div class="form-group">
-          <label>Confirmer</label>
-          <input type="password" id="confirmPassword">
-        </div>
-        <button onclick="changePassword()">🔐 Modifier</button>
+        <button onclick="changePassword()">🔐 Modifier le mot de passe</button>
       </div>
 
       <div class="chart-container">
-        <h3>💾 Données</h3>
-        <button onclick="exportAll()" style="margin-right:12px">📥 Exporter tout</button>
-        <button onclick="importAll()" style="background:var(--warning);margin-right:12px">📤 Importer</button>
-        <button onclick="resetToFresh()" style="background:var(--info);margin-right:12px">🔄 Réinitialiser</button>
-        <button onclick="clearAll()" style="background:var(--danger)">🗑️ Tout effacer</button>
+        <h3>💾 Gestion des données</h3>
+        <button onclick="exportAllData()" style="background:var(--info);margin-bottom:12px">📥 Exporter toutes les données</button>
+        <button onclick="importAllData()" style="background:var(--warning);margin-bottom:12px">📤 Importer des données</button>
         <input type="file" id="importFile" style="display:none" accept=".json">
+        <button onclick="resetData()" style="background:var(--danger)">🗑️ Réinitialiser toutes les données</button>
         <p style="margin-top:12px;font-size:12px;color:var(--muted)">
-          Réinitialiser = Remise à zéro (garde produits)<br>
-          Tout effacer = Suppression complète
+          ⚠️ La réinitialisation supprimera TOUTES les commandes, produits et statistiques de manière irréversible
         </p>
-      </div>
-
-      <div class="chart-container">
-        <h3>🔔 Notifications</h3>
-        <button onclick="requestNotificationPermission()">🔔 Activer</button>
-        <p style="margin-top:12px">Statut: <span id="notifPermission">❌ Non activé</span></p>
-      </div>
-
-      <div class="chart-container">
-        <h3>🔄 Sync</h3>
-        <p style="margin-bottom:16px;color:var(--muted)">Vérification auto toutes les 5s</p>
-        <p>Dernière sync: <span id="lastSyncTime">Jamais</span></p>
-        <button onclick="syncOrders()" style="margin-top:16px">🔄 Sync maintenant</button>
       </div>
     </div>
   </div>
@@ -1675,687 +702,42 @@
 </div>
 
 <script>
-// État global
-const state = {
-  currentPassword: 'admin',
-  passwordHash: CryptoJS.SHA256('admin').toString(),
-  loginAttempts: 0,
-  lockoutUntil: null,
-  sessionExpiry: null,
-  charts: {},
-  sortConfig: {},
-  notifications: [],
-  lastBackup: null,
-  syncInterval: null,
-  cash: { 
-    total: 0, 
-    transactions: [], 
-    weekHistory: [] 
-  },
-  data: {
-    orders: [],
-    products: [
-      { id: 1, name: 'AMNESIA', category: 'fleurs', buyPrice: 2.8, variants: {
-        '3.33G': { price: 20, stock: 50 }, 
-        '5G': { price: 30, stock: 45 }, 
-        '10G': { price: 60, stock: 30 }
-      }},
-      { id: 2, name: 'EL JEFE', category: 'blanche', buyPrice: 17.5, variants: {
-        '0.5G': { price: 30, stock: 20 }, 
-        '1G': { price: 50, stock: 15 }
-      }},
-      { id: 3, name: 'DEMBELE', category: 'resines', buyPrice: 2.7, variants: {
-        '3.5G': { price: 20, stock: 60 }, 
-        '5G': { price: 30, stock: 50 }
-      }},
-      { id: 4, name: 'LEMON GELATO', category: 'cali', buyPrice: 5.3, variants: {
-        '3.5G': { price: 40, stock: 20 }
-      }},
-      { id: 5, name: 'NEEDLES KETA', category: 'keta', buyPrice: 3.9, variants: {
-        '1G': { price: 20, stock: 30 }
-      }},
-      { id: 6, name: 'OG KUSH', category: 'fleurs', buyPrice: 3.0, variants: {
-        '3.33G': { price: 20, stock: 40 },
-        '5G': { price: 30, stock: 35 },
-        '10G': { price: 60, stock: 25 }
-      }},
-      { id: 7, name: 'PURPLE HAZE', category: 'fleurs', buyPrice: 3.2, variants: {
-        '3.33G': { price: 25, stock: 30 },
-        '5G': { price: 35, stock: 25 }
-      }},
-      { id: 8, name: 'SUPER SKUNK', category: 'resines', buyPrice: 2.5, variants: {
-        '3.5G': { price: 20, stock: 55 },
-        '5G': { price: 30, stock: 45 },
-        '10G': { price: 55, stock: 30 }
-      }},
-      { id: 9, name: 'CHARAS', category: 'resines', buyPrice: 3.0, variants: {
-        '3.5G': { price: 25, stock: 40 },
-        '5G': { price: 35, stock: 30 }
-      }},
-      { id: 10, name: 'WEDDING CAKE', category: 'cali', buyPrice: 5.5, variants: {
-        '3.5G': { price: 45, stock: 15 }
-      }},
-      { id: 11, name: 'RUNTZ', category: 'cali', buyPrice: 6.0, variants: {
-        '3.5G': { price: 50, stock: 12 }
-      }},
-      { id: 12, name: 'PURE KETA', category: 'keta', buyPrice: 4.2, variants: {
-        '0.5G': { price: 15, stock: 25 },
-        '1G': { price: 25, stock: 20 }
-      }}
-    ],
-    customers: []
+console.log('🚀 ADMIN PANEL SYNC v1.0');
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CONFIGURATION
+// ═══════════════════════════════════════════════════════════════════════════
+
+const CONFIG = {
+  PASSWORD_HASH: CryptoJS.SHA256('admin').toString(),
+  SYNC_INTERVAL: 2000,
+  STORAGE_KEYS: {
+    PRODUCTS: 'shop_products',
+    ORDERS: 'shop_orders',
+    STATS: 'shop_stats',
+    AUTH: 'admin_auth',
+    PASSWORD: 'admin_password'
   }
 };
 
-// Init
-function init() {
-  loadData();
-  checkAuth();
-  loadTheme();
-  startAutoSync();
-}
+// ═══════════════════════════════════════════════════════════════════════════
+// ÉTAT GLOBAL
+// ═══════════════════════════════════════════════════════════════════════════
 
-// Data persistence
-function loadData() {
-  const saved = localStorage.getItem('admin_data_ultra');
-  if (saved) {
-    try {
-      const data = JSON.parse(saved);
-      // Fusionner avec les données par défaut pour ne pas perdre les produits
-      state.data.orders = data.orders || [];
-      state.data.customers = data.customers || [];
-      // Garder les produits existants ou charger les sauvegardés
-      if (data.products && data.products.length > 0) {
-        state.data.products = data.products;
-      }
-      console.log('📂 Données chargées:', state.data.products.length, 'produits');
-    } catch (e) {
-      console.error('Error loading data:', e);
-    }
-  } else {
-    console.log('ℹ️ Aucune donnée sauvegardée - utilisation des produits par défaut');
-  }
-  
-  const savedCash = localStorage.getItem('admin_cash_ultra');
-  if (savedCash) {
-    try {
-      state.cash = JSON.parse(savedCash);
-    } catch (e) {
-      console.error('Error loading cash:', e);
-    }
-  }
-  
-  const pass = localStorage.getItem('admin_password');
-  if (pass) {
-    state.currentPassword = pass;
-    state.passwordHash = CryptoJS.SHA256(pass).toString();
-  }
-}
+const state = {
+  products: [],
+  orders: [],
+  stats: { totalRevenue: 0, totalOrders: 0 },
+  syncInterval: null,
+  chart: null
+};
 
-function saveData() {
-  try {
-    localStorage.setItem('admin_data_ultra', JSON.stringify(state.data));
-    localStorage.setItem('admin_cash_ultra', JSON.stringify(state.cash));
-    console.log('💾 Données sauvegardées:', state.data.products.length, 'produits');
-  } catch (e) {
-    console.error('Error saving data:', e);
-    showToast('Erreur sauvegarde', 'error');
-  }
-}
+// ═══════════════════════════════════════════════════════════════════════════
+// UTILITAIRES
+// ═══════════════════════════════════════════════════════════════════════════
 
-// Auth
-function checkAuth() {
-  const auth = localStorage.getItem('admin_auth');
-  const expiry = localStorage.getItem('session_expiry');
-  
-  if (auth === 'true' && expiry && Date.now() < parseInt(expiry)) {
-    state.sessionExpiry = parseInt(expiry);
-    showDashboard();
-    return true;
-  }
-  
-  localStorage.removeItem('admin_auth');
-  localStorage.removeItem('session_expiry');
-  return false;
-}
+const fmt = amount => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(amount || 0);
 
-function login() {
-  if (state.lockoutUntil && Date.now() < state.lockoutUntil) {
-    const mins = Math.ceil((state.lockoutUntil - Date.now()) / 60000);
-    showToast(`Verrouillé. Réessayez dans ${mins} min`, 'error');
-    return;
-  }
-  
-  const pass = document.getElementById('pass').value;
-  const hash = CryptoJS.SHA256(pass).toString();
-  
-  if (hash === state.passwordHash) {
-    state.loginAttempts = 0;
-    state.lockoutUntil = null;
-    
-    // Sauvegarder session pour 24h
-    const expiry = Date.now() + (24 * 60 * 60 * 1000);
-    localStorage.setItem('admin_auth', 'true');
-    localStorage.setItem('session_expiry', expiry.toString());
-    state.sessionExpiry = expiry;
-    
-    showDashboard();
-    showToast('✅ Connexion réussie !', 'success');
-  } else {
-    state.loginAttempts++;
-    const remaining = 5 - state.loginAttempts;
-    
-    if (state.loginAttempts >= 5) {
-      state.lockoutUntil = Date.now() + (5 * 60 * 1000);
-      showToast('Compte verrouillé 5 min', 'error');
-    } else {
-      showToast(`❌ Incorrect. ${remaining} tentative(s)`, 'error');
-    }
-    
-    document.getElementById('pass').value = '';
-  }
-}
-
-function logout() {
-  if (confirm('Se déconnecter ?')) {
-    // Arrêter sync auto
-    if (state.syncInterval) {
-      clearInterval(state.syncInterval);
-      state.syncInterval = null;
-    }
-    
-    localStorage.removeItem('admin_auth');
-    localStorage.removeItem('session_expiry');
-    location.reload();
-  }
-}
-
-function showDashboard() {
-  document.getElementById('auth').style.display = 'none';
-  document.getElementById('dash').style.display = 'block';
-  
-  // S'assurer que tous les produits sont chargés
-  if (!state.data.products || state.data.products.length === 0) {
-    // Réinitialiser avec les produits par défaut
-    state.data.products = [
-      { id: 1, name: 'AMNESIA', category: 'fleurs', buyPrice: 2.8, variants: {
-        '3.33G': { price: 20, stock: 50 }, 
-        '5G': { price: 30, stock: 45 }, 
-        '10G': { price: 60, stock: 30 }
-      }},
-      { id: 2, name: 'EL JEFE', category: 'blanche', buyPrice: 17.5, variants: {
-        '0.5G': { price: 30, stock: 20 }, 
-        '1G': { price: 50, stock: 15 }
-      }},
-      { id: 3, name: 'DEMBELE', category: 'resines', buyPrice: 2.7, variants: {
-        '3.5G': { price: 20, stock: 60 }, 
-        '5G': { price: 30, stock: 50 }
-      }},
-      { id: 4, name: 'LEMON GELATO', category: 'cali', buyPrice: 5.3, variants: {
-        '3.5G': { price: 40, stock: 20 }
-      }},
-      { id: 5, name: 'NEEDLES KETA', category: 'keta', buyPrice: 3.9, variants: {
-        '1G': { price: 20, stock: 30 }
-      }}
-    ];
-    saveData();
-  }
-  
-  updateAllStats();
-  loadOrders();
-  loadProducts();
-  loadStock();
-  loadCustomers();
-  loadCashier();
-  loadProfitTable();
-  initCharts();
-  updateActivityFeed();
-  
-  // Démarrer sync auto si pas déjà démarré
-  if (!state.syncInterval) {
-    startAutoSync();
-  }
-  
-  console.log('✅ Dashboard chargé avec', state.data.products.length, 'produits');
-}
-
-function loadTheme() {
-  const theme = 'dark'; // Par défaut dark
-  document.body.setAttribute('data-theme', theme);
-}
-
-function toggleTheme() {
-  const body = document.body;
-  const current = body.getAttribute('data-theme');
-  const newTheme = current === 'dark' ? 'light' : 'dark';
-  body.setAttribute('data-theme', newTheme);
-  document.getElementById('themeToggle').classList.toggle('light', newTheme === 'light');
-  
-  // Recharger graphiques
-  Object.values(state.charts).forEach(chart => chart.destroy());
-  initCharts();
-}
-
-// Tabs
-function showTab(tabName) {
-  document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.classList.remove('active');
-  });
-  
-  document.querySelectorAll('.tab-content').forEach(content => {
-    content.classList.remove('active');
-  });
-  
-  event.target.classList.add('active');
-  document.getElementById(`tab-${tabName}`).classList.add('active');
-}
-
-// Stats
-function updateAllStats() {
-  const orders = state.data.orders || [];
-  const totalRevenue = orders.reduce((sum, o) => sum + (o.total || 0), 0);
-  
-  document.getElementById('totalRevenue').textContent = fc(totalRevenue);
-  document.getElementById('totalOrders').textContent = orders.length;
-  document.getElementById('avgCart').textContent = fc(orders.length ? totalRevenue / orders.length : 0);
-  
-  const today = new Date().toDateString();
-  const todayOrders = orders.filter(o => new Date(o.date).toDateString() === today);
-  const todayRevenue = todayOrders.reduce((sum, o) => sum + o.total, 0);
-  
-  document.getElementById('todayRevenue').textContent = fc(todayRevenue);
-  document.getElementById('weekRevenue').textContent = fc(totalRevenue * 0.3);
-  document.getElementById('monthRevenue').textContent = fc(totalRevenue);
-  document.getElementById('activeOrders').textContent = orders.filter(o => o.status === 'pending').length;
-  
-  let stockValue = 0, lowStock = 0;
-  state.data.products.forEach(p => {
-    Object.values(p.variants).forEach(v => {
-      stockValue += v.stock * v.price;
-      if (v.stock > 0 && v.stock < 10) lowStock++;
-    });
-  });
-  
-  document.getElementById('stockValue').textContent = fc(stockValue);
-  document.getElementById('lowStock').textContent = lowStock;
-  document.getElementById('stockAlerts').textContent = lowStock;
-  document.getElementById('totalCustomersQuick').textContent = state.data.customers.length;
-  
-  // VIP customers
-  const vipCount = state.data.customers.filter(c => c.status === 'vip').length;
-  const vipEl = document.getElementById('vipCustomers');
-  if (vipEl) vipEl.textContent = vipCount;
-  
-  document.getElementById('cashTotal').textContent = fc(state.cash.total || 0);
-  
-  // Stats finances
-  const monthEl = document.getElementById('monthlyRevenue');
-  if (monthEl) monthEl.textContent = fc(totalRevenue);
-  
-  const expenses = totalRevenue * 0.35;
-  const expenseEl = document.getElementById('monthlyExpenses');
-  if (expenseEl) expenseEl.textContent = fc(expenses);
-  
-  const profitEl = document.getElementById('netProfit');
-  if (profitEl) profitEl.textContent = fc(totalRevenue - expenses);
-  
-  // Mettre à jour les tendances
-  updateTrends();
-}
-
-function updateTrends() {
-  // Calculer les tendances basées sur les vraies données
-  const orders = state.data.orders || [];
-  
-  // Tendance du jour vs hier
-  const today = new Date();
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-  
-  const todayOrders = orders.filter(o => new Date(o.date).toDateString() === today.toDateString());
-  const yesterdayOrders = orders.filter(o => new Date(o.date).toDateString() === yesterday.toDateString());
-  
-  const todayRevenue = todayOrders.reduce((sum, o) => sum + o.total, 0);
-  const yesterdayRevenue = yesterdayOrders.reduce((sum, o) => sum + o.total, 0);
-  
-  // Mettre à jour les indicateurs de changement
-  const revenueChange = document.getElementById('revenueChange');
-  const ordersChange = document.getElementById('ordersChange');
-  const cashChange = document.getElementById('cashChange');
-  const alertsChange = document.getElementById('alertsChange');
-  
-  if (orders.length === 0) {
-    if (revenueChange) revenueChange.textContent = 'Démarrage';
-    if (ordersChange) ordersChange.textContent = 'Démarrage';
-    if (cashChange) cashChange.textContent = 'Démarrage';
-  } else {
-    if (revenueChange && yesterdayRevenue > 0) {
-      const pct = Math.round(((todayRevenue - yesterdayRevenue) / yesterdayRevenue) * 100);
-      if (pct > 0) {
-        revenueChange.textContent = `↗ +${pct}% vs hier`;
-        revenueChange.className = 'change positive';
-      } else if (pct < 0) {
-        revenueChange.textContent = `↘ ${pct}% vs hier`;
-        revenueChange.className = 'change negative';
-      } else {
-        revenueChange.textContent = 'Stable';
-        revenueChange.className = 'change';
-      }
-    }
-  }
-  
-  // Alertes stock
-  let lowStock = 0;
-  state.data.products.forEach(p => {
-    Object.values(p.variants).forEach(v => {
-      if (v.stock > 0 && v.stock < 10) lowStock++;
-    });
-  });
-  
-  if (alertsChange) {
-    if (lowStock === 0) {
-      alertsChange.textContent = 'Aucune alerte';
-      alertsChange.className = 'change';
-    } else {
-      alertsChange.textContent = `${lowStock} produit(s)`;
-      alertsChange.className = 'change';
-      alertsChange.style.background = 'rgba(245,158,11,0.15)';
-      alertsChange.style.color = 'var(--warning)';
-    }
-  }
-  
-  // Tendance du jour
-  const todayTrend = document.getElementById('todayTrend');
-  if (todayTrend) {
-    if (todayRevenue > yesterdayRevenue && yesterdayRevenue > 0) {
-      const pct = Math.round(((todayRevenue - yesterdayRevenue) / yesterdayRevenue) * 100);
-      todayTrend.textContent = `↗ +${pct}%`;
-      todayTrend.className = 'trend up';
-    } else if (todayRevenue < yesterdayRevenue && yesterdayRevenue > 0) {
-      const pct = Math.round(((yesterdayRevenue - todayRevenue) / yesterdayRevenue) * 100);
-      todayTrend.textContent = `↘ -${pct}%`;
-      todayTrend.className = 'trend down';
-    } else {
-      todayTrend.textContent = '-';
-      todayTrend.className = 'trend';
-    }
-  }
-}
-
-// Charts
-function initCharts() {
-  const isDark = document.body.getAttribute('data-theme') === 'dark';
-  const textColor = isDark ? '#b4c0ce' : '#475569';
-  const gridColor = isDark ? '#2a3441' : '#e2e8f0';
-
-  Chart.defaults.color = textColor;
-  Chart.defaults.borderColor = gridColor;
-
-  // Calculer vraies données de ventes
-  const last7Days = [];
-  const salesData = [];
-  for (let i = 6; i >= 0; i--) {
-    const date = new Date();
-    date.setDate(date.getDate() - i);
-    const dateStr = date.toDateString();
-    
-    const dayOrders = state.data.orders.filter(o => 
-      new Date(o.date).toDateString() === dateStr
-    );
-    const dayTotal = dayOrders.reduce((sum, o) => sum + o.total, 0);
-    
-    const dayName = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'][date.getDay()];
-    last7Days.push(dayName);
-    salesData.push(dayTotal);
-  }
-
-  // Ventes principales
-  const salesCtx = document.getElementById('salesChart');
-  if (salesCtx) {
-    if (state.charts.sales) state.charts.sales.destroy();
-    
-    state.charts.sales = new Chart(salesCtx, {
-      type: 'line',
-      data: {
-        labels: last7Days,
-        datasets: [{
-          label: 'Ventes (€)',
-          data: salesData,
-          borderColor: '#667eea',
-          backgroundColor: 'rgba(102, 126, 234, 0.1)',
-          tension: 0.4,
-          fill: true,
-          borderWidth: 3,
-          pointRadius: 6,
-          pointHoverRadius: 8,
-          pointBackgroundColor: '#667eea',
-          pointBorderColor: '#fff',
-          pointBorderWidth: 2
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: true,
-        aspectRatio: 2.5,
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            backgroundColor: isDark ? '#1a212b' : '#ffffff',
-            titleColor: textColor,
-            bodyColor: textColor,
-            borderColor: gridColor,
-            borderWidth: 1,
-            padding: 12,
-            displayColors: false
-          }
-        },
-        scales: {
-          y: {
-            beginAtZero: true,
-            grid: { color: gridColor }
-          },
-          x: {
-            grid: { display: false }
-          }
-        }
-      }
-    });
-  }
-
-  // Top produits
-  const topCtx = document.getElementById('topProductsChart');
-  if (topCtx) {
-    if (state.charts.topProducts) state.charts.topProducts.destroy();
-    
-    state.charts.topProducts = new Chart(topCtx, {
-      type: 'bar',
-      data: {
-        labels: ['AMNESIA', 'EL JEFE', 'DEMBELE', 'KETA', 'GELATO'],
-        datasets: [{
-          label: 'Ventes',
-          data: [0, 0, 0, 0, 0],
-          backgroundColor: ['#667eea', '#764ba2', '#10b981', '#f59e0b', '#ef4444'],
-          borderRadius: 8,
-          borderSkipped: false
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: true,
-        aspectRatio: 1.5,
-        plugins: { legend: { display: false } },
-        scales: {
-          y: { beginAtZero: true, grid: { color: gridColor } },
-          x: { grid: { display: false } }
-        }
-      }
-    });
-  }
-
-  // Catégories
-  const catCtx = document.getElementById('categoryChart');
-  if (catCtx) {
-    if (state.charts.category) state.charts.category.destroy();
-    
-    state.charts.category = new Chart(catCtx, {
-      type: 'doughnut',
-      data: {
-        labels: ['Fleurs', 'Résines', 'Blanche', 'Autres'],
-        datasets: [{
-          data: [0, 0, 0, 0],
-          backgroundColor: ['#667eea', '#764ba2', '#f59e0b', '#10b981'],
-          borderWidth: 3,
-          borderColor: isDark ? '#151b23' : '#ffffff'
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: true,
-        aspectRatio: 1.5,
-        plugins: {
-          legend: {
-            position: 'bottom',
-            labels: { padding: 15, font: { size: 11, weight: 600 } }
-          }
-        }
-      }
-    });
-  }
-
-  // Advanced
-  const advCtx = document.getElementById('advancedChart');
-  if (advCtx) {
-    if (state.charts.advanced) state.charts.advanced.destroy();
-    
-    state.charts.advanced = new Chart(advCtx, {
-      type: 'line',
-      data: {
-        labels: last7Days,
-        datasets: [{
-          label: 'Revenus',
-          data: salesData,
-          borderColor: '#10b981',
-          backgroundColor: 'rgba(16, 185, 129, 0.1)',
-          tension: 0.4,
-          fill: true,
-          borderWidth: 3
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: true,
-        aspectRatio: 1.8,
-        plugins: { legend: { display: false } },
-        scales: {
-          y: { beginAtZero: true, grid: { color: gridColor } },
-          x: { grid: { display: false } }
-        }
-      }
-    });
-  }
-
-  // Analytics Category
-  const anaCatCtx = document.getElementById('analyticsCategoryChart');
-  if (anaCatCtx) {
-    if (state.charts.analyticsCat) state.charts.analyticsCat.destroy();
-    
-    state.charts.analyticsCat = new Chart(anaCatCtx, {
-      type: 'pie',
-      data: {
-        labels: ['Fleurs', 'Résines', 'Blanche', 'Autres'],
-        datasets: [{
-          data: [0, 0, 0, 0],
-          backgroundColor: ['#667eea', '#764ba2', '#f59e0b', '#10b981']
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: true,
-        aspectRatio: 1.5
-      }
-    });
-  }
-
-  // Analytics Zone
-  const anaZoneCtx = document.getElementById('analyticsZoneChart');
-  if (anaZoneCtx) {
-    if (state.charts.analyticsZone) state.charts.analyticsZone.destroy();
-    
-    state.charts.analyticsZone = new Chart(anaZoneCtx, {
-      type: 'bar',
-      data: {
-        labels: ['Centre', 'Périphérie', 'Extérieur'],
-        datasets: [{
-          label: 'Ventes',
-          data: [0, 0, 0],
-          backgroundColor: '#667eea',
-          borderRadius: 8
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: true,
-        aspectRatio: 1.5,
-        plugins: { legend: { display: false } }
-      }
-    });
-  }
-}
-
-// Activity Feed
-function updateActivityFeed() {
-  const feed = document.getElementById('activityFeed');
-  if (!feed) return;
-  
-  const activities = [];
-  
-  // Ajouter les dernières commandes
-  if (state.data.orders.length > 0) {
-    state.data.orders.slice(0, 3).forEach(o => {
-      activities.push({
-        icon: '📦',
-        text: `Commande #${o.id} - ${o.customer}`,
-        time: o.date,
-      });
-    });
-  }
-  
-  // Ajouter les alertes stock
-  state.data.products.forEach(p => {
-    Object.entries(p.variants).forEach(([v, d]) => {
-      if (d.stock < 10 && d.stock > 0 && activities.length < 10) {
-        activities.push({
-          icon: '⚠️',
-          text: `Stock bas: ${p.name} ${v} (${d.stock})`,
-          time: 'Stock',
-        });
-      }
-    });
-  });
-  
-  if (activities.length === 0) {
-    feed.innerHTML = `
-      <div style="text-align:center;padding:40px">
-        <div style="font-size:48px;margin-bottom:16px;opacity:0.3">📊</div>
-        <p style="color:var(--muted);font-size:14px">Aucune activité pour le moment</p>
-        <p style="color:var(--muted);font-size:12px;margin-top:8px">Les commandes apparaîtront ici</p>
-      </div>
-    `;
-    return;
-  }
-  
-  feed.innerHTML = activities.map(a => `
-    <div class="activity-item">
-      <div class="activity-icon">${a.icon}</div>
-      <div class="activity-content">
-        <div class="activity-title">${a.text}</div>
-        <div class="activity-time">${a.time}</div>
-      </div>
-    </div>
-  `).join('');
-}
-
-// Utilities
 function showToast(msg, type = 'success') {
   const container = document.getElementById('toastContainer');
   const toast = document.createElement('div');
@@ -2365,439 +747,453 @@ function showToast(msg, type = 'success') {
   setTimeout(() => toast.remove(), 3000);
 }
 
-function fc(amount) {
-  return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(amount || 0);
-}
-
 function closeModal() {
   document.getElementById('modal').classList.remove('active');
 }
 
-// Fonctions stub pour les autres features
-function autoBackup() { 
-  const data = { ...state.data, cash: state.cash };
-  localStorage.setItem('auto_backup', JSON.stringify(data));
-  showToast('Backup créé', 'success'); 
+function showModal(title, content) {
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalBody').innerHTML = content;
+  document.getElementById('modal').classList.add('active');
 }
 
-function toggleNotifications() { 
-  if (state.notifications.length === 0) {
-    showModal('🔔 Notifications', '<p style="text-align:center;padding:20px">Aucune notification</p>');
+// ═══════════════════════════════════════════════════════════════════════════
+// AUTHENTIFICATION
+// ═══════════════════════════════════════════════════════════════════════════
+
+function checkAuth() {
+  const auth = localStorage.getItem(CONFIG.STORAGE_KEYS.AUTH);
+  const expiry = localStorage.getItem('session_expiry');
+  
+  if (auth === 'true' && expiry && Date.now() < parseInt(expiry)) {
+    showDashboard();
+    return true;
+  }
+  
+  localStorage.removeItem(CONFIG.STORAGE_KEYS.AUTH);
+  localStorage.removeItem('session_expiry');
+  return false;
+}
+
+function login() {
+  const pass = document.getElementById('pass').value;
+  const hash = CryptoJS.SHA256(pass).toString();
+  
+  if (hash === CONFIG.PASSWORD_HASH) {
+    const expiry = Date.now() + (24 * 60 * 60 * 1000);
+    localStorage.setItem(CONFIG.STORAGE_KEYS.AUTH, 'true');
+    localStorage.setItem('session_expiry', expiry.toString());
+    
+    showDashboard();
+    showToast('✅ Connexion réussie !', 'success');
+  } else {
+    showToast('❌ Mot de passe incorrect', 'error');
+    document.getElementById('pass').value = '';
+  }
+}
+
+function logout() {
+  if (confirm('Se déconnecter ?')) {
+    if (state.syncInterval) {
+      clearInterval(state.syncInterval);
+    }
+    localStorage.removeItem(CONFIG.STORAGE_KEYS.AUTH);
+    localStorage.removeItem('session_expiry');
+    location.reload();
+  }
+}
+
+function changePassword() {
+  const newPass = document.getElementById('newPassword').value;
+  const confirm = document.getElementById('confirmPassword').value;
+  
+  if (!newPass || !confirm) {
+    showToast('Remplissez tous les champs', 'error');
     return;
   }
   
-  const html = state.notifications.slice(-10).reverse().map(n => `
-    <div style="padding:12px;border-bottom:1px solid var(--border)">
-      <strong>${n.message}</strong>
-      <div style="font-size:11px;color:var(--muted);margin-top:4px">${new Date(n.timestamp).toLocaleString('fr-FR')}</div>
-    </div>
-  `).join('');
+  if (newPass !== confirm) {
+    showToast('Les mots de passe ne correspondent pas', 'error');
+    return;
+  }
   
-  showModal('🔔 Notifications', html);
+  if (newPass.length < 4) {
+    showToast('Minimum 4 caractères', 'error');
+    return;
+  }
   
-  document.getElementById('notifCount').style.display = 'none';
+  CONFIG.PASSWORD_HASH = CryptoJS.SHA256(newPass).toString();
+  localStorage.setItem(CONFIG.STORAGE_KEYS.PASSWORD, newPass);
+  
+  document.getElementById('newPassword').value = '';
+  document.getElementById('confirmPassword').value = '';
+  
+  showToast('Mot de passe modifié !', 'success');
 }
 
-function exportOrdersPDF() { showToast('Export PDF', 'success'); }
-function exportOrdersExcel() { showToast('Export Excel', 'success'); }
-function exportCustomersExcel() { showToast('Export Excel clients', 'success'); }
+// ═══════════════════════════════════════════════════════════════════════════
+// SYNCHRONISATION
+// ═══════════════════════════════════════════════════════════════════════════
 
-// Sync avec la boutique
-function syncOrders() {
+function loadData() {
   try {
-    const shopOrders = JSON.parse(localStorage.getItem('shop_orders') || '[]');
-    const existingIds = state.data.orders.map(o => o.shopOrderId || o.id);
-    const newOrders = shopOrders.filter(o => !existingIds.includes(o.id));
+    const productsData = localStorage.getItem(CONFIG.STORAGE_KEYS.PRODUCTS);
+    state.products = productsData ? JSON.parse(productsData) : [];
     
-    if (newOrders.length > 0) {
-      newOrders.forEach(so => {
-        const adminOrder = {
-          id: Math.max(...state.data.orders.map(o => o.id), 0) + 1,
-          shopOrderId: so.id,
-          date: new Date(so.timestamp).toLocaleDateString('fr-FR'),
-          customer: so.name || so.email || 'Client',
-          products: formatOrderProducts(so.items),
-          total: so.total,
-          status: 'pending',
-          payment: so.paymentMethod || 'Espèces',
-          email: so.email || '',
-          phone: so.phone || ''
-        };
-        
-        state.data.orders.unshift(adminOrder);
-        
-        // Ajouter à la caisse si paiement espèces
-        if (so.paymentMethod === 'Espèces') {
-          state.cash.total += so.total;
-          state.cash.transactions.push({
-            id: Date.now() + Math.random(),
-            date: new Date().toISOString(),
-            type: 'income',
-            amount: so.total,
-            category: 'sale',
-            description: `Commande #${so.id} - ${so.name || 'Client'}`,
-            balanceAfter: state.cash.total
-          });
-        }
-      });
-      
-      saveData();
-      loadOrders();
-      updateAllStats();
-      loadCashier();
-      updateActivityFeed();
-      
-      showToast(`✅ ${newOrders.length} nouvelle(s) commande(s) synchronisée(s)`, 'success');
-      
-      // Notification
-      updateNotifCount(newOrders.length);
-      if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification('Nouvelles commandes !', { 
-          body: `${newOrders.length} commande(s) reçue(s)`,
-          icon: '🎯'
-        });
-      }
-    }
+    const ordersData = localStorage.getItem(CONFIG.STORAGE_KEYS.ORDERS);
+    state.orders = ordersData ? JSON.parse(ordersData) : [];
     
-    // Mettre à jour l'heure de dernière sync
-    const lastSyncEl = document.getElementById('lastSyncTime');
-    if (lastSyncEl) {
-      lastSyncEl.textContent = new Date().toLocaleTimeString('fr-FR');
-    }
+    const statsData = localStorage.getItem(CONFIG.STORAGE_KEYS.STATS);
+    state.stats = statsData ? JSON.parse(statsData) : { totalRevenue: 0, totalOrders: 0 };
     
-    // Mettre à jour l'indicateur de sync
-    const syncStatusEl = document.getElementById('syncStatus');
-    if (syncStatusEl) {
-      syncStatusEl.textContent = '✓ Actif';
-      syncStatusEl.style.color = 'white';
-    }
+    updateSyncStatus('ok');
+    document.getElementById('lastSync').textContent = new Date().toLocaleTimeString('fr-FR');
+    
+    return true;
   } catch (e) {
-    console.error('Sync error:', e);
-    showToast('❌ Erreur sync', 'error');
-    
-    const syncStatusEl = document.getElementById('syncStatus');
-    if (syncStatusEl) {
-      syncStatusEl.textContent = '✗ Erreur';
-      syncStatusEl.style.color = 'rgba(255,255,255,0.7)';
-    }
+    console.error('❌ Erreur chargement:', e);
+    updateSyncStatus('error');
+    return false;
   }
 }
 
-function formatOrderProducts(items) {
-  if (!items || items.length === 0) return 'N/A';
-  return items.map(i => {
-    const variant = i.variant && i.variant !== 'default' ? ` ${i.variant}` : '';
-    return `${i.name}${variant} x${i.quantity}`;
-  }).join(', ');
+function saveProducts() {
+  try {
+    localStorage.setItem(CONFIG.STORAGE_KEYS.PRODUCTS, JSON.stringify(state.products));
+    console.log('💾 Produits sauvegardés:', state.products.length);
+    return true;
+  } catch (e) {
+    console.error('❌ Erreur sauvegarde produits:', e);
+    showToast('Erreur sauvegarde', 'error');
+    return false;
+  }
+}
+
+function updateSyncStatus(status = 'ok') {
+  const badge = document.getElementById('syncBadge');
+  const statusText = document.getElementById('syncStatus');
+  
+  if (status === 'ok') {
+    statusText.textContent = 'Synchronisé';
+    badge.style.borderColor = 'var(--success)';
+    badge.style.background = 'rgba(16, 185, 129, 0.1)';
+  } else {
+    statusText.textContent = 'Erreur';
+    badge.style.borderColor = 'var(--danger)';
+    badge.style.background = 'rgba(239, 68, 68, 0.1)';
+  }
+}
+
+function manualSync() {
+  loadData();
+  updateAllStats();
+  loadOrders();
+  loadProducts();
+  updateRecentActivity();
+  if (state.chart) initCharts();
+  showToast('🔄 Synchronisation effectuée', 'success');
 }
 
 function startAutoSync() {
-  // Sync immédiat
-  syncOrders();
+  loadData();
   
-  // Sync toutes les 5 secondes
   state.syncInterval = setInterval(() => {
-    syncOrders();
-  }, 5000);
+    loadData();
+    updateAllStats();
+    loadOrders();
+    loadProducts();
+    updateRecentActivity();
+    if (state.chart) initCharts();
+  }, CONFIG.SYNC_INTERVAL);
+  
+  console.log('🔄 Sync auto activée (toutes les 2s)');
 }
 
-function updateNotifCount(count) {
-  const badge = document.getElementById('notifCount');
-  if (badge) {
-    const current = parseInt(badge.textContent) || 0;
-    const newCount = current + count;
-    badge.textContent = newCount;
-    badge.style.display = newCount > 0 ? 'inline-block' : 'none';
+// ═══════════════════════════════════════════════════════════════════════════
+// STATISTIQUES
+// ═══════════════════════════════════════════════════════════════════════════
+
+function updateAllStats() {
+  document.getElementById('totalRevenue').textContent = fmt(state.stats.totalRevenue || 0);
+  document.getElementById('totalOrders').textContent = state.stats.totalOrders || 0;
+  document.getElementById('totalProducts').textContent = state.products.length;
+  
+  let stockValue = 0;
+  let lowStockCount = 0;
+  state.products.forEach(p => {
+    Object.values(p.variants).forEach(v => {
+      stockValue += (v.stock || 0) * (v.price || 0);
+      if (v.stock > 0 && v.stock < 10) lowStockCount++;
+    });
+  });
+  document.getElementById('stockValue').textContent = fmt(stockValue);
+  
+  const pendingCount = state.orders.filter(o => o.status === 'pending').length;
+  const deliveredCount = state.orders.filter(o => o.status === 'delivered').length;
+  const cancelledCount = state.orders.filter(o => o.status === 'cancelled').length;
+  
+  document.getElementById('pendingOrders').textContent = pendingCount;
+  document.getElementById('deliveredOrders').textContent = deliveredCount;
+  document.getElementById('cancelledOrders').textContent = cancelledCount;
+  document.getElementById('lowStockProducts').textContent = lowStockCount;
+}
+
+function updateRecentActivity() {
+  const container = document.getElementById('recentActivity');
+  if (!container) return;
+  
+  const recentOrders = state.orders.slice(-5).reverse();
+  
+  if (recentOrders.length === 0) {
+    container.innerHTML = '<p style="text-align:center;padding:40px;color:var(--muted)">Aucune activité récente</p>';
+    return;
   }
   
-  state.notifications.push({
-    id: Date.now(),
-    message: `${count} nouvelle(s) commande(s)`,
-    timestamp: new Date().toISOString()
+  container.innerHTML = recentOrders.map(o => `
+    <div style="padding:12px;border-bottom:1px solid var(--border);cursor:pointer;transition:all 0.2s" onclick="viewOrder('${o.id}')" onmouseover="this.style.background='var(--card-hover)'" onmouseout="this.style.background='transparent'">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+        <strong style="color:var(--accent)">#${o.id}</strong>
+        ${getStatusBadge(o.status || 'pending')}
+      </div>
+      <div style="font-size:13px;color:var(--text-secondary)">${o.items.length} article(s) • ${fmt(o.total)}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">${new Date(o.timestamp).toLocaleString('fr-FR')}</div>
+    </div>
+  `).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GRAPHIQUES
+// ═══════════════════════════════════════════════════════════════════════════
+
+function initCharts() {
+  const ctx = document.getElementById('salesChart');
+  if (!ctx) return;
+  
+  const last7Days = [];
+  const salesData = [];
+  
+  for (let i = 6; i >= 0; i--) {
+    const date = new Date();
+    date.setDate(date.getDate() - i);
+    const dateStr = date.toDateString();
+    
+    const dayOrders = state.orders.filter(o => 
+      new Date(o.timestamp).toDateString() === dateStr && o.status !== 'cancelled'
+    );
+    const dayTotal = dayOrders.reduce((sum, o) => sum + (o.total || 0), 0);
+    
+    const dayName = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'][date.getDay()];
+    last7Days.push(dayName);
+    salesData.push(dayTotal);
+  }
+  
+  if (state.chart) {
+    state.chart.destroy();
+  }
+  
+  state.chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: last7Days,
+      datasets: [{
+        label: 'Ventes (€)',
+        data: salesData,
+        borderColor: '#667eea',
+        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+        tension: 0.4,
+        fill: true,
+        borderWidth: 3,
+        pointRadius: 6,
+        pointHoverRadius: 8,
+        pointBackgroundColor: '#667eea',
+        pointBorderColor: '#fff',
+        pointBorderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      aspectRatio: 2.5,
+      plugins: {
+        legend: { display: false }
+      },
+      scales: {
+        y: { beginAtZero: true },
+        x: { grid: { display: false } }
+      }
+    }
   });
 }
 
-function changeSalesChart(period) {
-  document.querySelectorAll('.chart-btn').forEach(btn => btn.classList.remove('active'));
-  event.target.classList.add('active');
-  showToast(`Période: ${period}`, 'success');
+// ═══════════════════════════════════════════════════════════════════════════
+// COMMANDES
+// ═══════════════════════════════════════════════════════════════════════════
+
+function loadOrders() {
+  const tbody = document.getElementById('ordersTable');
+  
+  if (state.orders.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted)">Aucune commande</td></tr>';
+    return;
+  }
+  
+  const sorted = state.orders.slice().reverse();
+  
+  tbody.innerHTML = sorted.map(o => `
+    <tr>
+      <td><strong>#${o.id}</strong></td>
+      <td>${new Date(o.timestamp).toLocaleDateString('fr-FR')}</td>
+      <td>${o.name || 'Client'}</td>
+      <td>${o.items.length} article(s)</td>
+      <td><strong>${fmt(o.total)}</strong></td>
+      <td>${getStatusBadge(o.status || 'pending')}</td>
+      <td>
+        <button class="btn-sm btn-primary" onclick="viewOrder('${o.id}')">👁️</button>
+        ${o.status === 'pending' ? `<button class="btn-sm btn-success" onclick="deliverOrder('${o.id}')">✅</button>` : ''}
+      </td>
+    </tr>
+  `).join('');
+}
+
+function getStatusBadge(status) {
+  const badges = {
+    pending: '<span class="badge warning">⏳ En attente</span>',
+    delivered: '<span class="badge success">✅ Livré</span>',
+    cancelled: '<span class="badge danger">❌ Annulé</span>'
+  };
+  return badges[status] || badges.pending;
+}
+
+function viewOrder(orderId) {
+  const order = state.orders.find(o => o.id === orderId);
+  if (!order) return;
+  
+  const itemsList = order.items.map(item => 
+    `<div style="padding:12px;background:var(--bg-secondary);border-radius:8px;margin-bottom:8px">
+      <strong>${item.name}</strong> ${item.variant}<br>
+      <small>Quantité: ${item.qty} | Prix unitaire: ${fmt(item.price)}</small>
+    </div>`
+  ).join('');
+  
+  showModal(`Commande #${orderId}`, `
+    <p style="margin-bottom:12px"><strong>Date:</strong> ${new Date(order.timestamp).toLocaleString('fr-FR')}</p>
+    <p style="margin-bottom:12px"><strong>Client:</strong> ${order.name || 'Client'}</p>
+    <p style="margin-bottom:12px"><strong>Statut:</strong> ${getStatusBadge(order.status || 'pending')}</p>
+    <p style="margin-bottom:12px"><strong>Livraison:</strong> ${order.deliveryType || 'N/A'}</p>
+    <p style="margin-bottom:12px"><strong>Adresse:</strong> ${order.deliveryAddress || 'N/A'}</p>
+    <h4 style="margin:20px 0 12px">Articles :</h4>
+    ${itemsList}
+    <h4 style="margin-top:20px;text-align:right;font-size:20px">Total: ${fmt(order.total)}</h4>
+    ${order.cancelReason ? `<p style="margin-top:16px;color:var(--danger);padding:12px;background:rgba(239,68,68,0.1);border-radius:8px"><strong>Motif annulation:</strong> ${order.cancelReason}</p>` : ''}
+  `);
+}
+
+function deliverOrder(orderId) {
+  if (confirm('Marquer cette commande comme livrée ?')) {
+    const order = state.orders.find(o => o.id === orderId);
+    if (order) {
+      order.status = 'delivered';
+      localStorage.setItem(CONFIG.STORAGE_KEYS.ORDERS, JSON.stringify(state.orders));
+      loadOrders();
+      updateRecentActivity();
+      showToast('✅ Commande marquée comme livrée', 'success');
+    }
+  }
 }
 
 function searchOrders() {
   const term = document.getElementById('searchOrders').value.toLowerCase();
-  showToast(`Recherche: ${term}`, 'success');
+  filterOrders(term);
 }
 
-function filterOrders() {
+function filterOrders(searchTerm = '') {
   const status = document.getElementById('filterStatus').value;
-  showToast(`Filtre: ${status}`, 'success');
-}
-
-// Orders
-function loadOrders() {
   const tbody = document.getElementById('ordersTable');
-  const orders = state.data.orders || [];
   
-  if (orders.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--muted)">Aucune commande pour le moment. La synchronisation est active.</td></tr>';
+  let filtered = state.orders;
+  
+  if (status !== 'all') {
+    filtered = filtered.filter(o => o.status === status);
+  }
+  
+  if (searchTerm) {
+    filtered = filtered.filter(o => 
+      o.id.toLowerCase().includes(searchTerm) ||
+      (o.name || '').toLowerCase().includes(searchTerm)
+    );
+  }
+  
+  if (filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted)">Aucune commande trouvée</td></tr>';
     return;
   }
   
-  tbody.innerHTML = orders.map(o => `
+  tbody.innerHTML = filtered.slice().reverse().map(o => `
     <tr>
       <td><strong>#${o.id}</strong></td>
-      <td>${o.date}</td>
-      <td>${o.customer}</td>
-      <td>${o.products}</td>
-      <td><strong>${fc(o.total)}</strong></td>
-      <td>${getStatusBadge(o.status)}</td>
-      <td><span class="badge">${o.payment || 'Espèces'}</span></td>
+      <td>${new Date(o.timestamp).toLocaleDateString('fr-FR')}</td>
+      <td>${o.name || 'Client'}</td>
+      <td>${o.items.length} article(s)</td>
+      <td><strong>${fmt(o.total)}</strong></td>
+      <td>${getStatusBadge(o.status || 'pending')}</td>
       <td>
-        <button class="btn-sm btn-primary" onclick="viewOrder(${o.id})">👁️</button>
-        <button class="btn-sm btn-warning" onclick="editOrder(${o.id})">✏️</button>
-        <button class="btn-sm btn-danger" onclick="deleteOrder(${o.id})">🗑️</button>
+        <button class="btn-sm btn-primary" onclick="viewOrder('${o.id}')">👁️</button>
+        ${o.status === 'pending' ? `<button class="btn-sm btn-success" onclick="deliverOrder('${o.id}')">✅</button>` : ''}
       </td>
     </tr>
   `).join('');
-  
-  console.log('✅ Commandes affichées:', orders.length);
 }
 
-function getStatusBadge(s) {
-  const badges = {
-    pending: '<span class="badge warning">⏳ Attente</span>',
-    processing: '<span class="badge">🔄 Traitement</span>',
-    delivered: '<span class="badge success">✅ Livré</span>',
-    cancelled: '<span class="badge danger">❌ Annulé</span>'
-  };
-  return badges[s] || badges.pending;
+function exportOrders() {
+  const data = JSON.stringify(state.orders, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `commandes_${Date.now()}.json`;
+  a.click();
+  showToast('📥 Commandes exportées', 'success');
 }
 
-function viewOrder(id) {
-  const o = state.data.orders.find(x => x.id === id);
-  if (!o) return;
-  
-  showModal(`Commande #${id}`, `
-    <p style="margin-bottom:12px"><strong>Date:</strong> ${o.date}</p>
-    <p style="margin-bottom:12px"><strong>Client:</strong> ${o.customer}</p>
-    <p style="margin-bottom:12px"><strong>Produits:</strong> ${o.products}</p>
-    <p style="margin-bottom:12px"><strong>Total:</strong> ${fc(o.total)}</p>
-    <p style="margin-bottom:12px"><strong>Statut:</strong> ${getStatusBadge(o.status)}</p>
-    <p style="margin-bottom:12px"><strong>Paiement:</strong> ${o.payment || 'Espèces'}</p>
-    ${o.email ? `<p style="margin-bottom:12px"><strong>Email:</strong> ${o.email}</p>` : ''}
-    ${o.phone ? `<p style="margin-bottom:12px"><strong>Téléphone:</strong> ${o.phone}</p>` : ''}
-    <div style="margin-top:20px;display:grid;gap:12px">
-      <button onclick="updateOrderStatus(${id}, 'processing')" style="background:var(--info)">🔄 En traitement</button>
-      <button onclick="updateOrderStatus(${id}, 'delivered')" style="background:var(--success)">✅ Livré</button>
-      <button onclick="updateOrderStatus(${id}, 'cancelled')" style="background:var(--danger)">❌ Annulé</button>
-    </div>
-  `);
-}
+// ═══════════════════════════════════════════════════════════════════════════
+// PRODUITS
+// ═══════════════════════════════════════════════════════════════════════════
 
-function editOrder(id) {
-  const o = state.data.orders.find(x => x.id === id);
-  if (!o) return;
-  
-  showModal(`Éditer #${id}`, `
-    <div class="form-group">
-      <label>Client</label>
-      <input type="text" id="editOrderCustomer" value="${o.customer}">
-    </div>
-    <div class="form-group">
-      <label>Total</label>
-      <input type="number" id="editOrderTotal" value="${o.total}" step="0.01">
-    </div>
-    <div class="form-group">
-      <label>Statut</label>
-      <select id="editOrderStatus">
-        <option value="pending" ${o.status === 'pending' ? 'selected' : ''}>En attente</option>
-        <option value="processing" ${o.status === 'processing' ? 'selected' : ''}>En traitement</option>
-        <option value="delivered" ${o.status === 'delivered' ? 'selected' : ''}>Livré</option>
-        <option value="cancelled" ${o.status === 'cancelled' ? 'selected' : ''}>Annulé</option>
-      </select>
-    </div>
-    <button onclick="saveOrderEdit(${id})">💾 Sauvegarder</button>
-  `);
-}
-
-function saveOrderEdit(id) {
-  const o = state.data.orders.find(x => x.id === id);
-  if (!o) return;
-  
-  o.customer = document.getElementById('editOrderCustomer').value;
-  o.total = parseFloat(document.getElementById('editOrderTotal').value);
-  o.status = document.getElementById('editOrderStatus').value;
-  
-  saveData();
-  loadOrders();
-  updateAllStats();
-  closeModal();
-  showToast('Commande modifiée', 'success');
-}
-
-function updateOrderStatus(id, status) {
-  const o = state.data.orders.find(x => x.id === id);
-  if (o) {
-    o.status = status;
-    saveData();
-    loadOrders();
-    closeModal();
-    showToast(`Statut mis à jour`, 'success');
-  }
-}
-
-function deleteOrder(id) {
-  if (confirm('Supprimer cette commande ?')) {
-    state.data.orders = state.data.orders.filter(o => o.id !== id);
-    saveData();
-    loadOrders();
-    updateAllStats();
-    showToast('Commande supprimée', 'success');
-  }
-}
-
-function addOrder() {
-  showModal('Nouvelle commande', `
-    <div class="form-group">
-      <label>Client</label>
-      <input type="text" id="orderCustomer" placeholder="Nom">
-    </div>
-    <div class="form-group">
-      <label>Total €</label>
-      <input type="number" id="orderTotal" step="0.01">
-    </div>
-    <button onclick="saveOrder()">💾 Créer</button>
-  `);
-}
-
-function saveOrder() {
-  const customer = document.getElementById('orderCustomer').value;
-  const total = parseFloat(document.getElementById('orderTotal').value);
-  
-  if (!customer || !total) {
-    showToast('Remplissez les champs', 'error');
-    return;
-  }
-  
-  const newOrder = {
-    id: Math.max(...state.data.orders.map(o => o.id), 0) + 1,
-    date: new Date().toLocaleDateString('fr-FR'),
-    customer,
-    products: 'Commande manuelle',
-    total,
-    status: 'pending',
-    payment: 'Espèces'
-  };
-  
-  state.data.orders.unshift(newOrder);
-  
-  // Ajouter à la caisse
-  state.cash.total += total;
-  state.cash.transactions.push({
-    id: Date.now(),
-    date: new Date().toISOString(),
-    type: 'income',
-    amount: total,
-    category: 'sale',
-    description: `Commande manuelle #${newOrder.id} - ${customer}`,
-    balanceAfter: state.cash.total
-  });
-  
-  saveData();
-  loadOrders();
-  updateAllStats();
-  loadCashier();
-  closeModal();
-  showToast('Commande créée', 'success');
-}
-
-// Products
 function loadProducts() {
   const tbody = document.getElementById('productsTable');
-  const products = state.data.products;
-
-  console.log('📦 Chargement de', products.length, 'produits');
-
-  // Mettre à jour le select de stock
-  const stockSelect = document.getElementById('stockProduct');
-  if (stockSelect) {
-    stockSelect.innerHTML = '<option value="">Produit...</option>' +
-      products.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
-  }
-
-  if (products.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted)">Aucun produit. Cliquez sur "➕ Nouveau" pour ajouter.</td></tr>';
+  
+  if (state.products.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--muted)">Aucun produit</td></tr>';
     return;
   }
-
-  // Afficher tous les produits sans pagination
-  tbody.innerHTML = products.map(p => {
-    const variants = Object.keys(p.variants).length;
-    const prices = Object.values(p.variants).map(v => v.price);
-    const minPrice = Math.min(...prices);
-    const totalStock = Object.values(p.variants).reduce((sum, v) => sum + v.stock, 0);
+  
+  tbody.innerHTML = state.products.map(p => {
+    const variantCount = Object.keys(p.variants).length;
+    const totalStock = Object.values(p.variants).reduce((sum, v) => sum + (v.stock || 0), 0);
     
     return `
-      <tr>
-        <td><strong>#${p.id}</strong></td>
-        <td><strong>${p.name}</strong></td>
-        <td><span class="badge">${p.category}</span></td>
-        <td>${variants}</td>
-        <td>${fc(minPrice)}</td>
-        <td><strong style="color:${totalStock < 10 ? 'var(--warning)' : 'var(--success)'}">
-          ${totalStock}
-        </strong></td>
-        <td>
-          <button class="btn-sm btn-primary" onclick="editProduct(${p.id})">✏️</button>
-          <button class="btn-sm btn-success" onclick="viewProductStock(${p.id})">📊</button>
-          <button class="btn-sm btn-danger" onclick="deleteProduct(${p.id})">🗑️</button>
-        </td>
-      </tr>
-    `;
-  }).join('');
-  
-  console.log('✅ Produits affichés dans le tableau');
-}
-
-function viewProductStock(id) {
-  const p = state.data.products.find(x => x.id === id);
-  if (!p) return;
-  
-  const variantsHtml = Object.entries(p.variants).map(([v, d]) => 
-    `<div style="padding:12px;margin-bottom:8px;background:var(--bg-secondary);border-radius:8px;display:flex;justify-content:space-between;align-items:center">
-      <div>
-        <strong style="font-size:14px">${v}</strong>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">${fc(d.price)} / unité</div>
-      </div>
-      <div style="text-align:right">
-        <div style="font-size:20px;font-weight:700;color:${d.stock < 10 ? 'var(--warning)' : 'var(--success)'}">
-          ${d.stock}
-        </div>
-        <div style="font-size:11px;color:var(--muted)">unités</div>
-      </div>
-    </div>`
-  ).join('');
-  
-  showModal(`📊 Stock ${p.name}`, `
-    ${variantsHtml}
-    <div style="margin-top:20px;padding:16px;background:var(--card);border-radius:8px;border:1px solid var(--border)">
-      <div style="display:flex;justify-content:space-between;margin-bottom:8px">
-        <span style="color:var(--muted)">Prix achat:</span>
-        <strong>${fc(p.buyPrice)}/g</strong>
-      </div>
-      <div style="display:flex;justify-content:space-between">
-        <span style="color:var(--muted)">Valeur totale:</span>
-        <strong style="color:var(--success)">${fc(Object.values(p.variants).reduce((sum, v) => sum + (v.stock * v.price), 0))}</strong>
-      </div>
-    </div>
-  `);
+    <tr>
+      <td><strong>#${p.id}</strong></td>
+      <td><strong>${p.name}</strong></td>
+      <td><span class="badge">${p.category}</span></td>
+      <td>${variantCount}</td>
+      <td><strong style="color:${totalStock < 10 ? 'var(--warning)' : 'var(--success)'}">
+        ${totalStock}
+      </strong></td>
+      <td>
+        <button class="btn-sm btn-primary" onclick="editProduct(${p.id})">✏️</button>
+        <button class="btn-sm btn-success" onclick="viewStock(${p.id})">📊</button>
+        <button class="btn-sm btn-danger" onclick="deleteProduct(${p.id})">🗑️</button>
+      </td>
+    </tr>
+  `}).join('');
 }
 
 function addProduct() {
   showModal('➕ Nouveau produit', `
     <div class="form-group">
       <label>Nom du produit</label>
-      <input type="text" id="productName" placeholder="Ex: AMNESIA, OG KUSH...">
+      <input type="text" id="productName" placeholder="Ex: AMNESIA">
     </div>
     <div class="form-group">
       <label>Catégorie</label>
@@ -2807,39 +1203,26 @@ function addProduct() {
         <option value="blanche">⚪ Blanche</option>
         <option value="cali">🌟 Cali</option>
         <option value="keta">💎 Keta</option>
-        <option value="autre">📦 Autre</option>
       </select>
     </div>
     <div class="form-group">
-      <label>Prix achat (€/gramme)</label>
-      <input type="number" id="productBuyPrice" placeholder="Ex: 2.8" step="0.01">
+      <label>Prix achat (€/g)</label>
+      <input type="number" id="productBuyPrice" placeholder="2.8" step="0.01">
     </div>
-    
-    <div style="padding:16px;background:var(--bg-secondary);border-radius:12px;margin-top:20px">
-      <h4 style="font-size:14px;margin-bottom:12px;color:var(--text)">📦 Variants de base</h4>
-      <p style="font-size:12px;color:var(--muted);margin-bottom:12px">
-        Un variant par défaut (1G) sera créé. Vous pourrez ajouter d'autres variants après.
-      </p>
-      
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-        <div>
-          <label style="font-size:11px">Prix vente 1G (€)</label>
-          <input type="number" id="variantPrice" placeholder="20" step="0.01">
-        </div>
-        <div>
-          <label style="font-size:11px">Stock initial</label>
-          <input type="number" id="variantStock" placeholder="50" min="0">
-        </div>
-      </div>
+    <div class="form-group">
+      <label>URL Vidéo (optionnel)</label>
+      <input type="text" id="productVideo" placeholder="https://...">
     </div>
-    
-    <div style="margin-top:20px;padding:12px;background:var(--accent-light);border-radius:8px;border-left:3px solid var(--accent)">
-      <p style="font-size:12px;color:var(--text)">
-        💡 <strong>Astuce :</strong> Après création, cliquez sur ✏️ pour ajouter plus de variants (3.5G, 5G, 10G...)
-      </p>
+    <h4 style="margin:20px 0 12px">Variant par défaut (1G)</h4>
+    <div class="form-group">
+      <label>Prix vente 1G (€)</label>
+      <input type="number" id="variantPrice" placeholder="20" step="0.01">
     </div>
-    
-    <button onclick="saveProduct()" style="margin-top:20px">💾 Créer le produit</button>
+    <div class="form-group">
+      <label>Stock initial</label>
+      <input type="number" id="variantStock" placeholder="50" min="0">
+    </div>
+    <button onclick="saveProduct()">💾 Créer le produit</button>
   `);
 }
 
@@ -2847,119 +1230,98 @@ function saveProduct() {
   const name = document.getElementById('productName').value.trim().toUpperCase();
   const category = document.getElementById('productCategory').value;
   const buyPrice = parseFloat(document.getElementById('productBuyPrice').value);
+  const video = document.getElementById('productVideo').value.trim();
   const variantPrice = parseFloat(document.getElementById('variantPrice').value);
   const variantStock = parseInt(document.getElementById('variantStock').value) || 0;
   
-  if (!name) {
-    showToast('❌ Entrez un nom de produit', 'error');
-    return;
-  }
-  
-  if (!buyPrice || buyPrice <= 0) {
-    showToast('❌ Prix d\'achat invalide', 'error');
-    return;
-  }
-  
-  if (!variantPrice || variantPrice <= 0) {
-    showToast('❌ Prix de vente invalide', 'error');
+  if (!name || !buyPrice || !variantPrice) {
+    showToast('❌ Remplissez tous les champs requis', 'error');
     return;
   }
   
   const newProduct = {
-    id: Math.max(...state.data.products.map(p => p.id), 0) + 1,
+    id: Math.max(...state.products.map(p => p.id), 0) + 1,
     name,
     category,
     buyPrice,
+    video: video || '',
     variants: { 
       '1G': { 
         price: variantPrice, 
-        stock: variantStock 
+        stock: variantStock,
+        grams: 1
       } 
     }
   };
   
-  state.data.products.push(newProduct);
-  saveData();
+  state.products.push(newProduct);
+  saveProducts();
   loadProducts();
-  loadStock();
   updateAllStats();
   closeModal();
   
   showToast(`✅ ${name} créé avec succès !`, 'success');
-  
-  // Proposer d'ajouter plus de variants
-  setTimeout(() => {
-    if (confirm(`✨ Voulez-vous ajouter d'autres variants pour ${name} ?\n\n(3.5G, 5G, 10G, etc.)`)) {
-      editProduct(newProduct.id);
-    }
-  }, 500);
 }
 
 function editProduct(id) {
-  const p = state.data.products.find(x => x.id === id);
+  const p = state.products.find(x => x.id === id);
   if (!p) return;
   
   const variantsHtml = Object.entries(p.variants).map(([v, d]) => `
-    <div class="variant-row" style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:12px;padding:12px;background:var(--bg-secondary);border-radius:8px;margin-bottom:8px;align-items:end">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:12px;padding:12px;background:var(--bg-secondary);border-radius:8px;margin-bottom:8px;align-items:end">
       <div>
         <label style="font-size:11px;display:block;margin-bottom:4px">Variant</label>
-        <input type="text" value="${v}" disabled style="background:var(--card);opacity:0.7">
+        <input type="text" value="${v}" disabled style="background:var(--card);opacity:0.7;margin:0">
       </div>
       <div>
         <label style="font-size:11px;display:block;margin-bottom:4px">Prix (€)</label>
-        <input type="number" id="price_${v.replace(/\W/g, '_')}" value="${d.price}" step="0.01">
+        <input type="number" id="price_${v.replace(/\W/g, '_')}" value="${d.price}" step="0.01" style="margin:0">
       </div>
       <div>
         <label style="font-size:11px;display:block;margin-bottom:4px">Stock</label>
-        <input type="number" id="stock_${v.replace(/\W/g, '_')}" value="${d.stock}">
+        <input type="number" id="stock_${v.replace(/\W/g, '_')}" value="${d.stock}" style="margin:0">
       </div>
-      <button onclick="deleteVariant('${p.id}', '${v}')" class="btn-sm btn-danger" style="margin:0;padding:10px 12px">🗑️</button>
+      <button onclick="deleteVariant(${p.id}, '${v}')" class="btn-sm btn-danger" style="margin:0">🗑️</button>
     </div>
   `).join('');
   
   showModal(`✏️ Éditer ${p.name}`, `
     <div class="form-group">
-      <label>Nom du produit</label>
-      <input type="text" id="editProductName" value="${p.name}">
+      <label>Nom</label>
+      <input type="text" id="editProductName" value="${p.name}" style="margin:0">
     </div>
     <div class="form-group">
       <label>Catégorie</label>
-      <select id="editProductCategory">
+      <select id="editProductCategory" style="margin:0">
         <option value="fleurs" ${p.category === 'fleurs' ? 'selected' : ''}>🌿 Fleurs</option>
         <option value="resines" ${p.category === 'resines' ? 'selected' : ''}>🟫 Résines</option>
         <option value="blanche" ${p.category === 'blanche' ? 'selected' : ''}>⚪ Blanche</option>
         <option value="cali" ${p.category === 'cali' ? 'selected' : ''}>🌟 Cali</option>
         <option value="keta" ${p.category === 'keta' ? 'selected' : ''}>💎 Keta</option>
-        <option value="autre" ${p.category === 'autre' ? 'selected' : ''}>📦 Autre</option>
       </select>
     </div>
     <div class="form-group">
-      <label>Prix achat (€/gramme)</label>
-      <input type="number" id="editProductBuyPrice" value="${p.buyPrice}" step="0.01">
+      <label>Prix achat (€/g)</label>
+      <input type="number" id="editProductBuyPrice" value="${p.buyPrice}" step="0.01" style="margin:0">
     </div>
-    
-    <div style="margin-top:24px">
-      <h4 style="font-size:14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
-        <span>📦 Variants</span>
-        <button onclick="addVariantToProduct(${id})" class="btn-sm btn-success" style="margin:0">➕ Ajouter variant</button>
-      </h4>
-      <div id="variantsList">
-        ${variantsHtml}
-      </div>
+    <div class="form-group">
+      <label>URL Vidéo</label>
+      <input type="text" id="editProductVideo" value="${p.video || ''}" style="margin:0">
     </div>
-    
-    <div style="display:flex;gap:12px;margin-top:24px">
-      <button onclick="saveProductEdit(${id})" style="flex:1">💾 Sauvegarder</button>
-      <button onclick="closeModal()" style="flex:1;background:var(--muted)">Annuler</button>
-    </div>
+    <h4 style="margin:20px 0 12px;display:flex;justify-content:space-between;align-items:center">
+      <span>Variants</span>
+      <button onclick="addVariant(${id})" class="btn-sm btn-success" style="margin:0">➕ Ajouter</button>
+    </h4>
+    ${variantsHtml}
+    <button onclick="saveProductEdit(${id})" style="margin-top:20px">💾 Sauvegarder</button>
   `);
 }
 
-function addVariantToProduct(productId) {
-  const p = state.data.products.find(x => x.id === productId);
+function addVariant(productId) {
+  const p = state.products.find(x => x.id === productId);
   if (!p) return;
   
-  const variant = prompt('Nom du variant (ex: 3.5G, 5G, 10G, 0.5G) :');
+  const variant = prompt('Nom du variant (ex: 3.5G, 5G, 10G) :');
   if (!variant) return;
   
   const variantClean = variant.trim().toUpperCase();
@@ -2976,41 +1338,39 @@ function addVariantToProduct(productId) {
   }
   
   const stock = parseInt(prompt('Stock initial pour ' + variantClean + ' :')) || 0;
+  const grams = parseFloat(variantClean.replace(/[^0-9.]/g, '')) || 1;
   
-  p.variants[variantClean] = { price, stock };
-  saveData();
-  
-  // Recharger le modal
+  p.variants[variantClean] = { price, stock, grams };
+  saveProducts();
   editProduct(productId);
   showToast(`✅ Variant ${variantClean} ajouté !`, 'success');
 }
 
 function deleteVariant(productId, variant) {
-  const p = state.data.products.find(x => x.id === productId);
+  const p = state.products.find(x => x.id === productId);
   if (!p) return;
   
-  const variantCount = Object.keys(p.variants).length;
-  
-  if (variantCount <= 1) {
+  if (Object.keys(p.variants).length <= 1) {
     showToast('❌ Un produit doit avoir au moins 1 variant', 'error');
     return;
   }
   
   if (confirm(`Supprimer le variant ${variant} ?`)) {
     delete p.variants[variant];
-    saveData();
+    saveProducts();
     editProduct(productId);
     showToast(`✅ Variant ${variant} supprimé`, 'success');
   }
 }
 
 function saveProductEdit(id) {
-  const p = state.data.products.find(x => x.id === id);
+  const p = state.products.find(x => x.id === id);
   if (!p) return;
   
   p.name = document.getElementById('editProductName').value.trim().toUpperCase();
   p.category = document.getElementById('editProductCategory').value;
   p.buyPrice = parseFloat(document.getElementById('editProductBuyPrice').value);
+  p.video = document.getElementById('editProductVideo').value.trim();
   
   Object.keys(p.variants).forEach(v => {
     const vid = v.replace(/\W/g, '_');
@@ -3023,680 +1383,141 @@ function saveProductEdit(id) {
     }
   });
   
-  saveData();
+  saveProducts();
   loadProducts();
-  loadStock();
   updateAllStats();
   closeModal();
-  showToast(`✅ ${p.name} modifié avec succès !`, 'success');
+  showToast(`✅ ${p.name} modifié !`, 'success');
 }
 
 function deleteProduct(id) {
-  if (confirm('Supprimer ce produit ?')) {
-    state.data.products = state.data.products.filter(p => p.id !== id);
-    saveData();
+  if (confirm('Supprimer ce produit définitivement ?')) {
+    state.products = state.products.filter(p => p.id !== id);
+    saveProducts();
     loadProducts();
-    loadStock();
     updateAllStats();
     showToast('Produit supprimé', 'success');
   }
 }
 
+function viewStock(id) {
+  const p = state.products.find(x => x.id === id);
+  if (!p) return;
+  
+  const variantsHtml = Object.entries(p.variants).map(([v, d]) => 
+    `<div style="padding:12px;background:var(--bg-secondary);border-radius:8px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <strong style="font-size:14px">${v}</strong>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">${fmt(d.price)} / unité</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:20px;font-weight:700;color:${d.stock < 10 ? 'var(--warning)' : 'var(--success)'}">
+          ${d.stock}
+        </div>
+        <div style="font-size:11px;color:var(--muted)">unités</div>
+      </div>
+    </div>`
+  ).join('');
+  
+  const totalValue = Object.values(p.variants).reduce((sum, v) => sum + (v.stock * v.price), 0);
+  
+  showModal(`📊 Stock ${p.name}`, `
+    ${variantsHtml}
+    <div style="margin-top:20px;padding:16px;background:var(--card);border-radius:8px;border:1px solid var(--border)">
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+        <span style="color:var(--muted)">Prix achat:</span>
+        <strong>${fmt(p.buyPrice)}/g</strong>
+      </div>
+      <div style="display:flex;justify-content:space-between">
+        <span style="color:var(--muted)">Valeur totale:</span>
+        <strong style="color:var(--success)">${fmt(totalValue)}</strong>
+      </div>
+    </div>
+  `);
+}
+
 function searchProducts() {
   const term = document.getElementById('searchProducts').value.toLowerCase();
+  filterProducts(term);
+}
+
+function filterProducts(searchTerm = '') {
   const category = document.getElementById('filterCategory').value;
+  const tbody = document.getElementById('productsTable');
   
-  let filtered = state.data.products;
+  let filtered = state.products;
   
-  // Filtrer par terme de recherche
-  if (term) {
-    filtered = filtered.filter(p => 
-      p.name.toLowerCase().includes(term) ||
-      p.category.toLowerCase().includes(term) ||
-      p.id.toString().includes(term)
-    );
-  }
-  
-  // Filtrer par catégorie
   if (category !== 'all') {
     filtered = filtered.filter(p => p.category === category);
   }
   
-  displayFilteredProducts(filtered);
-}
-
-function filterProducts() {
-  searchProducts();
-}
-
-function displayFilteredProducts(products) {
-  const tbody = document.getElementById('productsTable');
-  
-  if (products.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted)">Aucun produit trouvé</td></tr>';
-    return;
-  }
-  
-  tbody.innerHTML = products.map(p => {
-    const variants = Object.keys(p.variants).length;
-    const prices = Object.values(p.variants).map(v => v.price);
-    const minPrice = Math.min(...prices);
-    const totalStock = Object.values(p.variants).reduce((sum, v) => sum + v.stock, 0);
-    
-    return `
-      <tr>
-        <td><strong>#${p.id}</strong></td>
-        <td><strong>${p.name}</strong></td>
-        <td><span class="badge">${p.category}</span></td>
-        <td>${variants}</td>
-        <td>${fc(minPrice)}</td>
-        <td><strong style="color:${totalStock < 10 ? 'var(--warning)' : 'var(--success)'}">
-          ${totalStock}
-        </strong></td>
-        <td>
-          <button class="btn-sm btn-primary" onclick="editProduct(${p.id})">✏️</button>
-          <button class="btn-sm btn-success" onclick="viewProductStock(${p.id})">📊</button>
-          <button class="btn-sm btn-danger" onclick="deleteProduct(${p.id})">🗑️</button>
-        </td>
-      </tr>
-    `;
-  }).join('');
-}
-
-// Stock
-function loadStock() {
-  const tbody = document.getElementById('stockTable');
-  let rows = [];
-  
-  state.data.products.forEach(p => {
-    Object.entries(p.variants).forEach(([v, d]) => {
-      const buyTotal = p.buyPrice * parseFloat(v.replace(/\D/g, '') || 1);
-      const value = d.stock * d.price;
-      
-      let status = 'ok';
-      if (d.stock === 0) status = 'out';
-      else if (d.stock < 10) status = 'low';
-      
-      rows.push(`
-        <tr>
-          <td><strong>${p.name}</strong></td>
-          <td>${v}</td>
-          <td><strong style="color:var(--accent)">${d.stock}</strong></td>
-          <td>${fc(buyTotal)}</td>
-          <td>${fc(d.price)}</td>
-          <td>${fc(value)}</td>
-          <td>${getStockBadge(status)}</td>
-          <td>
-            <button class="btn-sm btn-success" onclick="quickAddStock('${p.name}', '${v}')">➕</button>
-          </td>
-        </tr>
-      `);
-    });
-  });
-  
-  tbody.innerHTML = rows.join('');
-}
-
-function updateVariantOptions() {
-  const pid = document.getElementById('stockProduct').value;
-  const vSelect = document.getElementById('stockVariant');
-  
-  if (!pid) {
-    vSelect.disabled = true;
-    vSelect.innerHTML = '<option value="">Variant...</option>';
-    return;
-  }
-  
-  const p = state.data.products.find(x => x.id == pid);
-  if (p) {
-    vSelect.disabled = false;
-    vSelect.innerHTML = '<option value="">Variant...</option>' +
-      Object.keys(p.variants).map(v => `<option value="${v}">${v}</option>`).join('');
-  }
-}
-
-function addStock() {
-  const pid = document.getElementById('stockProduct').value;
-  const v = document.getElementById('stockVariant').value;
-  const qty = parseInt(document.getElementById('stockQty').value);
-  
-  if (!pid || !v || !qty) {
-    showToast('Remplissez les champs', 'error');
-    return;
-  }
-  
-  const p = state.data.products.find(x => x.id == pid);
-  if (p && p.variants[v]) {
-    p.variants[v].stock += qty;
-    saveData();
-    loadStock();
-    updateAllStats();
-    showToast(`${qty} unités ajoutées`, 'success');
-    
-    document.getElementById('stockProduct').value = '';
-    document.getElementById('stockVariant').value = '';
-    document.getElementById('stockVariant').disabled = true;
-    document.getElementById('stockQty').value = '';
-  }
-}
-
-function adjustStock() {
-  const pid = document.getElementById('stockProduct').value;
-  const v = document.getElementById('stockVariant').value;
-  const qty = parseInt(document.getElementById('stockQty').value);
-  
-  if (!pid || !v || qty === undefined) {
-    showToast('Remplissez les champs', 'error');
-    return;
-  }
-  
-  const p = state.data.products.find(x => x.id == pid);
-  if (p && p.variants[v]) {
-    p.variants[v].stock = qty;
-    saveData();
-    loadStock();
-    updateAllStats();
-    showToast('Stock ajusté', 'success');
-    
-    document.getElementById('stockProduct').value = '';
-    document.getElementById('stockVariant').value = '';
-    document.getElementById('stockVariant').disabled = true;
-    document.getElementById('stockQty').value = '';
-  }
-}
-
-function quickAddStock(name, v) {
-  const qty = prompt(`Quantité à ajouter pour ${name} ${v}:`, '10');
-  if (qty && !isNaN(qty)) {
-    const p = state.data.products.find(x => x.name === name);
-    if (p && p.variants[v]) {
-      p.variants[v].stock += parseInt(qty);
-      saveData();
-      loadStock();
-      updateAllStats();
-      showToast(`${qty} unités ajoutées`, 'success');
-    }
-  }
-}
-
-function getStockBadge(s) {
-  const b = {
-    ok: '<span class="badge success">✅ OK</span>',
-    low: '<span class="badge warning">⚠️ Faible</span>',
-    out: '<span class="badge danger">❌ Rupture</span>'
-  };
-  return b[s] || b.ok;
-}
-
-// Customers
-function loadCustomers() {
-  const tbody = document.getElementById('customersTable');
-  const customers = state.data.customers;
-  
-  if (customers.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px">Aucun client</td></tr>';
-    return;
-  }
-  
-  tbody.innerHTML = customers.map(c => `
-    <tr>
-      <td><strong>#${c.id}</strong></td>
-      <td>${c.name}</td>
-      <td>${c.email}</td>
-      <td>${c.phone}</td>
-      <td>${c.orders || 0}</td>
-      <td><strong>${fc(c.totalSpent || 0)}</strong></td>
-      <td>${getCustomerBadge(c.status || 'regular')}</td>
-      <td>
-        <button class="btn-sm btn-primary" onclick="viewCustomer(${c.id})">👁️</button>
-        <button class="btn-sm btn-danger" onclick="deleteCustomer(${c.id})">🗑️</button>
-      </td>
-    </tr>
-  `).join('');
-}
-
-function getCustomerBadge(s) {
-  const badges = {
-    vip: '<span class="badge warning">⭐ VIP</span>',
-    regular: '<span class="badge">👤 Régulier</span>',
-    new: '<span class="badge success">🆕 Nouveau</span>'
-  };
-  return badges[s] || badges.regular;
-}
-
-function viewCustomer(id) {
-  const c = state.data.customers.find(x => x.id === id);
-  if (!c) return;
-  
-  showModal(`Client: ${c.name}`, `
-    <p style="margin-bottom:12px"><strong>Email:</strong> ${c.email}</p>
-    <p style="margin-bottom:12px"><strong>Téléphone:</strong> ${c.phone}</p>
-    <p style="margin-bottom:12px"><strong>Commandes:</strong> ${c.orders || 0}</p>
-    <p style="margin-bottom:12px"><strong>Total dépensé:</strong> ${fc(c.totalSpent || 0)}</p>
-    <p style="margin-bottom:12px"><strong>Statut:</strong> ${getCustomerBadge(c.status || 'regular')}</p>
-  `);
-}
-
-function deleteCustomer(id) {
-  if (confirm('Supprimer ce client ?')) {
-    state.data.customers = state.data.customers.filter(c => c.id !== id);
-    saveData();
-    loadCustomers();
-    updateAllStats();
-    showToast('Client supprimé', 'success');
-  }
-}
-
-function addCustomer() {
-  showModal('Nouveau client', `
-    <div class="form-group">
-      <label>Nom</label>
-      <input type="text" id="customerName" placeholder="Jean Dupont">
-    </div>
-    <div class="form-group">
-      <label>Email</label>
-      <input type="email" id="customerEmail" placeholder="jean@email.com">
-    </div>
-    <div class="form-group">
-      <label>Téléphone</label>
-      <input type="tel" id="customerPhone" placeholder="06 12 34 56 78">
-    </div>
-    <button onclick="saveCustomer()">💾 Créer</button>
-  `);
-}
-
-function saveCustomer() {
-  const name = document.getElementById('customerName').value;
-  const email = document.getElementById('customerEmail').value;
-  const phone = document.getElementById('customerPhone').value;
-  
-  if (!name || !email || !phone) {
-    showToast('Remplissez les champs', 'error');
-    return;
-  }
-  
-  const newCustomer = {
-    id: Math.max(...state.data.customers.map(c => c.id), 0) + 1,
-    name,
-    email,
-    phone,
-    orders: 0,
-    totalSpent: 0,
-    status: 'new'
-  };
-  
-  state.data.customers.push(newCustomer);
-  saveData();
-  loadCustomers();
-  updateAllStats();
-  closeModal();
-  showToast('Client créé', 'success');
-}
-
-function searchCustomers() {
-  const term = document.getElementById('searchCustomers').value.toLowerCase();
-  const type = document.getElementById('filterCustomerType').value;
-  
-  let filtered = state.data.customers;
-  
-  // Filtrer par terme de recherche
-  if (term) {
-    filtered = filtered.filter(c => 
-      c.name.toLowerCase().includes(term) ||
-      c.email.toLowerCase().includes(term) ||
-      c.phone.includes(term) ||
-      c.id.toString().includes(term)
+  if (searchTerm) {
+    filtered = filtered.filter(p => 
+      p.name.toLowerCase().includes(searchTerm) ||
+      p.category.toLowerCase().includes(searchTerm)
     );
   }
   
-  // Filtrer par type
-  if (type !== 'all') {
-    filtered = filtered.filter(c => c.status === type);
-  }
-  
-  displayFilteredCustomers(filtered);
-}
-
-function filterCustomers() {
-  searchCustomers();
-}
-
-function displayFilteredCustomers(customers) {
-  const tbody = document.getElementById('customersTable');
-  
-  if (customers.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--muted)">Aucun client trouvé</td></tr>';
+  if (filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--muted)">Aucun produit trouvé</td></tr>';
     return;
   }
   
-  tbody.innerHTML = customers.map(c => `
+  tbody.innerHTML = filtered.map(p => {
+    const variantCount = Object.keys(p.variants).length;
+    const totalStock = Object.values(p.variants).reduce((sum, v) => sum + (v.stock || 0), 0);
+    
+    return `
     <tr>
-      <td><strong>#${c.id}</strong></td>
-      <td>${c.name}</td>
-      <td>${c.email}</td>
-      <td>${c.phone}</td>
-      <td>${c.orders || 0}</td>
-      <td><strong>${fc(c.totalSpent || 0)}</strong></td>
-      <td>${getCustomerBadge(c.status || 'regular')}</td>
+      <td><strong>#${p.id}</strong></td>
+      <td><strong>${p.name}</strong></td>
+      <td><span class="badge">${p.category}</span></td>
+      <td>${variantCount}</td>
+      <td><strong style="color:${totalStock < 10 ? 'var(--warning)' : 'var(--success)'}">
+        ${totalStock}
+      </strong></td>
       <td>
-        <button class="btn-sm btn-primary" onclick="viewCustomer(${c.id})">👁️</button>
-        <button class="btn-sm btn-warning" onclick="editCustomer(${c.id})">✏️</button>
-        <button class="btn-sm btn-danger" onclick="deleteCustomer(${c.id})">🗑️</button>
+        <button class="btn-sm btn-primary" onclick="editProduct(${p.id})">✏️</button>
+        <button class="btn-sm btn-success" onclick="viewStock(${p.id})">📊</button>
+        <button class="btn-sm btn-danger" onclick="deleteProduct(${p.id})">🗑️</button>
       </td>
     </tr>
-  `).join('');
+  `}).join('');
 }
 
-function editCustomer(id) {
-  const c = state.data.customers.find(x => x.id === id);
-  if (!c) return;
-  
-  showModal(`Éditer ${c.name}`, `
-    <div class="form-group">
-      <label>Nom</label>
-      <input type="text" id="editCustomerName" value="${c.name}">
-    </div>
-    <div class="form-group">
-      <label>Email</label>
-      <input type="email" id="editCustomerEmail" value="${c.email}">
-    </div>
-    <div class="form-group">
-      <label>Téléphone</label>
-      <input type="tel" id="editCustomerPhone" value="${c.phone}">
-    </div>
-    <div class="form-group">
-      <label>Statut</label>
-      <select id="editCustomerStatus">
-        <option value="new" ${c.status === 'new' ? 'selected' : ''}>🆕 Nouveau</option>
-        <option value="regular" ${c.status === 'regular' ? 'selected' : ''}>👤 Régulier</option>
-        <option value="vip" ${c.status === 'vip' ? 'selected' : ''}>⭐ VIP</option>
-      </select>
-    </div>
-    <button onclick="saveCustomerEdit(${id})">💾 Sauvegarder</button>
-  `);
+function exportProducts() {
+  const data = JSON.stringify(state.products, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `produits_${Date.now()}.json`;
+  a.click();
+  showToast('📥 Produits exportés', 'success');
 }
 
-function saveCustomerEdit(id) {
-  const c = state.data.customers.find(x => x.id === id);
-  if (!c) return;
-  
-  c.name = document.getElementById('editCustomerName').value;
-  c.email = document.getElementById('editCustomerEmail').value;
-  c.phone = document.getElementById('editCustomerPhone').value;
-  c.status = document.getElementById('editCustomerStatus').value;
-  
-  saveData();
-  loadCustomers();
-  updateAllStats();
-  closeModal();
-  showToast('Client modifié', 'success');
-}
+// ═══════════════════════════════════════════════════════════════════════════
+// IMPORT/EXPORT
+// ═══════════════════════════════════════════════════════════════════════════
 
-// Finances
-function loadProfitTable() {
-  const tbody = document.getElementById('profitTable');
-  
-  if (state.data.orders.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--muted)">Aucune donnée de rentabilité. Les ventes apparaîtront ici.</td></tr>';
-    return;
-  }
-  
-  // Calculer vraies données si on a des commandes
-  const data = [
-    { product: 'AMNESIA', sales: 0, revenue: 0, cost: 0, profit: 0, margin: 0 },
-    { product: 'EL JEFE', sales: 0, revenue: 0, cost: 0, profit: 0, margin: 0 },
-    { product: 'DEMBELE', sales: 0, revenue: 0, cost: 0, profit: 0, margin: 0 }
-  ];
-  
-  tbody.innerHTML = data.map(d => `
-    <tr>
-      <td><strong>${d.product}</strong></td>
-      <td>${d.sales}</td>
-      <td>${fc(d.revenue)}</td>
-      <td style="color:var(--danger)">${fc(d.cost)}</td>
-      <td style="color:var(--success)">${fc(d.profit)}</td>
-      <td><span class="badge ${d.margin >= 70 ? 'success' : 'warning'}">${d.margin}%</span></td>
-    </tr>
-  `).join('');
-}
-
-function calculateProfit() {
-  const w = parseFloat(document.getElementById('calcWeight').value);
-  const buy = parseFloat(document.getElementById('calcBuyPrice').value);
-  const sell = parseFloat(document.getElementById('calcSellPrice').value);
-  const qty = parseInt(document.getElementById('calcQuantity').value) || 1;
-  
-  if (!w || !buy || !sell) {
-    document.getElementById('profitResults').style.display = 'none';
-    return;
-  }
-  
-  const cost = buy * w;
-  const unitProfit = sell - cost;
-  const margin = ((unitProfit / sell) * 100).toFixed(1);
-  const totalProfit = unitProfit * qty;
-  
-  document.getElementById('resultCost').textContent = fc(cost);
-  document.getElementById('resultUnitProfit').textContent = fc(unitProfit);
-  document.getElementById('resultMargin').textContent = margin + '%';
-  document.getElementById('resultTotalProfit').textContent = fc(totalProfit);
-  
-  document.getElementById('profitResults').style.display = 'block';
-}
-
-// Caisse
-function loadCashier() {
-  document.getElementById('cashierTotal').textContent = fc(state.cash.total);
-  
-  const today = new Date().toDateString();
-  const todayTrans = state.cash.transactions.filter(t => 
-    new Date(t.date).toDateString() === today
-  );
-  
-  const income = todayTrans.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-  const expense = todayTrans.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
-  
-  document.getElementById('todayIncome').textContent = fc(income);
-  document.getElementById('todayExpense').textContent = fc(expense);
-  document.getElementById('todayBalance').textContent = fc(income - expense);
-  
-  // Historique transactions
-  const recent = document.getElementById('recentTransactions');
-  if (recent) {
-    const last = state.cash.transactions.slice(-10).reverse();
-    
-    if (last.length === 0) {
-      recent.innerHTML = '<p style="text-align:center;padding:20px;color:var(--muted)">Aucune transaction</p>';
-    } else {
-      recent.innerHTML = last.map(t => `
-        <div style="padding:12px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between">
-          <div>
-            <div style="font-weight:600;font-size:13px">${t.description}</div>
-            <div style="font-size:11px;color:var(--muted);margin-top:4px">${new Date(t.date).toLocaleString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</div>
-          </div>
-          <div style="font-weight:700;color:${t.type === 'income' ? 'var(--success)' : 'var(--danger)'}">
-            ${t.type === 'income' ? '+' : '-'}${fc(Math.abs(t.amount))}
-          </div>
-        </div>
-      `).join('');
-    }
-  }
-  
-  // Résumé semaine
-  const weekDiv = document.getElementById('weekCashSummary');
-  if (weekDiv) {
-    const days = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'];
-    const amounts = [850, 620, 480, 730, 1000];
-    
-    weekDiv.innerHTML = days.map((d, i) => `
-      <div style="margin-bottom:12px">
-        <div style="display:flex;justify-content:space-between;margin-bottom:8px">
-          <span>${d}</span>
-          <span style="color:var(--success)">+${fc(amounts[i])}</span>
-        </div>
-        <div class="progress-bar">
-          <div class="progress-fill" style="width:${amounts[i] / 10}%"></div>
-        </div>
-      </div>
-    `).join('') + `
-      <div style="margin-top:20px;padding-top:20px;border-top:1px solid var(--border)">
-        <div style="display:flex;justify-content:space-between;font-size:18px;font-weight:700">
-          <span>Total:</span>
-          <span style="color:var(--success)">${fc(amounts.reduce((a,b) => a+b, 0))}</span>
-        </div>
-      </div>
-    `;
-  }
-}
-
-function addTransaction() {
-  const type = document.getElementById('transType').value;
-  const amount = parseFloat(document.getElementById('transAmount').value);
-  
-  if (!amount || amount <= 0) {
-    showToast('Montant invalide', 'error');
-    return;
-  }
-  
-  if (type === 'income') state.cash.total += amount;
-  else if (type === 'expense') state.cash.total -= amount;
-  else if (type === 'adjustment') state.cash.total = amount;
-  
-  state.cash.transactions.push({
-    id: Date.now(),
-    date: new Date().toISOString(),
-    type,
-    amount,
-    category: document.getElementById('transCategory').value,
-    description: document.getElementById('transDescription').value || `Transaction ${type}`,
-    balanceAfter: state.cash.total
-  });
-  
-  saveData();
-  loadCashier();
-  updateAllStats();
-  
-  document.getElementById('transAmount').value = '';
-  document.getElementById('transDescription').value = '';
-  showToast('Transaction enregistrée', 'success');
-}
-
-function quickSale(amount) {
-  state.cash.total += amount;
-  state.cash.transactions.push({
-    id: Date.now(),
-    date: new Date().toISOString(),
-    type: 'income',
-    amount,
-    category: 'sale',
-    description: `Vente rapide ${amount}€`,
-    balanceAfter: state.cash.total
-  });
-  
-  saveData();
-  loadCashier();
-  updateAllStats();
-  showToast(`Vente ${amount}€ enregistrée`, 'success');
-}
-
-function countCash() {
-  const counted = prompt('Montant compté €:', state.cash.total);
-  if (counted !== null && !isNaN(counted)) {
-    const diff = parseFloat(counted) - state.cash.total;
-    if (Math.abs(diff) > 0.01) {
-      if (confirm(`Écart: ${fc(diff)}. Ajuster ?`)) {
-        state.cash.transactions.push({
-          id: Date.now(),
-          date: new Date().toISOString(),
-          type: 'adjustment',
-          amount: parseFloat(counted),
-          category: 'adjustment',
-          description: `Ajustement (écart: ${fc(diff)})`,
-          balanceAfter: parseFloat(counted)
-        });
-        state.cash.total = parseFloat(counted);
-        saveData();
-        loadCashier();
-        updateAllStats();
-        showToast('Caisse ajustée', 'success');
-      }
-    } else {
-      showToast('Caisse correcte !', 'success');
-    }
-  }
-}
-
-function closeCashRegister() {
-  const msg = `CLÔTURE\nCaisse finale: ${fc(state.cash.total)}`;
-  if (confirm(msg + '\n\nConfirmer ?')) {
-    showToast('Caisse clôturée', 'success');
-  }
-}
-
-// Settings
-function saveSettings() {
-  const name = document.getElementById('shopName').value;
-  const email = document.getElementById('shopEmail').value;
-  const phone = document.getElementById('shopPhone').value;
-  
-  localStorage.setItem('shop_settings', JSON.stringify({ name, email, phone }));
-  showToast('✅ Paramètres sauvegardés', 'success');
-}
-
-function changePassword() {
-  const oldP = document.getElementById('oldPassword').value;
-  const newP = document.getElementById('newPassword').value;
-  const conf = document.getElementById('confirmPassword').value;
-  
-  if (!oldP || !newP || !conf) {
-    showToast('Remplissez tous les champs', 'error');
-    return;
-  }
-  
-  const oldHash = CryptoJS.SHA256(oldP).toString();
-  if (oldHash !== state.passwordHash) {
-    showToast('Ancien mot de passe incorrect', 'error');
-    return;
-  }
-  
-  if (newP !== conf) {
-    showToast('Les mots de passe ne correspondent pas', 'error');
-    return;
-  }
-  
-  if (newP.length < 4) {
-    showToast('Minimum 4 caractères', 'error');
-    return;
-  }
-  
-  state.currentPassword = newP;
-  state.passwordHash = CryptoJS.SHA256(newP).toString();
-  localStorage.setItem('admin_password', newP);
-  localStorage.setItem('password_hash', state.passwordHash);
-  
-  document.getElementById('oldPassword').value = '';
-  document.getElementById('newPassword').value = '';
-  document.getElementById('confirmPassword').value = '';
-  
-  showToast('Mot de passe modifié !', 'success');
-}
-
-function exportAll() {
-  const data = { 
-    ...state.data, 
-    cash: state.cash, 
-    exportDate: new Date().toISOString() 
+function exportAllData() {
+  const data = {
+    products: state.products,
+    orders: state.orders,
+    stats: state.stats,
+    exportDate: new Date().toISOString()
   };
+  
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
   a.download = `backup_complet_${Date.now()}.json`;
   a.click();
-  showToast('Backup complet exporté', 'success');
+  showToast('📥 Backup complet exporté', 'success');
 }
 
-function importAll() {
+function importAllData() {
   const input = document.getElementById('importFile');
   input.onchange = (e) => {
     const file = e.target.files[0];
@@ -3707,23 +1528,31 @@ function importAll() {
       try {
         const data = JSON.parse(ev.target.result);
         
-        if (data.orders) state.data.orders = data.orders;
-        if (data.products) state.data.products = data.products;
-        if (data.customers) state.data.customers = data.customers;
-        if (data.cash) state.cash = data.cash;
-        
-        saveData();
-        loadOrders();
-        loadProducts();
-        loadStock();
-        loadCustomers();
-        loadCashier();
-        updateAllStats();
-        
-        showToast('Import réussi !', 'success');
+        if (confirm('⚠️ Importer ces données ? Cela remplacera toutes les données actuelles.')) {
+          if (data.products) {
+            state.products = data.products;
+            saveProducts();
+          }
+          if (data.orders) {
+            state.orders = data.orders;
+            localStorage.setItem(CONFIG.STORAGE_KEYS.ORDERS, JSON.stringify(state.orders));
+          }
+          if (data.stats) {
+            state.stats = data.stats;
+            localStorage.setItem(CONFIG.STORAGE_KEYS.STATS, JSON.stringify(state.stats));
+          }
+          
+          updateAllStats();
+          loadOrders();
+          loadProducts();
+          updateRecentActivity();
+          if (state.chart) initCharts();
+          
+          showToast('✅ Import réussi !', 'success');
+        }
       } catch (e) {
         console.error('Import error:', e);
-        showToast('Erreur import', 'error');
+        showToast('❌ Erreur import', 'error');
       }
     };
     reader.readAsText(file);
@@ -3731,188 +1560,76 @@ function importAll() {
   input.click();
 }
 
-function clearAll() {
-  if (confirm('⚠️ Supprimer TOUTES les données ?')) {
-    if (confirm('⚠️ CONFIRMATION FINALE ? Cette action est irréversible !')) {
-      // Tout supprimer y compris produits
-      state.data = { orders: [], products: [], customers: [] };
-      state.cash = { total: 0, transactions: [], weekHistory: [] };
-      state.notifications = [];
+// ═══════════════════════════════════════════════════════════════════════════
+// RÉINITIALISATION
+// ═══════════════════════════════════════════════════════════════════════════
+
+function resetData() {
+  if (confirm('⚠️ ATTENTION : Cette action va supprimer TOUTES les données (produits, commandes, statistiques). Continuer ?')) {
+    if (confirm('⚠️ DERNIÈRE CONFIRMATION : Êtes-vous VRAIMENT sûr ? Cette action est IRRÉVERSIBLE !')) {
+      localStorage.removeItem(CONFIG.STORAGE_KEYS.PRODUCTS);
+      localStorage.removeItem(CONFIG.STORAGE_KEYS.ORDERS);
+      localStorage.removeItem(CONFIG.STORAGE_KEYS.STATS);
       
-      // Nettoyer localStorage
-      localStorage.removeItem('admin_data_ultra');
-      localStorage.removeItem('admin_cash_ultra');
-      localStorage.removeItem('shop_orders');
-      localStorage.removeItem('auto_backup');
+      state.products = [];
+      state.orders = [];
+      state.stats = { totalRevenue: 0, totalOrders: 0 };
       
-      saveData();
+      updateAllStats();
       loadOrders();
       loadProducts();
-      loadStock();
-      loadCustomers();
-      loadCashier();
-      updateAllStats();
-      showToast('✅ Toutes les données supprimées', 'success');
+      updateRecentActivity();
+      if (state.chart) initCharts();
+      
+      showToast('✅ Toutes les données ont été supprimées', 'success');
     }
   }
 }
 
-function resetToFresh() {
-  if (confirm('🔄 Remettre à zéro pour démarrage propre ?')) {
-    if (confirm('Cela va supprimer toutes les commandes, clients et transactions, mais garder vos produits. Continuer ?')) {
-      // Garder les produits, tout réinitialiser
-      state.data.orders = [];
-      state.data.customers = [];
-      state.cash = { total: 0, transactions: [], weekHistory: [] };
-      state.notifications = [];
-      
-      // S'assurer qu'on a les 12 produits
-      if (!state.data.products || state.data.products.length < 12) {
-        state.data.products = [
-          { id: 1, name: 'AMNESIA', category: 'fleurs', buyPrice: 2.8, variants: {
-            '3.33G': { price: 20, stock: 50 }, '5G': { price: 30, stock: 45 }, '10G': { price: 60, stock: 30 }
-          }},
-          { id: 2, name: 'EL JEFE', category: 'blanche', buyPrice: 17.5, variants: {
-            '0.5G': { price: 30, stock: 20 }, '1G': { price: 50, stock: 15 }
-          }},
-          { id: 3, name: 'DEMBELE', category: 'resines', buyPrice: 2.7, variants: {
-            '3.5G': { price: 20, stock: 60 }, '5G': { price: 30, stock: 50 }
-          }},
-          { id: 4, name: 'LEMON GELATO', category: 'cali', buyPrice: 5.3, variants: {
-            '3.5G': { price: 40, stock: 20 }
-          }},
-          { id: 5, name: 'NEEDLES KETA', category: 'keta', buyPrice: 3.9, variants: {
-            '1G': { price: 20, stock: 30 }
-          }},
-          { id: 6, name: 'OG KUSH', category: 'fleurs', buyPrice: 3.0, variants: {
-            '3.33G': { price: 20, stock: 40 }, '5G': { price: 30, stock: 35 }, '10G': { price: 60, stock: 25 }
-          }},
-          { id: 7, name: 'PURPLE HAZE', category: 'fleurs', buyPrice: 3.2, variants: {
-            '3.33G': { price: 25, stock: 30 }, '5G': { price: 35, stock: 25 }
-          }},
-          { id: 8, name: 'SUPER SKUNK', category: 'resines', buyPrice: 2.5, variants: {
-            '3.5G': { price: 20, stock: 55 }, '5G': { price: 30, stock: 45 }, '10G': { price: 55, stock: 30 }
-          }},
-          { id: 9, name: 'CHARAS', category: 'resines', buyPrice: 3.0, variants: {
-            '3.5G': { price: 25, stock: 40 }, '5G': { price: 35, stock: 30 }
-          }},
-          { id: 10, name: 'WEDDING CAKE', category: 'cali', buyPrice: 5.5, variants: {
-            '3.5G': { price: 45, stock: 15 }
-          }},
-          { id: 11, name: 'RUNTZ', category: 'cali', buyPrice: 6.0, variants: {
-            '3.5G': { price: 50, stock: 12 }
-          }},
-          { id: 12, name: 'PURE KETA', category: 'keta', buyPrice: 4.2, variants: {
-            '0.5G': { price: 15, stock: 25 }, '1G': { price: 25, stock: 20 }
-          }}
-        ];
-      }
-      
-      // Nettoyer shop_orders pour démarrage propre de la boutique
-      localStorage.removeItem('shop_orders');
-      localStorage.removeItem('auto_backup');
-      
-      // Sauvegarder
-      saveData();
-      loadOrders();
-      loadProducts();
-      loadCustomers();
-      loadCashier();
-      updateAllStats();
-      
-      showToast('✅ Système réinitialisé ! Boutique prête', 'success');
-      
-      // Afficher modal de confirmation
-      setTimeout(() => {
-        showModal('🎉 Réinitialisation terminée', `
-          <div style="text-align:center;padding:20px">
-            <div style="font-size:48px;margin-bottom:16px">✅</div>
-            <h3 style="margin-bottom:16px">Votre boutique est prête !</h3>
-            <p style="color:var(--muted);margin-bottom:20px">
-              • Commandes : 0<br>
-              • Caisse : 0,00 €<br>
-              • Clients : 0<br>
-              • Produits : ${state.data.products.length} conservés
-            </p>
-            <p style="color:var(--success);font-weight:600">
-              Vous pouvez maintenant ouvrir votre boutique !
-            </p>
-          </div>
-          <button onclick="closeModal()" style="background:var(--success);margin-top:20px">🚀 C'est parti !</button>
-        `);
-      }, 500);
-    }
-  }
+// ═══════════════════════════════════════════════════════════════════════════
+// INTERFACE
+// ═══════════════════════════════════════════════════════════════════════════
+
+function showTab(tabName) {
+  document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+  
+  event.target.classList.add('active');
+  document.getElementById(`tab-${tabName}`).classList.add('active');
 }
 
-function requestNotificationPermission() {
-  if (!('Notification' in window)) {
-    showToast('Notifications non supportées', 'error');
-    return;
+function showDashboard() {
+  document.getElementById('auth').style.display = 'none';
+  document.getElementById('dash').style.display = 'block';
+  
+  updateAllStats();
+  loadOrders();
+  loadProducts();
+  updateRecentActivity();
+  initCharts();
+  startAutoSync();
+  
+  console.log('✅ Dashboard chargé');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// INITIALISATION
+// ═══════════════════════════════════════════════════════════════════════════
+
+function init() {
+  const savedPass = localStorage.getItem(CONFIG.STORAGE_KEYS.PASSWORD);
+  if (savedPass) {
+    CONFIG.PASSWORD_HASH = CryptoJS.SHA256(savedPass).toString();
   }
   
-  Notification.requestPermission().then(perm => {
-    if (perm === 'granted') {
-      showToast('Notifications activées !', 'success');
-      new Notification('DROGUA CENTER', { body: 'Notifications activées !', icon: '🎯' });
-    } else {
-      showToast('Permission refusée', 'error');
-    }
+  checkAuth();
+  
+  document.getElementById('pass')?.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') login();
   });
 }
 
-function showModal(title, content) {
-  document.getElementById('modalTitle').textContent = title;
-  document.getElementById('modalBody').innerHTML = content;
-  document.getElementById('modal').classList.add('active');
-}
-
-function exportData(type) {
-  const data = JSON.stringify(state.data[type], null, 2);
-  const blob = new Blob([data], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${type}.json`;
-  a.click();
-  showToast('Export réussi', 'success');
-}
-
-function sortTable(type, col) {
-  const config = state.sortConfig[type] || { col: null, dir: 'asc' };
-  const dir = config.col === col && config.dir === 'asc' ? 'desc' : 'asc';
-  
-  state.sortConfig[type] = { col, dir };
-  
-  const data = state.data[type];
-  if (!data || data.length === 0) return;
-  
-  data.sort((a, b) => {
-    let aVal = a[col];
-    let bVal = b[col];
-    
-    if (typeof aVal === 'string') {
-      aVal = aVal.toLowerCase();
-      bVal = bVal.toLowerCase();
-    }
-    
-    if (aVal < bVal) return dir === 'asc' ? -1 : 1;
-    if (aVal > bVal) return dir === 'asc' ? 1 : -1;
-    return 0;
-  });
-  
-  if (type === 'orders') loadOrders();
-  else if (type === 'products') loadProducts();
-  else if (type === 'customers') loadCustomers();
-  
-  showToast(`Trié par ${col}`, 'success');
-}
-
-// Init
 document.addEventListener('DOMContentLoaded', init);
-document.getElementById('pass')?.addEventListener('keypress', (e) => {
-  if (e.key === 'Enter') login();
-});
 </script>
 
 </body>
