@@ -1,11 +1,13 @@
 <!doctype html>
 <!--
-  DROGUA CENTER v3.0 - SYNCHRONISATION TOTALE
+  DROGUA CENTER v3.0 - SYNCHRONISATION TOTALE + ANNULATIONS
   
   ✅ Synchronisation en temps réel avec l'admin
   ✅ Stocks mis à jour automatiquement
   ✅ Produits et prix synchronisés
   ✅ Commandes transmises instantanément
+  ✅ Système d'annulation avec restauration des stocks
+  ✅ Mise à jour automatique du chiffre d'affaires
 -->
 <html lang="fr">
 <head>
@@ -819,6 +821,35 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
 
 .confirm-content #confirmNo:hover{background:var(--bg-primary)}
 
+.cancel-reason-option {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  background: var(--bg-tertiary);
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cancel-reason-option:hover {
+  background: var(--bg-primary);
+  border-color: var(--accent);
+}
+
+.cancel-reason-option.selected {
+  background: rgba(239,68,68,0.1);
+  border-color: var(--danger);
+}
+
+.cancel-reason-option label {
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  flex: 1;
+}
+
 .bottom-nav{
   position:fixed;
   bottom:0;
@@ -1083,6 +1114,8 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
 .order-status.delivered{background:rgba(16,185,129,0.2);color:var(--success)}
 
 .order-status.pending{background:rgba(245,158,11,0.2);color:var(--warning)}
+
+.order-status.cancelled{background:rgba(239,68,68,0.2);color:var(--danger)}
 
 .order-date{color:var(--text-muted);font-size:13px;margin-bottom:8px}
 
@@ -1832,7 +1865,7 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
   </section>
 
   <script>
-console.log('🚀 DROGUA CENTER v3.0 - SYNC TOTALE');
+console.log('🚀 DROGUA CENTER v3.0 - SYNC TOTALE + ANNULATIONS');
 
 // Configuration Telegram
 const TELEGRAM_CONFIG = {
@@ -1928,6 +1961,20 @@ const SyncManager = {
     return false;
   },
 
+  // Restaurer le stock d'un produit (lors d'une annulation)
+  restoreStock(productId, variantLabel, quantity) {
+    const products = this.loadProducts();
+    const product = products.find(p => p.id === productId);
+    
+    if (product && product.variants[variantLabel]) {
+      product.variants[variantLabel].stock += quantity;
+      this.saveProducts(products);
+      console.log(`♻️ Stock restauré: ${product.name} ${variantLabel} → ${product.variants[variantLabel].stock}`);
+      return true;
+    }
+    return false;
+  },
+
   // Créer une commande
   createOrder(orderData) {
     try {
@@ -1957,9 +2004,105 @@ const SyncManager = {
         this.updateStock(item.product_id, item.variant, item.qty);
       });
       
+      // Mettre à jour le chiffre d'affaires et incrémenter le compteur
+      this.updateRevenue(orderData.total, true);
+      
       return order;
     } catch (e) {
       console.error('❌ Erreur création commande:', e);
+      return null;
+    }
+  },
+
+  // Annuler une commande
+  cancelOrder(orderId, reason) {
+    try {
+      // Récupérer toutes les commandes
+      const orders = JSON.parse(localStorage.getItem('shop_orders') || '[]');
+      const orderIndex = orders.findIndex(o => o.id === orderId);
+      
+      if (orderIndex === -1) {
+        console.error('❌ Commande non trouvée:', orderId);
+        return false;
+      }
+      
+      const order = orders[orderIndex];
+      
+      // Vérifier que la commande n'est pas déjà annulée ou livrée
+      if (order.status === 'cancelled' || order.status === 'delivered') {
+        console.error('❌ Impossible d\'annuler cette commande (statut:', order.status + ')');
+        return false;
+      }
+      
+      // Restaurer les stocks pour chaque article
+      order.items.forEach(item => {
+        this.restoreStock(item.product_id, item.variant, item.qty);
+      });
+      
+      // Mettre à jour le chiffre d'affaires
+      this.updateRevenue(-order.total);
+      
+      // Mettre à jour le statut de la commande
+      orders[orderIndex].status = 'cancelled';
+      orders[orderIndex].cancelledAt = new Date().toISOString();
+      orders[orderIndex].cancelReason = reason;
+      
+      // Sauvegarder les commandes mises à jour
+      localStorage.setItem('shop_orders', JSON.stringify(orders));
+      
+      console.log('✅ Commande annulée:', orderId);
+      console.log('♻️ Stocks restaurés pour', order.items.length, 'article(s)');
+      console.log('💰 Chiffre d\'affaires mis à jour:', -order.total, '€');
+      
+      return true;
+    } catch (e) {
+      console.error('❌ Erreur annulation commande:', e);
+      return false;
+    }
+  },
+
+  // Mettre à jour le chiffre d'affaires
+  updateRevenue(amount, isNewOrder = false) {
+    try {
+      // Récupérer les statistiques actuelles
+      let stats = JSON.parse(localStorage.getItem('shop_stats') || '{"totalRevenue":0,"totalOrders":0}');
+      
+      // Mettre à jour le chiffre d'affaires
+      stats.totalRevenue = (stats.totalRevenue || 0) + amount;
+      
+      // Si c'est une nouvelle commande, incrémenter le compteur
+      if (isNewOrder) {
+        stats.totalOrders = (stats.totalOrders || 0) + 1;
+      }
+      // Si c'est une annulation (montant négatif), décrémenter le nombre de commandes
+      else if (amount < 0) {
+        stats.totalOrders = Math.max(0, (stats.totalOrders || 0) - 1);
+      }
+      
+      // S'assurer que le chiffre d'affaires ne devient pas négatif
+      if (stats.totalRevenue < 0) {
+        stats.totalRevenue = 0;
+      }
+      
+      // Sauvegarder les statistiques mises à jour
+      localStorage.setItem('shop_stats', JSON.stringify(stats));
+      
+      console.log('📊 Stats mises à jour - CA:', stats.totalRevenue.toFixed(2) + '€', '| Commandes:', stats.totalOrders);
+      
+      return true;
+    } catch (e) {
+      console.error('❌ Erreur mise à jour chiffre d\'affaires:', e);
+      return false;
+    }
+  },
+
+  // Récupérer une commande par son ID
+  getOrderById(orderId) {
+    try {
+      const orders = JSON.parse(localStorage.getItem('shop_orders') || '[]');
+      return orders.find(o => o.id === orderId);
+    } catch (e) {
+      console.error('❌ Erreur récupération commande:', e);
       return null;
     }
   },
@@ -3178,10 +3321,190 @@ function showOrderSummary(orderData, orderId, discount = 0, notificationSent = f
         Contacter @${TELEGRAM_CONFIG.SUPPORT_USERNAME}
       </a>
     </div>
+    
+    <div style="text-align:center;margin-top:20px;padding-top:20px;border-top:1px solid var(--border)">
+      <p style="color:var(--text-muted);font-size:14px;margin-bottom:12px">Vous souhaitez annuler cette commande ?</p>
+      <button id="cancelOrderBtn" data-order-id="${orderId}" data-customer="${orderData.customer}" style="display:inline-flex;align-items:center;gap:8px;background:var(--danger);border:none;border-radius:12px;padding:12px 20px;color:#fff;font-weight:600;cursor:pointer;transition:all 0.2s" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
+        <svg style="width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="15" y1="9" x2="9" y2="15"></line>
+          <line x1="9" y1="9" x2="15" y2="15"></line>
+        </svg>
+        Annuler la commande
+      </button>
+    </div>
   `;
   
   document.getElementById('orderSummarySheet').classList.remove('hidden');
   document.body.classList.add('modal-open');
+  
+  // Ajouter l'événement pour le bouton d'annulation
+  const cancelBtn = document.getElementById('cancelOrderBtn');
+  if (cancelBtn) {
+    cancelBtn.onclick = function() {
+      const orderId = this.dataset.orderId;
+      const customer = this.dataset.customer;
+      cancelOrder(orderId, customer);
+    };
+  }
+}
+
+function cancelOrder(orderId, customerName) {
+  // Créer une fenêtre modale pour choisir le motif
+  const cancelDialog = document.createElement('div');
+  cancelDialog.className = 'confirm-dialog';
+  cancelDialog.style.zIndex = '2001';
+  
+  cancelDialog.innerHTML = `
+    <div class="confirm-content" style="max-width:500px;max-height:90vh;overflow-y:auto">
+      <h3 style="font-size:22px;font-weight:700;margin-bottom:16px;text-align:center">❌ Annuler la commande</h3>
+      <p style="font-size:15px;margin-bottom:20px;text-align:center;color:var(--text-secondary)">
+        Sélectionnez le motif d'annulation :
+      </p>
+      
+      <div style="margin-bottom:20px">
+        <div class="cancel-reason-option" data-reason="Délai de livraison trop long">
+          <input type="radio" name="cancelReason" value="Délai de livraison trop long" id="reason1" style="margin-right:10px">
+          <label for="reason1" style="cursor:pointer;flex:1">⏰ Délai de livraison trop long</label>
+        </div>
+        <div class="cancel-reason-option" data-reason="Changement d'avis">
+          <input type="radio" name="cancelReason" value="Changement d'avis" id="reason2" style="margin-right:10px">
+          <label for="reason2" style="cursor:pointer;flex:1">🤔 Changement d'avis</label>
+        </div>
+        <div class="cancel-reason-option" data-reason="Produit non disponible">
+          <input type="radio" name="cancelReason" value="Produit non disponible" id="reason3" style="margin-right:10px">
+          <label for="reason3" style="cursor:pointer;flex:1">📦 Produit non disponible</label>
+        </div>
+        <div class="cancel-reason-option" data-reason="Prix trop élevé">
+          <input type="radio" name="cancelReason" value="Prix trop élevé" id="reason4" style="margin-right:10px">
+          <label for="reason4" style="cursor:pointer;flex:1">💰 Prix trop élevé</label>
+        </div>
+        <div class="cancel-reason-option" data-reason="Erreur dans la commande">
+          <input type="radio" name="cancelReason" value="Erreur dans la commande" id="reason5" style="margin-right:10px">
+          <label for="reason5" style="cursor:pointer;flex:1">⚠️ Erreur dans la commande</label>
+        </div>
+        <div class="cancel-reason-option" data-reason="Autre">
+          <input type="radio" name="cancelReason" value="Autre" id="reason6" style="margin-right:10px">
+          <label for="reason6" style="cursor:pointer;flex:1">✏️ Autre motif</label>
+        </div>
+      </div>
+      
+      <div id="otherReasonContainer" style="display:none;margin-bottom:20px">
+        <textarea id="otherReasonText" class="input-field" placeholder="Précisez votre motif..." rows="3" style="margin:0;resize:vertical" maxlength="200"></textarea>
+      </div>
+      
+      <div style="display:flex;gap:12px">
+        <button id="confirmCancelBtn" style="flex:1;padding:12px 24px;border:none;border-radius:12px;font-weight:600;font-size:15px;cursor:pointer;transition:all 0.2s;background:var(--danger);color:#fff">
+          Confirmer l'annulation
+        </button>
+        <button id="cancelCancelBtn" style="flex:1;padding:12px 24px;border:none;border-radius:12px;font-weight:600;font-size:15px;cursor:pointer;transition:all 0.2s;background:var(--bg-tertiary);color:var(--text-primary);border:1px solid var(--border)">
+          Retour
+        </button>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(cancelDialog);
+  
+  // Gestion des clics sur les options
+  cancelDialog.querySelectorAll('.cancel-reason-option').forEach(option => {
+    option.onclick = function() {
+      cancelDialog.querySelectorAll('.cancel-reason-option').forEach(o => o.classList.remove('selected'));
+      this.classList.add('selected');
+      const radio = this.querySelector('input[type="radio"]');
+      radio.checked = true;
+      
+      // Afficher le champ texte si "Autre" est sélectionné
+      const otherContainer = document.getElementById('otherReasonContainer');
+      if (radio.value === 'Autre') {
+        otherContainer.style.display = 'block';
+        document.getElementById('otherReasonText').focus();
+      } else {
+        otherContainer.style.display = 'none';
+      }
+    };
+  });
+  
+  // Bouton Retour
+  document.getElementById('cancelCancelBtn').onclick = () => {
+    cancelDialog.remove();
+  };
+  
+  // Bouton Confirmer
+  document.getElementById('confirmCancelBtn').onclick = () => {
+    const selectedReason = cancelDialog.querySelector('input[name="cancelReason"]:checked');
+    
+    if (!selectedReason) {
+      showToast('⚠️ Veuillez sélectionner un motif');
+      return;
+    }
+    
+    let reason = selectedReason.value;
+    
+    // Si "Autre" est sélectionné, récupérer le texte personnalisé
+    if (reason === 'Autre') {
+      const otherText = document.getElementById('otherReasonText').value.trim();
+      if (!otherText) {
+        showToast('⚠️ Veuillez préciser votre motif');
+        document.getElementById('otherReasonText').focus();
+        return;
+      }
+      reason = otherText;
+    }
+    
+    // Récupérer le montant de la commande avant annulation
+    const orderToCancel = SyncManager.getOrderById(orderId);
+    const orderAmount = orderToCancel ? orderToCancel.total : 0;
+    
+    // Annuler la commande et restaurer les stocks
+    const success = SyncManager.cancelOrder(orderId, reason);
+    
+    if (!success) {
+      showToast('❌ Erreur lors de l\'annulation');
+      return;
+    }
+    
+    // Créer le message d'annulation avec le motif
+    const cancelMessage = `🚫 ANNULATION DE COMMANDE
+
+📋 N° de commande: #${orderId}
+🎭 Client: ${customerName}
+
+❌ MOTIF D'ANNULATION:
+${reason}
+
+💰 MONTANT ANNULÉ: ${fmt(orderAmount)}
+
+⏰ ${new Date().toLocaleString('fr-FR')}
+
+✅ Stocks restaurés automatiquement
+✅ Chiffre d'affaires mis à jour (-${fmt(orderAmount)})
+✅ Commande marquée comme annulée
+
+Merci de confirmer la prise en compte.`;
+
+    const encodedMessage = encodeURIComponent(cancelMessage);
+    const telegramUrl = `https://t.me/${TELEGRAM_CONFIG.SUPPORT_USERNAME}?text=${encodedMessage}`;
+    
+    window.open(telegramUrl, '_blank');
+    
+    showToast('✅ Annulation effectuée - Stocks et CA ajustés');
+    
+    // Fermer les fenêtres
+    cancelDialog.remove();
+    
+    // Recharger les produits et les commandes
+    loadProducts();
+    renderOrders();
+    
+    setTimeout(() => {
+      const summarySheet = document.getElementById('orderSummarySheet');
+      if (summarySheet && !summarySheet.classList.contains('hidden')) {
+        summarySheet.classList.add('hidden');
+        document.body.classList.remove('modal-open');
+      }
+    }, 1000);
+  };
 }
 
 function renderFavorites() {
@@ -3242,17 +3565,53 @@ function renderOrders() {
     return;
   }
   
-  list.innerHTML = orders.map(order => `
-    <div class="order-card">
+  list.innerHTML = orders.map(order => {
+    const canCancel = order.status === 'pending';
+    const isCancelled = order.status === 'cancelled';
+    const isDelivered = order.status === 'delivered';
+    
+    let statusHTML = '';
+    if (isCancelled) {
+      statusHTML = '<span class="order-status cancelled">❌ Annulée</span>';
+    } else if (isDelivered) {
+      statusHTML = '<span class="order-status delivered">✅ Livrée</span>';
+    } else {
+      statusHTML = '<span class="order-status pending">⏳ En cours</span>';
+    }
+    
+    return `
+    <div class="order-card" style="${isCancelled ? 'opacity:0.7' : ''}">
       <div class="order-header">
         <span class="order-number">#${order.id}</span>
-        <span class="order-status ${order.status}">${order.status === 'delivered' ? '✅ Livrée' : '⏳ En cours'}</span>
+        ${statusHTML}
       </div>
-      <div class="order-date">${new Date(order.timestamp).toLocaleDateString('fr-FR', {day: 'numeric', month: 'long', year: 'numeric'})}</div>
+      <div class="order-date">${new Date(order.timestamp).toLocaleDateString('fr-FR', {day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'})}</div>
+      ${isCancelled ? `<div style="color:var(--danger);font-size:12px;margin-bottom:8px">🚫 ${order.cancelReason || 'Annulée'}</div>` : ''}
       <div class="order-items">${order.items.length} article${order.items.length > 1 ? 's' : ''}</div>
-      <div class="order-total">${fmt(order.total)}</div>
+      <div class="order-total" style="margin-bottom:${canCancel ? '12px' : '0'}">${fmt(order.total)}</div>
+      ${canCancel ? `
+        <button class="cancel-order-btn" data-order-id="${order.id}" data-customer="${order.name}" style="width:100%;padding:10px;background:var(--danger);border:none;border-radius:10px;color:#fff;font-weight:600;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all 0.2s">
+          <svg style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="15" y1="9" x2="9" y2="15"></line>
+            <line x1="9" y1="9" x2="15" y2="15"></line>
+          </svg>
+          Annuler la commande
+        </button>
+      ` : ''}
     </div>
-  `).join('');
+  `}).join('');
+  
+  // Ajouter les événements sur les boutons d'annulation
+  list.querySelectorAll('.cancel-order-btn').forEach(btn => {
+    btn.onmouseover = function() { this.style.opacity = '0.8'; };
+    btn.onmouseout = function() { this.style.opacity = '1'; };
+    btn.onclick = function() {
+      const orderId = this.dataset.orderId;
+      const customer = this.dataset.customer;
+      cancelOrder(orderId, customer);
+    };
+  });
 }
 
 function renderReviews() {
@@ -3495,6 +3854,7 @@ function init() {
     
     console.log('✅ DROGUA CENTER v3.0 chargé');
     console.log('🔄 Synchronisation automatique active (toutes les 2s)');
+    console.log('🚫 Système d\'annulation avec restauration des stocks actif');
   } catch (error) {
     console.error('❌ Erreur initialisation:', error);
     showToast('⚠️ Erreur de chargement. Actualisez la page (F5)');
