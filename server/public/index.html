@@ -1,29 +1,18 @@
 <!doctype html>
 <!--
-  DROGUA CENTER v2.0 - Commande directe par message Telegram
+  DROGUA CENTER v3.0 - SYNCHRONISATION TOTALE
   
-  🚀 CONFIGURATION:
-  Le client envoie sa commande DIRECTEMENT à votre compte Telegram @assistancenter
-  
-  📱 Comment ça marche:
-  1. Le client passe commande sur le site
-  2. Il clique sur "Commander via Telegram"
-  3. Telegram s'ouvre avec le message déjà écrit
-  4. Le client appuie sur "Envoyer"
-  5. VOUS recevez le message sur @assistancenter
-  6. Vous répondez directement au client
-  
-  ✅ Configuration actuelle: @assistancenter
-  Pour changer: Ligne 150 → SUPPORT_USERNAME: 'votre_username'
+  ✅ Synchronisation en temps réel avec l'admin
+  ✅ Stocks mis à jour automatiquement
+  ✅ Produits et prix synchronisés
+  ✅ Commandes transmises instantanément
 -->
 <html lang="fr">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#00d4ff">
-  <meta name="description" content="DROGUA CENTER - Votre boutique premium">
   <title>DROGUA CENTER</title>
-  <link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiRFJPR1VBIENFTlRFUiIsInNob3J0X25hbWUiOiJEUk9HVUEiLCJkaXNwbGF5Ijoic3RhbmRhbG9uZSIsImJhY2tncm91bmRfY29sb3IiOiIjMGEwZTE0IiwidGhlbWVfY29sb3IiOiIjMDBkNGZmIn0=">
   <style>
 :root{
   --bg-primary:#0a0e14;
@@ -184,6 +173,32 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
   font-weight:700;
   min-width:20px;
   text-align:center;
+}
+
+.sync-indicator{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  padding:6px 12px;
+  background:rgba(16,185,129,0.1);
+  border:1px solid var(--success);
+  border-radius:12px;
+  font-size:11px;
+  font-weight:600;
+  color:var(--success);
+}
+
+.sync-dot{
+  width:6px;
+  height:6px;
+  background:var(--success);
+  border-radius:50%;
+  animation:pulse 2s infinite;
+}
+
+@keyframes pulse{
+  0%,100%{opacity:1}
+  50%{opacity:0.3}
 }
 
 .loyalty-banner{
@@ -515,6 +530,25 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
   animation-fill-mode:both;
 }
 
+.product-card.out-of-stock{
+  opacity:0.6;
+}
+
+.product-card.out-of-stock::after{
+  content:'RUPTURE';
+  position:absolute;
+  top:50%;
+  left:50%;
+  transform:translate(-50%,-50%) rotate(-15deg);
+  background:var(--danger);
+  color:white;
+  padding:8px 24px;
+  font-weight:800;
+  font-size:16px;
+  border-radius:8px;
+  z-index:10;
+}
+
 .product-card:nth-child(1){animation-delay:0.05s}
 .product-card:nth-child(2){animation-delay:0.1s}
 .product-card:nth-child(3){animation-delay:0.15s}
@@ -617,6 +651,27 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
 .price-from{color:var(--text-muted);font-size:12px}
 
 .price-amount{color:var(--accent);font-size:18px;font-weight:700}
+
+.stock-badge{
+  position:absolute;
+  bottom:12px;
+  left:12px;
+  padding:4px 10px;
+  border-radius:12px;
+  font-size:11px;
+  font-weight:700;
+  z-index:2;
+}
+
+.stock-badge.low{
+  background:rgba(245,158,11,0.9);
+  color:white;
+}
+
+.stock-badge.out{
+  background:rgba(239,68,68,0.9);
+  color:white;
+}
 
 .spinner{
   width:40px;
@@ -1124,6 +1179,23 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
   box-shadow:0 0 0 3px rgba(0,212,255,0.1);
 }
 
+.variant-option.out-of-stock{
+  opacity:0.5;
+  cursor:not-allowed;
+}
+
+.variant-option.out-of-stock::after{
+  content:'RUPTURE';
+  position:absolute;
+  right:16px;
+  background:var(--danger);
+  color:white;
+  padding:4px 12px;
+  border-radius:8px;
+  font-size:11px;
+  font-weight:700;
+}
+
 .variant-option.selected::after{
   content:'✓';
   position:absolute;
@@ -1144,6 +1216,12 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
 .variant-label{font-weight:600;font-size:16px;margin-bottom:4px}
 
 .variant-grams{color:var(--text-muted);font-size:13px}
+
+.variant-stock{
+  color:var(--text-muted);
+  font-size:12px;
+  margin-top:4px;
+}
 
 .variant-price{font-size:22px;font-weight:700;color:var(--accent)}
 
@@ -1478,6 +1556,10 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
       </div>
     </div>
     <div class="header-actions">
+      <div class="sync-indicator" id="syncIndicator">
+        <span class="sync-dot"></span>
+        <span id="syncStatus">Sync</span>
+      </div>
       <button class="theme-toggle" id="themeToggle">
         <svg class="theme-icon" id="themeIcon" viewBox="0 0 24 24">
           <circle cx="12" cy="12" r="5"></circle>
@@ -1519,7 +1601,7 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
     <section class="hero">
       <div class="hero-content">
         <h1>DROGUA CENTER</h1>
-        <p class="hero-subtitle">Votre boutique premium</p>
+        <p class="hero-subtitle">Votre boutique premium - Sync temps réel</p>
       </div>
     </section>
 
@@ -1544,20 +1626,17 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
     <section class="categories">
       <div class="categories-scroll" id="categoriesScroll">
         <button class="category-chip active" data-cat="all">Tout</button>
-        <button class="category-chip" data-cat="blanche">❄️ blanche</button>
-        <button class="category-chip" data-cat="keta">☁️ keta</button>
-        <button class="category-chip" data-cat="bonbon">💊 Bonbon</button>
-        <button class="category-chip" data-cat="mdma">🌈 mdma</button>
-        <button class="category-chip" data-cat="weed">🌿 Weed</button>
-        <button class="category-chip" data-cat="filtré">🤯 filtré</button>
-        <button class="category-chip" data-cat="mousseux">🧽 mousseux</button>
-        <button class="category-chip" data-cat="cali">🇺🇸 Cali</button>
+        <button class="category-chip" data-cat="fleurs">🌿 Fleurs</button>
+        <button class="category-chip" data-cat="resines">🟫 Résines</button>
+        <button class="category-chip" data-cat="blanche">⚪ Blanche</button>
+        <button class="category-chip" data-cat="cali">🌟 Cali</button>
+        <button class="category-chip" data-cat="keta">💎 Keta</button>
       </div>
     </section>
 
     <div class="products-header">
       <h2 class="products-title">Produits</h2>
-      <span class="results-count" id="resultsCount">12 articles</span>
+      <span class="results-count" id="resultsCount">Chargement...</span>
     </div>
     <div class="grid" id="productGrid"></div>
   </main>
@@ -1753,100 +1832,22 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
   </section>
 
   <script>
-// ═══════════════════════════════════════════════════════════════════════════
-// CONFIGURATION TELEGRAM - À PERSONNALISER
-// ═══════════════════════════════════════════════════════════════════════════
+console.log('🚀 DROGUA CENTER v3.0 - SYNC TOTALE');
 
+// Configuration Telegram
 const TELEGRAM_CONFIG = {
-  SUPPORT_USERNAME: 'assistancenter'  // ← Mettez VOTRE username Telegram (sans le @)
+  SUPPORT_USERNAME: 'assistancenter'
 };
 
-// ═══════════════════════════════════════════════════════════════════════════
-// DONNÉES DES PRODUITS
-// ═══════════════════════════════════════════════════════════════════════════
-
-const PRODUCTS = [
-  {id:1, name:"AMNESIA", farm:"coffee shop", video:"video/amnesia.MP4", category:"weed", 
-   variants:[{label:"3,33G",grams:3.33,price:20},{label:"5G",grams:5,price:30},{label:"10G",grams:10,price:60},{label:"50G",grams:50,price:250},{label:"100G",grams:100,price:450}]},
-  {id:2, name:"NEEDLES KETA", farm:"holland", video:"video/needles.MP4", category:"keta",
-   variants:[{label:"1G",grams:1,price:20},{label:"2G",grams:2,price:40},{label:"3G",grams:3,price:50},{label:"5G",grams:5,price:80},{label:"10G",grams:10,price:150}]},
-  {id:3, name:"CHAMPAGNE", farm:"hollande", video:"video/champagne.MP4", category:"mdma",
-   variants:[{label:"1G",grams:1,price:20},{label:"2G",grams:2,price:40},{label:"3G",grams:3,price:50},{label:"5G",grams:5,price:80},{label:"10G",grams:10,price:150}]},
-  {id:4, name:"EL JEFE", farm:"colombie", video:"video/el_jefe.MP4", category:"blanche",
-   variants:[{label:"0,5G",grams:0.5,price:30},{label:"1G",grams:1,price:50},{label:"2G",grams:2,price:100},{label:"5G",grams:5,price:250},{label:"10G",grams:10,price:430}]},
-  {id:5, name:"SKITTLEZ CAKE 120u", farm:"hash montaine", video:"video/skittlez_cake.MP4", category:"filtré",
-   variants:[{label:"2,5G",grams:2.5,price:20},{label:"5G",grams:5,price:40},{label:"10G",grams:10,price:70},{label:"50G",grams:50,price:290}]},
-  {id:6, name:"PISTACCHIO 73u", farm:"hash montaine", video:"video/pistacchio.MP4", category:"filtré",
-   variants:[{label:"3G",grams:3,price:20},{label:"5G",grams:5,price:50},{label:"10G",grams:10,price:90},{label:"50G",grams:50,price:250}]},
-  {id:7, name:"DEMBELE", farm:"morroco", video:"video/dembele.MP4", category:"mousseux",
-   variants:[{label:"3,5G",grams:3.5,price:20},{label:"5G",grams:5,price:30},{label:"10G",grams:10,price:50},{label:"50G",grams:50,price:190},{label:"100G",grams:100,price:370}]},
-  {id:8, name:"LEMON X GELATO", farm:"top shelf", video:"video/lemonxgelato.MP4", category:"cali",
-   variants:[{label:"1,66G",grams:1.66,price:20},{label:"3,5G",grams:3.5,price:40},{label:"5G",grams:5,price:60},{label:"10G",grams:10,price:110}]},
-  {id:9, name:"GEORGIA PIE", farm:"top shelf", video:"video/georgia_pie.MP4", category:"cali",
-   variants:[{label:"1,66G",grams:1.66,price:20},{label:"3,5G",grams:3.5,price:40},{label:"5G",grams:5,price:60},{label:"10G",grams:10,price:110}]},
-  {id:10, name:"DOMINO 280mg", farm:"holland", video:"video/domino.MP4", category:"bonbon",
-   variants:[{label:"3 unités",grams:0,price:20},{label:"10 unités",grams:0,price:60},{label:"50 unités",grams:0,price:150}]},
-  {id:11, name:"FRESH FROZEN", farm:"fresh", video:"video/fresh_frozen.MP4", category:"filtré",
-   variants:[{label:"1,1G",grams:1.1,price:20},{label:"2,3G",grams:2.3,price:40},{label:"3,5G",grams:3.5,price:50},{label:"5G",grams:5,price:80},{label:"10G",grams:10,price:160}]},
-  {id:12, name:"PURPLE HAZE", farm:"coffee shop", video:"video/purple.MP4", category:"weed",
-   variants:[{label:"3,33G",grams:3.33,price:20},{label:"5G",grams:5,price:30},{label:"10G",grams:10,price:60},{label:"50G",grams:50,price:250},{label:"100G",grams:100,price:450}]}
-];
-
+// Codes promo
 const PROMO_CODES = {
   'WELCOME10': { type: 'percent', value: 10, label: '10% de réduction' },
   'FIRST20': { type: 'fixed', value: 20, label: '20€ de réduction' },
   'VIP15': { type: 'percent', value: 15, label: '15% de réduction VIP' }
 };
 
-// ═══════════════════════════════════════════════════════════════════════════
-// FONCTIONS UTILITAIRES
-// ═══════════════════════════════════════════════════════════════════════════
-
+// Fonctions utilitaires
 const fmt = n => n.toFixed(2) + ' €';
-
-function createOrderMessage(orderData, orderId, totalAmount) {
-  const deliveryEmoji = orderData.type.includes('Millau') ? '🏠' : '🚚';
-  
-  const items = orderData.items.map(item => 
-    `${item.qty} ${item.name} ${item.variant}`
-  ).join('\n');
-  
-  const message = `🆕 COMMANDE DROGUA CENTER
-
-📋 N° de commande: #${orderId}
-🎭 Client: ${orderData.customer}
-
-📦 DÉTAILS DE LA COMMANDE 🛍️
-
-${items}
-
-${deliveryEmoji} TYPE DE COMMANDE:
-${orderData.type}
-
-📍 ADRESSE:
-${orderData.address}
-
-💰 MONTANT TOTAL: ${fmt(totalAmount)}
-
-⏰ ${new Date().toLocaleString('fr-FR')}`;
-
-  return message;
-}
-
-function sendOrderToTelegram(orderData, orderId, totalAmount) {
-  if (TELEGRAM_CONFIG.SUPPORT_USERNAME === 'assistancenter' || 
-      TELEGRAM_CONFIG.SUPPORT_USERNAME === 'VOTRE_USERNAME_ICI') {
-    console.log('ℹ️ Utilisation du support par défaut: @assistancenter');
-  }
-  
-  const message = createOrderMessage(orderData, orderId, totalAmount);
-  const encodedMessage = encodeURIComponent(message);
-  const telegramUrl = `https://t.me/${TELEGRAM_CONFIG.SUPPORT_USERNAME}?text=${encodedMessage}`;
-  
-  window.open(telegramUrl, '_blank');
-  
-  return { success: true };
-}
 
 function sanitizeInput(input) {
   const div = document.createElement('div');
@@ -1866,30 +1867,6 @@ function generateClientId() {
   return 'Client#' + Math.random().toString(36).substr(2, 6).toUpperCase();
 }
 
-function confirmDelete(message) {
-  return new Promise((resolve) => {
-    const dialog = document.createElement('div');
-    dialog.className = 'confirm-dialog';
-    dialog.innerHTML = `
-      <div class="confirm-content">
-        <p>${message}</p>
-        <button id="confirmYes">Oui</button>
-        <button id="confirmNo">Non</button>
-      </div>
-    `;
-    document.body.appendChild(dialog);
-    
-    document.getElementById('confirmYes').onclick = () => {
-      dialog.remove();
-      resolve(true);
-    };
-    document.getElementById('confirmNo').onclick = () => {
-      dialog.remove();
-      resolve(false);
-    };
-  });
-}
-
 function showToast(msg) {
   const toast = document.createElement('div');
   toast.className = 'toast';
@@ -1903,53 +1880,109 @@ function showToast(msg) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// GESTION DES DONNÉES LOCALES
+// SYNC MANAGER - GESTION CENTRALISÉE DES DONNÉES
 // ═══════════════════════════════════════════════════════════════════════════
 
-const DataManager = {
-  save(key, data) {
+const SyncManager = {
+  // Charger les produits depuis l'admin
+  loadProducts() {
     try {
-      if (typeof data === 'string') {
-        localStorage.setItem(key, data);
+      const data = localStorage.getItem('shop_products');
+      if (data) {
+        const products = JSON.parse(data);
+        console.log('✅ Produits chargés:', products.length);
+        return products;
+      }
+    } catch (e) {
+      console.error('❌ Erreur chargement produits:', e);
+    }
+    return [];
+  },
+
+  // Sauvegarder les produits (pour l'admin)
+  saveProducts(products) {
+    try {
+      localStorage.setItem('shop_products', JSON.stringify(products));
+      console.log('💾 Produits sauvegardés:', products.length);
+      return true;
+    } catch (e) {
+      console.error('❌ Erreur sauvegarde produits:', e);
+      return false;
+    }
+  },
+
+  // Mettre à jour le stock d'un produit
+  updateStock(productId, variantLabel, quantity) {
+    const products = this.loadProducts();
+    const product = products.find(p => p.id === productId);
+    
+    if (product && product.variants[variantLabel]) {
+      product.variants[variantLabel].stock -= quantity;
+      if (product.variants[variantLabel].stock < 0) {
+        product.variants[variantLabel].stock = 0;
+      }
+      this.saveProducts(products);
+      console.log(`📦 Stock mis à jour: ${product.name} ${variantLabel} → ${product.variants[variantLabel].stock}`);
+      return true;
+    }
+    return false;
+  },
+
+  // Créer une commande
+  createOrder(orderData) {
+    try {
+      const orders = JSON.parse(localStorage.getItem('shop_orders') || '[]');
+      
+      const order = {
+        id: 'DC' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substr(2, 4).toUpperCase(),
+        timestamp: new Date().toISOString(),
+        name: orderData.customer,
+        items: orderData.items,
+        total: orderData.total,
+        paymentMethod: 'Espèces',
+        email: '',
+        phone: '',
+        deliveryAddress: orderData.address,
+        deliveryType: orderData.type,
+        status: 'pending'
+      };
+      
+      orders.push(order);
+      localStorage.setItem('shop_orders', JSON.stringify(orders));
+      
+      console.log('✅ Commande créée:', order.id);
+      
+      // Mettre à jour les stocks
+      orderData.items.forEach(item => {
+        this.updateStock(item.product_id, item.variant, item.qty);
+      });
+      
+      return order;
+    } catch (e) {
+      console.error('❌ Erreur création commande:', e);
+      return null;
+    }
+  },
+
+  // Indicateur de synchronisation
+  updateSyncStatus(status = 'ok') {
+    const indicator = document.getElementById('syncStatus');
+    if (indicator) {
+      if (status === 'ok') {
+        indicator.textContent = 'Sync ✓';
+        indicator.parentElement.style.borderColor = 'var(--success)';
+        indicator.parentElement.style.color = 'var(--success)';
       } else {
-        localStorage.setItem(key, JSON.stringify(data));
+        indicator.textContent = 'Erreur ✗';
+        indicator.parentElement.style.borderColor = 'var(--danger)';
+        indicator.parentElement.style.color = 'var(--danger)';
       }
-      return true;
-    } catch (e) {
-      console.error('Error saving data:', e);
-      return false;
-    }
-  },
-  
-  load(key, defaultValue = null) {
-    try {
-      const data = localStorage.getItem(key);
-      if (!data) return defaultValue;
-      
-      if (data.startsWith('{') || data.startsWith('[')) {
-        return JSON.parse(data);
-      }
-      
-      return data;
-    } catch (e) {
-      console.error('Error loading data:', e);
-      return defaultValue;
-    }
-  },
-  
-  remove(key) {
-    try {
-      localStorage.removeItem(key);
-      return true;
-    } catch (e) {
-      console.error('Error removing data:', e);
-      return false;
     }
   }
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
-// GESTIONNAIRES
+// GESTIONNAIRES DE DONNÉES LOCALES
 // ═══════════════════════════════════════════════════════════════════════════
 
 const CartManager = {
@@ -1957,8 +1990,8 @@ const CartManager = {
   
   init() {
     try {
-      const loaded = DataManager.load('cart', []);
-      this.items = Array.isArray(loaded) ? loaded : [];
+      const loaded = localStorage.getItem('shop_cart');
+      this.items = loaded ? JSON.parse(loaded) : [];
     } catch (e) {
       console.error('Error loading cart:', e);
       this.items = [];
@@ -2006,7 +2039,7 @@ const CartManager = {
   },
   
   save() {
-    DataManager.save('cart', this.items);
+    localStorage.setItem('shop_cart', JSON.stringify(this.items));
   },
   
   updateUI() {
@@ -2021,8 +2054,8 @@ const FavoritesManager = {
   
   init() {
     try {
-      const loaded = DataManager.load('favorites', []);
-      this.items = Array.isArray(loaded) ? loaded : [];
+      const loaded = localStorage.getItem('shop_favorites');
+      this.items = loaded ? JSON.parse(loaded) : [];
     } catch (e) {
       console.error('Error loading favorites:', e);
       this.items = [];
@@ -2050,7 +2083,7 @@ const FavoritesManager = {
   },
   
   save() {
-    DataManager.save('favorites', this.items);
+    localStorage.setItem('shop_favorites', JSON.stringify(this.items));
   },
   
   updateUI() {
@@ -2063,8 +2096,8 @@ const OrdersManager = {
   
   init() {
     try {
-      const loaded = DataManager.load('orders', []);
-      this.orders = Array.isArray(loaded) ? loaded : [];
+      const loaded = localStorage.getItem('shop_customer_orders');
+      this.orders = loaded ? JSON.parse(loaded) : [];
     } catch (e) {
       console.error('Error loading orders:', e);
       this.orders = [];
@@ -2081,7 +2114,7 @@ const OrdersManager = {
   },
   
   save() {
-    DataManager.save('orders', this.orders);
+    localStorage.setItem('shop_customer_orders', JSON.stringify(this.orders));
   }
 };
 
@@ -2091,9 +2124,9 @@ const LoyaltyManager = {
   
   init() {
     try {
-      this.totalOrders = parseInt(DataManager.load('loyaltyTotalOrders', 0)) || 0;
-      const loaded = DataManager.load('loyaltyHistory', []);
-      this.orderHistory = Array.isArray(loaded) ? loaded : [];
+      this.totalOrders = parseInt(localStorage.getItem('shop_loyalty_total') || '0');
+      const loaded = localStorage.getItem('shop_loyalty_history');
+      this.orderHistory = loaded ? JSON.parse(loaded) : [];
     } catch (e) {
       console.error('Error loading loyalty:', e);
       this.totalOrders = 0;
@@ -2130,8 +2163,8 @@ const LoyaltyManager = {
   },
   
   save() {
-    DataManager.save('loyaltyTotalOrders', this.totalOrders);
-    DataManager.save('loyaltyHistory', this.orderHistory);
+    localStorage.setItem('shop_loyalty_total', this.totalOrders.toString());
+    localStorage.setItem('shop_loyalty_history', JSON.stringify(this.orderHistory));
   },
   
   updateUI() {
@@ -2150,7 +2183,6 @@ const LoyaltyManager = {
   
   renderDetails() {
     const details = document.getElementById('loyaltyDetails');
-    
     const nextReward = this.getNextRewardIn();
     const progress = this.getCurrentProgress();
     
@@ -2217,8 +2249,8 @@ const ReviewsManager = {
   
   init() {
     try {
-      const loaded = DataManager.load('reviews', []);
-      this.reviews = Array.isArray(loaded) ? loaded : [];
+      const loaded = localStorage.getItem('shop_reviews');
+      this.reviews = loaded ? JSON.parse(loaded) : [];
     } catch (e) {
       console.error('Error loading reviews:', e);
       this.reviews = [];
@@ -2242,58 +2274,7 @@ const ReviewsManager = {
   },
   
   save() {
-    DataManager.save('reviews', this.reviews);
-  }
-};
-
-const RateLimiter = {
-  attempts: {},
-  
-  canProceed(key, maxAttempts = 5, timeWindow = 60000) {
-    const now = Date.now();
-    if (!this.attempts[key]) {
-      this.attempts[key] = [];
-    }
-    
-    this.attempts[key] = this.attempts[key].filter(
-      time => now - time < timeWindow
-    );
-    
-    if (this.attempts[key].length >= maxAttempts) {
-      return false;
-    }
-    
-    this.attempts[key].push(now);
-    return true;
-  }
-};
-
-const VideoObserver = {
-  observer: null,
-  
-  init() {
-    const options = {
-      root: null,
-      rootMargin: '50px',
-      threshold: 0.1
-    };
-    
-    this.observer = new IntersectionObserver((entries) => {
-      entries.forEach(entry => {
-        const video = entry.target;
-        if (entry.isIntersecting) {
-          if (video.paused) video.play().catch(() => {});
-        } else {
-          video.pause();
-        }
-      });
-    }, options);
-  },
-  
-  observe(video) {
-    if (this.observer) {
-      this.observer.observe(video);
-    }
+    localStorage.setItem('shop_reviews', JSON.stringify(this.reviews));
   }
 };
 
@@ -2301,6 +2282,7 @@ const VideoObserver = {
 // VARIABLES GLOBALES
 // ═══════════════════════════════════════════════════════════════════════════
 
+let PRODUCTS = [];
 let currentProduct = null;
 let selectedVariant = null;
 let quantity = 1;
@@ -2308,13 +2290,14 @@ let selectedDelivery = 'millau';
 let currentSort = 'default';
 let currentCategory = 'all';
 let appliedPromo = null;
+let syncInterval = null;
 
 // ═══════════════════════════════════════════════════════════════════════════
-// FONCTIONS D'INTERFACE
+// INTERFACE & RENDERING
 // ═══════════════════════════════════════════════════════════════════════════
 
 function initTheme() {
-  const theme = DataManager.load('theme', 'dark');
+  const theme = localStorage.getItem('shop_theme') || 'dark';
   document.body.setAttribute('data-theme', theme);
   updateThemeIcon(theme);
 }
@@ -2323,7 +2306,7 @@ function toggleTheme() {
   const current = document.body.getAttribute('data-theme') || 'dark';
   const newTheme = current === 'dark' ? 'light' : 'dark';
   document.body.setAttribute('data-theme', newTheme);
-  DataManager.save('theme', newTheme);
+  localStorage.setItem('shop_theme', newTheme);
   updateThemeIcon(newTheme);
 }
 
@@ -2340,16 +2323,20 @@ function sortProducts(products, sortType) {
   const sorted = [...products];
   switch(sortType) {
     case 'price-asc':
-      sorted.sort((a, b) => Math.min(...a.variants.map(v => v.price)) - Math.min(...b.variants.map(v => v.price)));
+      sorted.sort((a, b) => Math.min(...Object.values(a.variants).map(v => v.price)) - Math.min(...Object.values(b.variants).map(v => v.price)));
       break;
     case 'price-desc':
-      sorted.sort((a, b) => Math.min(...b.variants.map(v => v.price)) - Math.min(...a.variants.map(v => v.price)));
+      sorted.sort((a, b) => Math.min(...Object.values(b.variants).map(v => v.price)) - Math.min(...Object.values(a.variants).map(v => v.price)));
       break;
     case 'name':
       sorted.sort((a, b) => a.name.localeCompare(b.name));
       break;
   }
   return sorted;
+}
+
+function getTotalStock(product) {
+  return Object.values(product.variants).reduce((sum, v) => sum + (v.stock || 0), 0);
 }
 
 function renderProducts(filter = 'all', sort = 'default') {
@@ -2362,27 +2349,35 @@ function renderProducts(filter = 'all', sort = 'default') {
   
   document.getElementById('resultsCount').textContent = `${sorted.length} articles`;
   
+  if (sorted.length === 0) {
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--text-muted)"><div style="font-size:48px;margin-bottom:16px;opacity:0.3">📦</div><p>Aucun produit disponible</p><p style="font-size:14px;margin-top:8px">Les produits apparaîtront ici</p></div>';
+    return;
+  }
+  
   grid.innerHTML = sorted.map(p => {
-    const minPrice = Math.min(...p.variants.map(v => v.price));
+    const minPrice = Math.min(...Object.values(p.variants).map(v => v.price));
     const isFav = FavoritesManager.has(p.id);
+    const totalStock = getTotalStock(p);
+    const isOutOfStock = totalStock === 0;
+    const isLowStock = totalStock > 0 && totalStock < 10;
+    
     return `
-    <div class="product-card" data-id="${p.id}">
+    <div class="product-card ${isOutOfStock ? 'out-of-stock' : ''}" data-id="${p.id}">
       <div class="product-thumb">
-        <video class="product-video" muted loop playsinline preload="none">
-          <source src="${p.video}" type="video/mp4">
+        <video class="product-video" muted loop playsinline preload="none" ${isOutOfStock ? '' : 'autoplay'}>
+          <source src="${p.video || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 100 100\'%3E%3Crect fill=\'%231a2028\' width=\'100\' height=\'100\'/%3E%3Ctext x=\'50\' y=\'50\' text-anchor=\'middle\' dy=\'.3em\' fill=\'%236b7280\' font-size=\'14\' font-family=\'system-ui\'%3EProduit%3C/text%3E%3C/svg%3E'}" type="video/mp4">
         </video>
         <div class="product-rating"><span>⭐</span><span>4.8</span></div>
+        ${isLowStock && !isOutOfStock ? `<div class="stock-badge low">⚠️ ${totalStock} restants</div>` : ''}
+        ${isOutOfStock ? '<div class="stock-badge out">RUPTURE</div>' : ''}
         <div class="product-actions">
           <button class="product-action-btn ${isFav ? 'active' : ''}" data-fav="${p.id}">
             <svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
           </button>
-          <button class="product-action-btn" data-share="${p.id}">
-            <svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
-          </button>
         </div>
       </div>
       <div class="product-meta">
-        <div class="product-farm">${sanitizeInput(p.farm)}</div>
+        <div class="product-farm">${sanitizeInput(p.category)}</div>
         <div class="product-name">${sanitizeInput(p.name)}</div>
         <div class="product-price">
           <span class="price-from">À partir de</span>
@@ -2392,11 +2387,7 @@ function renderProducts(filter = 'all', sort = 'default') {
     </div>
   `}).join('');
   
-  grid.querySelectorAll('.product-video').forEach(video => {
-    VideoObserver.observe(video);
-  });
-  
-  grid.querySelectorAll('.product-card').forEach(card => {
+  grid.querySelectorAll('.product-card:not(.out-of-stock)').forEach(card => {
     card.onclick = (e) => {
       if (!e.target.closest('.product-action-btn')) {
         openProduct(parseInt(card.dataset.id));
@@ -2413,34 +2404,6 @@ function renderProducts(filter = 'all', sort = 'default') {
       renderFavorites();
     };
   });
-  
-  grid.querySelectorAll('[data-share]').forEach(btn => {
-    btn.onclick = (e) => {
-      e.stopPropagation();
-      const productId = parseInt(btn.dataset.share);
-      const product = PRODUCTS.find(p => p.id === productId);
-      shareProduct(product);
-    };
-  });
-}
-
-function shareProduct(product) {
-  const text = `🔥 Découvrez ${product.name} sur DROGUA CENTER !\n\nÀ partir de ${fmt(Math.min(...product.variants.map(v => v.price)))}\n\n👉 https://t.me/+MToYP95G9zY2ZTJk`;
-  
-  if (navigator.share) {
-    navigator.share({
-      title: product.name,
-      text: text
-    }).catch(() => {
-      navigator.clipboard.writeText(text).then(() => {
-        showToast('📋 Lien copié !');
-      });
-    });
-  } else {
-    navigator.clipboard.writeText(text).then(() => {
-      showToast('📋 Lien copié !');
-    });
-  }
 }
 
 const searchProducts = debounce((query) => {
@@ -2451,7 +2414,6 @@ const searchProducts = debounce((query) => {
   
   const filtered = PRODUCTS.filter(p => 
     p.name.toLowerCase().includes(query) || 
-    p.farm.toLowerCase().includes(query) ||
     p.category.toLowerCase().includes(query)
   );
   
@@ -2460,14 +2422,22 @@ const searchProducts = debounce((query) => {
   
   document.getElementById('resultsCount').textContent = `${sorted.length} articles`;
   
+  if (sorted.length === 0) {
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--text-muted)">Aucun résultat</div>';
+    return;
+  }
+  
   grid.innerHTML = sorted.map(p => {
-    const minPrice = Math.min(...p.variants.map(v => v.price));
+    const minPrice = Math.min(...Object.values(p.variants).map(v => v.price));
     const isFav = FavoritesManager.has(p.id);
+    const totalStock = getTotalStock(p);
+    const isOutOfStock = totalStock === 0;
+    
     return `
-    <div class="product-card" data-id="${p.id}">
+    <div class="product-card ${isOutOfStock ? 'out-of-stock' : ''}" data-id="${p.id}">
       <div class="product-thumb">
         <video class="product-video" muted loop playsinline preload="none">
-          <source src="${p.video}" type="video/mp4">
+          <source src="${p.video || ''}" type="video/mp4">
         </video>
         <div class="product-rating"><span>⭐</span><span>4.8</span></div>
         <div class="product-actions">
@@ -2477,7 +2447,7 @@ const searchProducts = debounce((query) => {
         </div>
       </div>
       <div class="product-meta">
-        <div class="product-farm">${sanitizeInput(p.farm)}</div>
+        <div class="product-farm">${sanitizeInput(p.category)}</div>
         <div class="product-name">${sanitizeInput(p.name)}</div>
         <div class="product-price">
           <span class="price-from">À partir de</span>
@@ -2487,11 +2457,7 @@ const searchProducts = debounce((query) => {
     </div>
   `}).join('');
   
-  grid.querySelectorAll('.product-video').forEach(video => {
-    VideoObserver.observe(video);
-  });
-  
-  grid.querySelectorAll('.product-card').forEach(card => {
+  grid.querySelectorAll('.product-card:not(.out-of-stock)').forEach(card => {
     card.onclick = (e) => {
       if (!e.target.closest('.product-action-btn')) {
         openProduct(parseInt(card.dataset.id));
@@ -2511,8 +2477,16 @@ const searchProducts = debounce((query) => {
 
 function openProduct(id) {
   currentProduct = PRODUCTS.find(p => p.id === id);
+  if (!currentProduct) return;
+  
   selectedVariant = null;
   quantity = 1;
+  
+  const totalStock = getTotalStock(currentProduct);
+  if (totalStock === 0) {
+    showToast('❌ Produit en rupture de stock');
+    return;
+  }
   
   document.getElementById('productTitle').textContent = currentProduct.name;
   
@@ -2520,11 +2494,11 @@ function openProduct(id) {
   content.innerHTML = `
     <div class="product-image">
       <video class="product-image-video" autoplay muted loop playsinline>
-        <source src="${currentProduct.video}" type="video/mp4">
+        <source src="${currentProduct.video || ''}" type="video/mp4">
       </video>
     </div>
     <div class="product-detail-header">
-      <div class="product-detail-farm">${sanitizeInput(currentProduct.farm)}</div>
+      <div class="product-detail-farm">${sanitizeInput(currentProduct.category)}</div>
       <h2 class="product-detail-name">${sanitizeInput(currentProduct.name)}</h2>
       <div class="product-detail-rating">
         <span style="color:#facc15;font-size:20px">⭐</span>
@@ -2534,15 +2508,18 @@ function openProduct(id) {
     </div>
     <div class="variants-section">
       <div class="variants-title">Sélectionnez une taille :</div>
-      ${currentProduct.variants.map((v, idx) => `
-        <div class="variant-option" data-idx="${idx}">
+      ${Object.entries(currentProduct.variants).map(([label, data]) => {
+        const isOutOfStock = (data.stock || 0) === 0;
+        return `
+        <div class="variant-option ${isOutOfStock ? 'out-of-stock' : ''}" data-label="${label}" ${isOutOfStock ? 'style="pointer-events:none"' : ''}>
           <div>
-            <div class="variant-label">${sanitizeInput(v.label)}</div>
-            <div class="variant-grams">${v.grams ? v.grams + ' grammes' : 'Unités'}</div>
+            <div class="variant-label">${sanitizeInput(label)}</div>
+            <div class="variant-grams">${data.grams || 0} grammes</div>
+            <div class="variant-stock">${isOutOfStock ? 'Rupture de stock' : `Stock: ${data.stock || 0}`}</div>
           </div>
-          <div class="variant-price">${fmt(v.price)}</div>
+          <div class="variant-price">${fmt(data.price)}</div>
         </div>
-      `).join('')}
+      `}).join('')}
     </div>
     <div class="qty-selector" id="qtySelector" style="display:none">
       <span class="qty-label">Quantité :</span>
@@ -2564,11 +2541,17 @@ function openProduct(id) {
     </div>
   `;
   
-  content.querySelectorAll('.variant-option').forEach(opt => {
+  content.querySelectorAll('.variant-option:not(.out-of-stock)').forEach(opt => {
     opt.onclick = function() {
       content.querySelectorAll('.variant-option').forEach(o => o.classList.remove('selected'));
       this.classList.add('selected');
-      selectedVariant = currentProduct.variants[parseInt(this.dataset.idx)];
+      
+      const label = this.dataset.label;
+      selectedVariant = {
+        label: label,
+        ...currentProduct.variants[label]
+      };
+      
       quantity = 1;
       document.getElementById('qtyDisplay').textContent = '1';
       document.getElementById('qtySelector').style.display = 'flex';
@@ -2577,38 +2560,61 @@ function openProduct(id) {
     };
   });
   
-  content.querySelector('#qtyMinus').onclick = () => {
-    if (quantity > 1) {
-      quantity--;
-      document.getElementById('qtyDisplay').textContent = quantity;
-      updateTotalPrice();
-    }
-  };
+  const qtyMinus = content.querySelector('#qtyMinus');
+  const qtyPlus = content.querySelector('#qtyPlus');
   
-  content.querySelector('#qtyPlus').onclick = () => {
-    if (quantity < 99) {
-      quantity++;
-      document.getElementById('qtyDisplay').textContent = quantity;
-      updateTotalPrice();
-    }
-  };
+  if (qtyMinus) {
+    qtyMinus.onclick = () => {
+      if (quantity > 1) {
+        quantity--;
+        document.getElementById('qtyDisplay').textContent = quantity;
+        updateTotalPrice();
+      }
+    };
+  }
   
-  content.querySelector('#addToCart').onclick = () => {
-    if (selectedVariant) {
-      const cartItem = {
-        productId: currentProduct.id,
-        name: currentProduct.name,
-        variant: selectedVariant.label,
-        price: selectedVariant.price,
-        qty: quantity,
-        video: currentProduct.video
-      };
-      
-      CartManager.add(cartItem);
-      showToast(`✅ ${quantity}x ${currentProduct.name} ajouté au panier`);
-      closeProduct();
-    }
-  };
+  if (qtyPlus) {
+    qtyPlus.onclick = () => {
+      const maxQty = selectedVariant ? (selectedVariant.stock || 0) : 99;
+      if (quantity < maxQty) {
+        quantity++;
+        document.getElementById('qtyDisplay').textContent = quantity;
+        updateTotalPrice();
+      } else {
+        showToast(`⚠️ Stock maximum: ${maxQty}`);
+      }
+    };
+  }
+  
+  const addBtn = content.querySelector('#addToCart');
+  if (addBtn) {
+    addBtn.onclick = () => {
+      if (selectedVariant) {
+        const availableStock = selectedVariant.stock || 0;
+        
+        if (quantity > availableStock) {
+          showToast(`⚠️ Stock insuffisant (${availableStock} disponibles)`);
+          return;
+        }
+        
+        const cartItem = {
+          productId: currentProduct.id,
+          name: currentProduct.name,
+          variant: selectedVariant.label,
+          price: selectedVariant.price,
+          qty: quantity,
+          video: currentProduct.video
+        };
+        
+        CartManager.add(cartItem);
+        showToast(`✅ ${quantity}x ${currentProduct.name} ajouté au panier`);
+        closeProduct();
+        
+        // Recharger les produits pour mettre à jour les stocks affichés
+        loadProducts();
+      }
+    };
+  }
   
   document.getElementById('productSheet').classList.remove('hidden');
   document.body.classList.add('modal-open');
@@ -2624,25 +2630,6 @@ function updateTotalPrice() {
 function closeProduct() {
   document.getElementById('productSheet').classList.add('hidden');
   document.body.classList.remove('modal-open');
-}
-
-function validateAddress(address) {
-  if (!address || address.length < 5) {
-    return { valid: false, error: 'Adresse trop courte (minimum 5 caractères)' };
-  }
-  
-  const hasNumber = /\d/.test(address);
-  const hasStreet = /rue|avenue|boulevard|place|allée|impasse|chemin|route|voie/i.test(address);
-  
-  if (!hasNumber) {
-    return { valid: false, error: 'L\'adresse doit contenir un numéro' };
-  }
-  
-  if (!hasStreet) {
-    return { valid: false, error: 'Format d\'adresse invalide (ex: 12 Rue de la Paix, Millau)' };
-  }
-  
-  return { valid: true };
 }
 
 function renderCart() {
@@ -2681,7 +2668,7 @@ function renderCart() {
       <div class="cart-item">
         <div class="cart-item-image">
           <video class="cart-item-video" autoplay muted loop playsinline>
-            <source src="${item.video}" type="video/mp4">
+            <source src="${item.video || ''}" type="video/mp4">
           </video>
         </div>
         <div class="cart-item-info">
@@ -2766,7 +2753,7 @@ function renderCart() {
   content.querySelectorAll('.delete-btn').forEach(btn => {
     btn.onclick = async () => {
       const idx = parseInt(btn.dataset.idx);
-      const confirmed = await confirmDelete('Retirer cet article du panier ?');
+      const confirmed = confirm('Retirer cet article du panier ?');
       if (confirmed) {
         CartManager.remove(idx);
         renderCart();
@@ -2787,11 +2774,6 @@ function renderCart() {
     applyBtn.onclick = () => {
       const input = content.querySelector('#promoInput');
       const code = input.value.trim().toUpperCase();
-      
-      if (!RateLimiter.canProceed('promo', 5, 60000)) {
-        showToast('⚠️ Trop de tentatives. Attendez 1 minute.');
-        return;
-      }
       
       if (PROMO_CODES[code]) {
         appliedPromo = PROMO_CODES[code];
@@ -2815,87 +2797,89 @@ function renderCart() {
   }
   
   const addressInput = content.querySelector('#addressInput');
-  let timer = null;
-  
-  const frenchCities = [
-    'Paris 75000', 'Marseille 13000', 'Lyon 69000', 'Toulouse 31000',
-    'Nice 06000', 'Nantes 44000', 'Montpellier 34000', 'Strasbourg 67000',
-    'Bordeaux 33000', 'Lille 59000', 'Rennes 35000', 'Reims 51100',
-    'Millau 12100', 'Rodez 12000', 'Albi 81000'
-  ];
-  
-  const streetTypes = [
-    'Rue', 'Avenue', 'Boulevard', 'Place', 'Allée', 'Impasse', 
-    'Chemin', 'Route', 'Voie', 'Square', 'Cours', 'Quai'
-  ];
-  
-  addressInput.addEventListener('input', (e) => {
-    clearTimeout(timer);
-    const query = sanitizeInput(e.target.value.trim().toLowerCase());
+  if (addressInput) {
+    let timer = null;
     
-    if (query.length < 2) {
-      content.querySelector('#suggestions').style.display = 'none';
-      return;
-    }
+    const frenchCities = [
+      'Paris 75000', 'Marseille 13000', 'Lyon 69000', 'Toulouse 31000',
+      'Nice 06000', 'Nantes 44000', 'Montpellier 34000', 'Strasbourg 67000',
+      'Bordeaux 33000', 'Lille 59000', 'Rennes 35000', 'Reims 51100',
+      'Millau 12100', 'Rodez 12000', 'Albi 81000'
+    ];
     
-    timer = setTimeout(() => {
-      const suggestions = [];
+    const streetTypes = [
+      'Rue', 'Avenue', 'Boulevard', 'Place', 'Allée', 'Impasse', 
+      'Chemin', 'Route', 'Voie', 'Square', 'Cours', 'Quai'
+    ];
+    
+    addressInput.addEventListener('input', (e) => {
+      clearTimeout(timer);
+      const query = sanitizeInput(e.target.value.trim().toLowerCase());
       
-      const matchingCities = frenchCities.filter(city => 
-        city.toLowerCase().includes(query)
-      );
-      
-      const numberMatch = query.match(/^(\d+)\s*([a-zéèêë]*)/i);
-      if (numberMatch) {
-        const number = numberMatch[1];
-        const partial = numberMatch[2];
-        
-        streetTypes.forEach(type => {
-          if (!partial || type.toLowerCase().startsWith(partial)) {
-            matchingCities.slice(0, 3).forEach(city => {
-              suggestions.push(`${number} ${type} de la République, ${city}`);
-            });
-          }
-        });
-      } else {
-        matchingCities.slice(0, 5).forEach(city => {
-          suggestions.push(`Adresse à ${city}`);
-        });
-      }
-      
-      if (suggestions.length > 0) {
-        const suggestionsEl = content.querySelector('#suggestions');
-        suggestionsEl.innerHTML = suggestions.slice(0, 5).map(addr => 
-          `<div class="suggestion-item" data-address="${sanitizeInput(addr)}">${sanitizeInput(addr)}</div>`
-        ).join('');
-        suggestionsEl.style.display = 'block';
-        
-        suggestionsEl.querySelectorAll('.suggestion-item').forEach(item => {
-          item.onclick = function() {
-            const addr = this.dataset.address;
-            if (addr.startsWith('Adresse à ')) {
-              const city = addr.replace('Adresse à ', '');
-              addressInput.value = '';
-              addressInput.placeholder = `Tapez votre adresse à ${city}...`;
-              addressInput.focus();
-            } else {
-              addressInput.value = addr;
-            }
-            suggestionsEl.style.display = 'none';
-          };
-        });
-      } else {
+      if (query.length < 2) {
         content.querySelector('#suggestions').style.display = 'none';
+        return;
       }
-    }, 200);
-  });
-  
-  document.addEventListener('click', (e) => {
-    if (!e.target.closest('.input-wrapper')) {
-      const suggestionsEl = content.querySelector('#suggestions');
-      if (suggestionsEl) suggestionsEl.style.display = 'none';
-    }
-  });
+      
+      timer = setTimeout(() => {
+        const suggestions = [];
+        
+        const matchingCities = frenchCities.filter(city => 
+          city.toLowerCase().includes(query)
+        );
+        
+        const numberMatch = query.match(/^(\d+)\s*([a-zéèêë]*)/i);
+        if (numberMatch) {
+          const number = numberMatch[1];
+          const partial = numberMatch[2];
+          
+          streetTypes.forEach(type => {
+            if (!partial || type.toLowerCase().startsWith(partial)) {
+              matchingCities.slice(0, 3).forEach(city => {
+                suggestions.push(`${number} ${type} de la République, ${city}`);
+              });
+            }
+          });
+        } else {
+          matchingCities.slice(0, 5).forEach(city => {
+            suggestions.push(`Adresse à ${city}`);
+          });
+        }
+        
+        if (suggestions.length > 0) {
+          const suggestionsEl = content.querySelector('#suggestions');
+          suggestionsEl.innerHTML = suggestions.slice(0, 5).map(addr => 
+            `<div class="suggestion-item" data-address="${sanitizeInput(addr)}">${sanitizeInput(addr)}</div>`
+          ).join('');
+          suggestionsEl.style.display = 'block';
+          
+          suggestionsEl.querySelectorAll('.suggestion-item').forEach(item => {
+            item.onclick = function() {
+              const addr = this.dataset.address;
+              if (addr.startsWith('Adresse à ')) {
+                const city = addr.replace('Adresse à ', '');
+                addressInput.value = '';
+                addressInput.placeholder = `Tapez votre adresse à ${city}...`;
+                addressInput.focus();
+              } else {
+                addressInput.value = addr;
+              }
+              suggestionsEl.style.display = 'none';
+            };
+          });
+        } else {
+          content.querySelector('#suggestions').style.display = 'none';
+        }
+      }, 200);
+    });
+    
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.input-wrapper')) {
+        const suggestionsEl = content.querySelector('#suggestions');
+        if (suggestionsEl) suggestionsEl.style.display = 'none';
+      }
+    });
+  }
 }
 
 function openCart() {
@@ -2910,18 +2894,12 @@ async function validateOrder() {
     return;
   }
   
-  if (!RateLimiter.canProceed('order', 3, 300000)) {
-    showToast('⚠️ Trop de tentatives. Attendez 5 minutes.');
-    return;
-  }
-  
   const addressInput = document.getElementById('addressInput');
   const address = addressInput?.value.trim() || '';
   
-  const validation = validateAddress(address);
-  if (!validation.valid) {
-    showToast(`⚠️ ${validation.error}`);
-    if (addressInput) addressInput.focus();
+  if (!address || address.length < 5) {
+    showToast('⚠️ Entrez une adresse de livraison');
+    addressInput?.focus();
     return;
   }
   
@@ -2966,7 +2944,6 @@ async function validateOrder() {
     }
     
     const subtotalWithDelivery = subtotal + deliveryFee;
-    
     const nextOrderNumber = LoyaltyManager.totalOrders + 1;
     const willGetReward = nextOrderNumber % 10 === 0;
     let loyaltyDiscount = 0;
@@ -2979,8 +2956,6 @@ async function validateOrder() {
     const totalDiscount = promoDiscount + loyaltyDiscount;
     const total = subtotalWithDelivery - totalDiscount;
     
-    const orderId = 'DC' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substr(2, 4).toUpperCase();
-    
     const orderData = {
       customer: clientId,
       type: deliveryType,
@@ -2989,48 +2964,33 @@ async function validateOrder() {
       total: total
     };
     
-    const order = {
-      id: orderId,
-      date: new Date().toISOString(),
-      items: items,
-      itemCount: CartManager.getTotalItems(),
-      total: total,
-      status: 'pending'
-    };
+    // Créer la commande via SyncManager
+    const order = SyncManager.createOrder(orderData);
     
-    OrdersManager.add(order);
-    LoyaltyManager.addOrder(orderId, total);
-    
-    const shopOrders = JSON.parse(localStorage.getItem('shop_orders') || '[]');
-    shopOrders.push({
-      id: orderId,
-      timestamp: new Date().toISOString(),
-      name: orderData.customer,
-      items: orderData.items.map(item => ({
-        name: item.name,
-        variant: item.variant,
-        quantity: item.qty,
-        price: item.price
-      })),
-      total: total,
-      paymentMethod: 'Espèces',
-      email: '',
-      phone: '',
-      deliveryAddress: orderData.address,
-      deliveryType: orderData.type
-    });
-    localStorage.setItem('shop_orders', JSON.stringify(shopOrders));
-    
-    CartManager.clear();
-    appliedPromo = null;
-    
-    document.getElementById('cartSheet').classList.add('hidden');
-    
-    const telegramResult = sendOrderToTelegram(orderData, orderId, total);
-    
-    showOrderSummary(orderData, orderId, totalDiscount, telegramResult.success);
-    
-    console.log('✅ Commande créée:', orderId);
+    if (order) {
+      OrdersManager.add(order);
+      LoyaltyManager.addOrder(order.id, total);
+      
+      CartManager.clear();
+      appliedPromo = null;
+      
+      document.getElementById('cartSheet').classList.add('hidden');
+      
+      // Ouvrir Telegram
+      const message = createOrderMessage(orderData, order.id, total);
+      const encodedMessage = encodeURIComponent(message);
+      const telegramUrl = `https://t.me/${TELEGRAM_CONFIG.SUPPORT_USERNAME}?text=${encodedMessage}`;
+      window.open(telegramUrl, '_blank');
+      
+      showOrderSummary(orderData, order.id, totalDiscount, true);
+      
+      // Recharger les produits pour afficher les nouveaux stocks
+      loadProducts();
+      
+      console.log('✅ Commande créée:', order.id);
+    } else {
+      throw new Error('Impossible de créer la commande');
+    }
     
   } catch (error) {
     console.error('❌ Erreur:', error);
@@ -3046,6 +3006,35 @@ async function validateOrder() {
       Commander via Telegram
     `;
   }
+}
+
+function createOrderMessage(orderData, orderId, totalAmount) {
+  const deliveryEmoji = orderData.type.includes('Millau') ? '🏠' : '🚚';
+  
+  const items = orderData.items.map(item => 
+    `${item.qty}x ${item.name} ${item.variant}`
+  ).join('\n');
+  
+  const message = `🆕 COMMANDE DROGUA CENTER
+
+📋 N° de commande: #${orderId}
+🎭 Client: ${orderData.customer}
+
+📦 DÉTAILS DE LA COMMANDE 🛍️
+
+${items}
+
+${deliveryEmoji} TYPE DE COMMANDE:
+${orderData.type}
+
+📍 ADRESSE:
+${orderData.address}
+
+💰 MONTANT TOTAL: ${fmt(totalAmount)}
+
+⏰ ${new Date().toLocaleString('fr-FR')}`;
+
+  return message;
 }
 
 function showOrderSummary(orderData, orderId, discount = 0, notificationSent = false) {
@@ -3078,15 +3067,7 @@ function showOrderSummary(orderData, orderId, discount = 0, notificationSent = f
         <div style="font-size:13px;color:var(--text-secondary)">Envoyez le message pré-rempli pour finaliser votre commande</div>
       </div>
     </div>
-    ` : `
-    <div style="background:rgba(245,158,11,0.1);border:2px solid var(--warning);border-radius:16px;padding:16px;margin:20px 0;display:flex;align-items:center;gap:12px">
-      <div style="width:40px;height:40px;background:var(--warning);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0">⚠️</div>
-      <div style="flex:1">
-        <div style="font-weight:700;color:var(--warning);margin-bottom:4px">Configuration nécessaire</div>
-        <div style="font-size:13px;color:var(--text-secondary)">Le bot Telegram n'est pas configuré. Contactez le support manuellement.</div>
-      </div>
-    </div>
-    `}
+    ` : ''}
     
     <div style="background:var(--bg-tertiary);border-radius:16px;padding:20px;margin:20px 0">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
@@ -3213,17 +3194,17 @@ function renderFavorites() {
   
   const favProducts = PRODUCTS.filter(p => FavoritesManager.items.includes(p.id));
   list.innerHTML = favProducts.map(p => {
-    const minPrice = Math.min(...p.variants.map(v => v.price));
+    const minPrice = Math.min(...Object.values(p.variants).map(v => v.price));
     return `
       <div class="info-card" style="cursor:pointer" data-product-id="${p.id}">
         <div style="width:60px;height:60px;border-radius:12px;overflow:hidden;flex-shrink:0;background:var(--bg-tertiary)">
           <video style="width:100%;height:100%;object-fit:cover" autoplay muted loop playsinline>
-            <source src="${p.video}" type="video/mp4">
+            <source src="${p.video || ''}" type="video/mp4">
           </video>
         </div>
         <div style="flex:1">
           <div style="font-weight:700;margin-bottom:4px">${sanitizeInput(p.name)}</div>
-          <div style="color:var(--text-muted);font-size:13px;margin-bottom:4px">${sanitizeInput(p.farm)}</div>
+          <div style="color:var(--text-muted);font-size:13px;margin-bottom:4px">${sanitizeInput(p.category)}</div>
           <div style="color:var(--accent);font-weight:700">À partir de ${fmt(minPrice)}</div>
         </div>
         <button class="delete-btn" data-fav-id="${p.id}" style="background:var(--danger)">❤️</button>
@@ -3242,7 +3223,7 @@ function renderFavorites() {
   list.querySelectorAll('[data-fav-id]').forEach(btn => {
     btn.onclick = async (e) => {
       e.stopPropagation();
-      const confirmed = await confirmDelete('Retirer ce produit des favoris ?');
+      const confirmed = confirm('Retirer ce produit des favoris ?');
       if (confirmed) {
         FavoritesManager.toggle(parseInt(btn.dataset.favId));
         renderProducts(currentCategory, currentSort);
@@ -3265,10 +3246,10 @@ function renderOrders() {
     <div class="order-card">
       <div class="order-header">
         <span class="order-number">#${order.id}</span>
-        <span class="order-status ${order.status}">${order.status === 'delivered' ? 'Livrée' : 'En cours'}</span>
+        <span class="order-status ${order.status}">${order.status === 'delivered' ? '✅ Livrée' : '⏳ En cours'}</span>
       </div>
-      <div class="order-date">${new Date(order.date).toLocaleDateString('fr-FR', {day: 'numeric', month: 'long', year: 'numeric'})}</div>
-      <div class="order-items">${order.itemCount} article${order.itemCount > 1 ? 's' : ''}</div>
+      <div class="order-date">${new Date(order.timestamp).toLocaleDateString('fr-FR', {day: 'numeric', month: 'long', year: 'numeric'})}</div>
+      <div class="order-items">${order.items.length} article${order.items.length > 1 ? 's' : ''}</div>
       <div class="order-total">${fmt(order.total)}</div>
     </div>
   `).join('');
@@ -3307,6 +3288,56 @@ function renderReviews() {
     </div>
   `}).join('');
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CHARGEMENT DES PRODUITS DEPUIS L'ADMIN
+// ═══════════════════════════════════════════════════════════════════════════
+
+function loadProducts() {
+  PRODUCTS = SyncManager.loadProducts();
+  
+  if (PRODUCTS.length === 0) {
+    document.getElementById('resultsCount').textContent = 'Aucun produit';
+    document.getElementById('productGrid').innerHTML = `
+      <div style="grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--text-muted)">
+        <div style="font-size:48px;margin-bottom:16px;opacity:0.3">📦</div>
+        <p style="font-size:18px;font-weight:600;margin-bottom:8px">Catalogue en préparation</p>
+        <p style="font-size:14px">Les produits seront bientôt disponibles</p>
+        <p style="font-size:12px;margin-top:16px;color:var(--accent)">Synchronisation avec l'admin en cours...</p>
+      </div>
+    `;
+  } else {
+    renderProducts(currentCategory, currentSort);
+  }
+  
+  SyncManager.updateSyncStatus('ok');
+  console.log('📦 Produits chargés:', PRODUCTS.length);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SYNCHRONISATION AUTO
+// ═══════════════════════════════════════════════════════════════════════════
+
+function startAutoSync() {
+  // Sync immédiat
+  loadProducts();
+  
+  // Sync toutes les 2 secondes
+  if (syncInterval) clearInterval(syncInterval);
+  
+  syncInterval = setInterval(() => {
+    const oldCount = PRODUCTS.length;
+    loadProducts();
+    
+    if (PRODUCTS.length !== oldCount) {
+      console.log(`🔄 Mise à jour: ${oldCount} → ${PRODUCTS.length} produits`);
+    }
+  }, 2000);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// EVENT LISTENERS
+// ═══════════════════════════════════════════════════════════════════════════
 
 function initEventListeners() {
   document.getElementById('themeToggle').onclick = toggleTheme;
@@ -3366,12 +3397,12 @@ function initEventListeners() {
   document.getElementById('closeProduct').onclick = closeProduct;
   document.getElementById('validateOrder').onclick = validateOrder;
   
-  document.getElementById('closeOrderSummary')?.addEventListener('click', () => {
+  document.getElementById('closeOrderSummary').onclick = () => {
     document.getElementById('orderSummarySheet').classList.add('hidden');
     document.body.classList.remove('modal-open');
-  });
+  };
   
-  document.getElementById('closeOrderSummaryBtn')?.addEventListener('click', () => {
+  document.getElementById('closeOrderSummaryBtn').onclick = () => {
     document.getElementById('orderSummarySheet').classList.add('hidden');
     document.body.classList.remove('modal-open');
     
@@ -3379,7 +3410,7 @@ function initEventListeners() {
     document.getElementById('page-home').classList.add('active');
     document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
     document.querySelector('.nav-item[data-tab="home"]')?.classList.add('active');
-  });
+  };
   
   document.querySelectorAll('.category-chip').forEach(chip => {
     chip.onclick = () => {
@@ -3440,47 +3471,30 @@ function initEventListeners() {
   };
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// INITIALISATION
+// ═══════════════════════════════════════════════════════════════════════════
+
 function init() {
-  try {
-    const testTheme = localStorage.getItem('theme');
-    const testCart = localStorage.getItem('cart');
-    
-    if (testCart) {
-      try {
-        JSON.parse(testCart);
-      } catch (e) {
-        console.warn('⚠️ Données corrompues détectées, nettoyage...');
-        localStorage.removeItem('cart');
-      }
-    }
-  } catch (e) {
-    console.error('❌ Erreur localStorage:', e);
-  }
-  
   try {
     CartManager.init();
     FavoritesManager.init();
     OrdersManager.init();
     LoyaltyManager.init();
     ReviewsManager.init();
-    VideoObserver.init();
     initTheme();
     initEventListeners();
-    renderProducts();
     renderFavorites();
     renderOrders();
     renderReviews();
     CartManager.updateUI();
     FavoritesManager.updateUI();
     
-    console.log('✅ DROGUA CENTER v2.0 - Chargé avec succès');
-    console.log('🔥 Mode: Commande via Telegram Direct');
-    console.log('💡 Pour réinitialiser : localStorage.clear() puis F5');
-    console.log('');
-    console.log('📱 SYSTÈME DE COMMANDE TELEGRAM:');
-    console.log('✅ Support: @' + TELEGRAM_CONFIG.SUPPORT_USERNAME);
-    console.log('📩 Les clients enverront leurs commandes directement au support');
-    console.log('💬 Communication privée comme un message normal sur Telegram');
+    // Démarrer la synchronisation automatique
+    startAutoSync();
+    
+    console.log('✅ DROGUA CENTER v3.0 chargé');
+    console.log('🔄 Synchronisation automatique active (toutes les 2s)');
   } catch (error) {
     console.error('❌ Erreur initialisation:', error);
     showToast('⚠️ Erreur de chargement. Actualisez la page (F5)');
