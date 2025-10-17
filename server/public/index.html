@@ -1,4 +1,21 @@
 <!doctype html>
+<!--
+  DROGUA CENTER v2.0 - Commande directe par message Telegram
+  
+  🚀 CONFIGURATION:
+  Le client envoie sa commande DIRECTEMENT à votre compte Telegram @assistancenter
+  
+  📱 Comment ça marche:
+  1. Le client passe commande sur le site
+  2. Il clique sur "Commander via Telegram"
+  3. Telegram s'ouvre avec le message déjà écrit
+  4. Le client appuie sur "Envoyer"
+  5. VOUS recevez le message sur @assistancenter
+  6. Vous répondez directement au client
+  
+  ✅ Configuration actuelle: @assistancenter
+  Pour changer: Ligne 150 → SUPPORT_USERNAME: 'votre_username'
+-->
 <html lang="fr">
 <head>
   <meta charset="utf-8">
@@ -901,6 +918,10 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
   transition:all 0.2s;
   box-shadow:0 4px 12px rgba(0,212,255,0.3);
   position:relative;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
 }
 
 .btn-primary:hover{
@@ -1704,7 +1725,13 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
         <p style="text-align:center;color:var(--text-muted);padding:40px 20px">Votre panier est vide</p>
       </div>
       <div class="sheet-footer">
-        <button class="btn-primary" id="validateOrder">Valider la commande</button>
+        <button class="btn-primary" id="validateOrder">
+          <svg style="width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2" viewBox="0 0 24 24">
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
+          Commander via Telegram
+        </button>
       </div>
     </div>
   </section>
@@ -1726,6 +1753,18 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
   </section>
 
   <script>
+// ═══════════════════════════════════════════════════════════════════════════
+// CONFIGURATION TELEGRAM - À PERSONNALISER
+// ═══════════════════════════════════════════════════════════════════════════
+
+const TELEGRAM_CONFIG = {
+  SUPPORT_USERNAME: 'assistancenter'  // ← Mettez VOTRE username Telegram (sans le @)
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DONNÉES DES PRODUITS
+// ═══════════════════════════════════════════════════════════════════════════
+
 const PRODUCTS = [
   {id:1, name:"AMNESIA", farm:"coffee shop", video:"video/amnesia.MP4", category:"weed", 
    variants:[{label:"3,33G",grams:3.33,price:20},{label:"5G",grams:5,price:30},{label:"10G",grams:10,price:60},{label:"50G",grams:50,price:250},{label:"100G",grams:100,price:450}]},
@@ -1759,7 +1798,55 @@ const PROMO_CODES = {
   'VIP15': { type: 'percent', value: 15, label: '15% de réduction VIP' }
 };
 
+// ═══════════════════════════════════════════════════════════════════════════
+// FONCTIONS UTILITAIRES
+// ═══════════════════════════════════════════════════════════════════════════
+
 const fmt = n => n.toFixed(2) + ' €';
+
+function createOrderMessage(orderData, orderId, totalAmount) {
+  const deliveryEmoji = orderData.type.includes('Millau') ? '🏠' : '🚚';
+  
+  const items = orderData.items.map(item => 
+    `${item.qty} ${item.name} ${item.variant}`
+  ).join('\n');
+  
+  const message = `🆕 COMMANDE DROGUA CENTER
+
+📋 N° de commande: #${orderId}
+🎭 Client: ${orderData.customer}
+
+📦 DÉTAILS DE LA COMMANDE 🛍️
+
+${items}
+
+${deliveryEmoji} TYPE DE COMMANDE:
+${orderData.type}
+
+📍 ADRESSE:
+${orderData.address}
+
+💰 MONTANT TOTAL: ${fmt(totalAmount)}
+
+⏰ ${new Date().toLocaleString('fr-FR')}`;
+
+  return message;
+}
+
+function sendOrderToTelegram(orderData, orderId, totalAmount) {
+  if (TELEGRAM_CONFIG.SUPPORT_USERNAME === 'assistancenter' || 
+      TELEGRAM_CONFIG.SUPPORT_USERNAME === 'VOTRE_USERNAME_ICI') {
+    console.log('ℹ️ Utilisation du support par défaut: @assistancenter');
+  }
+  
+  const message = createOrderMessage(orderData, orderId, totalAmount);
+  const encodedMessage = encodeURIComponent(message);
+  const telegramUrl = `https://t.me/${TELEGRAM_CONFIG.SUPPORT_USERNAME}?text=${encodedMessage}`;
+  
+  window.open(telegramUrl, '_blank');
+  
+  return { success: true };
+}
 
 function sanitizeInput(input) {
   const div = document.createElement('div');
@@ -1815,6 +1902,10 @@ function showToast(msg) {
   }, 2500);
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// GESTION DES DONNÉES LOCALES
+// ═══════════════════════════════════════════════════════════════════════════
+
 const DataManager = {
   save(key, data) {
     try {
@@ -1856,6 +1947,10 @@ const DataManager = {
     }
   }
 };
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GESTIONNAIRES
+// ═══════════════════════════════════════════════════════════════════════════
 
 const CartManager = {
   items: [],
@@ -2202,6 +2297,10 @@ const VideoObserver = {
   }
 };
 
+// ═══════════════════════════════════════════════════════════════════════════
+// VARIABLES GLOBALES
+// ═══════════════════════════════════════════════════════════════════════════
+
 let currentProduct = null;
 let selectedVariant = null;
 let quantity = 1;
@@ -2209,6 +2308,10 @@ let selectedDelivery = 'millau';
 let currentSort = 'default';
 let currentCategory = 'all';
 let appliedPromo = null;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FONCTIONS D'INTERFACE
+// ═══════════════════════════════════════════════════════════════════════════
 
 function initTheme() {
   const theme = DataManager.load('theme', 'dark');
@@ -2825,7 +2928,13 @@ async function validateOrder() {
   const btn = document.getElementById('validateOrder');
   btn.disabled = true;
   btn.classList.add('loading');
-  btn.textContent = 'Validation en cours...';
+  btn.innerHTML = `
+    <svg style="width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2" viewBox="0 0 24 24">
+      <line x1="22" y1="2" x2="11" y2="13"></line>
+      <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+    </svg>
+    Ouverture de Telegram...
+  `;
   
   await new Promise(resolve => setTimeout(resolve, 800));
   
@@ -2880,8 +2989,6 @@ async function validateOrder() {
       total: total
     };
     
-    console.log('✅ Mode LOCAL activé - Commande enregistrée:', orderId);
-    
     const order = {
       id: orderId,
       date: new Date().toISOString(),
@@ -2918,9 +3025,12 @@ async function validateOrder() {
     appliedPromo = null;
     
     document.getElementById('cartSheet').classList.add('hidden');
-    showOrderSummary(orderData, orderId, totalDiscount);
     
-    console.log('✅ Commande créée localement:', orderId);
+    const telegramResult = sendOrderToTelegram(orderData, orderId, total);
+    
+    showOrderSummary(orderData, orderId, totalDiscount, telegramResult.success);
+    
+    console.log('✅ Commande créée:', orderId);
     
   } catch (error) {
     console.error('❌ Erreur:', error);
@@ -2928,11 +3038,17 @@ async function validateOrder() {
   } finally {
     btn.disabled = false;
     btn.classList.remove('loading');
-    btn.textContent = 'Valider la commande';
+    btn.innerHTML = `
+      <svg style="width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2" viewBox="0 0 24 24">
+        <line x1="22" y1="2" x2="11" y2="13"></line>
+        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+      </svg>
+      Commander via Telegram
+    `;
   }
 }
 
-function showOrderSummary(orderData, orderId, discount = 0) {
+function showOrderSummary(orderData, orderId, discount = 0, notificationSent = false) {
   const content = document.getElementById('orderSummaryContent');
   const deliveryFee = orderData.type.includes('+20') ? 20 : 0;
   const subtotal = orderData.items.reduce((sum, item) => sum + item.lineTotal, 0);
@@ -2948,6 +3064,29 @@ function showOrderSummary(orderData, orderId, discount = 0) {
       <h3 style="font-size:24px;font-weight:700;margin-bottom:8px;color:var(--success)">Commande confirmée !</h3>
       <p style="color:var(--text-secondary);font-size:16px">Numéro de commande : <strong style="color:var(--accent)">#${orderId}</strong></p>
     </div>
+    
+    ${notificationSent ? `
+    <div style="background:rgba(0,212,255,0.1);border:2px solid var(--accent);border-radius:16px;padding:16px;margin:20px 0;display:flex;align-items:center;gap:12px">
+      <div style="width:40px;height:40px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <svg style="width:20px;height:20px;stroke:var(--bg-primary);fill:none;stroke-width:2" viewBox="0 0 24 24">
+          <line x1="22" y1="2" x2="11" y2="13"></line>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+        </svg>
+      </div>
+      <div style="flex:1">
+        <div style="font-weight:700;color:var(--accent);margin-bottom:4px">📱 Telegram ouvert</div>
+        <div style="font-size:13px;color:var(--text-secondary)">Envoyez le message pré-rempli pour finaliser votre commande</div>
+      </div>
+    </div>
+    ` : `
+    <div style="background:rgba(245,158,11,0.1);border:2px solid var(--warning);border-radius:16px;padding:16px;margin:20px 0;display:flex;align-items:center;gap:12px">
+      <div style="width:40px;height:40px;background:var(--warning);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0">⚠️</div>
+      <div style="flex:1">
+        <div style="font-weight:700;color:var(--warning);margin-bottom:4px">Configuration nécessaire</div>
+        <div style="font-size:13px;color:var(--text-secondary)">Le bot Telegram n'est pas configuré. Contactez le support manuellement.</div>
+      </div>
+    </div>
+    `}
     
     <div style="background:var(--bg-tertiary);border-radius:16px;padding:20px;margin:20px 0">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
@@ -3038,24 +3177,24 @@ function showOrderSummary(orderData, orderId, discount = 0) {
         <div>
           <div style="font-weight:600;margin-bottom:8px;font-size:16px">Prochaines étapes</div>
           <ul style="color:var(--text-secondary);font-size:14px;line-height:1.8;padding-left:20px;margin:0">
-            <li>Notre équipe va vérifier votre commande</li>
-            <li>Le livreur vous contactera via notre bot sécurisé</li>
-            <li>Communication 100% anonyme garantie</li>
+            <li><strong>Telegram s'est ouvert</strong> avec votre commande pré-remplie</li>
+            <li><strong>Appuyez sur "Envoyer"</strong> dans Telegram pour valider</li>
+            <li>Le support recevra votre commande instantanément</li>
+            <li>Vous recevrez une réponse rapide pour organiser la livraison</li>
             <li>Paiement à la livraison (espèces uniquement)</li>
-            <li>Livraison rapide et discrète</li>
           </ul>
         </div>
       </div>
     </div>
     
     <div style="text-align:center;margin-top:30px">
-      <p style="color:var(--text-muted);font-size:14px;margin-bottom:16px">Une question ? Contactez notre support anonyme</p>
-      <a href="https://t.me/assistancenter" target="_blank" style="display:inline-flex;align-items:center;gap:8px;background:var(--bg-tertiary);border:1px solid var(--border);border-radius:12px;padding:12px 20px;color:var(--accent);text-decoration:none;font-weight:600;transition:all 0.2s">
+      <p style="color:var(--text-muted);font-size:14px;margin-bottom:16px">Telegram ne s'est pas ouvert ?</p>
+      <a href="https://t.me/${TELEGRAM_CONFIG.SUPPORT_USERNAME}" target="_blank" style="display:inline-flex;align-items:center;gap:8px;background:var(--accent);border:none;border-radius:12px;padding:12px 20px;color:var(--bg-primary);text-decoration:none;font-weight:600;transition:all 0.2s">
         <svg style="width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2" viewBox="0 0 24 24">
           <line x1="22" y1="2" x2="11" y2="13"></line>
           <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
         </svg>
-        @assistancenter
+        Contacter @${TELEGRAM_CONFIG.SUPPORT_USERNAME}
       </a>
     </div>
   `;
@@ -3335,8 +3474,13 @@ function init() {
     FavoritesManager.updateUI();
     
     console.log('✅ DROGUA CENTER v2.0 - Chargé avec succès');
-    console.log('🔥 Mode: 100% LOCAL (sans backend)');
+    console.log('🔥 Mode: Commande via Telegram Direct');
     console.log('💡 Pour réinitialiser : localStorage.clear() puis F5');
+    console.log('');
+    console.log('📱 SYSTÈME DE COMMANDE TELEGRAM:');
+    console.log('✅ Support: @' + TELEGRAM_CONFIG.SUPPORT_USERNAME);
+    console.log('📩 Les clients enverront leurs commandes directement au support');
+    console.log('💬 Communication privée comme un message normal sur Telegram');
   } catch (error) {
     console.error('❌ Erreur initialisation:', error);
     showToast('⚠️ Erreur de chargement. Actualisez la page (F5)');
