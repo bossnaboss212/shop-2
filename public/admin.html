@@ -1303,9 +1303,12 @@
     <input type="text" id="searchProducts" placeholder="🔍 Rechercher..." oninput="searchProducts()">
     <select id="filterCategory" onchange="filterProducts()">
       <option value="all">Toutes</option>
-      <option value="fleurs">🌿 Fleurs</option>
-      <option value="resines">🟫 Résines</option>
+      <option value="weed">🌿 weed</option>
+      <option value="hash">🟫 hash</option>
+      <option value="filtré">filtré</option>
+      <option value="frozen">frozen</option>
       <option value="blanche">Blanche</option>
+      <option value="mdma">mdma</option>
       <option value="cali">Cali</option>
       <option value="keta">Keta</option>
     </select>
@@ -1683,52 +1686,64 @@ const state = {
   data: {
     orders: [],
     products: [
-      { id: 1, name: 'AMNESIA', category: 'fleurs', buyPrice: 2.8, video: '', variants: {
+      { id: 1, name: 'AMNESIA', category: 'weed', buyPrice: 2.8, video: '', variants: {
         '3.33G': { price: 20, stock: 50, grams: 3.33 }, 
         '5G': { price: 30, stock: 45, grams: 5 }, 
-        '10G': { price: 60, stock: 30, grams: 10 }
+        '10G': { price: 60, stock: 30, grams: 10 },
+        '50G': { price: 250, stock: 5, grams: 50 },
+        '100G': { price: 450, stock: 5, grams: 100 }
       }},
       { id: 2, name: 'EL JEFE', category: 'blanche', buyPrice: 17.5, video: '', variants: {
         '0.5G': { price: 30, stock: 20, grams: 0.5 }, 
-        '1G': { price: 50, stock: 15, grams: 1 }
+        '1G': { price: 50, stock: 15, grams: 1 },
+        '2G': { price: 100, stock: 15, grams: 2 },
+        '5G': { price: 250, stock: 15, grams: 5 },
+        '10G': { price: 450, stock: 15, grams: 10 }
       }},
-      { id: 3, name: 'DEMBELE', category: 'resines', buyPrice: 2.7, video: '', variants: {
+      { id: 3, name: 'DEMBELE', category: 'hash', buyPrice: 2.7, video: '', variants: {
         '3.5G': { price: 20, stock: 60, grams: 3.5 }, 
-        '5G': { price: 30, stock: 50, grams: 5 }
-      }},
-      { id: 4, name: 'LEMON GELATO', category: 'cali', buyPrice: 5.3, video: '', variants: {
-        '3.5G': { price: 40, stock: 20, grams: 3.5 }
+        '5G': { price: 30, stock: 50, grams: 5 },
+        '10G': { price: 50, stock: 50, grams: 10 },
+        '25G': { price: 120, stock: 50, grams: 25 },
+        '50G': { price: 190, stock: 50, grams: 50 },
+        '100G': { price: 370, stock: 50, grams: 100 }
       }},
       { id: 5, name: 'NEEDLES KETA', category: 'keta', buyPrice: 3.9, video: '', variants: {
-        '1G': { price: 20, stock: 30, grams: 1 }
+        '1G': { price: 20, stock: 30, grams: 1 },
+        '2G': { price: 40, stock: 30, grams: 2 },
+        '3G': { price: 50, stock: 30, grams: 3 },
+        '5G': { price: 80, stock: 30, grams: 5 },
+        '10G': { price: 150, stock: 30, grams: 1 },
+        '50G': { price: 450, stock: 30, grams: 50 },
+        '100G': { price: 870, stock: 30, grams: 100 }
       }},
-      { id: 6, name: 'OG KUSH', category: 'fleurs', buyPrice: 3.0, video: '', variants: {
-        '3.33G': { price: 20, stock: 40, grams: 3.33 },
-        '5G': { price: 30, stock: 35, grams: 5 },
-        '10G': { price: 60, stock: 25, grams: 10 }
+      { id: 6, name: 'VVS TANGER FROZEN', category: 'frozen', buyPrice: 4.8, video: '', variants: {
+        '1.1G': { price: 20, stock: 40, grams: 1.1 },
+        '2.5G': { price: 40, stock: 35, grams: 2.5 },
+        '5G': { price: 70, stock: 25, grams: 5 },
+        '10G': { price: 140, stock: 30, grams: 10 },
+        '25G': { price: 250, stock: 30, grams: 25 }
       }},
-      { id: 7, name: 'PURPLE HAZE', category: 'fleurs', buyPrice: 3.2, video: '', variants: {
-        '3.33G': { price: 25, stock: 30, grams: 3.33 },
-        '5G': { price: 35, stock: 25, grams: 5 }
+      { id: 7, name: 'FRESH FROZEN', category: 'frozen', buyPrice: 7.0, video: '', variants: {
+        '1.1G': { price: 20, stock: 40, grams: 1.1 },
+        '2.5G': { price 40, stock: 35, grams: 2.5 },
+        '5G': { price: 80, stock: 25, grams: 5 },
+        '10G': { price: 150, stock: 30, grams: 10 },
+        '25G': { price: 250, stock: 30, grams: 25 }
       }},
-      { id: 8, name: 'SUPER SKUNK', category: 'resines', buyPrice: 2.5, video: '', variants: {
-        '3.5G': { price: 20, stock: 55, grams: 3.5 },
-        '5G': { price: 30, stock: 45, grams: 5 },
-        '10G': { price: 55, stock: 30, grams: 10 }
+      { id: 8, name: 'STRAWBERRY 120U', category: 'filtré', buyPrice: 2.75, video: '', variants: {
+        '2G': { price: 20, stock: 55, grams: 2 },
+        '3G': { price: 30, stock: 55, grams: 3 },
+        '5G': { price: 50, stock: 45, grams: 5 },
+        '10G': { price: 80, stock: 30, grams: 10 },
+        '50G': { price: 250, stock: 55, grams: 50 }
       }},
-      { id: 9, name: 'CHARAS', category: 'resines', buyPrice: 3.0, video: '', variants: {
-        '3.5G': { price: 25, stock: 40, grams: 3.5 },
-        '5G': { price: 35, stock: 30, grams: 5 }
-      }},
-      { id: 10, name: 'WEDDING CAKE', category: 'cali', buyPrice: 5.5, video: '', variants: {
-        '3.5G': { price: 45, stock: 15, grams: 3.5 }
-      }},
-      { id: 11, name: 'RUNTZ', category: 'cali', buyPrice: 6.0, video: '', variants: {
-        '3.5G': { price: 50, stock: 12, grams: 3.5 }
-      }},
-      { id: 12, name: 'PURE KETA', category: 'keta', buyPrice: 4.2, video: '', variants: {
-        '0.5G': { price: 15, stock: 25, grams: 0.5 },
-        '1G': { price: 25, stock: 20, grams: 1 }
+      { id: 9, name: 'CHAMPAGNE', category: 'mdma', buyPrice: 3.0, video: '', variants: {
+        '1': { price: 30, stock: 40, grams: 1 },
+        '2G': { price: 60, stock: 55, grams: 2 },
+        '3G': { price: 70, stock: 55, grams: 3 },
+        '5G': { price: 100, stock: 30, grams: 5 },
+        '10G': { price: 180, stock: 55, grams: 10 }
       }}
     ],
     customers: []
@@ -1889,24 +1904,43 @@ function showDashboard() {
   
   if (!state.data.products || state.data.products.length === 0) {
     state.data.products = [
-      { id: 1, name: 'AMNESIA', category: 'fleurs', buyPrice: 2.8, video: '', variants: {
+      { id: 1, name: 'AMNESIA', category: 'weed', buyPrice: 2.8, video: '', variants: {
         '3.33G': { price: 20, stock: 50, grams: 3.33 }, 
         '5G': { price: 30, stock: 45, grams: 5 }, 
-        '10G': { price: 60, stock: 30, grams: 10 }
+        '10G': { price: 60, stock: 30, grams: 10 },
+        '50G': { price: 250, stock: 5, grams: 50 },
+        '100G': { price: 450, stock: 5, grams: 100 }
       }},
       { id: 2, name: 'EL JEFE', category: 'blanche', buyPrice: 17.5, video: '', variants: {
         '0.5G': { price: 30, stock: 20, grams: 0.5 }, 
-        '1G': { price: 50, stock: 15, grams: 1 }
+        '1G': { price: 50, stock: 15, grams: 1 },
+        '2G': { price: 100, stock: 15, grams: 2 },
+        '5G': { price: 250, stock: 15, grams: 5 },
+        '10G': { price: 450, stock: 15, grams: 10 }
       }},
-      { id: 3, name: 'DEMBELE', category: 'resines', buyPrice: 2.7, video: '', variants: {
+      { id: 3, name: 'DEMBELE', category: 'hash', buyPrice: 2.7, video: '', variants: {
         '3.5G': { price: 20, stock: 60, grams: 3.5 }, 
-        '5G': { price: 30, stock: 50, grams: 5 }
+        '5G': { price: 30, stock: 50, grams: 5 },
+        '10G': { price: 50, stock: 50, grams: 10 },
+        '25G': { price: 120, stock: 50, grams: 25 },
+        '50G': { price: 190, stock: 50, grams: 50 },
+        '100G': { price: 370, stock: 50, grams: 100 }
       }},
-      { id: 4, name: 'LEMON GELATO', category: 'cali', buyPrice: 5.3, video: '', variants: {
-        '3.5G': { price: 40, stock: 20, grams: 3.5 }
+      { id: 4, name: 'STRAWBERRY 120U', category: 'filtré', buyPrice: 2.75, video: '', variants: {
+        '2G': { price: 20, stock: 55, grams: 2 },
+        '3G': { price: 30, stock: 55, grams: 3 },
+        '5G': { price: 50, stock: 45, grams: 5 },
+        '10G': { price: 80, stock: 30, grams: 10 },
+        '50G': { price: 250, stock: 55, grams: 50 }
       }},
       { id: 5, name: 'NEEDLES KETA', category: 'keta', buyPrice: 3.9, video: '', variants: {
-        '1G': { price: 20, stock: 30, grams: 1 }
+        '1G': { price: 20, stock: 30, grams: 1 },
+        '2G': { price: 40, stock: 30, grams: 2 },
+        '3G': { price: 50, stock: 30, grams: 3 },
+        '5G': { price: 80, stock: 30, grams: 5 },
+        '10G': { price: 150, stock: 30, grams: 1 },
+        '50G': { price: 450, stock: 30, grams: 50 },
+        '100G': { price: 870, stock: 30, grams: 100 }
       }}
     ];
     saveData();
@@ -2194,7 +2228,7 @@ function initCharts() {
     state.charts.category = new Chart(catCtx, {
       type: 'doughnut',
       data: {
-        labels: ['Fleurs', 'Résines', 'Blanche', 'Autres'],
+        labels: ['Weed', 'Résines', 'Blanche', 'Autres'],
         datasets: [{
           data: [0, 0, 0, 0],
           backgroundColor: ['#667eea', '#764ba2', '#f59e0b', '#10b981'],
@@ -2254,7 +2288,7 @@ function initCharts() {
     state.charts.analyticsCat = new Chart(anaCatCtx, {
       type: 'pie',
       data: {
-        labels: ['Fleurs', 'Résines', 'Blanche', 'Autres'],
+        labels: ['Weed', 'Hash', 'Blanche', 'Autres'],
         datasets: [{
           data: [0, 0, 0, 0],
           backgroundColor: ['#667eea', '#764ba2', '#f59e0b', '#10b981']
@@ -2776,8 +2810,10 @@ function addProduct() {
     <div class="form-group">
       <label>Catégorie</label>
       <select id="productCategory">
-        <option value="fleurs">🌿 Fleurs</option>
-        <option value="resines">🟫 Résines</option>
+        <option value="weed">🌿 Weed</option>
+        <option value="hash">🟫 Hash</option>
+        <option value="filtré"> Filtré</option>
+        <option value="frozen"> Frozen</option>
         <option value="blanche">⚪ Blanche</option>
         <option value="cali">🌟 Cali</option>
         <option value="keta">💎 Keta</option>
@@ -2905,8 +2941,10 @@ function editProduct(id) {
     <div class="form-group">
       <label>Catégorie</label>
       <select id="editProductCategory">
-        <option value="fleurs" ${p.category === 'fleurs' ? 'selected' : ''}>🌿 Fleurs</option>
-        <option value="resines" ${p.category === 'resines' ? 'selected' : ''}>🟫 Résines</option>
+        <option value="weed" ${p.category === 'weed' ? 'selected' : ''}>🌿 weed</option>
+        <option value="hash" ${p.category === 'hash' ? 'selected' : ''}>🟫 hash</option>
+        <option value="filtré" ${p.category === 'filtré' ? 'selected' : ''}> filtré</option>
+        <option value="frozen" ${p.category === 'frozen' ? 'selected' : ''}> frozen</option>
         <option value="blanche" ${p.category === 'blanche' ? 'selected' : ''}>⚪ Blanche</option>
         <option value="cali" ${p.category === 'cali' ? 'selected' : ''}>🌟 Cali</option>
         <option value="keta" ${p.category === 'keta' ? 'selected' : ''}>💎 Keta</option>
