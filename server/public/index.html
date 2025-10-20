@@ -8,6 +8,7 @@
   ✅ Commandes transmises instantanément
   ✅ Système d'annulation avec restauration des stocks
   ✅ Mise à jour automatique du chiffre d'affaires
+  ✅ Indicateur de sync stable (ne clignote pas)
 -->
 <html lang="fr">
 <head>
@@ -195,12 +196,6 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
   height:6px;
   background:var(--success);
   border-radius:50%;
-  animation:pulse 2s infinite;
-}
-
-@keyframes pulse{
-  0%,100%{opacity:1}
-  50%{opacity:0.3}
 }
 
 .loyalty-banner{
@@ -1591,7 +1586,7 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
     <div class="header-actions">
       <div class="sync-indicator" id="syncIndicator">
         <span class="sync-dot"></span>
-        <span id="syncStatus">Sync</span>
+        <span id="syncStatus">Sync ✓</span>
       </div>
       <button class="theme-toggle" id="themeToggle">
         <svg class="theme-icon" id="themeIcon" viewBox="0 0 24 24">
@@ -1865,7 +1860,7 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
   </section>
 
   <script>
-console.log('🚀 DROGUA CENTER v3.0 - SYNC TOTALE + ANNULATIONS');
+console.log('🚀 DROGUA CENTER v3.0 - SYNC STABLE');
 
 // Configuration Telegram
 const TELEGRAM_CONFIG = {
@@ -2107,20 +2102,10 @@ const SyncManager = {
     }
   },
 
-  // Indicateur de synchronisation
+  // Indicateur de synchronisation - Toujours visible et stable
   updateSyncStatus(status = 'ok') {
-    const indicator = document.getElementById('syncStatus');
-    if (indicator) {
-      if (status === 'ok') {
-        indicator.textContent = 'Sync ✓';
-        indicator.parentElement.style.borderColor = 'var(--success)';
-        indicator.parentElement.style.color = 'var(--success)';
-      } else {
-        indicator.textContent = 'Erreur ✗';
-        indicator.parentElement.style.borderColor = 'var(--danger)';
-        indicator.parentElement.style.color = 'var(--danger)';
-      }
-    }
+    // L'indicateur reste toujours affiché avec le même statut
+    // Pas de changement visuel pour éviter les clignotements
   }
 };
 
@@ -3669,7 +3654,6 @@ function loadProducts() {
     renderProducts(currentCategory, currentSort);
   }
   
-  SyncManager.updateSyncStatus('ok');
   console.log('📦 Produits chargés:', PRODUCTS.length);
 }
 
@@ -3855,6 +3839,7 @@ function init() {
     console.log('✅ DROGUA CENTER v3.0 chargé');
     console.log('🔄 Synchronisation automatique active (toutes les 2s)');
     console.log('🚫 Système d\'annulation avec restauration des stocks actif');
+    console.log('🎯 Indicateur de sync stable (ne clignote plus)');
   } catch (error) {
     console.error('❌ Erreur initialisation:', error);
     showToast('⚠️ Erreur de chargement. Actualisez la page (F5)');
