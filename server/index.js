@@ -3101,4 +3101,25 @@ async function start() {
       console.log(`   Driver Millau: ${config.telegram.driverMillauId ? '✅' : '❌'}`);
       console.log(`   Driver Extérieur: ${config.telegram.driverExterieurId ? '✅' : '❌'}`);
       console.log(`   Mapbox: ${config.mapbox.key ? '✅' : '❌'}`);
-      console
+      console.log('💬 Chat System: ✅ Enabled');
+      console.log('🚀 ================================');
+    });
+  } catch (error) {
+    console.error('❌ Server start error:', error);
+    process.exit(1);
+  }
+}
+
+process.on('SIGTERM', async () => {
+  console.log('📛 SIGTERM received, closing server...');
+  if (db) await db.close();
+  process.exit(0);
+});
+
+process.on('SIGINT', async () => {
+  console.log('📛 SIGINT received, closing server...');
+  if (db) await db.close();
+  process.exit(0);
+});
+
+start().catch(console.error);
