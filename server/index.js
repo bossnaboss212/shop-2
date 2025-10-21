@@ -12,10 +12,10 @@ app.set('trust proxy', 1);
 
 const PORT = process.env.PORT || 3000;
 
-// ==================== CONFIGURATION ====================
+// ==================== CONFIGURATION SÉCURISÉE ====================
 const config = {
   telegram: {
-    token: process.env.TELEGRAM_TOKEN || '7364804422:AAGsiuQhHUVUxb1BfXsb28lKWcot8gxHD30',
+    token: process.env.TELEGRAM_TOKEN,
     adminChatId: process.env.ADMIN_CHAT_ID || '',
     supportChatId: process.env.SUPPORT_CHAT_ID || '',
     driverMillauId: process.env.DRIVER_MILLAU_ID || '',
@@ -25,7 +25,7 @@ const config = {
     key: process.env.MAPBOX_KEY || '',
   },
   admin: {
-    password: process.env.ADMIN_PASS || 'gangstaforlife12',
+    password: process.env.ADMIN_PASS,
     tokenExpiry: 24 * 60 * 60 * 1000,
   },
   webapp: {
@@ -49,6 +49,19 @@ const config = {
     },
   },
 };
+
+// ==================== VALIDATION ENVIRONNEMENT ====================
+if (!config.telegram.token) {
+  console.error('❌ ERREUR CRITIQUE: TELEGRAM_TOKEN manquant !');
+  console.error('   Définissez la variable d\'environnement TELEGRAM_TOKEN');
+  process.exit(1);
+}
+
+if (!config.admin.password) {
+  console.error('❌ ERREUR CRITIQUE: ADMIN_PASS manquant !');
+  console.error('   Définissez la variable d\'environnement ADMIN_PASS');
+  process.exit(1);
+}
 
 // ==================== SECURITY MIDDLEWARE ====================
 app.use(helmet({
@@ -200,7 +213,7 @@ class ChatManager {
   
   cleanupInactive() {
     const now = Date.now();
-    const timeout = 2 * 60 * 60 * 1000; // 2 heures
+    const timeout = 30 * 60 * 1000; // 30 minutes (optimisé)
     
     for (const [orderId, conv] of this.activeConversations.entries()) {
       if (now - conv.lastActivity > timeout) {
@@ -213,8 +226,8 @@ class ChatManager {
 
 const chatManager = new ChatManager();
 
-// Cleanup automatique toutes les 30 minutes
-setInterval(() => chatManager.cleanupInactive(), 30 * 60 * 1000);
+// Cleanup automatique toutes les 15 minutes (optimisé)
+setInterval(() => chatManager.cleanupInactive(), 15 * 60 * 1000);
 
 // ==================== DATABASE ====================
 let db;
@@ -238,6 +251,8 @@ async function initDB() {
       delivery_time INTEGER,
       assigned_driver_zone TEXT,
       client_telegram_id TEXT,
+      cancel_reason TEXT,
+      cancelled_at DATETIME,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -389,7 +404,7 @@ function sanitizeString(str, maxLength = 500) {
 }
 
 function validateOrderInput(data) {
-  const { customer, type, items, total } = data;
+  const { customer, type, items, total, address } = data;
   
   if (!customer || typeof customer !== 'string' || customer.trim().length < 2) {
     throw new ValidationError('Contact client invalide');
@@ -397,6 +412,14 @@ function validateOrderInput(data) {
   
   if (!type || typeof type !== 'string') {
     throw new ValidationError('Type de livraison invalide');
+  }
+  
+  if (!address || typeof address !== 'string' || address.trim().length < 5) {
+    throw new ValidationError('Adresse de livraison invalide');
+  }
+  
+  if (address.length > 200) {
+    throw new ValidationError('Adresse trop longue (max 200 caractères)');
   }
   
   if (!Array.isArray(items) || items.length === 0) {
@@ -884,6 +907,26 @@ async function updateStockForOrder(items, orderId) {
   }
 }
 
+async function restoreStockForOrder(items, orderId) {
+  for (const item of items) {
+    await db.run(
+      'UPDATE stock SET qty = qty + ? WHERE product_id = ? AND variant = ?',
+      [item.qty, item.product_id, item.variant]
+    );
+    
+    const stockAfter = await db.get(
+      'SELECT qty FROM stock WHERE product_id = ? AND variant = ?',
+      [item.product_id, item.variant]
+    );
+    
+    await db.run(
+      `INSERT INTO stock_movements (product_id, variant, type, quantity, stock_after, reason)
+       VALUES (?, ?, 'in', ?, ?, ?)`,
+      [item.product_id, item.variant, item.qty, stockAfter?.qty || 0, `Annulation commande #${orderId}`]
+    );
+  }
+}
+
 // ==================== NOTIFICATION SYSTEM ====================
 async function notifyNewCustomerOrder(order, items, customerRecord) {
   if (config.telegram.adminChatId) {
@@ -1101,6 +1144,98 @@ app.get('/health', (req, res) => {
   });
 });
 
+// ==================== NOUVEAU : API PRODUITS ====================
+app.get('/api/products', apiLimiter, async (req, res) => {
+  try {
+    const productsData = await db.get(
+      "SELECT value FROM settings WHERE key = 'products'"
+    );
+    
+    const products = productsData?.value ? JSON.parse(productsData.value) : [];
+    
+    res.json({ ok: true, products });
+  } catch (error) {
+    console.error('Products error:', error);
+    res.status(500).json({ ok: false, error: 'Erreur serveur' });
+  }
+});
+
+// ==================== NOUVEAU : VÉRIFICATION STOCK ====================
+app.get('/api/stock/:productId/:variant', apiLimiter, async (req, res) => {
+  try {
+    const { productId, variant } = req.params;
+    
+    const stock = await db.get(
+      'SELECT qty FROM stock WHERE product_id = ? AND variant = ?',
+      [productId, decodeURIComponent(variant)]
+    );
+    
+    res.json({ 
+      ok: true, 
+      stock: stock?.qty || 0,
+      available: (stock?.qty || 0) > 0
+    });
+  } catch (error) {
+    console.error('Stock check error:', error);
+    res.status(500).json({ ok: false, error: 'Erreur serveur' });
+  }
+});
+
+// ==================== NOUVEAU : ANNULATION COMMANDE ====================
+app.post('/api/cancel-order', apiLimiter, async (req, res) => {
+  try {
+    const { orderId, reason } = req.body;
+    
+    if (!orderId) {
+      return res.status(400).json({ ok: false, error: 'ID commande manquant' });
+    }
+    
+    const order = await db.get('SELECT * FROM orders WHERE id = ?', [orderId]);
+    
+    if (!order) {
+      return res.status(404).json({ ok: false, error: 'Commande introuvable' });
+    }
+    
+    if (order.status === 'cancelled') {
+      return res.status(400).json({ ok: false, error: 'Commande déjà annulée' });
+    }
+    
+    if (order.status === 'delivered') {
+      return res.status(400).json({ ok: false, error: 'Impossible d\'annuler une commande livrée' });
+    }
+    
+    // Restaurer les stocks
+    const items = JSON.parse(order.items);
+    await restoreStockForOrder(items, orderId);
+    
+    // Supprimer la transaction
+    await db.run(
+      'DELETE FROM transactions WHERE description = ?',
+      [`Commande #${orderId}`]
+    );
+    
+    // Marquer comme annulée
+    await db.run(
+      'UPDATE orders SET status = ?, cancel_reason = ?, cancelled_at = CURRENT_TIMESTAMP WHERE id = ?',
+      ['cancelled', reason || 'Annulée par le client', orderId]
+    );
+    
+    // Fermer les conversations liées
+    chatManager.closeConversation(parseInt(orderId));
+    
+    console.log(`✅ Order #${orderId} cancelled. Stocks restored.`);
+    
+    res.json({ 
+      ok: true, 
+      message: 'Commande annulée et stocks restaurés',
+      orderAmount: order.total
+    });
+  } catch (error) {
+    console.error('Cancel order error:', error);
+    res.status(500).json({ ok: false, error: 'Erreur serveur' });
+  }
+});
+
 app.post('/api/create-order', apiLimiter, async (req, res) => {
   try {
     console.log('📨 New order received');
@@ -1112,6 +1247,28 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
     const sanitizedCustomer = sanitizeString(customer, 100);
     const sanitizedType = sanitizeString(type, 50);
     const sanitizedAddress = sanitizeString(address, 200);
+    
+    // ✅ VÉRIFIER LE STOCK DISPONIBLE
+    for (const item of items) {
+      const stock = await db.get(
+        'SELECT qty FROM stock WHERE product_id = ? AND variant = ?',
+        [item.product_id, item.variant]
+      );
+      
+      const available = stock?.qty || 0;
+      
+      if (available < item.qty) {
+        return res.status(400).json({ 
+          ok: false, 
+          error: `Stock insuffisant pour ${item.name} ${item.variant} (${available} disponible${available > 1 ? 's' : ''})`,
+          stockError: true,
+          product: item.name,
+          variant: item.variant,
+          available: available,
+          requested: item.qty
+        });
+      }
+    }
     
     const blockedCustomer = await isCustomerBlocked(sanitizedCustomer);
     if (blockedCustomer) {
@@ -2944,25 +3101,4 @@ async function start() {
       console.log(`   Driver Millau: ${config.telegram.driverMillauId ? '✅' : '❌'}`);
       console.log(`   Driver Extérieur: ${config.telegram.driverExterieurId ? '✅' : '❌'}`);
       console.log(`   Mapbox: ${config.mapbox.key ? '✅' : '❌'}`);
-      console.log('💬 Chat System: ✅ Enabled');
-      console.log('🚀 ================================');
-    });
-  } catch (error) {
-    console.error('❌ Server start error:', error);
-    process.exit(1);
-  }
-}
-
-process.on('SIGTERM', async () => {
-  console.log('📛 SIGTERM received, closing server...');
-  if (db) await db.close();
-  process.exit(0);
-});
-
-process.on('SIGINT', async () => {
-  console.log('📛 SIGINT received, closing server...');
-  if (db) await db.close();
-  process.exit(0);
-});
-
-start().catch(console.error);
+      console
