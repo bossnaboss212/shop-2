@@ -1,3 +1,6 @@
+// ===== CETTE LIGNE DOIT ÊTRE LA TOUTE PREMIÈRE =====
+require('dotenv').config();
+
 const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
 const { open } = require('sqlite');
