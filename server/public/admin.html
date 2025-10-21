@@ -546,6 +546,7 @@
     .btn-success { background: var(--success); color: white; }
     .btn-danger { background: var(--danger); color: white; }
     .btn-warning { background: var(--warning); color: white; }
+    .btn-info { background: var(--info); color: white; }
 
     .toast-container {
       position: fixed;
@@ -689,7 +690,7 @@
           <span class="live-dot"></span>
           LIVE
         </div>
-        <button onclick="syncOrders()" style="padding:10px 20px;margin:0;background:var(--info)">🔄</button>
+        <button onclick="syncOrders(true)" style="padding:10px 20px;margin:0;background:var(--info)">🔄</button>
         <button onclick="autoBackup()" style="padding:10px 20px;margin:0;background:var(--warning)">💾</button>
         <button onclick="logout()" style="padding:10px 20px;margin:0;background:var(--danger)">🚪</button>
       </div>
@@ -1546,6 +1547,13 @@
 
       <div class="chart-container">
         <h3>💾 Données</h3>
+        <div style="background:var(--accent-light);padding:16px;border-radius:12px;border-left:3px solid var(--accent);margin-bottom:16px">
+          <p style="font-size:13px;margin-bottom:8px"><strong>ℹ️ Stockage Local</strong></p>
+          <p style="font-size:12px;color:var(--text-secondary)">
+            Les vidéos sont stockées localement dans votre navigateur. 
+            Limite totale: ~10 MB recommandé. Taille actuelle: <span id="storageSize">Calcul...</span>
+          </p>
+        </div>
         <button onclick="exportAll()" style="margin-right:12px">📥 Exporter tout</button>
         <button onclick="importAll()" style="background:var(--warning);margin-right:12px">📤 Importer</button>
         <button onclick="resetToFresh()" style="background:var(--info);margin-right:12px">🔄 Réinitialiser</button>
@@ -1561,9 +1569,9 @@
 
       <div class="chart-container">
         <h3>🔄 Sync</h3>
-        <p style="margin-bottom:16px;color:var(--muted)">Auto-sync toutes les 5s</p>
+        <p style="margin-bottom:16px;color:var(--muted)">Auto-sync silencieuse toutes les 5s</p>
         <p>Dernière sync: <span id="lastSyncTime">Jamais</span></p>
-        <button onclick="syncOrders()" style="margin-top:16px">🔄 Sync maintenant</button>
+        <button onclick="syncOrders(true)" style="margin-top:16px">🔄 Sync maintenant</button>
       </div>
     </div>
   </div>
@@ -1705,7 +1713,7 @@ function loadData() {
         state.data.products = data.products.map(p => ({
           ...p,
           video: p.video || '',
-          archived: p.archived || false, // Par défaut false si non défini
+          archived: p.archived || false,
           variants: Object.fromEntries(
             Object.entries(p.variants).map(([label, vdata]) => [
               label,
@@ -1743,7 +1751,6 @@ function loadData() {
     state.passwordHash = CryptoJS.SHA256(pass).toString();
   }
   
-  // Charger les analytics
   const savedAnalytics = localStorage.getItem('admin_analytics');
   if (savedAnalytics) {
     try {
@@ -1785,8 +1792,16 @@ function saveData() {
     localStorage.setItem('admin_analytics', JSON.stringify(state.analytics));
     
     console.log('💾 Données sauvegardées:', state.data.products.length, 'produits');
+    
+    // Mettre à jour la taille du stockage
+    if (document.getElementById('storageSize')) {
+      calculateStorageSize();
+    }
   } catch (e) {
     console.error('Error saving:', e);
+    if (e.name === 'QuotaExceededError') {
+      showToast('⚠️ Espace de stockage insuffisant ! Réduisez la taille des vidéos.', 'error');
+    }
   }
 }
 
@@ -1897,10 +1912,37 @@ function showDashboard() {
   updateWeekCashSummary();
   startAutoSync();
   scheduleAutoReports();
+  calculateStorageSize();
   
   setTimeout(() => {
     showToast(`✅ Bienvenue ! ${state.data.products.length} produits chargés`, 'success');
   }, 500);
+}
+
+function calculateStorageSize() {
+  try {
+    let totalSize = 0;
+    for (let key in localStorage) {
+      if (localStorage.hasOwnProperty(key)) {
+        totalSize += localStorage[key].length + key.length;
+      }
+    }
+    const sizeInMB = (totalSize / 1024 / 1024).toFixed(2);
+    const el = document.getElementById('storageSize');
+    if (el) {
+      el.textContent = `${sizeInMB} MB`;
+      if (sizeInMB > 8) {
+        el.style.color = 'var(--danger)';
+        el.textContent += ' ⚠️ Attention !';
+      } else if (sizeInMB > 5) {
+        el.style.color = 'var(--warning)';
+      } else {
+        el.style.color = 'var(--success)';
+      }
+    }
+  } catch (e) {
+    console.error('Erreur calcul taille:', e);
+  }
 }
 
 function generateDemoData() {
@@ -1938,7 +1980,6 @@ function updateAllStats() {
   document.getElementById('monthRevenue').textContent = fc(totalRevenue);
   document.getElementById('activeOrders').textContent = orders.filter(o => o.status === 'pending').length;
   
-  // Compter uniquement les produits actifs pour le stock
   const activeProducts = state.data.products.filter(p => !p.archived);
   let stockValue = 0, lowStock = 0;
   activeProducts.forEach(p => {
@@ -2071,6 +2112,14 @@ function showTab(name) {
       updateAnalytics();
     }, 100);
   }
+  
+  if (name === 'products') {
+    loadProducts();
+  }
+  
+  if (name === 'settings') {
+    calculateStorageSize();
+  }
 }
 
 function loadOrders() {
@@ -2113,17 +2162,14 @@ function loadProducts() {
   
   let products = state.data.products;
   
-  // Filtrer selon le statut archivé
   if (filterArchived === 'active') {
     products = products.filter(p => !p.archived);
   } else if (filterArchived === 'archived') {
     products = products.filter(p => p.archived);
   }
-  // 'all' = afficher tous les produits
   
   console.log('🔄 Chargement de', products.length, 'produits dans le tableau');
   
-  // Mettre à jour le select de stock (uniquement produits actifs)
   const stockSelect = document.getElementById('stockProduct');
   if (stockSelect) {
     const activeProducts = state.data.products.filter(p => !p.archived);
@@ -2145,12 +2191,14 @@ function loadProducts() {
     const minPrice = Math.min(...prices);
     const totalStock = Object.values(p.variants).reduce((s, v) => s + v.stock, 0);
     const isArchived = p.archived || false;
+    const hasVideo = p.video && p.video.length > 0;
     
     return `
       <tr style="${isArchived ? 'opacity:0.6;background:var(--bg-secondary)' : ''}">
         <td><strong>#${p.id}</strong></td>
         <td>
           <strong>${p.name}</strong>
+          ${hasVideo ? '<span style="color:var(--success);margin-left:8px" title="Vidéo disponible">🎥</span>' : ''}
           ${isArchived ? '<span style="color:var(--muted);font-size:11px;margin-left:8px">(Archivé)</span>' : ''}
         </td>
         <td><span class="badge">${p.category}</span></td>
@@ -2169,6 +2217,7 @@ function loadProducts() {
             <button class="btn-sm btn-success" onclick="restoreProduct(${p.id})" title="Restaurer">♻️</button>
             <button class="btn-sm btn-danger" onclick="permanentDeleteProduct(${p.id})" title="Supprimer définitivement">🗑️</button>
           ` : `
+            ${hasVideo ? `<button class="btn-sm btn-info" onclick="viewProductVideo(${p.id})" title="Voir la vidéo">🎥</button>` : ''}
             <button class="btn-sm btn-primary" onclick="editProduct(${p.id})">✏️</button>
             <button class="btn-sm btn-success" onclick="viewProductStock(${p.id})">📊</button>
             <button class="btn-sm btn-warning" onclick="archiveProduct(${p.id})" title="Archiver">📦</button>
@@ -2203,7 +2252,6 @@ function loadStock() {
   const tbody = document.getElementById('stockTable');
   let html = '';
   
-  // Afficher uniquement les produits actifs dans la gestion du stock
   const activeProducts = state.data.products.filter(p => !p.archived);
   
   activeProducts.forEach(p => {
@@ -2604,8 +2652,10 @@ function addProduct() {
       <input type="number" id="productBuyPrice" step="0.01">
     </div>
     <div class="form-group">
-      <label>URL Vidéo (optionnel)</label>
-      <input type="text" id="productVideo" placeholder="https://...">
+      <label>Vidéo produit (optionnel)</label>
+      <input type="file" id="productVideoFile" accept="video/*" onchange="previewVideo(this, 'videoPreview')">
+      <div id="videoPreview" style="margin-top:12px"></div>
+      <p style="font-size:11px;color:var(--muted);margin-top:8px">Max 50MB - Formats: MP4, WebM, MOV</p>
     </div>
     <div class="form-group">
       <label>Prix vente 1G (€)</label>
@@ -2619,36 +2669,135 @@ function addProduct() {
   `);
 }
 
+function previewVideo(input, previewId) {
+  const preview = document.getElementById(previewId);
+  const file = input.files[0];
+  
+  if (!file) {
+    preview.innerHTML = '';
+    return;
+  }
+  
+  // Vérifier la taille (max 50MB)
+  if (file.size > 50 * 1024 * 1024) {
+    showToast('Vidéo trop volumineuse (max 50MB)', 'error');
+    input.value = '';
+    preview.innerHTML = '';
+    return;
+  }
+  
+  // Afficher un aperçu
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    preview.innerHTML = `
+      <video controls style="width:100%;max-height:200px;border-radius:12px;background:#000">
+        <source src="${e.target.result}" type="${file.type}">
+      </video>
+      <p style="font-size:11px;color:var(--success);margin-top:8px">✅ Vidéo chargée: ${(file.size / 1024 / 1024).toFixed(2)} MB</p>
+    `;
+  };
+  reader.readAsDataURL(file);
+}
+
 function saveProduct() {
   const name = document.getElementById('productName').value.toUpperCase();
   const category = document.getElementById('productCategory').value;
   const buyPrice = parseFloat(document.getElementById('productBuyPrice').value);
-  const video = document.getElementById('productVideo').value.trim();
   const variantPrice = parseFloat(document.getElementById('variantPrice').value);
   const variantStock = parseInt(document.getElementById('variantStock').value) || 0;
   
   if (!name || !buyPrice || !variantPrice) {
-    showToast('Remplissez les champs', 'error');
+    showToast('Remplissez les champs obligatoires', 'error');
     return;
   }
   
-  const newProduct = {
-    id: Math.max(...state.data.products.map(p => p.id), 0) + 1,
-    name,
-    category,
-    buyPrice,
-    video: video || '',
-    archived: false,
-    variants: { '1G': { price: variantPrice, stock: variantStock, grams: 1 } }
-  };
+  const videoFile = document.getElementById('productVideoFile');
   
-  state.data.products.push(newProduct);
-  saveData();
-  loadProducts();
-  loadStock();
-  updateAllStats();
-  closeModal();
-  showToast('Produit créé', 'success');
+  if (videoFile && videoFile.files[0]) {
+    const file = videoFile.files[0];
+    const reader = new FileReader();
+    
+    reader.onload = (e) => {
+      const videoData = e.target.result;
+      
+      const newProduct = {
+        id: Math.max(...state.data.products.map(p => p.id), 0) + 1,
+        name,
+        category,
+        buyPrice,
+        video: videoData,
+        videoType: file.type,
+        videoSize: file.size,
+        archived: false,
+        variants: { '1G': { price: variantPrice, stock: variantStock, grams: 1 } }
+      };
+      
+      state.data.products.push(newProduct);
+      saveData();
+      loadProducts();
+      loadStock();
+      updateAllStats();
+      closeModal();
+      showToast('✅ Produit créé avec vidéo', 'success');
+    };
+    
+    reader.readAsDataURL(file);
+  } else {
+    const newProduct = {
+      id: Math.max(...state.data.products.map(p => p.id), 0) + 1,
+      name,
+      category,
+      buyPrice,
+      video: '',
+      archived: false,
+      variants: { '1G': { price: variantPrice, stock: variantStock, grams: 1 } }
+    };
+    
+    state.data.products.push(newProduct);
+    saveData();
+    loadProducts();
+    loadStock();
+    updateAllStats();
+    closeModal();
+    showToast('✅ Produit créé', 'success');
+  }
+}
+
+function viewProductVideo(id) {
+  const p = state.data.products.find(x => x.id === id);
+  if (!p || !p.video) return;
+  
+  showModal(`🎥 Vidéo - ${p.name}`, `
+    <div style="background:#000;border-radius:12px;overflow:hidden;margin-bottom:16px">
+      <video controls autoplay style="width:100%;max-height:500px">
+        <source src="${p.video}" type="${p.videoType || 'video/mp4'}">
+        Votre navigateur ne supporte pas la lecture vidéo.
+      </video>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--bg-secondary);border-radius:8px">
+      <div>
+        <div style="font-size:14px;font-weight:600">${p.name}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">
+          ${p.videoSize ? 'Taille: ' + (p.videoSize / 1024 / 1024).toFixed(2) + ' MB' : ''}
+          ${p.videoType ? ' • Format: ' + p.videoType.split('/')[1].toUpperCase() : ''}
+        </div>
+      </div>
+      <button onclick="downloadProductVideo(${id})" class="btn-sm btn-success">📥 Télécharger</button>
+    </div>
+  `);
+}
+
+function downloadProductVideo(id) {
+  const p = state.data.products.find(x => x.id === id);
+  if (!p || !p.video) return;
+  
+  const a = document.createElement('a');
+  a.href = p.video;
+  const extension = p.videoType ? p.videoType.split('/')[1] : 'mp4';
+  a.download = `${p.name.toLowerCase().replace(/\s+/g, '_')}_video.${extension}`;
+  a.click();
+  
+  showToast('Vidéo téléchargée', 'success');
 }
 
 function viewProductStock(id) {
@@ -2694,6 +2843,15 @@ function editProduct(id) {
     </div>
   `).join('');
   
+  const currentVideoHtml = p.video ? `
+    <div style="margin-bottom:12px">
+      <video controls style="width:100%;max-height:200px;border-radius:12px;background:#000">
+        <source src="${p.video}" type="${p.videoType || 'video/mp4'}">
+      </video>
+      <p style="font-size:11px;color:var(--success);margin-top:8px">✅ Vidéo actuelle: ${p.videoSize ? (p.videoSize / 1024 / 1024).toFixed(2) + ' MB' : 'Taille inconnue'}</p>
+    </div>
+  ` : '<p style="font-size:12px;color:var(--muted);margin-bottom:12px">Aucune vidéo</p>';
+  
   showModal(`✏️ Éditer ${p.name}`, `
     <div class="form-group">
       <label>Nom</label>
@@ -2717,14 +2875,32 @@ function editProduct(id) {
       <input type="number" id="editProductBuyPrice" value="${p.buyPrice}" step="0.01">
     </div>
     <div class="form-group">
-      <label>URL Vidéo</label>
-      <input type="text" id="editProductVideo" value="${p.video || ''}" placeholder="https://...">
+      <label>Vidéo produit</label>
+      ${currentVideoHtml}
+      <input type="file" id="editProductVideoFile" accept="video/*" onchange="previewVideo(this, 'editVideoPreview')">
+      <div id="editVideoPreview" style="margin-top:12px"></div>
+      <p style="font-size:11px;color:var(--muted);margin-top:8px">Télécharger une nouvelle vidéo (max 50MB) pour remplacer l'actuelle</p>
+      ${p.video ? '<button onclick="removeProductVideo(' + id + ')" class="btn-sm btn-danger" style="margin-top:8px">🗑️ Supprimer la vidéo</button>' : ''}
     </div>
     <h4 style="margin:20px 0 12px">Variants</h4>
     ${variantsHtml}
     <button onclick="addVariantToProduct(${id})" style="background:var(--success);margin-bottom:12px">➕ Ajouter variant</button>
     <button onclick="saveProductEdit(${id})">💾 Sauvegarder</button>
   `);
+}
+
+function removeProductVideo(id) {
+  const p = state.data.products.find(x => x.id === id);
+  if (!p) return;
+  
+  if (confirm('Supprimer la vidéo de ce produit ?')) {
+    p.video = '';
+    p.videoType = '';
+    p.videoSize = 0;
+    saveData();
+    showToast('Vidéo supprimée', 'success');
+    editProduct(id);
+  }
 }
 
 function addVariantToProduct(id) {
@@ -2786,39 +2962,66 @@ function saveProductEdit(id) {
   
   p.buyPrice = parseFloat(document.getElementById('editProductBuyPrice').value);
   
-  const videoEl = document.getElementById('editProductVideo');
-  if (videoEl) p.video = videoEl.value.trim();
-  
-  Object.keys(p.variants).forEach(v => {
-    const safeV = v.replace(/\W/g, '_');
-    const priceEl = document.getElementById(`price_${safeV}`);
-    const stockEl = document.getElementById(`stock_${safeV}`);
+  // Gérer la vidéo
+  const videoFile = document.getElementById('editProductVideoFile');
+  if (videoFile && videoFile.files[0]) {
+    const file = videoFile.files[0];
+    const reader = new FileReader();
     
-    if (priceEl) p.variants[v].price = parseFloat(priceEl.value);
-    if (stockEl) p.variants[v].stock = parseInt(stockEl.value);
+    reader.onload = (e) => {
+      p.video = e.target.result;
+      p.videoType = file.type;
+      p.videoSize = file.size;
+      
+      // Mettre à jour les variants
+      Object.keys(p.variants).forEach(v => {
+        const safeV = v.replace(/\W/g, '_');
+        const priceEl = document.getElementById(`price_${safeV}`);
+        const stockEl = document.getElementById(`stock_${safeV}`);
+        
+        if (priceEl) p.variants[v].price = parseFloat(priceEl.value);
+        if (stockEl) p.variants[v].stock = parseInt(stockEl.value);
+        
+        if (!p.variants[v].grams) {
+          p.variants[v].grams = extractGrams(v);
+        }
+      });
+      
+      saveData();
+      loadProducts();
+      loadStock();
+      closeModal();
+      showToast('✅ Produit modifié avec nouvelle vidéo', 'success');
+    };
     
-    if (!p.variants[v].grams) {
-      p.variants[v].grams = extractGrams(v);
-    }
-  });
-  
-  saveData();
-  loadProducts();
-  loadStock();
-  closeModal();
-  showToast('Produit modifié', 'success');
-}
-
-function deleteProduct(id) {
-  showToast('⚠️ Utilisez "Archiver" pour préserver l\'historique', 'warning');
-  archiveProduct(id);
+    reader.readAsDataURL(file);
+  } else {
+    // Pas de nouvelle vidéo, juste mettre à jour les autres champs
+    Object.keys(p.variants).forEach(v => {
+      const safeV = v.replace(/\W/g, '_');
+      const priceEl = document.getElementById(`price_${safeV}`);
+      const stockEl = document.getElementById(`stock_${safeV}`);
+      
+      if (priceEl) p.variants[v].price = parseFloat(priceEl.value);
+      if (stockEl) p.variants[v].stock = parseInt(stockEl.value);
+      
+      if (!p.variants[v].grams) {
+        p.variants[v].grams = extractGrams(v);
+      }
+    });
+    
+    saveData();
+    loadProducts();
+    loadStock();
+    closeModal();
+    showToast('Produit modifié', 'success');
+  }
 }
 
 function archiveProduct(id) {
   const p = state.data.products.find(x => x.id === id);
   if (!p) return;
   
-  // Modal pour choisir la raison d'archivage
   showModal(`📦 Archiver "${p.name}"`, `
     <p style="margin-bottom:16px;color:var(--text-secondary)">
       Le produit sera masqué mais restera dans les analytics historiques.
@@ -2858,7 +3061,6 @@ function confirmArchive(id) {
   p.archiveReason = reason;
   p.archiveNote = note;
   
-  // Calculer quelques stats avant archivage
   const totalStock = Object.values(p.variants).reduce((sum, v) => sum + v.stock, 0);
   const avgPrice = Object.values(p.variants).reduce((sum, v) => sum + v.price, 0) / Object.keys(p.variants).length;
   
@@ -2918,6 +3120,238 @@ function permanentDeleteProduct(id) {
       showToast(`"${p.name}" supprimé définitivement`, 'success');
     }
   }
+}
+
+function resetProducts() {
+  if (!confirm('⚠️ ATTENTION : Restaurer les 8 produits par défaut ?\n\nCela va REMPLACER tous vos produits actuels !')) return;
+  
+  state.data.products = [
+    { id: 1, name: 'AMNESIA', category: 'weed', buyPrice: 2.8, video: '', archived: false, variants: {
+      '3.33G': { price: 20, stock: 50, grams: 3.33 }, 
+      '5G': { price: 30, stock: 45, grams: 5 }, 
+      '10G': { price: 60, stock: 30, grams: 10 },
+      '50G': { price: 250, stock: 5, grams: 50 },
+      '100G': { price: 450, stock: 5, grams: 100 }
+    }},
+    { id: 2, name: 'EL JEFE', category: 'blanche', buyPrice: 17.5, video: '', archived: false, variants: {
+      '0.5G': { price: 30, stock: 20, grams: 0.5 }, 
+      '1G': { price: 50, stock: 15, grams: 1 },
+      '2G': { price: 100, stock: 15, grams: 2 },
+      '5G': { price: 250, stock: 15, grams: 5 },
+      '10G': { price: 450, stock: 15, grams: 10 }
+    }},
+    { id: 3, name: 'DEMBELE', category: 'hash', buyPrice: 2.7, video: '', archived: false, variants: {
+      '3.5G': { price: 20, stock: 60, grams: 3.5 }, 
+      '5G': { price: 30, stock: 50, grams: 5 },
+      '10G': { price: 50, stock: 50, grams: 10 },
+      '25G': { price: 120, stock: 50, grams: 25 },
+      '50G': { price: 190, stock: 50, grams: 50 },
+      '100G': { price: 370, stock: 50, grams: 100 }
+    }},
+    { id: 4, name: 'STRAWBERRY 120U', category: 'filtré', buyPrice: 2.75, video: '', archived: false, variants: {
+      '2G': { price: 20, stock: 55, grams: 2 },
+      '3G': { price: 30, stock: 55, grams: 3 },
+      '5G': { price: 50, stock: 45, grams: 5 },
+      '10G': { price: 80, stock: 30, grams: 10 },
+      '50G': { price: 250, stock: 55, grams: 50 }
+    }},
+    { id: 5, name: 'NEEDLES KETA', category: 'keta', buyPrice: 3.9, video: '', archived: false, variants: {
+      '1G': { price: 20, stock: 30, grams: 1 },
+      '2G': { price: 40, stock: 30, grams: 2 },
+      '3G': { price: 50, stock: 30, grams: 3 },
+      '5G': { price: 80, stock: 30, grams: 5 },
+      '10G': { price: 150, stock: 30, grams: 10 },
+      '50G': { price: 450, stock: 30, grams: 50 },
+      '100G': { price: 870, stock: 30, grams: 100 }
+    }},
+    { id: 6, name: 'VVS TANGER FROZEN', category: 'frozen', buyPrice: 4.8, video: '', archived: false, variants: {
+      '1.1G': { price: 20, stock: 40, grams: 1.1 },
+      '2.5G': { price: 40, stock: 35, grams: 2.5 },
+      '5G': { price: 70, stock: 25, grams: 5 },
+      '10G': { price: 140, stock: 30, grams: 10 },
+      '25G': { price: 250, stock: 30, grams: 25 }
+    }},
+    { id: 7, name: 'FRESH FROZEN', category: 'frozen', buyPrice: 7.0, video: '', archived: false, variants: {
+      '1.1G': { price: 20, stock: 40, grams: 1.1 },
+      '2.5G': { price: 40, stock: 35, grams: 2.5 },
+      '5G': { price: 80, stock: 25, grams: 5 },
+      '10G': { price: 150, stock: 30, grams: 10 },
+      '25G': { price: 250, stock: 30, grams: 25 }
+    }},
+    { id: 8, name: 'CHAMPAGNE', category: 'mdma', buyPrice: 3.0, video: '', archived: false, variants: {
+      '1G': { price: 30, stock: 40, grams: 1 },
+      '2G': { price: 60, stock: 55, grams: 2 },
+      '3G': { price: 70, stock: 55, grams: 3 },
+      '5G': { price: 100, stock: 30, grams: 5 },
+      '10G': { price: 180, stock: 55, grams: 10 }
+    }}
+  ];
+  
+  saveData();
+  loadProducts();
+  loadStock();
+  updateAllStats();
+  showToast('✅ 8 produits par défaut restaurés !', 'success');
+}
+
+function openArchivedStats() {
+  const archivedProducts = state.data.products.filter(p => p.archived);
+  
+  if (archivedProducts.length === 0) {
+    showToast('Aucun produit archivé', 'warning');
+    return;
+  }
+  
+  const totalArchived = archivedProducts.length;
+  const byReason = {};
+  const byCategory = {};
+  let totalValueLost = 0;
+  
+  archivedProducts.forEach(p => {
+    const reason = p.archiveReason || 'other';
+    byReason[reason] = (byReason[reason] || 0) + 1;
+    
+    const category = p.category || 'unknown';
+    byCategory[category] = (byCategory[category] || 0) + 1;
+    
+    if (p.archiveStats) {
+      totalValueLost += (p.archiveStats.totalStock || 0) * (p.archiveStats.avgPrice || 0);
+    }
+  });
+  
+  let reasonsHtml = '<div style="display:grid;gap:8px;margin-bottom:20px">';
+  Object.entries(byReason).forEach(([reason, count]) => {
+    const percent = ((count / totalArchived) * 100).toFixed(1);
+    reasonsHtml += `
+      <div style="padding:12px;background:var(--bg-secondary);border-radius:8px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:13px;font-weight:600">${getArchiveReasonLabel(reason)}</div>
+          <div style="font-size:11px;color:var(--muted)">${count} produit${count > 1 ? 's' : ''}</div>
+        </div>
+        <div style="font-size:18px;font-weight:700;color:var(--accent)">${percent}%</div>
+      </div>
+    `;
+  });
+  reasonsHtml += '</div>';
+  
+  let productsListHtml = '<div style="max-height:300px;overflow-y:auto">';
+  archivedProducts.forEach(p => {
+    const archivedDate = p.archivedAt ? new Date(p.archivedAt).toLocaleDateString('fr-FR') : 'Date inconnue';
+    const reason = getArchiveReasonLabel(p.archiveReason || 'other');
+    
+    productsListHtml += `
+      <div style="padding:16px;margin-bottom:12px;background:var(--bg-secondary);border-radius:12px;border-left:4px solid var(--warning)">
+        <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px">
+          <div>
+            <div style="font-size:15px;font-weight:700">${p.name}</div>
+            <div style="font-size:11px;color:var(--muted)">Archivé le ${archivedDate}</div>
+          </div>
+          <button class="btn-sm btn-success" onclick="restoreProductFromModal(${p.id})">♻️ Restaurer</button>
+        </div>
+        <div style="font-size:12px;margin-top:8px">
+          <div><strong>Raison:</strong> ${reason}</div>
+          ${p.archiveNote ? `<div style="margin-top:4px;font-style:italic;color:var(--muted)">"${p.archiveNote}"</div>` : ''}
+          ${p.archiveStats ? `
+            <div style="margin-top:8px;padding:8px;background:var(--card);border-radius:6px">
+              <strong>Stats au moment de l'archivage:</strong><br>
+              Stock: ${p.archiveStats.totalStock} unités | Prix moyen: ${fc(p.archiveStats.avgPrice)} | Variants: ${p.archiveStats.variants}
+            </div>
+          ` : ''}
+        </div>
+      </div>
+    `;
+  });
+  productsListHtml += '</div>';
+  
+  showModal('📊 Statistiques Produits Archivés', `
+    <div class="stats" style="margin-bottom:24px">
+      <div class="mini-widget">
+        <div class="mini-widget-header">
+          <span class="mini-widget-title">Total Archivés</span>
+          <span>📦</span>
+        </div>
+        <div class="mini-widget-value" style="color:var(--warning)">${totalArchived}</div>
+      </div>
+      <div class="mini-widget">
+        <div class="mini-widget-header">
+          <span class="mini-widget-title">Valeur Perdue</span>
+          <span>💰</span>
+        </div>
+        <div class="mini-widget-value" style="color:var(--danger)">${fc(totalValueLost)}</div>
+      </div>
+    </div>
+    
+    <h4 style="margin-bottom:12px">📋 Raisons d'archivage</h4>
+    ${reasonsHtml}
+    
+    <h4 style="margin-bottom:12px">📦 Produits archivés</h4>
+    ${productsListHtml}
+    
+    <div style="display:flex;gap:12px;margin-top:20px">
+      <button onclick="exportArchivedProducts()" style="flex:1;background:var(--info)">📥 Exporter</button>
+      <button onclick="bulkRestoreArchived()" style="flex:1;background:var(--success)">♻️ Tout restaurer</button>
+      <button onclick="closeModal()" style="flex:1;background:var(--danger)">✕ Fermer</button>
+    </div>
+  `);
+}
+
+function restoreProductFromModal(id) {
+  restoreProduct(id);
+  closeModal();
+  setTimeout(() => openArchivedStats(), 300);
+}
+
+function bulkRestoreArchived() {
+  const archivedProducts = state.data.products.filter(p => p.archived);
+  
+  if (archivedProducts.length === 0) {
+    showToast('Aucun produit à restaurer', 'warning');
+    return;
+  }
+  
+  if (confirm(`Restaurer les ${archivedProducts.length} produits archivés ?`)) {
+    archivedProducts.forEach(p => {
+      p.archived = false;
+    });
+    
+    saveData();
+    loadProducts();
+    loadStock();
+    updateAllStats();
+    closeModal();
+    showToast(`${archivedProducts.length} produits restaurés !`, 'success');
+  }
+}
+
+function exportArchivedProducts() {
+  const archivedProducts = state.data.products.filter(p => p.archived);
+  
+  if (archivedProducts.length === 0) {
+    showToast('Aucun produit archivé à exporter', 'warning');
+    return;
+  }
+  
+  let csv = 'Nom,Catégorie,Prix Achat (€/g),Date Archivage,Raison,Note,Stock Archivé,Prix Moyen,Nombre Variants\n';
+  
+  archivedProducts.forEach(p => {
+    const archivedDate = p.archivedAt ? new Date(p.archivedAt).toLocaleDateString('fr-FR') : 'N/A';
+    const reason = getArchiveReasonLabel(p.archiveReason || 'other');
+    const note = (p.archiveNote || '').replace(/,/g, ';').replace(/\n/g, ' ');
+    const stock = p.archiveStats?.totalStock || 'N/A';
+    const avgPrice = p.archiveStats?.avgPrice || 'N/A';
+    const variants = p.archiveStats?.variants || Object.keys(p.variants).length;
+    
+    csv += `"${p.name}","${p.category}",${p.buyPrice},"${archivedDate}","${reason}","${note}",${stock},${avgPrice},${variants}\n`;
+  });
+  
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `produits_archives_${Date.now()}.csv`;
+  a.click();
+  
+  showToast(`${archivedProducts.length} produits archivés exportés`, 'success');
 }
 
 function addStock() {
@@ -3092,17 +3526,7 @@ function searchProducts() {
 }
 
 function filterProducts() {
-  const category = document.getElementById('filterCategory').value;
-  const rows = document.querySelectorAll('#productsTable tr');
-  
-  rows.forEach(row => {
-    if (category === 'all') {
-      row.style.display = '';
-    } else {
-      const text = row.textContent.toLowerCase();
-      row.style.display = text.includes(category) ? '' : 'none';
-    }
-  });
+  loadProducts();
 }
 
 function searchCustomers() {
@@ -3208,78 +3632,6 @@ function resetToFresh() {
   location.reload();
 }
 
-function resetProducts() {
-  if (!confirm('⚠️ ATTENTION : Restaurer les 8 produits par défaut ?\n\nCela va REMPLACER tous vos produits actuels !')) return;
-  
-  state.data.products = [
-    { id: 1, name: 'AMNESIA', category: 'weed', buyPrice: 2.8, video: '', archived: false, variants: {
-      '3.33G': { price: 20, stock: 50, grams: 3.33 }, 
-      '5G': { price: 30, stock: 45, grams: 5 }, 
-      '10G': { price: 60, stock: 30, grams: 10 },
-      '50G': { price: 250, stock: 5, grams: 50 },
-      '100G': { price: 450, stock: 5, grams: 100 }
-    }},
-    { id: 2, name: 'EL JEFE', category: 'blanche', buyPrice: 17.5, video: '', archived: false, variants: {
-      '0.5G': { price: 30, stock: 20, grams: 0.5 }, 
-      '1G': { price: 50, stock: 15, grams: 1 },
-      '2G': { price: 100, stock: 15, grams: 2 },
-      '5G': { price: 250, stock: 15, grams: 5 },
-      '10G': { price: 450, stock: 15, grams: 10 }
-    }},
-    { id: 3, name: 'DEMBELE', category: 'hash', buyPrice: 2.7, video: '', archived: false, variants: {
-      '3.5G': { price: 20, stock: 60, grams: 3.5 }, 
-      '5G': { price: 30, stock: 50, grams: 5 },
-      '10G': { price: 50, stock: 50, grams: 10 },
-      '25G': { price: 120, stock: 50, grams: 25 },
-      '50G': { price: 190, stock: 50, grams: 50 },
-      '100G': { price: 370, stock: 50, grams: 100 }
-    }},
-    { id: 4, name: 'STRAWBERRY 120U', category: 'filtré', buyPrice: 2.75, video: '', archived: false, variants: {
-      '2G': { price: 20, stock: 55, grams: 2 },
-      '3G': { price: 30, stock: 55, grams: 3 },
-      '5G': { price: 50, stock: 45, grams: 5 },
-      '10G': { price: 80, stock: 30, grams: 10 },
-      '50G': { price: 250, stock: 55, grams: 50 }
-    }},
-    { id: 5, name: 'NEEDLES KETA', category: 'keta', buyPrice: 3.9, video: '', archived: false, variants: {
-      '1G': { price: 20, stock: 30, grams: 1 },
-      '2G': { price: 40, stock: 30, grams: 2 },
-      '3G': { price: 50, stock: 30, grams: 3 },
-      '5G': { price: 80, stock: 30, grams: 5 },
-      '10G': { price: 150, stock: 30, grams: 10 },
-      '50G': { price: 450, stock: 30, grams: 50 },
-      '100G': { price: 870, stock: 30, grams: 100 }
-    }},
-    { id: 6, name: 'VVS TANGER FROZEN', category: 'frozen', buyPrice: 4.8, video: '', archived: false, variants: {
-      '1.1G': { price: 20, stock: 40, grams: 1.1 },
-      '2.5G': { price: 40, stock: 35, grams: 2.5 },
-      '5G': { price: 70, stock: 25, grams: 5 },
-      '10G': { price: 140, stock: 30, grams: 10 },
-      '25G': { price: 250, stock: 30, grams: 25 }
-    }},
-    { id: 7, name: 'FRESH FROZEN', category: 'frozen', buyPrice: 7.0, video: '', archived: false, variants: {
-      '1.1G': { price: 20, stock: 40, grams: 1.1 },
-      '2.5G': { price: 40, stock: 35, grams: 2.5 },
-      '5G': { price: 80, stock: 25, grams: 5 },
-      '10G': { price: 150, stock: 30, grams: 10 },
-      '25G': { price: 250, stock: 30, grams: 25 }
-    }},
-    { id: 8, name: 'CHAMPAGNE', category: 'mdma', buyPrice: 3.0, video: '', archived: false, variants: {
-      '1G': { price: 30, stock: 40, grams: 1 },
-      '2G': { price: 60, stock: 55, grams: 2 },
-      '3G': { price: 70, stock: 55, grams: 3 },
-      '5G': { price: 100, stock: 30, grams: 5 },
-      '10G': { price: 180, stock: 55, grams: 10 }
-    }}
-  ];
-  
-  saveData();
-  loadProducts();
-  loadStock();
-  updateAllStats();
-  showToast('✅ 8 produits par défaut restaurés !', 'success');
-}
-
 function clearAll() {
   if (!confirm('ATTENTION : Tout supprimer ?')) return;
   
@@ -3298,12 +3650,14 @@ function exportData(type) {
   showToast(`Export ${type}`, 'success');
 }
 
-function syncOrders() {
+function syncOrders(manual = false) {
   const lastSyncEl = document.getElementById('lastSyncTime');
   if (lastSyncEl) {
     lastSyncEl.textContent = new Date().toLocaleTimeString('fr-FR');
   }
-  showToast('Sync OK', 'success');
+  if (manual) {
+    showToast('Sync OK', 'success');
+  }
 }
 
 function autoBackup() {
@@ -3331,7 +3685,7 @@ function startAutoSync() {
   if (state.syncInterval) return;
   
   state.syncInterval = setInterval(() => {
-    syncOrders();
+    syncOrders(false);
   }, 5000);
 }
 
@@ -3356,6 +3710,1141 @@ function showToast(msg, type = 'success') {
   toast.textContent = msg;
   container.appendChild(toast);
   setTimeout(() => toast.remove(), 3000);
+}
+
+let currentTrendView = 'revenue';
+let analyticsCharts = {};
+
+function updateAnalytics() {
+  updateMainKPIs();
+  updateTrendChart();
+  updateABCAnalysis();
+  updatePeakHours();
+  updateProfitabilityTable();
+  updateTurnoverTable();
+  updatePerformanceMatrix();
+  updateSeasonality();
+  updateCustomerSegmentation();
+  updateForecast();
+  generateInsights();
+  updateComparisonChart();
+  updateCohortAnalysis();
+  updateGoalsTracking();
+  updateActiveAlerts();
+  updateFunnelChart();
+  updateLTVMetrics();
+  
+  showToast('Analytics mis à jour', 'success');
+}
+
+function updateMainKPIs() {
+  const conversionRate = (24.5 + Math.random() * 5 - 2.5).toFixed(1);
+  const conversionTrend = Math.random() > 0.5 ? 'success' : 'danger';
+  const conversionChange = (Math.random() * 5).toFixed(1);
+  
+  const convEl = document.getElementById('conversionRate');
+  const convTrendEl = document.getElementById('conversionTrend');
+  if (convEl) convEl.textContent = `${conversionRate}%`;
+  if (convTrendEl) {
+    convTrendEl.textContent = `${conversionTrend === 'success' ? '↗' : '↘'} ${conversionTrend === 'success' ? '+' : '-'}${conversionChange}% vs période précédente`;
+    convTrendEl.style.color = `var(--${conversionTrend})`;
+  }
+  
+  const retentionRate = (67 + Math.random() * 10 - 5).toFixed(0);
+  const retentionTrend = Math.random() > 0.4 ? 'success' : 'danger';
+  const retentionChange = (Math.random() * 8).toFixed(1);
+  
+  const retEl = document.getElementById('retentionRate');
+  const retTrendEl = document.getElementById('retentionTrend');
+  if (retEl) retEl.textContent = `${retentionRate}%`;
+  if (retTrendEl) {
+    retTrendEl.textContent = `${retentionTrend === 'success' ? '↗' : '↘'} ${retentionTrend === 'success' ? '+' : '-'}${retentionChange}% vs période précédente`;
+    retTrendEl.style.color = `var(--${retentionTrend})`;
+  }
+  
+  const turnover = (3.2 + Math.random() * 1 - 0.5).toFixed(1);
+  const turnoverEl = document.getElementById('stockTurnover');
+  const turnoverTrendEl = document.getElementById('turnoverTrend');
+  if (turnoverEl) turnoverEl.textContent = `${turnover}x`;
+  if (turnoverTrendEl) {
+    const isStable = Math.abs(turnover - 3.2) < 0.3;
+    turnoverTrendEl.textContent = isStable ? '→ Stable' : turnover > 3.2 ? '↗ En hausse' : '↘ En baisse';
+    turnoverTrendEl.style.color = isStable ? 'var(--muted)' : turnover > 3.2 ? 'var(--success)' : 'var(--warning)';
+  }
+}
+
+function setTrendView(view) {
+  currentTrendView = view;
+  
+  document.querySelectorAll('#trendRevenue, #trendOrders, #trendAvgCart').forEach(btn => {
+    btn.style.background = 'var(--bg-secondary)';
+  });
+  
+  if (view === 'revenue') document.getElementById('trendRevenue').style.background = 'var(--accent)';
+  if (view === 'orders') document.getElementById('trendOrders').style.background = 'var(--accent)';
+  if (view === 'avgCart') document.getElementById('trendAvgCart').style.background = 'var(--accent)';
+  
+  updateTrendChart();
+}
+
+function updateTrendChart() {
+  const ctx = document.getElementById('trendChart');
+  if (!ctx) return;
+  
+  const days = 30;
+  const labels = [];
+  const data = [];
+  
+  for (let i = days - 1; i >= 0; i--) {
+    const date = new Date();
+    date.setDate(date.getDate() - i);
+    labels.push(date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }));
+    
+    const base = currentTrendView === 'revenue' ? 150 : 
+                 currentTrendView === 'orders' ? 8 : 25;
+    const trend = (days - i) * (currentTrendView === 'revenue' ? 2 : 0.1);
+    const random = Math.random() * base * 0.3;
+    data.push(Math.round(base + trend + random));
+  }
+  
+  if (analyticsCharts.trend) {
+    analyticsCharts.trend.destroy();
+  }
+  
+  const label = currentTrendView === 'revenue' ? 'Chiffre d\'affaires (€)' :
+                currentTrendView === 'orders' ? 'Nombre de commandes' : 'Panier moyen (€)';
+  
+  analyticsCharts.trend = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: label,
+        data: data,
+        borderColor: '#667eea',
+        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+        tension: 0.4,
+        fill: true,
+        borderWidth: 3,
+        pointRadius: 2,
+        pointHoverRadius: 6
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      aspectRatio: 2.5,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          padding: 12,
+          titleFont: { size: 14 },
+          bodyFont: { size: 13 }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          grid: { color: 'rgba(255, 255, 255, 0.05)' }
+        },
+        x: {
+          grid: { display: false }
+        }
+      }
+    }
+  });
+}
+
+function updateABCAnalysis() {
+  const ctx = document.getElementById('abcChart');
+  const legend = document.getElementById('abcLegend');
+  if (!ctx || !legend) return;
+  
+  const productRevenue = {};
+  state.data.products.forEach(p => {
+    const sales = Math.floor(Math.random() * 50) + 10;
+    const avgPrice = Object.values(p.variants).reduce((sum, v) => sum + v.price, 0) / Object.keys(p.variants).length;
+    const displayName = p.archived ? `${p.name} (Archivé)` : p.name;
+    productRevenue[displayName] = sales * avgPrice;
+  });
+  
+  const sorted = Object.entries(productRevenue).sort((a, b) => b[1] - a[1]);
+  const totalRevenue = sorted.reduce((sum, [, rev]) => sum + rev, 0);
+  
+  let cumulative = 0;
+  const classified = sorted.map(([name, rev]) => {
+    cumulative += rev;
+    const percent = (cumulative / totalRevenue) * 100;
+    const category = percent <= 80 ? 'A' : percent <= 95 ? 'B' : 'C';
+    return { name, revenue: rev, category, percent: (rev / totalRevenue * 100).toFixed(1) };
+  });
+  
+  const categoryA = classified.filter(p => p.category === 'A');
+  const categoryB = classified.filter(p => p.category === 'B');
+  const categoryC = classified.filter(p => p.category === 'C');
+  
+  if (analyticsCharts.abc) {
+    analyticsCharts.abc.destroy();
+  }
+  
+  analyticsCharts.abc = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: classified.map(p => p.name),
+      datasets: [{
+        label: 'CA (€)',
+        data: classified.map(p => p.revenue),
+        backgroundColor: classified.map(p => 
+          p.category === 'A' ? '#10b981' :
+          p.category === 'B' ? '#f59e0b' : '#ef4444'
+        ),
+        borderRadius: 8
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { 
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (context) => {
+              const value = context.parsed.y;
+              return `CA: ${fc(value)}`;
+            }
+          }
+        }
+      },
+      scales: {
+        y: { beginAtZero: true }
+      }
+    }
+  });
+  
+  legend.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+      <div style="background:rgba(16, 185, 129, 0.1);padding:12px;border-radius:8px;border-left:3px solid #10b981">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:4px">CATÉGORIE A</div>
+        <div style="font-size:18px;font-weight:700;color:#10b981">${categoryA.length} produits</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">80% du CA</div>
+      </div>
+      <div style="background:rgba(245, 158, 11, 0.1);padding:12px;border-radius:8px;border-left:3px solid #f59e0b">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:4px">CATÉGORIE B</div>
+        <div style="font-size:18px;font-weight:700;color:#f59e0b">${categoryB.length} produits</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">15% du CA</div>
+      </div>
+      <div style="background:rgba(239, 68, 68, 0.1);padding:12px;border-radius:8px;border-left:3px solid #ef4444">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:4px">CATÉGORIE C</div>
+        <div style="font-size:18px;font-weight:700;color:#ef4444">${categoryC.length} produits</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">5% du CA</div>
+      </div>
+    </div>
+  `;
+}
+
+function updatePeakHours() {
+  const ctx = document.getElementById('peakHoursChart');
+  if (!ctx) return;
+  
+  const hours = [];
+  const sales = [];
+  
+  for (let h = 9; h <= 22; h++) {
+    hours.push(`${h}h`);
+    const isPeakLunch = h >= 12 && h <= 14;
+    const isPeakEvening = h >= 18 && h <= 21;
+    const base = isPeakLunch || isPeakEvening ? 25 : 10;
+    sales.push(Math.floor(Math.random() * 10 + base));
+  }
+  
+  if (analyticsCharts.peakHours) {
+    analyticsCharts.peakHours.destroy();
+  }
+  
+  analyticsCharts.peakHours = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: hours,
+      datasets: [{
+        label: 'Ventes',
+        data: sales,
+        backgroundColor: sales.map(s => s > 25 ? '#10b981' : s > 15 ? '#f59e0b' : '#667eea'),
+        borderRadius: 8
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true }
+      }
+    }
+  });
+}
+
+function updateProfitabilityTable() {
+  const tbody = document.getElementById('profitabilityTable');
+  if (!tbody) return;
+  
+  const categories = ['weed', 'hash', 'blanche', 'mdma', 'keta', 'frozen', 'filtré'];
+  const categoryData = {};
+  
+  categories.forEach(cat => {
+    const products = state.data.products.filter(p => p.category === cat);
+    if (products.length === 0) return;
+    
+    let totalRevenue = 0;
+    let totalCost = 0;
+    
+    products.forEach(p => {
+      const sales = Math.floor(Math.random() * 30) + 10;
+      const avgPrice = Object.values(p.variants).reduce((sum, v) => sum + v.price, 0) / Object.keys(p.variants).length;
+      const avgGrams = Object.values(p.variants).reduce((sum, v) => sum + (v.grams || 1), 0) / Object.keys(p.variants).length;
+      
+      totalRevenue += sales * avgPrice;
+      totalCost += sales * avgGrams * p.buyPrice;
+    });
+    
+    const profit = totalRevenue - totalCost;
+    const margin = ((profit / totalRevenue) * 100).toFixed(1);
+    const roi = ((profit / totalCost) * 100).toFixed(0);
+    
+    categoryData[cat] = { totalRevenue, totalCost, profit, margin, roi };
+  });
+  
+  tbody.innerHTML = Object.entries(categoryData).map(([cat, data]) => `
+    <tr>
+      <td><strong>${cat.toUpperCase()}</strong></td>
+      <td>${fc(data.totalRevenue)}</td>
+      <td style="color:var(--danger)">${fc(data.totalCost)}</td>
+      <td style="color:var(--success)"><strong>${data.margin}%</strong></td>
+      <td style="color:var(--success)"><strong>${data.roi}%</strong></td>
+    </tr>
+  `).join('');
+}
+
+function updateTurnoverTable() {
+  const tbody = document.getElementById('turnoverTable');
+  if (!tbody) return;
+  
+  tbody.innerHTML = state.data.products.slice(0, 8).map(p => {
+    const totalStock = Object.values(p.variants).reduce((sum, v) => sum + v.stock, 0);
+    const sales = Math.floor(Math.random() * 50) + 20;
+    const turnover = (sales / (totalStock || 1)).toFixed(1);
+    const status = turnover > 2 ? 'success' : turnover > 1 ? 'warning' : 'danger';
+    const statusText = turnover > 2 ? '🔥 Excellent' : turnover > 1 ? '✅ Bon' : '⚠️ Faible';
+    const displayName = p.archived ? `${p.name} <span style="color:var(--muted);font-size:10px">(Archivé)</span>` : p.name;
+    
+    return `
+      <tr style="${p.archived ? 'opacity:0.6' : ''}">
+        <td><strong>${displayName}</strong></td>
+        <td>${sales}</td>
+        <td>${totalStock}</td>
+        <td><strong style="color:var(--${status})">${turnover}x</strong></td>
+        <td><span class="badge ${status}">${statusText}</span></td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function updatePerformanceMatrix() {
+  const ctx = document.getElementById('performanceMatrix');
+  if (!ctx) return;
+  
+  const data = state.data.products.map(p => {
+    const sales = Math.floor(Math.random() * 100) + 20;
+    const avgPrice = Object.values(p.variants).reduce((sum, v) => sum + v.price, 0) / Object.keys(p.variants).length;
+    const avgGrams = Object.values(p.variants).reduce((sum, v) => sum + (v.grams || 1), 0) / Object.keys(p.variants).length;
+    const margin = ((avgPrice - (avgGrams * p.buyPrice)) / avgPrice * 100).toFixed(1);
+    const displayName = p.archived ? `${p.name} (Archivé)` : p.name;
+    
+    return {
+      x: sales,
+      y: parseFloat(margin),
+      label: displayName,
+      r: p.archived ? 6 : 10,
+      backgroundColor: p.archived ? 'rgba(122, 133, 148, 0.4)' : 'rgba(102, 126, 234, 0.6)'
+    };
+  });
+  
+  if (analyticsCharts.matrix) {
+    analyticsCharts.matrix.destroy();
+  }
+  
+  analyticsCharts.matrix = new Chart(ctx, {
+    type: 'bubble',
+    data: {
+      datasets: [{
+        label: 'Produits',
+        data: data,
+        backgroundColor: data.map(d => d.backgroundColor),
+        borderColor: data.map(d => d.backgroundColor.replace('0.6', '1').replace('0.4', '0.8')),
+        borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        tooltip: {
+          callbacks: {
+            label: (context) => {
+              const point = context.raw;
+              return `${point.label}: ${point.x} ventes, ${point.y}% marge`;
+            }
+          }
+        },
+        legend: { display: false }
+      },
+      scales: {
+        x: {
+          title: { display: true, text: 'Volume de ventes' },
+          beginAtZero: true
+        },
+        y: {
+          title: { display: true, text: 'Marge (%)' },
+          beginAtZero: true
+        }
+      }
+    }
+  });
+}
+
+function updateSeasonality() {
+  const ctx = document.getElementById('seasonalityChart');
+  if (!ctx) return;
+  
+  const months = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
+  const data = months.map((m, i) => {
+    const base = 1000;
+    const seasonal = (i >= 5 && i <= 8) ? 300 : (i === 11) ? 500 : 0;
+    return Math.floor(base + seasonal + Math.random() * 200);
+  });
+  
+  if (analyticsCharts.seasonality) {
+    analyticsCharts.seasonality.destroy();
+  }
+  
+  analyticsCharts.seasonality = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: months,
+      datasets: [{
+        label: 'Ventes mensuelles',
+        data: data,
+        borderColor: '#10b981',
+        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+        tension: 0.4,
+        fill: true,
+        borderWidth: 3
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } }
+    }
+  });
+}
+
+function updateCustomerSegmentation() {
+  const el = document.getElementById('customerSegmentation');
+  if (!el) return;
+  
+  const segments = [
+    { name: 'VIP', count: 12, percent: 8, revenue: 45, color: '#a855f7' },
+    { name: 'Fidèles', count: 34, percent: 23, revenue: 35, color: '#10b981' },
+    { name: 'Réguliers', count: 58, percent: 39, revenue: 15, color: '#f59e0b' },
+    { name: 'Occasionnels', count: 45, percent: 30, revenue: 5, color: '#667eea' }
+  ];
+  
+  el.innerHTML = segments.map(s => `
+    <div style="padding:16px;margin-bottom:12px;background:var(--bg-secondary);border-radius:12px;border-left:4px solid ${s.color}">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div>
+          <div style="font-size:16px;font-weight:700;color:${s.color}">${s.name}</div>
+          <div style="font-size:12px;color:var(--muted)">${s.count} clients (${s.percent}%)</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:20px;font-weight:800;color:var(--success)">${s.revenue}%</div>
+          <div style="font-size:11px;color:var(--muted)">du CA</div>
+        </div>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" style="width:${s.revenue}%;background:${s.color}"></div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function updateForecast() {
+  const el = document.getElementById('forecastData');
+  if (!el) return;
+  
+  const today = new Date();
+  const forecasts = [];
+  
+  for (let i = 1; i <= 7; i++) {
+    const date = new Date(today);
+    date.setDate(date.getDate() + i);
+    const dayName = date.toLocaleDateString('fr-FR', { weekday: 'short' });
+    const predicted = Math.floor(Math.random() * 300 + 150);
+    const confidence = Math.floor(Math.random() * 15 + 80);
+    
+    forecasts.push({ dayName, predicted, confidence });
+  }
+  
+  el.innerHTML = forecasts.map(f => `
+    <div style="padding:12px;margin-bottom:8px;background:var(--bg-secondary);border-radius:8px;display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-size:13px;font-weight:600">${f.dayName}</div>
+        <div style="font-size:11px;color:var(--muted)">Confiance: ${f.confidence}%</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:18px;font-weight:700;color:var(--accent)">${fc(f.predicted)}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function generateInsights() {
+  const el = document.getElementById('analyticsInsights');
+  if (!el) return;
+  
+  const insights = [
+    {
+      type: 'success',
+      icon: '🎯',
+      title: 'Performance excellente',
+      text: 'Les produits de catégorie A génèrent 78% du CA avec seulement 20% de votre inventaire. Optimisez votre stock en conséquence.'
+    },
+    {
+      type: 'warning',
+      icon: '⚠️',
+      title: 'Attention stock',
+      text: '3 produits ont un taux de rotation < 1x. Considérez des promotions pour écouler le stock ou réduire les commandes.'
+    },
+    {
+      type: 'info',
+      icon: '💡',
+      title: 'Opportunité détectée',
+      text: 'Les ventes augmentent de 35% entre 18h-21h. Envisagez des promotions "Happy Hours" pour maximiser ce créneau.'
+    },
+    {
+      type: 'success',
+      icon: '📈',
+      title: 'Tendance positive',
+      text: 'Le panier moyen a augmenté de 12% ce mois-ci. Les clients achètent plus par transaction.'
+    }
+  ];
+  
+  el.innerHTML = `
+    <div style="display:grid;gap:16px">
+      ${insights.map(insight => `
+        <div style="padding:20px;background:var(--bg-secondary);border-radius:12px;border-left:4px solid var(--${insight.type === 'success' ? 'success' : insight.type === 'warning' ? 'warning' : 'info'})">
+          <div style="display:flex;gap:16px;align-items:start">
+            <div style="font-size:32px">${insight.icon}</div>
+            <div style="flex:1">
+              <div style="font-size:16px;font-weight:700;margin-bottom:8px;color:var(--text)">${insight.title}</div>
+              <div style="font-size:14px;color:var(--text-secondary);line-height:1.5">${insight.text}</div>
+            </div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function exportAnalytics() {
+  const analyticsData = {
+    date: new Date().toISOString(),
+    period: document.getElementById('analyticsPeriod')?.value || '30',
+    metrics: {
+      conversionRate: document.getElementById('conversionRate')?.textContent,
+      retentionRate: document.getElementById('retentionRate')?.textContent,
+      stockTurnover: document.getElementById('stockTurnover')?.textContent
+    },
+    products: state.data.products.length,
+    orders: state.data.orders.length,
+    customers: state.data.customers.length
+  };
+  
+  const blob = new Blob([JSON.stringify(analyticsData, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `analytics_${Date.now()}.json`;
+  a.click();
+  
+  showToast('Analytics exportés', 'success');
+}
+
+function exportAnalyticsPDF() {
+  showToast('📄 Génération du rapport PDF...', 'success');
+  
+  let report = '═══════════════════════════════════════\n';
+  report += '      RAPPORT ANALYTICS COMPLET\n';
+  report += '═══════════════════════════════════════\n\n';
+  report += `Date: ${new Date().toLocaleString('fr-FR')}\n`;
+  report += `Période: ${document.getElementById('analyticsPeriod')?.value || '30'} jours\n\n`;
+  
+  report += '📊 INDICATEURS CLÉS\n';
+  report += '─────────────────────────────────────\n';
+  report += `Taux de conversion: ${document.getElementById('conversionRate')?.textContent || 'N/A'}\n`;
+  report += `Taux de rétention: ${document.getElementById('retentionRate')?.textContent || 'N/A'}\n`;
+  report += `Taux de rotation stock: ${document.getElementById('stockTurnover')?.textContent || 'N/A'}\n`;
+  report += `Note moyenne: 4.7/5\n\n`;
+  
+  report += '💰 PERFORMANCE FINANCIÈRE\n';
+  report += '─────────────────────────────────────\n';
+  report += `CA Total: ${document.getElementById('totalRevenue')?.textContent || 'N/A'}\n`;
+  report += `Commandes: ${state.data.orders.length}\n`;
+  report += `Panier moyen: ${document.getElementById('avgCart')?.textContent || 'N/A'}\n`;
+  report += `Valeur stock: ${document.getElementById('stockValue')?.textContent || 'N/A'}\n\n`;
+  
+  report += '🎯 OBJECTIFS\n';
+  report += '─────────────────────────────────────\n';
+  state.analytics.goals.forEach(goal => {
+    const progress = ((goal.current / goal.target) * 100).toFixed(1);
+    report += `${goal.name}: ${goal.current}/${goal.target} ${goal.unit} (${progress}%)\n`;
+  });
+  report += '\n';
+  
+  report += '🏆 TOP PRODUITS (Analyse ABC)\n';
+  report += '─────────────────────────────────────\n';
+  const activeProducts = state.data.products.filter(p => !p.archived);
+  activeProducts.slice(0, 5).forEach((p, i) => {
+    report += `${i + 1}. ${p.name} - Catégorie ${p.category}\n`;
+  });
+  report += '\n';
+  
+  const archivedProducts = state.data.products.filter(p => p.archived);
+  if (archivedProducts.length > 0) {
+    report += `📦 PRODUITS ARCHIVÉS (${archivedProducts.length})\n`;
+    report += '─'.repeat(40) + '\n\n';
+    
+    archivedProducts.forEach((p, i) => {
+      const date = p.archivedAt ? new Date(p.archivedAt).toLocaleDateString('fr-FR') : 'N/A';
+      const reason = getArchiveReasonLabel(p.archiveReason || 'other');
+      
+      report += `${i + 1}. ${p.name}\n`;
+      report += `   Archivé le: ${date}\n`;
+      report += `   Raison: ${reason}\n`;
+      if (p.archiveNote) {
+        report += `   Note: ${p.archiveNote}\n`;
+      }
+      if (p.archiveStats) {
+        report += `   Stock: ${p.archiveStats.totalStock} unités | Prix moy: ${fc(p.archiveStats.avgPrice)}\n`;
+      }
+      report += '\n';
+    });
+  }
+  
+  report += '🔔 ALERTES ACTIVES\n';
+  report += '─────────────────────────────────────\n';
+  const activeAlerts = state.analytics.alerts.filter(a => a.active);
+  if (activeAlerts.length === 0) {
+    report += 'Aucune alerte active\n';
+  } else {
+    activeAlerts.forEach(alert => {
+      report += `• ${alert.name}\n`;
+    });
+  }
+  report += '\n';
+  
+  report += '📈 RÉSUMÉ PRODUITS\n';
+  report += '─────────────────────────────────────\n';
+  report += `Total produits: ${state.data.products.length}\n`;
+  report += `Produits actifs: ${activeProducts.length}\n`;
+  report += `Produits archivés: ${archivedProducts.length}\n\n`;
+  
+  report += '═══════════════════════════════════════\n';
+  report += '       Rapport généré par DROGUA CENTER\n';
+  report += '═══════════════════════════════════════\n';
+  
+  const blob = new Blob([report], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `analytics_report_${Date.now()}.txt`;
+  a.click();
+  
+  showToast('✅ Rapport PDF généré !', 'success');
+}
+
+function updateComparisonChart() {
+  const ctx = document.getElementById('comparisonChart');
+  if (!ctx) return;
+  
+  const compareMode = document.getElementById('analyticsCompare')?.value || 'none';
+  
+  if (compareMode === 'none') {
+    if (analyticsCharts.comparison) {
+      analyticsCharts.comparison.destroy();
+      analyticsCharts.comparison = null;
+    }
+    const container = ctx.parentElement;
+    container.innerHTML = '<canvas id="comparisonChart"></canvas><p style="text-align:center;padding:40px;color:var(--muted)">Sélectionnez une comparaison ci-dessus</p>';
+    return;
+  }
+  
+  const labels = ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4'];
+  const currentData = [850, 920, 1050, 1100];
+  const previousData = [780, 850, 920, 980];
+  
+  if (analyticsCharts.comparison) {
+    analyticsCharts.comparison.destroy();
+  }
+  
+  analyticsCharts.comparison = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: 'Période actuelle',
+          data: currentData,
+          backgroundColor: '#667eea',
+          borderRadius: 8
+        },
+        {
+          label: compareMode === 'previous' ? 'Période précédente' : 'Année dernière',
+          data: previousData,
+          backgroundColor: '#a855f7',
+          borderRadius: 8
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: 'top' }
+      },
+      scales: {
+        y: { beginAtZero: true }
+      }
+    }
+  });
+}
+
+function updateCohortAnalysis() {
+  const el = document.getElementById('cohortTable');
+  if (!el) return;
+  
+  const cohorts = [
+    { month: 'Oct 2024', m0: 100, m1: 65, m2: 45, m3: 38 },
+    { month: 'Nov 2024', m0: 100, m1: 70, m2: 52, m3: null },
+    { month: 'Déc 2024', m0: 100, m1: 68, m2: null, m3: null },
+    { month: 'Jan 2025', m0: 100, m1: null, m2: null, m3: null }
+  ];
+  
+  let html = '<div style="overflow-x:auto"><table style="width:100%;font-size:12px">';
+  html += '<thead><tr style="background:var(--bg-secondary)">';
+  html += '<th style="padding:12px">Cohorte</th>';
+  html += '<th style="padding:12px">M0</th>';
+  html += '<th style="padding:12px">M1</th>';
+  html += '<th style="padding:12px">M2</th>';
+  html += '<th style="padding:12px">M3</th>';
+  html += '</tr></thead><tbody>';
+  
+  cohorts.forEach(c => {
+    html += '<tr>';
+    html += `<td style="padding:12px;font-weight:600">${c.month}</td>`;
+    html += `<td style="padding:12px;background:rgba(102, 126, 234, 0.3)">${c.m0}%</td>`;
+    html += `<td style="padding:12px;background:${c.m1 ? 'rgba(102, 126, 234, ' + (c.m1/100) + ')' : 'transparent'}">${c.m1 !== null ? c.m1 + '%' : '-'}</td>`;
+    html += `<td style="padding:12px;background:${c.m2 ? 'rgba(102, 126, 234, ' + (c.m2/100) + ')' : 'transparent'}">${c.m2 !== null ? c.m2 + '%' : '-'}</td>`;
+    html += `<td style="padding:12px;background:${c.m3 ? 'rgba(102, 126, 234, ' + (c.m3/100) + ')' : 'transparent'}">${c.m3 !== null ? c.m3 + '%' : '-'}</td>`;
+    html += '</tr>';
+  });
+  
+  html += '</tbody></table></div>';
+  html += '<p style="font-size:11px;color:var(--muted);margin-top:12px">Les couleurs plus foncées indiquent une meilleure rétention</p>';
+  
+  el.innerHTML = html;
+}
+
+function updateGoalsTracking() {
+  const el = document.getElementById('goalsTracking');
+  if (!el) return;
+  
+  el.innerHTML = state.analytics.goals.map(goal => {
+    const progress = ((goal.current / goal.target) * 100).toFixed(1);
+    const isOnTrack = progress >= 70;
+    const status = progress >= 100 ? 'success' : isOnTrack ? 'warning' : 'danger';
+    const statusText = progress >= 100 ? '✅ Atteint' : isOnTrack ? '🟡 En cours' : '🔴 En retard';
+    
+    return `
+      <div style="padding:20px;margin-bottom:16px;background:var(--bg-secondary);border-radius:12px;border-left:4px solid var(--${status})">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <div>
+            <div style="font-size:16px;font-weight:700">${goal.name}</div>
+            <div style="font-size:12px;color:var(--muted)">Objectif: ${goal.target} ${goal.unit}</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:24px;font-weight:800;color:var(--${status})">${progress}%</div>
+            <div style="font-size:11px;color:var(--muted)">${statusText}</div>
+          </div>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" style="width:${Math.min(progress, 100)}%;background:var(--${status})"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:12px;color:var(--muted)">
+          <span>Actuel: ${goal.current} ${goal.unit}</span>
+          <span>Reste: ${goal.target - goal.current} ${goal.unit}</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function updateActiveAlerts() {
+  const el = document.getElementById('activeAlerts');
+  if (!el) return;
+  
+  const activeAlerts = state.analytics.alerts.filter(a => a.active);
+  
+  if (activeAlerts.length === 0) {
+    el.innerHTML = '<p style="text-align:center;padding:40px;color:var(--muted)">Aucune alerte active 🎉</p>';
+    return;
+  }
+  
+  const triggeredAlerts = [];
+  
+  activeAlerts.forEach(alert => {
+    if (alert.type === 'stock') {
+      let count = 0;
+      state.data.products.forEach(p => {
+        Object.values(p.variants).forEach(v => {
+          if (v.stock < alert.value) count++;
+        });
+      });
+      if (count > 0) {
+        triggeredAlerts.push({ ...alert, message: `${count} produits sous ${alert.value} unités` });
+      }
+    } else if (alert.type === 'revenue') {
+      const todayRevenue = state.data.orders.reduce((sum, o) => sum + o.total, 0) * 0.2;
+      if (todayRevenue < alert.value) {
+        triggeredAlerts.push({ ...alert, message: `CA du jour: ${fc(todayRevenue)}` });
+      }
+    } else if (alert.type === 'cart') {
+      const avgCart = state.data.orders.length ? state.data.orders.reduce((sum, o) => sum + o.total, 0) / state.data.orders.length : 0;
+      if (avgCart < alert.value) {
+        triggeredAlerts.push({ ...alert, message: `Panier moyen: ${fc(avgCart)}` });
+      }
+    }
+  });
+  
+  if (triggeredAlerts.length === 0) {
+    el.innerHTML = '<p style="text-align:center;padding:40px;color:var(--success)">✅ Toutes les alertes sont au vert !</p>';
+    return;
+  }
+  
+  el.innerHTML = triggeredAlerts.map(alert => `
+    <div style="padding:16px;margin-bottom:12px;background:rgba(239, 68, 68, 0.1);border-radius:12px;border-left:4px solid var(--danger)">
+      <div style="display:flex;justify-content:space-between;align-items:start">
+        <div>
+          <div style="font-size:14px;font-weight:700;color:var(--danger);margin-bottom:4px">
+            ⚠️ ${alert.name}
+          </div>
+          <div style="font-size:12px;color:var(--text-secondary)">
+            ${alert.message}
+          </div>
+        </div>
+        <button class="btn-sm btn-primary" onclick="resolveAlert(${alert.id})">Résoudre</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function updateFunnelChart() {
+  const ctx = document.getElementById('funnelChart');
+  if (!ctx) return;
+  
+  const stages = ['Visiteurs', 'Ajout panier', 'Checkout', 'Paiement', 'Confirmé'];
+  const values = [1000, 450, 280, 220, 200];
+  const colors = ['#667eea', '#764ba2', '#10b981', '#f59e0b', '#ef4444'];
+  
+  if (analyticsCharts.funnel) {
+    analyticsCharts.funnel.destroy();
+  }
+  
+  analyticsCharts.funnel = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: stages,
+      datasets: [{
+        label: 'Conversions',
+        data: values,
+        backgroundColor: colors,
+        borderRadius: 8
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (context) => {
+              const value = context.parsed.x;
+              const percent = ((value / values[0]) * 100).toFixed(1);
+              return `${value} (${percent}%)`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: { beginAtZero: true }
+      }
+    }
+  });
+}
+
+function updateLTVMetrics() {
+  const avgOrderValue = state.data.orders.length ? 
+    state.data.orders.reduce((sum, o) => sum + o.total, 0) / state.data.orders.length : 50;
+  const avgPurchaseFrequency = 2.5;
+  const avgCustomerLifespan = 3;
+  const ltv = avgOrderValue * avgPurchaseFrequency * avgCustomerLifespan;
+  
+  const cac = 15;
+  const ratio = (ltv / cac).toFixed(1);
+  const payback = (cac / (avgOrderValue * avgPurchaseFrequency / 12)).toFixed(1);
+  
+  const ltvEl = document.getElementById('avgLTV');
+  const cacEl = document.getElementById('avgCAC');
+  const ratioEl = document.getElementById('ltvCacRatio');
+  const paybackEl = document.getElementById('paybackPeriod');
+  
+  if (ltvEl) ltvEl.textContent = fc(ltv);
+  if (cacEl) cacEl.textContent = fc(cac);
+  if (ratioEl) ratioEl.textContent = `${ratio}x`;
+  if (paybackEl) paybackEl.textContent = `${payback} mois`;
+}
+
+function openAlertsModal() {
+  showModal('🔔 Gestion des Alertes', `
+    <div style="margin-bottom:20px">
+      <h4 style="margin-bottom:16px">Alertes configurées</h4>
+      <div id="alertsList"></div>
+    </div>
+    <div>
+      <h4 style="margin-bottom:16px">➕ Nouvelle alerte</h4>
+      <div class="form-group">
+        <label>Nom de l'alerte</label>
+        <input type="text" id="newAlertName" placeholder="Ex: Stock très faible">
+      </div>
+      <div class="form-group">
+        <label>Type</label>
+        <select id="newAlertType">
+          <option value="stock">📦 Stock</option>
+          <option value="revenue">💰 Chiffre d'affaires</option>
+          <option value="cart">🛒 Panier moyen</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Condition</label>
+        <select id="newAlertCondition">
+          <option value="below">Inférieur à</option>
+          <option value="above">Supérieur à</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Valeur</label>
+        <input type="number" id="newAlertValue" placeholder="Ex: 5">
+      </div>
+      <button onclick="addAlert()" style="background:var(--success)">💾 Créer l'alerte</button>
+    </div>
+  `);
+  
+  loadAlertsList();
+}
+
+function loadAlertsList() {
+  const list = document.getElementById('alertsList');
+  if (!list) return;
+  
+  list.innerHTML = state.analytics.alerts.map(alert => `
+    <div style="padding:12px;margin-bottom:8px;background:var(--bg-secondary);border-radius:8px;display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-weight:600">${alert.name}</div>
+        <div style="font-size:11px;color:var(--muted)">${alert.type} ${alert.condition} ${alert.value}</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn-sm ${alert.active ? 'btn-success' : 'btn-danger'}" onclick="toggleAlert(${alert.id})">
+          ${alert.active ? '✅' : '❌'}
+        </button>
+        <button class="btn-sm btn-danger" onclick="deleteAlert(${alert.id})">🗑️</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function addAlert() {
+  const name = document.getElementById('newAlertName').value;
+  const type = document.getElementById('newAlertType').value;
+  const condition = document.getElementById('newAlertCondition').value;
+  const value = parseFloat(document.getElementById('newAlertValue').value);
+  
+  if (!name || !value) {
+    showToast('Remplissez tous les champs', 'error');
+    return;
+  }
+  
+  const newAlert = {
+    id: Math.max(...state.analytics.alerts.map(a => a.id), 0) + 1,
+    name,
+    type,
+    condition,
+    value,
+    active: true
+  };
+  
+  state.analytics.alerts.push(newAlert);
+  localStorage.setItem('admin_analytics', JSON.stringify(state.analytics));
+  
+  loadAlertsList();
+  showToast('Alerte créée', 'success');
+  
+  document.getElementById('newAlertName').value = '';
+  document.getElementById('newAlertValue').value = '';
+}
+
+function toggleAlert(id) {
+  const alert = state.analytics.alerts.find(a => a.id === id);
+  if (alert) {
+    alert.active = !alert.active;
+    localStorage.setItem('admin_analytics', JSON.stringify(state.analytics));
+    loadAlertsList();
+    showToast(`Alerte ${alert.active ? 'activée' : 'désactivée'}`, 'success');
+  }
+}
+
+function deleteAlert(id) {
+  if (confirm('Supprimer cette alerte ?')) {
+    state.analytics.alerts = state.analytics.alerts.filter(a => a.id !== id);
+    localStorage.setItem('admin_analytics', JSON.stringify(state.analytics));
+    loadAlertsList();
+    showToast('Alerte supprimée', 'success');
+  }
+}
+
+function resolveAlert(id) {
+  showToast('Alerte marquée comme résolue', 'success');
+  updateActiveAlerts();
+}
+
+function openGoalsModal() {
+  showModal('🎯 Gestion des Objectifs', `
+    <div style="margin-bottom:20px">
+      <h4 style="margin-bottom:16px">Objectifs configurés</h4>
+      <div id="goalsList"></div>
+    </div>
+    <div>
+      <h4 style="margin-bottom:16px">➕ Nouvel objectif</h4>
+      <div class="form-group">
+        <label>Nom de l'objectif</label>
+        <input type="text" id="newGoalName" placeholder="Ex: CA Trimestriel">
+      </div>
+      <div class="form-group">
+        <label>Cible</label>
+        <input type="number" id="newGoalTarget" placeholder="Ex: 50000">
+      </div>
+      <div class="form-group">
+        <label>Valeur actuelle</label>
+        <input type="number" id="newGoalCurrent" placeholder="Ex: 35000">
+      </div>
+      <div class="form-group">
+        <label>Unité</label>
+        <input type="text" id="newGoalUnit" placeholder="€, unités, etc.">
+      </div>
+      <button onclick="addGoal()" style="background:var(--success)">💾 Créer l'objectif</button>
+    </div>
+  `);
+  
+  loadGoalsList();
+}
+
+function loadGoalsList() {
+  const list = document.getElementById('goalsList');
+  if (!list) return;
+  
+  list.innerHTML = state.analytics.goals.map(goal => {
+    const progress = ((goal.current / goal.target) * 100).toFixed(1);
+    return `
+      <div style="padding:12px;margin-bottom:8px;background:var(--bg-secondary);border-radius:8px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div>
+            <div style="font-weight:600">${goal.name}</div>
+            <div style="font-size:11px;color:var(--muted)">${goal.current}/${goal.target} ${goal.unit} (${progress}%)</div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn-sm btn-primary" onclick="editGoal(${goal.id})">✏️</button>
+            <button class="btn-sm btn-danger" onclick="deleteGoal(${goal.id})">🗑️</button>
+          </div>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" style="width:${Math.min(progress, 100)}%"></div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function addGoal() {
+  const name = document.getElementById('newGoalName').value;
+  const target = parseFloat(document.getElementById('newGoalTarget').value);
+  const current = parseFloat(document.getElementById('newGoalCurrent').value) || 0;
+  const unit = document.getElementById('newGoalUnit').value || '';
+  
+  if (!name || !target) {
+    showToast('Remplissez tous les champs', 'error');
+    return;
+  }
+  
+  const newGoal = {
+    id: Math.max(...state.analytics.goals.map(g => g.id), 0) + 1,
+    name,
+    target,
+    current,
+    unit,
+    active: true
+  };
+  
+  state.analytics.goals.push(newGoal);
+  localStorage.setItem('admin_analytics', JSON.stringify(state.analytics));
+  
+  loadGoalsList();
+  showToast('Objectif créé', 'success');
+  
+  document.getElementById('newGoalName').value = '';
+  document.getElementById('newGoalTarget').value = '';
+  document.getElementById('newGoalCurrent').value = '';
+  document.getElementById('newGoalUnit').value = '';
+}
+
+function editGoal(id) {
+  const goal = state.analytics.goals.find(g => g.id === id);
+  if (!goal) return;
+  
+  const newCurrent = prompt(`Nouvelle valeur actuelle pour "${goal.name}" (actuel: ${goal.current} ${goal.unit}):`, goal.current);
+  if (newCurrent === null) return;
+  
+  goal.current = parseFloat(newCurrent) || 0;
+  localStorage.setItem('admin_analytics', JSON.stringify(state.analytics));
+  
+  loadGoalsList();
+  updateGoalsTracking();
+  showToast('Objectif mis à jour', 'success');
+}
+
+function deleteGoal(id) {
+  if (confirm('Supprimer cet objectif ?')) {
+    state.analytics.goals = state.analytics.goals.filter(g => g.id !== id);
+    localStorage.setItem('admin_analytics', JSON.stringify(state.analytics));
+    loadGoalsList();
+    updateGoalsTracking();
+    showToast('Objectif supprimé', 'success');
+  }
 }
 
 function generateDailyReport() {
@@ -3782,1356 +5271,6 @@ function scheduleAutoReports() {
       }
     }
   }, 3600000);
-}
-
-// ==================== ANALYTICS AVANCÉS ====================
-
-let currentTrendView = 'revenue';
-let analyticsCharts = {};
-
-function updateAnalytics() {
-  console.log('📊 Mise à jour des analytics...');
-  
-  // Mettre à jour les KPIs principaux
-  updateMainKPIs();
-  
-  // Mettre à jour tous les graphiques et données
-  updateTrendChart();
-  updateABCAnalysis();
-  updatePeakHours();
-  updateProfitabilityTable();
-  updateTurnoverTable();
-  updatePerformanceMatrix();
-  updateSeasonality();
-  updateCustomerSegmentation();
-  updateForecast();
-  generateInsights();
-  
-  // Nouvelles fonctionnalités
-  updateComparisonChart();
-  updateCohortAnalysis();
-  updateGoalsTracking();
-  updateActiveAlerts();
-  updateFunnelChart();
-  updateLTVMetrics();
-  
-  showToast('Analytics mis à jour', 'success');
-}
-
-function updateMainKPIs() {
-  // Taux de conversion
-  const conversionRate = (24.5 + Math.random() * 5 - 2.5).toFixed(1);
-  const conversionTrend = Math.random() > 0.5 ? 'success' : 'danger';
-  const conversionChange = (Math.random() * 5).toFixed(1);
-  
-  const convEl = document.getElementById('conversionRate');
-  const convTrendEl = document.getElementById('conversionTrend');
-  if (convEl) convEl.textContent = `${conversionRate}%`;
-  if (convTrendEl) {
-    convTrendEl.textContent = `${conversionTrend === 'success' ? '↗' : '↘'} ${conversionTrend === 'success' ? '+' : '-'}${conversionChange}% vs période précédente`;
-    convTrendEl.style.color = `var(--${conversionTrend})`;
-  }
-  
-  // Taux de rétention
-  const retentionRate = (67 + Math.random() * 10 - 5).toFixed(0);
-  const retentionTrend = Math.random() > 0.4 ? 'success' : 'danger';
-  const retentionChange = (Math.random() * 8).toFixed(1);
-  
-  const retEl = document.getElementById('retentionRate');
-  const retTrendEl = document.getElementById('retentionTrend');
-  if (retEl) retEl.textContent = `${retentionRate}%`;
-  if (retTrendEl) {
-    retTrendEl.textContent = `${retentionTrend === 'success' ? '↗' : '↘'} ${retentionTrend === 'success' ? '+' : '-'}${retentionChange}% vs période précédente`;
-    retTrendEl.style.color = `var(--${retentionTrend})`;
-  }
-  
-  // Taux de rotation du stock
-  const turnover = (3.2 + Math.random() * 1 - 0.5).toFixed(1);
-  const turnoverEl = document.getElementById('stockTurnover');
-  const turnoverTrendEl = document.getElementById('turnoverTrend');
-  if (turnoverEl) turnoverEl.textContent = `${turnover}x`;
-  if (turnoverTrendEl) {
-    const isStable = Math.abs(turnover - 3.2) < 0.3;
-    turnoverTrendEl.textContent = isStable ? '→ Stable' : turnover > 3.2 ? '↗ En hausse' : '↘ En baisse';
-    turnoverTrendEl.style.color = isStable ? 'var(--muted)' : turnover > 3.2 ? 'var(--success)' : 'var(--warning)';
-  }
-}
-
-function setTrendView(view) {
-  currentTrendView = view;
-  
-  // Mettre à jour les boutons
-  document.querySelectorAll('#trendRevenue, #trendOrders, #trendAvgCart').forEach(btn => {
-    btn.style.background = 'var(--bg-secondary)';
-  });
-  
-  if (view === 'revenue') document.getElementById('trendRevenue').style.background = 'var(--accent)';
-  if (view === 'orders') document.getElementById('trendOrders').style.background = 'var(--accent)';
-  if (view === 'avgCart') document.getElementById('trendAvgCart').style.background = 'var(--accent)';
-  
-  updateTrendChart();
-}
-
-function updateTrendChart() {
-  const ctx = document.getElementById('trendChart');
-  if (!ctx) return;
-  
-  // Générer des données sur 30 jours
-  const days = 30;
-  const labels = [];
-  const data = [];
-  
-  for (let i = days - 1; i >= 0; i--) {
-    const date = new Date();
-    date.setDate(date.getDate() - i);
-    labels.push(date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }));
-    
-    // Générer des données réalistes avec tendance
-    const base = currentTrendView === 'revenue' ? 150 : 
-                 currentTrendView === 'orders' ? 8 : 25;
-    const trend = (days - i) * (currentTrendView === 'revenue' ? 2 : 0.1);
-    const random = Math.random() * base * 0.3;
-    data.push(Math.round(base + trend + random));
-  }
-  
-  if (analyticsCharts.trend) {
-    analyticsCharts.trend.destroy();
-  }
-  
-  const label = currentTrendView === 'revenue' ? 'Chiffre d\'affaires (€)' :
-                currentTrendView === 'orders' ? 'Nombre de commandes' : 'Panier moyen (€)';
-  
-  analyticsCharts.trend = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: labels,
-      datasets: [{
-        label: label,
-        data: data,
-        borderColor: '#667eea',
-        backgroundColor: 'rgba(102, 126, 234, 0.1)',
-        tension: 0.4,
-        fill: true,
-        borderWidth: 3,
-        pointRadius: 2,
-        pointHoverRadius: 6
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: true,
-      aspectRatio: 2.5,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          backgroundColor: 'rgba(0, 0, 0, 0.8)',
-          padding: 12,
-          titleFont: { size: 14 },
-          bodyFont: { size: 13 }
-        }
-      },
-      scales: {
-        y: {
-          beginAtZero: true,
-          grid: { color: 'rgba(255, 255, 255, 0.05)' }
-        },
-        x: {
-          grid: { display: false }
-        }
-      }
-    }
-  });
-}
-
-function updateABCAnalysis() {
-  const ctx = document.getElementById('abcChart');
-  const legend = document.getElementById('abcLegend');
-  if (!ctx || !legend) return;
-  
-  // Calculer le CA par produit (TOUS les produits, même archivés pour l'historique)
-  const productRevenue = {};
-  state.data.products.forEach(p => {
-    const sales = Math.floor(Math.random() * 50) + 10;
-    const avgPrice = Object.values(p.variants).reduce((sum, v) => sum + v.price, 0) / Object.keys(p.variants).length;
-    const displayName = p.archived ? `${p.name} (Archivé)` : p.name;
-    productRevenue[displayName] = sales * avgPrice;
-  });
-  
-  // Trier par CA décroissant
-  const sorted = Object.entries(productRevenue).sort((a, b) => b[1] - a[1]);
-  const totalRevenue = sorted.reduce((sum, [, rev]) => sum + rev, 0);
-  
-  // Classifier ABC
-  let cumulative = 0;
-  const classified = sorted.map(([name, rev]) => {
-    cumulative += rev;
-    const percent = (cumulative / totalRevenue) * 100;
-    const category = percent <= 80 ? 'A' : percent <= 95 ? 'B' : 'C';
-    return { name, revenue: rev, category, percent: (rev / totalRevenue * 100).toFixed(1) };
-  });
-  
-  const categoryA = classified.filter(p => p.category === 'A');
-  const categoryB = classified.filter(p => p.category === 'B');
-  const categoryC = classified.filter(p => p.category === 'C');
-  
-  if (analyticsCharts.abc) {
-    analyticsCharts.abc.destroy();
-  }
-  
-  analyticsCharts.abc = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: classified.map(p => p.name),
-      datasets: [{
-        label: 'CA (€)',
-        data: classified.map(p => p.revenue),
-        backgroundColor: classified.map(p => 
-          p.category === 'A' ? '#10b981' :
-          p.category === 'B' ? '#f59e0b' : '#ef4444'
-        ),
-        borderRadius: 8
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: { 
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: (context) => {
-              const value = context.parsed.y;
-              return `CA: ${fc(value)}`;
-            }
-          }
-        }
-      },
-      scales: {
-        y: { beginAtZero: true }
-      }
-    }
-  });
-  
-  // Légende
-  legend.innerHTML = `
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
-      <div style="background:rgba(16, 185, 129, 0.1);padding:12px;border-radius:8px;border-left:3px solid #10b981">
-        <div style="font-size:11px;color:var(--muted);margin-bottom:4px">CATÉGORIE A</div>
-        <div style="font-size:18px;font-weight:700;color:#10b981">${categoryA.length} produits</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:4px">80% du CA</div>
-      </div>
-      <div style="background:rgba(245, 158, 11, 0.1);padding:12px;border-radius:8px;border-left:3px solid #f59e0b">
-        <div style="font-size:11px;color:var(--muted);margin-bottom:4px">CATÉGORIE B</div>
-        <div style="font-size:18px;font-weight:700;color:#f59e0b">${categoryB.length} produits</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:4px">15% du CA</div>
-      </div>
-      <div style="background:rgba(239, 68, 68, 0.1);padding:12px;border-radius:8px;border-left:3px solid #ef4444">
-        <div style="font-size:11px;color:var(--muted);margin-bottom:4px">CATÉGORIE C</div>
-        <div style="font-size:18px;font-weight:700;color:#ef4444">${categoryC.length} produits</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:4px">5% du CA</div>
-      </div>
-    </div>
-  `;
-}
-
-function updatePeakHours() {
-  const ctx = document.getElementById('peakHoursChart');
-  if (!ctx) return;
-  
-  // Simuler des heures de pointe (9h-22h)
-  const hours = [];
-  const sales = [];
-  
-  for (let h = 9; h <= 22; h++) {
-    hours.push(`${h}h`);
-    // Plus de ventes entre 12h-14h et 18h-21h
-    const isPeakLunch = h >= 12 && h <= 14;
-    const isPeakEvening = h >= 18 && h <= 21;
-    const base = isPeakLunch || isPeakEvening ? 25 : 10;
-    sales.push(Math.floor(Math.random() * 10 + base));
-  }
-  
-  if (analyticsCharts.peakHours) {
-    analyticsCharts.peakHours.destroy();
-  }
-  
-  analyticsCharts.peakHours = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: hours,
-      datasets: [{
-        label: 'Ventes',
-        data: sales,
-        backgroundColor: sales.map(s => s > 25 ? '#10b981' : s > 15 ? '#f59e0b' : '#667eea'),
-        borderRadius: 8
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { display: false } },
-      scales: {
-        y: { beginAtZero: true }
-      }
-    }
-  });
-}
-
-function updateProfitabilityTable() {
-  const tbody = document.getElementById('profitabilityTable');
-  if (!tbody) return;
-  
-  const categories = ['weed', 'hash', 'blanche', 'mdma', 'keta', 'frozen', 'filtré'];
-  const categoryData = {};
-  
-  categories.forEach(cat => {
-    const products = state.data.products.filter(p => p.category === cat);
-    if (products.length === 0) return;
-    
-    let totalRevenue = 0;
-    let totalCost = 0;
-    
-    products.forEach(p => {
-      const sales = Math.floor(Math.random() * 30) + 10;
-      const avgPrice = Object.values(p.variants).reduce((sum, v) => sum + v.price, 0) / Object.keys(p.variants).length;
-      const avgGrams = Object.values(p.variants).reduce((sum, v) => sum + (v.grams || 1), 0) / Object.keys(p.variants).length;
-      
-      totalRevenue += sales * avgPrice;
-      totalCost += sales * avgGrams * p.buyPrice;
-    });
-    
-    const profit = totalRevenue - totalCost;
-    const margin = ((profit / totalRevenue) * 100).toFixed(1);
-    const roi = ((profit / totalCost) * 100).toFixed(0);
-    
-    categoryData[cat] = { totalRevenue, totalCost, profit, margin, roi };
-  });
-  
-  tbody.innerHTML = Object.entries(categoryData).map(([cat, data]) => `
-    <tr>
-      <td><strong>${cat.toUpperCase()}</strong></td>
-      <td>${fc(data.totalRevenue)}</td>
-      <td style="color:var(--danger)">${fc(data.totalCost)}</td>
-      <td style="color:var(--success)"><strong>${data.margin}%</strong></td>
-      <td style="color:var(--success)"><strong>${data.roi}%</strong></td>
-    </tr>
-  `).join('');
-}
-
-function updateTurnoverTable() {
-  const tbody = document.getElementById('turnoverTable');
-  if (!tbody) return;
-  
-  // Inclure TOUS les produits (actifs et archivés) pour l'historique
-  tbody.innerHTML = state.data.products.slice(0, 8).map(p => {
-    const totalStock = Object.values(p.variants).reduce((sum, v) => sum + v.stock, 0);
-    const sales = Math.floor(Math.random() * 50) + 20;
-    const turnover = (sales / (totalStock || 1)).toFixed(1);
-    const status = turnover > 2 ? 'success' : turnover > 1 ? 'warning' : 'danger';
-    const statusText = turnover > 2 ? '🔥 Excellent' : turnover > 1 ? '✅ Bon' : '⚠️ Faible';
-    const displayName = p.archived ? `${p.name} <span style="color:var(--muted);font-size:10px">(Archivé)</span>` : p.name;
-    
-    return `
-      <tr style="${p.archived ? 'opacity:0.6' : ''}">
-        <td><strong>${displayName}</strong></td>
-        <td>${sales}</td>
-        <td>${totalStock}</td>
-        <td><strong style="color:var(--${status})">${turnover}x</strong></td>
-        <td><span class="badge ${status}">${statusText}</span></td>
-      </tr>
-    `;
-  }).join('');
-}
-
-function updatePerformanceMatrix() {
-  const ctx = document.getElementById('performanceMatrix');
-  if (!ctx) return;
-  
-  // Inclure TOUS les produits (actifs et archivés) pour l'historique
-  const data = state.data.products.map(p => {
-    const sales = Math.floor(Math.random() * 100) + 20;
-    const avgPrice = Object.values(p.variants).reduce((sum, v) => sum + v.price, 0) / Object.keys(p.variants).length;
-    const avgGrams = Object.values(p.variants).reduce((sum, v) => sum + (v.grams || 1), 0) / Object.keys(p.variants).length;
-    const margin = ((avgPrice - (avgGrams * p.buyPrice)) / avgPrice * 100).toFixed(1);
-    const displayName = p.archived ? `${p.name} (Archivé)` : p.name;
-    
-    return {
-      x: sales,
-      y: parseFloat(margin),
-      label: displayName,
-      r: p.archived ? 6 : 10,
-      backgroundColor: p.archived ? 'rgba(122, 133, 148, 0.4)' : 'rgba(102, 126, 234, 0.6)'
-    };
-  });
-  
-  if (analyticsCharts.matrix) {
-    analyticsCharts.matrix.destroy();
-  }
-  
-  analyticsCharts.matrix = new Chart(ctx, {
-    type: 'bubble',
-    data: {
-      datasets: [{
-        label: 'Produits',
-        data: data,
-        backgroundColor: data.map(d => d.backgroundColor),
-        borderColor: data.map(d => d.backgroundColor.replace('0.6', '1').replace('0.4', '0.8')),
-        borderWidth: 2
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        tooltip: {
-          callbacks: {
-            label: (context) => {
-              const point = context.raw;
-              return `${point.label}: ${point.x} ventes, ${point.y}% marge`;
-            }
-          }
-        },
-        legend: { display: false }
-      },
-      scales: {
-        x: {
-          title: { display: true, text: 'Volume de ventes' },
-          beginAtZero: true
-        },
-        y: {
-          title: { display: true, text: 'Marge (%)' },
-          beginAtZero: true
-        }
-      }
-    }
-  });
-}
-
-function updateSeasonality() {
-  const ctx = document.getElementById('seasonalityChart');
-  if (!ctx) return;
-  
-  const months = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
-  const data = months.map((m, i) => {
-    // Simuler plus de ventes en été et décembre
-    const base = 1000;
-    const seasonal = (i >= 5 && i <= 8) ? 300 : (i === 11) ? 500 : 0;
-    return Math.floor(base + seasonal + Math.random() * 200);
-  });
-  
-  if (analyticsCharts.seasonality) {
-    analyticsCharts.seasonality.destroy();
-  }
-  
-  analyticsCharts.seasonality = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: months,
-      datasets: [{
-        label: 'Ventes mensuelles',
-        data: data,
-        borderColor: '#10b981',
-        backgroundColor: 'rgba(16, 185, 129, 0.1)',
-        tension: 0.4,
-        fill: true,
-        borderWidth: 3
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { display: false } }
-    }
-  });
-}
-
-function updateCustomerSegmentation() {
-  const el = document.getElementById('customerSegmentation');
-  if (!el) return;
-  
-  const segments = [
-    { name: 'VIP', count: 12, percent: 8, revenue: 45, color: '#a855f7' },
-    { name: 'Fidèles', count: 34, percent: 23, revenue: 35, color: '#10b981' },
-    { name: 'Réguliers', count: 58, percent: 39, revenue: 15, color: '#f59e0b' },
-    { name: 'Occasionnels', count: 45, percent: 30, revenue: 5, color: '#667eea' }
-  ];
-  
-  el.innerHTML = segments.map(s => `
-    <div style="padding:16px;margin-bottom:12px;background:var(--bg-secondary);border-radius:12px;border-left:4px solid ${s.color}">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <div>
-          <div style="font-size:16px;font-weight:700;color:${s.color}">${s.name}</div>
-          <div style="font-size:12px;color:var(--muted)">${s.count} clients (${s.percent}%)</div>
-        </div>
-        <div style="text-align:right">
-          <div style="font-size:20px;font-weight:800;color:var(--success)">${s.revenue}%</div>
-          <div style="font-size:11px;color:var(--muted)">du CA</div>
-        </div>
-      </div>
-      <div class="progress-bar">
-        <div class="progress-fill" style="width:${s.revenue}%;background:${s.color}"></div>
-      </div>
-    </div>
-  `).join('');
-}
-
-function updateForecast() {
-  const el = document.getElementById('forecastData');
-  if (!el) return;
-  
-  const today = new Date();
-  const forecasts = [];
-  
-  for (let i = 1; i <= 7; i++) {
-    const date = new Date(today);
-    date.setDate(date.getDate() + i);
-    const dayName = date.toLocaleDateString('fr-FR', { weekday: 'short' });
-    const predicted = Math.floor(Math.random() * 300 + 150);
-    const confidence = Math.floor(Math.random() * 15 + 80);
-    
-    forecasts.push({ dayName, predicted, confidence });
-  }
-  
-  el.innerHTML = forecasts.map(f => `
-    <div style="padding:12px;margin-bottom:8px;background:var(--bg-secondary);border-radius:8px;display:flex;justify-content:space-between;align-items:center">
-      <div>
-        <div style="font-size:13px;font-weight:600">${f.dayName}</div>
-        <div style="font-size:11px;color:var(--muted)">Confiance: ${f.confidence}%</div>
-      </div>
-      <div style="text-align:right">
-        <div style="font-size:18px;font-weight:700;color:var(--accent)">${fc(f.predicted)}</div>
-      </div>
-    </div>
-  `).join('');
-}
-
-function generateInsights() {
-  const el = document.getElementById('analyticsInsights');
-  if (!el) return;
-  
-  const insights = [
-    {
-      type: 'success',
-      icon: '🎯',
-      title: 'Performance excellente',
-      text: 'Les produits de catégorie A génèrent 78% du CA avec seulement 20% de votre inventaire. Optimisez votre stock en conséquence.'
-    },
-    {
-      type: 'warning',
-      icon: '⚠️',
-      title: 'Attention stock',
-      text: '3 produits ont un taux de rotation < 1x. Considérez des promotions pour écouler le stock ou réduire les commandes.'
-    },
-    {
-      type: 'info',
-      icon: '💡',
-      title: 'Opportunité détectée',
-      text: 'Les ventes augmentent de 35% entre 18h-21h. Envisagez des promotions "Happy Hours" pour maximiser ce créneau.'
-    },
-    {
-      type: 'success',
-      icon: '📈',
-      title: 'Tendance positive',
-      text: 'Le panier moyen a augmenté de 12% ce mois-ci. Les clients achètent plus par transaction.'
-    }
-  ];
-  
-  el.innerHTML = `
-    <div style="display:grid;gap:16px">
-      ${insights.map(insight => `
-        <div style="padding:20px;background:var(--bg-secondary);border-radius:12px;border-left:4px solid var(--${insight.type === 'success' ? 'success' : insight.type === 'warning' ? 'warning' : 'info'})">
-          <div style="display:flex;gap:16px;align-items:start">
-            <div style="font-size:32px">${insight.icon}</div>
-            <div style="flex:1">
-              <div style="font-size:16px;font-weight:700;margin-bottom:8px;color:var(--text)">${insight.title}</div>
-              <div style="font-size:14px;color:var(--text-secondary);line-height:1.5">${insight.text}</div>
-            </div>
-          </div>
-        </div>
-      `).join('')}
-    </div>
-  `;
-}
-
-function exportAnalytics() {
-  const analyticsData = {
-    date: new Date().toISOString(),
-    period: document.getElementById('analyticsPeriod')?.value || '30',
-    metrics: {
-      conversionRate: document.getElementById('conversionRate')?.textContent,
-      retentionRate: document.getElementById('retentionRate')?.textContent,
-      stockTurnover: document.getElementById('stockTurnover')?.textContent
-    },
-    products: state.data.products.length,
-    orders: state.data.orders.length,
-    customers: state.data.customers.length
-  };
-  
-  const blob = new Blob([JSON.stringify(analyticsData, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `analytics_${Date.now()}.json`;
-  a.click();
-  
-  showToast('Analytics exportés', 'success');
-}
-
-// ==================== FONCTIONNALITÉS AVANCÉES ====================
-
-function exportAnalyticsPDF() {
-  showToast('📄 Génération du rapport PDF...', 'success');
-  
-  // Créer un rapport textuel complet
-  let report = '═══════════════════════════════════════\n';
-  report += '      RAPPORT ANALYTICS COMPLET\n';
-  report += '═══════════════════════════════════════\n\n';
-  report += `Date: ${new Date().toLocaleString('fr-FR')}\n`;
-  report += `Période: ${document.getElementById('analyticsPeriod')?.value || '30'} jours\n\n`;
-  
-  report += '📊 INDICATEURS CLÉS\n';
-  report += '─────────────────────────────────────\n';
-  report += `Taux de conversion: ${document.getElementById('conversionRate')?.textContent || 'N/A'}\n`;
-  report += `Taux de rétention: ${document.getElementById('retentionRate')?.textContent || 'N/A'}\n`;
-  report += `Taux de rotation stock: ${document.getElementById('stockTurnover')?.textContent || 'N/A'}\n`;
-  report += `Note moyenne: 4.7/5\n\n`;
-  
-  report += '💰 PERFORMANCE FINANCIÈRE\n';
-  report += '─────────────────────────────────────\n';
-  report += `CA Total: ${document.getElementById('totalRevenue')?.textContent || 'N/A'}\n`;
-  report += `Commandes: ${state.data.orders.length}\n`;
-  report += `Panier moyen: ${document.getElementById('avgCart')?.textContent || 'N/A'}\n`;
-  report += `Valeur stock: ${document.getElementById('stockValue')?.textContent || 'N/A'}\n\n`;
-  
-  report += '🎯 OBJECTIFS\n';
-  report += '─────────────────────────────────────\n';
-  state.analytics.goals.forEach(goal => {
-    const progress = ((goal.current / goal.target) * 100).toFixed(1);
-    report += `${goal.name}: ${goal.current}/${goal.target} ${goal.unit} (${progress}%)\n`;
-  });
-  report += '\n';
-  
-  report += '🏆 TOP PRODUITS (Analyse ABC)\n';
-  report += '─────────────────────────────────────\n';
-  const activeProducts = state.data.products.filter(p => !p.archived);
-  activeProducts.slice(0, 5).forEach((p, i) => {
-    report += `${i + 1}. ${p.name} - Catégorie ${p.category}\n`;
-  });
-  report += '\n';
-  
-  // Ajouter la section produits archivés
-  report += generateArchivedReport();
-  
-  report += '🔔 ALERTES ACTIVES\n';
-  report += '─────────────────────────────────────\n';
-  const activeAlerts = state.analytics.alerts.filter(a => a.active);
-  if (activeAlerts.length === 0) {
-    report += 'Aucune alerte active\n';
-  } else {
-    activeAlerts.forEach(alert => {
-      report += `• ${alert.name}\n`;
-    });
-  }
-  report += '\n';
-  
-  report += '📈 RÉSUMÉ PRODUITS\n';
-  report += '─────────────────────────────────────\n';
-  report += `Total produits: ${state.data.products.length}\n`;
-  report += `Produits actifs: ${state.data.products.filter(p => !p.archived).length}\n`;
-  report += `Produits archivés: ${state.data.products.filter(p => p.archived).length}\n\n`;
-  
-  report += '═══════════════════════════════════════\n';
-  report += '       Rapport généré par DROGUA CENTER\n';
-  report += '═══════════════════════════════════════\n';
-  
-  // Télécharger comme fichier texte (simulant un PDF)
-  const blob = new Blob([report], { type: 'text/plain' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `analytics_report_${Date.now()}.txt`;
-  a.click();
-  
-  showToast('✅ Rapport PDF généré !', 'success');
-}
-
-function updateComparisonChart() {
-  const ctx = document.getElementById('comparisonChart');
-  if (!ctx) return;
-  
-  const compareMode = document.getElementById('analyticsCompare')?.value || 'none';
-  
-  if (compareMode === 'none') {
-    if (analyticsCharts.comparison) {
-      analyticsCharts.comparison.destroy();
-      analyticsCharts.comparison = null;
-    }
-    ctx.parentElement.innerHTML = '<p style="text-align:center;padding:40px;color:var(--muted)">Sélectionnez une comparaison ci-dessus</p>';
-    return;
-  }
-  
-  const labels = ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4'];
-  const currentData = [850, 920, 1050, 1100];
-  const previousData = [780, 850, 920, 980];
-  
-  if (analyticsCharts.comparison) {
-    analyticsCharts.comparison.destroy();
-  }
-  
-  analyticsCharts.comparison = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: labels,
-      datasets: [
-        {
-          label: 'Période actuelle',
-          data: currentData,
-          backgroundColor: '#667eea',
-          borderRadius: 8
-        },
-        {
-          label: compareMode === 'previous' ? 'Période précédente' : 'Année dernière',
-          data: previousData,
-          backgroundColor: '#a855f7',
-          borderRadius: 8
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: { position: 'top' }
-      },
-      scales: {
-        y: { beginAtZero: true }
-      }
-    }
-  });
-}
-
-function updateCohortAnalysis() {
-  const el = document.getElementById('cohortTable');
-  if (!el) return;
-  
-  // Simuler une analyse de cohorte
-  const cohorts = [
-    { month: 'Oct 2024', m0: 100, m1: 65, m2: 45, m3: 38 },
-    { month: 'Nov 2024', m0: 100, m1: 70, m2: 52, m3: null },
-    { month: 'Déc 2024', m0: 100, m1: 68, m2: null, m3: null },
-    { month: 'Jan 2025', m0: 100, m1: null, m2: null, m3: null }
-  ];
-  
-  let html = '<div style="overflow-x:auto"><table style="width:100%;font-size:12px">';
-  html += '<thead><tr style="background:var(--bg-secondary)">';
-  html += '<th style="padding:12px">Cohorte</th>';
-  html += '<th style="padding:12px">M0</th>';
-  html += '<th style="padding:12px">M1</th>';
-  html += '<th style="padding:12px">M2</th>';
-  html += '<th style="padding:12px">M3</th>';
-  html += '</tr></thead><tbody>';
-  
-  cohorts.forEach(c => {
-    html += '<tr>';
-    html += `<td style="padding:12px;font-weight:600">${c.month}</td>`;
-    html += `<td style="padding:12px;background:rgba(102, 126, 234, 0.3)">${c.m0}%</td>`;
-    html += `<td style="padding:12px;background:${c.m1 ? 'rgba(102, 126, 234, ' + (c.m1/100) + ')' : 'transparent'}">${c.m1 !== null ? c.m1 + '%' : '-'}</td>`;
-    html += `<td style="padding:12px;background:${c.m2 ? 'rgba(102, 126, 234, ' + (c.m2/100) + ')' : 'transparent'}">${c.m2 !== null ? c.m2 + '%' : '-'}</td>`;
-    html += `<td style="padding:12px;background:${c.m3 ? 'rgba(102, 126, 234, ' + (c.m3/100) + ')' : 'transparent'}">${c.m3 !== null ? c.m3 + '%' : '-'}</td>`;
-    html += '</tr>';
-  });
-  
-  html += '</tbody></table></div>';
-  html += '<p style="font-size:11px;color:var(--muted);margin-top:12px">Les couleurs plus foncées indiquent une meilleure rétention</p>';
-  
-  el.innerHTML = html;
-}
-
-function updateGoalsTracking() {
-  const el = document.getElementById('goalsTracking');
-  if (!el) return;
-  
-  el.innerHTML = state.analytics.goals.map(goal => {
-    const progress = ((goal.current / goal.target) * 100).toFixed(1);
-    const isOnTrack = progress >= 70;
-    const status = progress >= 100 ? 'success' : isOnTrack ? 'warning' : 'danger';
-    const statusText = progress >= 100 ? '✅ Atteint' : isOnTrack ? '🟡 En cours' : '🔴 En retard';
-    
-    return `
-      <div style="padding:20px;margin-bottom:16px;background:var(--bg-secondary);border-radius:12px;border-left:4px solid var(--${status})">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-          <div>
-            <div style="font-size:16px;font-weight:700">${goal.name}</div>
-            <div style="font-size:12px;color:var(--muted)">Objectif: ${goal.target} ${goal.unit}</div>
-          </div>
-          <div style="text-align:right">
-            <div style="font-size:24px;font-weight:800;color:var(--${status})">${progress}%</div>
-            <div style="font-size:11px;color:var(--muted)">${statusText}</div>
-          </div>
-        </div>
-        <div class="progress-bar">
-          <div class="progress-fill" style="width:${Math.min(progress, 100)}%;background:var(--${status})"></div>
-        </div>
-        <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:12px;color:var(--muted)">
-          <span>Actuel: ${goal.current} ${goal.unit}</span>
-          <span>Reste: ${goal.target - goal.current} ${goal.unit}</span>
-        </div>
-      </div>
-    `;
-  }).join('');
-}
-
-function updateActiveAlerts() {
-  const el = document.getElementById('activeAlerts');
-  if (!el) return;
-  
-  const activeAlerts = state.analytics.alerts.filter(a => a.active);
-  
-  if (activeAlerts.length === 0) {
-    el.innerHTML = '<p style="text-align:center;padding:40px;color:var(--muted)">Aucune alerte active 🎉</p>';
-    return;
-  }
-  
-  // Vérifier les alertes
-  const triggeredAlerts = [];
-  
-  activeAlerts.forEach(alert => {
-    if (alert.type === 'stock') {
-      let count = 0;
-      state.data.products.forEach(p => {
-        Object.values(p.variants).forEach(v => {
-          if (v.stock < alert.value) count++;
-        });
-      });
-      if (count > 0) {
-        triggeredAlerts.push({ ...alert, message: `${count} produits sous ${alert.value} unités` });
-      }
-    } else if (alert.type === 'revenue') {
-      const todayRevenue = state.data.orders.reduce((sum, o) => sum + o.total, 0) * 0.2;
-      if (todayRevenue < alert.value) {
-        triggeredAlerts.push({ ...alert, message: `CA du jour: ${fc(todayRevenue)}` });
-      }
-    } else if (alert.type === 'cart') {
-      const avgCart = state.data.orders.length ? state.data.orders.reduce((sum, o) => sum + o.total, 0) / state.data.orders.length : 0;
-      if (avgCart < alert.value) {
-        triggeredAlerts.push({ ...alert, message: `Panier moyen: ${fc(avgCart)}` });
-      }
-    }
-  });
-  
-  if (triggeredAlerts.length === 0) {
-    el.innerHTML = '<p style="text-align:center;padding:40px;color:var(--success)">✅ Toutes les alertes sont au vert !</p>';
-    return;
-  }
-  
-  el.innerHTML = triggeredAlerts.map(alert => `
-    <div style="padding:16px;margin-bottom:12px;background:rgba(239, 68, 68, 0.1);border-radius:12px;border-left:4px solid var(--danger)">
-      <div style="display:flex;justify-content:space-between;align-items:start">
-        <div>
-          <div style="font-size:14px;font-weight:700;color:var(--danger);margin-bottom:4px">
-            ⚠️ ${alert.name}
-          </div>
-          <div style="font-size:12px;color:var(--text-secondary)">
-            ${alert.message}
-          </div>
-        </div>
-        <button class="btn-sm btn-primary" onclick="resolveAlert(${alert.id})">Résoudre</button>
-      </div>
-    </div>
-  `).join('');
-}
-
-function updateFunnelChart() {
-  const ctx = document.getElementById('funnelChart');
-  if (!ctx) return;
-  
-  // Simuler un funnel de conversion
-  const stages = ['Visiteurs', 'Ajout panier', 'Checkout', 'Paiement', 'Confirmé'];
-  const values = [1000, 450, 280, 220, 200];
-  const colors = ['#667eea', '#764ba2', '#10b981', '#f59e0b', '#ef4444'];
-  
-  if (analyticsCharts.funnel) {
-    analyticsCharts.funnel.destroy();
-  }
-  
-  analyticsCharts.funnel = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: stages,
-      datasets: [{
-        label: 'Conversions',
-        data: values,
-        backgroundColor: colors,
-        borderRadius: 8
-      }]
-    },
-    options: {
-      indexAxis: 'y',
-      responsive: true,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: (context) => {
-              const value = context.parsed.x;
-              const percent = ((value / values[0]) * 100).toFixed(1);
-              return `${value} (${percent}%)`;
-            }
-          }
-        }
-      },
-      scales: {
-        x: { beginAtZero: true }
-      }
-    }
-  });
-}
-
-function updateLTVMetrics() {
-  // Calculer LTV moyen
-  const avgOrderValue = state.data.orders.length ? 
-    state.data.orders.reduce((sum, o) => sum + o.total, 0) / state.data.orders.length : 50;
-  const avgPurchaseFrequency = 2.5; // fois par an
-  const avgCustomerLifespan = 3; // ans
-  const ltv = avgOrderValue * avgPurchaseFrequency * avgCustomerLifespan;
-  
-  // Coût d'acquisition client (estimé)
-  const cac = 15;
-  
-  // Ratio LTV/CAC
-  const ratio = (ltv / cac).toFixed(1);
-  
-  // Période de récupération
-  const payback = (cac / (avgOrderValue * avgPurchaseFrequency / 12)).toFixed(1);
-  
-  const ltvEl = document.getElementById('avgLTV');
-  const cacEl = document.getElementById('avgCAC');
-  const ratioEl = document.getElementById('ltvCacRatio');
-  const paybackEl = document.getElementById('paybackPeriod');
-  
-  if (ltvEl) ltvEl.textContent = fc(ltv);
-  if (cacEl) cacEl.textContent = fc(cac);
-  if (ratioEl) ratioEl.textContent = `${ratio}x`;
-  if (paybackEl) paybackEl.textContent = `${payback} mois`;
-}
-
-function openAlertsModal() {
-  showModal('🔔 Gestion des Alertes', `
-    <div style="margin-bottom:20px">
-      <h4 style="margin-bottom:16px">Alertes configurées</h4>
-      <div id="alertsList"></div>
-    </div>
-    <div>
-      <h4 style="margin-bottom:16px">➕ Nouvelle alerte</h4>
-      <div class="form-group">
-        <label>Nom de l'alerte</label>
-        <input type="text" id="newAlertName" placeholder="Ex: Stock très faible">
-      </div>
-      <div class="form-group">
-        <label>Type</label>
-        <select id="newAlertType">
-          <option value="stock">📦 Stock</option>
-          <option value="revenue">💰 Chiffre d'affaires</option>
-          <option value="cart">🛒 Panier moyen</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Condition</label>
-        <select id="newAlertCondition">
-          <option value="below">Inférieur à</option>
-          <option value="above">Supérieur à</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Valeur</label>
-        <input type="number" id="newAlertValue" placeholder="Ex: 5">
-      </div>
-      <button onclick="addAlert()" style="background:var(--success)">💾 Créer l'alerte</button>
-    </div>
-  `);
-  
-  loadAlertsList();
-}
-
-function loadAlertsList() {
-  const list = document.getElementById('alertsList');
-  if (!list) return;
-  
-  list.innerHTML = state.analytics.alerts.map(alert => `
-    <div style="padding:12px;margin-bottom:8px;background:var(--bg-secondary);border-radius:8px;display:flex;justify-content:space-between;align-items:center">
-      <div>
-        <div style="font-weight:600">${alert.name}</div>
-        <div style="font-size:11px;color:var(--muted)">${alert.type} ${alert.condition} ${alert.value}</div>
-      </div>
-      <div style="display:flex;gap:8px">
-        <button class="btn-sm ${alert.active ? 'btn-success' : 'btn-danger'}" onclick="toggleAlert(${alert.id})">
-          ${alert.active ? '✅' : '❌'}
-        </button>
-        <button class="btn-sm btn-danger" onclick="deleteAlert(${alert.id})">🗑️</button>
-      </div>
-    </div>
-  `).join('');
-}
-
-function addAlert() {
-  const name = document.getElementById('newAlertName').value;
-  const type = document.getElementById('newAlertType').value;
-  const condition = document.getElementById('newAlertCondition').value;
-  const value = parseFloat(document.getElementById('newAlertValue').value);
-  
-  if (!name || !value) {
-    showToast('Remplissez tous les champs', 'error');
-    return;
-  }
-  
-  const newAlert = {
-    id: Math.max(...state.analytics.alerts.map(a => a.id), 0) + 1,
-    name,
-    type,
-    condition,
-    value,
-    active: true
-  };
-  
-  state.analytics.alerts.push(newAlert);
-  localStorage.setItem('admin_analytics', JSON.stringify(state.analytics));
-  
-  loadAlertsList();
-  showToast('Alerte créée', 'success');
-  
-  // Reset form
-  document.getElementById('newAlertName').value = '';
-  document.getElementById('newAlertValue').value = '';
-}
-
-function toggleAlert(id) {
-  const alert = state.analytics.alerts.find(a => a.id === id);
-  if (alert) {
-    alert.active = !alert.active;
-    localStorage.setItem('admin_analytics', JSON.stringify(state.analytics));
-    loadAlertsList();
-    showToast(`Alerte ${alert.active ? 'activée' : 'désactivée'}`, 'success');
-  }
-}
-
-function deleteAlert(id) {
-  if (confirm('Supprimer cette alerte ?')) {
-    state.analytics.alerts = state.analytics.alerts.filter(a => a.id !== id);
-    localStorage.setItem('admin_analytics', JSON.stringify(state.analytics));
-    loadAlertsList();
-    showToast('Alerte supprimée', 'success');
-  }
-}
-
-function resolveAlert(id) {
-  showToast('Alerte marquée comme résolue', 'success');
-  updateActiveAlerts();
-}
-
-function openGoalsModal() {
-  showModal('🎯 Gestion des Objectifs', `
-    <div style="margin-bottom:20px">
-      <h4 style="margin-bottom:16px">Objectifs configurés</h4>
-      <div id="goalsList"></div>
-    </div>
-    <div>
-      <h4 style="margin-bottom:16px">➕ Nouvel objectif</h4>
-      <div class="form-group">
-        <label>Nom de l'objectif</label>
-        <input type="text" id="newGoalName" placeholder="Ex: CA Trimestriel">
-      </div>
-      <div class="form-group">
-        <label>Cible</label>
-        <input type="number" id="newGoalTarget" placeholder="Ex: 50000">
-      </div>
-      <div class="form-group">
-        <label>Valeur actuelle</label>
-        <input type="number" id="newGoalCurrent" placeholder="Ex: 35000">
-      </div>
-      <div class="form-group">
-        <label>Unité</label>
-        <input type="text" id="newGoalUnit" placeholder="€, unités, etc.">
-      </div>
-      <button onclick="addGoal()" style="background:var(--success)">💾 Créer l'objectif</button>
-    </div>
-  `);
-  
-  loadGoalsList();
-}
-
-function loadGoalsList() {
-  const list = document.getElementById('goalsList');
-  if (!list) return;
-  
-  list.innerHTML = state.analytics.goals.map(goal => {
-    const progress = ((goal.current / goal.target) * 100).toFixed(1);
-    return `
-      <div style="padding:12px;margin-bottom:8px;background:var(--bg-secondary);border-radius:8px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <div>
-            <div style="font-weight:600">${goal.name}</div>
-            <div style="font-size:11px;color:var(--muted)">${goal.current}/${goal.target} ${goal.unit} (${progress}%)</div>
-          </div>
-          <div style="display:flex;gap:8px">
-            <button class="btn-sm btn-primary" onclick="editGoal(${goal.id})">✏️</button>
-            <button class="btn-sm btn-danger" onclick="deleteGoal(${goal.id})">🗑️</button>
-          </div>
-        </div>
-        <div class="progress-bar">
-          <div class="progress-fill" style="width:${Math.min(progress, 100)}%"></div>
-        </div>
-      </div>
-    `;
-  }).join('');
-}
-
-function addGoal() {
-  const name = document.getElementById('newGoalName').value;
-  const target = parseFloat(document.getElementById('newGoalTarget').value);
-  const current = parseFloat(document.getElementById('newGoalCurrent').value) || 0;
-  const unit = document.getElementById('newGoalUnit').value || '';
-  
-  if (!name || !target) {
-    showToast('Remplissez tous les champs', 'error');
-    return;
-  }
-  
-  const newGoal = {
-    id: Math.max(...state.analytics.goals.map(g => g.id), 0) + 1,
-    name,
-    target,
-    current,
-    unit,
-    active: true
-  };
-  
-  state.analytics.goals.push(newGoal);
-  localStorage.setItem('admin_analytics', JSON.stringify(state.analytics));
-  
-  loadGoalsList();
-  showToast('Objectif créé', 'success');
-  
-  // Reset form
-  document.getElementById('newGoalName').value = '';
-  document.getElementById('newGoalTarget').value = '';
-  document.getElementById('newGoalCurrent').value = '';
-  document.getElementById('newGoalUnit').value = '';
-}
-
-function editGoal(id) {
-  const goal = state.analytics.goals.find(g => g.id === id);
-  if (!goal) return;
-  
-  const newCurrent = prompt(`Nouvelle valeur actuelle pour "${goal.name}" (actuel: ${goal.current} ${goal.unit}):`, goal.current);
-  if (newCurrent === null) return;
-  
-  goal.current = parseFloat(newCurrent) || 0;
-  localStorage.setItem('admin_analytics', JSON.stringify(state.analytics));
-  
-  loadGoalsList();
-  updateGoalsTracking();
-  showToast('Objectif mis à jour', 'success');
-}
-
-function deleteGoal(id) {
-  if (confirm('Supprimer cet objectif ?')) {
-    state.analytics.goals = state.analytics.goals.filter(g => g.id !== id);
-    localStorage.setItem('admin_analytics', JSON.stringify(state.analytics));
-    loadGoalsList();
-    updateGoalsTracking();
-    showToast('Objectif supprimé', 'success');
-  }
-}
-
-// ==================== GESTION AVANCÉE DES PRODUITS ARCHIVÉS ====================
-
-function openArchivedStats() {
-  const archivedProducts = state.data.products.filter(p => p.archived);
-  
-  if (archivedProducts.length === 0) {
-    showToast('Aucun produit archivé', 'warning');
-    return;
-  }
-  
-  // Calculer les stats
-  const totalArchived = archivedProducts.length;
-  const byReason = {};
-  const byCategory = {};
-  let totalValueLost = 0;
-  
-  archivedProducts.forEach(p => {
-    const reason = p.archiveReason || 'other';
-    byReason[reason] = (byReason[reason] || 0) + 1;
-    
-    const category = p.category || 'unknown';
-    byCategory[category] = (byCategory[category] || 0) + 1;
-    
-    if (p.archiveStats) {
-      totalValueLost += (p.archiveStats.totalStock || 0) * (p.archiveStats.avgPrice || 0);
-    }
-  });
-  
-  // Générer le HTML des stats
-  let reasonsHtml = '<div style="display:grid;gap:8px;margin-bottom:20px">';
-  Object.entries(byReason).forEach(([reason, count]) => {
-    const percent = ((count / totalArchived) * 100).toFixed(1);
-    reasonsHtml += `
-      <div style="padding:12px;background:var(--bg-secondary);border-radius:8px;display:flex;justify-content:space-between;align-items:center">
-        <div>
-          <div style="font-size:13px;font-weight:600">${getArchiveReasonLabel(reason)}</div>
-          <div style="font-size:11px;color:var(--muted)">${count} produit${count > 1 ? 's' : ''}</div>
-        </div>
-        <div style="font-size:18px;font-weight:700;color:var(--accent)">${percent}%</div>
-      </div>
-    `;
-  });
-  reasonsHtml += '</div>';
-  
-  // Liste des produits archivés avec détails
-  let productsListHtml = '<div style="max-height:300px;overflow-y:auto">';
-  archivedProducts.forEach(p => {
-    const archivedDate = p.archivedAt ? new Date(p.archivedAt).toLocaleDateString('fr-FR') : 'Date inconnue';
-    const reason = getArchiveReasonLabel(p.archiveReason || 'other');
-    
-    productsListHtml += `
-      <div style="padding:16px;margin-bottom:12px;background:var(--bg-secondary);border-radius:12px;border-left:4px solid var(--warning)">
-        <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px">
-          <div>
-            <div style="font-size:15px;font-weight:700">${p.name}</div>
-            <div style="font-size:11px;color:var(--muted)">Archivé le ${archivedDate}</div>
-          </div>
-          <button class="btn-sm btn-success" onclick="restoreProductFromModal(${p.id})">♻️ Restaurer</button>
-        </div>
-        <div style="font-size:12px;margin-top:8px">
-          <div><strong>Raison:</strong> ${reason}</div>
-          ${p.archiveNote ? `<div style="margin-top:4px;font-style:italic;color:var(--muted)">"${p.archiveNote}"</div>` : ''}
-          ${p.archiveStats ? `
-            <div style="margin-top:8px;padding:8px;background:var(--card);border-radius:6px">
-              <strong>Stats au moment de l'archivage:</strong><br>
-              Stock: ${p.archiveStats.totalStock} unités | Prix moyen: ${fc(p.archiveStats.avgPrice)} | Variants: ${p.archiveStats.variants}
-            </div>
-          ` : ''}
-        </div>
-      </div>
-    `;
-  });
-  productsListHtml += '</div>';
-  
-  showModal('📊 Statistiques Produits Archivés', `
-    <div class="stats" style="margin-bottom:24px">
-      <div class="mini-widget">
-        <div class="mini-widget-header">
-          <span class="mini-widget-title">Total Archivés</span>
-          <span>📦</span>
-        </div>
-        <div class="mini-widget-value" style="color:var(--warning)">${totalArchived}</div>
-      </div>
-      <div class="mini-widget">
-        <div class="mini-widget-header">
-          <span class="mini-widget-title">Valeur Perdue</span>
-          <span>💰</span>
-        </div>
-        <div class="mini-widget-value" style="color:var(--danger)">${fc(totalValueLost)}</div>
-      </div>
-    </div>
-    
-    <h4 style="margin-bottom:12px">📋 Raisons d'archivage</h4>
-    ${reasonsHtml}
-    
-    <h4 style="margin-bottom:12px">📦 Produits archivés</h4>
-    ${productsListHtml}
-    
-    <div style="display:flex;gap:12px;margin-top:20px">
-      <button onclick="exportArchivedProducts()" style="flex:1;background:var(--info)">📥 Exporter</button>
-      <button onclick="bulkRestoreArchived()" style="flex:1;background:var(--success)">♻️ Tout restaurer</button>
-      <button onclick="closeModal()" style="flex:1;background:var(--danger)">✕ Fermer</button>
-    </div>
-  `);
-}
-
-function restoreProductFromModal(id) {
-  restoreProduct(id);
-  closeModal();
-  setTimeout(() => openArchivedStats(), 300);
-}
-
-function bulkRestoreArchived() {
-  const archivedProducts = state.data.products.filter(p => p.archived);
-  
-  if (archivedProducts.length === 0) {
-    showToast('Aucun produit à restaurer', 'warning');
-    return;
-  }
-  
-  if (confirm(`Restaurer les ${archivedProducts.length} produits archivés ?`)) {
-    archivedProducts.forEach(p => {
-      p.archived = false;
-    });
-    
-    saveData();
-    loadProducts();
-    loadStock();
-    updateAllStats();
-    closeModal();
-    showToast(`${archivedProducts.length} produits restaurés !`, 'success');
-  }
-}
-
-function exportArchivedProducts() {
-  const archivedProducts = state.data.products.filter(p => p.archived);
-  
-  if (archivedProducts.length === 0) {
-    showToast('Aucun produit archivé à exporter', 'warning');
-    return;
-  }
-  
-  // Créer un CSV détaillé
-  let csv = 'Nom,Catégorie,Prix Achat (€/g),Date Archivage,Raison,Note,Stock Archivé,Prix Moyen,Nombre Variants\n';
-  
-  archivedProducts.forEach(p => {
-    const archivedDate = p.archivedAt ? new Date(p.archivedAt).toLocaleDateString('fr-FR') : 'N/A';
-    const reason = getArchiveReasonLabel(p.archiveReason || 'other');
-    const note = (p.archiveNote || '').replace(/,/g, ';').replace(/\n/g, ' ');
-    const stock = p.archiveStats?.totalStock || 'N/A';
-    const avgPrice = p.archiveStats?.avgPrice || 'N/A';
-    const variants = p.archiveStats?.variants || Object.keys(p.variants).length;
-    
-    csv += `"${p.name}","${p.category}",${p.buyPrice},"${archivedDate}","${reason}","${note}",${stock},${avgPrice},${variants}\n`;
-  });
-  
-  // Télécharger
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `produits_archives_${Date.now()}.csv`;
-  a.click();
-  
-  showToast(`${archivedProducts.length} produits archivés exportés`, 'success');
-}
-
-function generateArchivedReport() {
-  const archivedProducts = state.data.products.filter(p => p.archived);
-  
-  if (archivedProducts.length === 0) {
-    return 'Aucun produit archivé.';
-  }
-  
-  let report = `\n📦 PRODUITS ARCHIVÉS (${archivedProducts.length})\n`;
-  report += '─'.repeat(40) + '\n\n';
-  
-  archivedProducts.forEach((p, i) => {
-    const date = p.archivedAt ? new Date(p.archivedAt).toLocaleDateString('fr-FR') : 'N/A';
-    const reason = getArchiveReasonLabel(p.archiveReason || 'other');
-    
-    report += `${i + 1}. ${p.name}\n`;
-    report += `   Archivé le: ${date}\n`;
-    report += `   Raison: ${reason}\n`;
-    if (p.archiveNote) {
-      report += `   Note: ${p.archiveNote}\n`;
-    }
-    if (p.archiveStats) {
-      report += `   Stock: ${p.archiveStats.totalStock} unités | Prix moy: ${fc(p.archiveStats.avgPrice)}\n`;
-    }
-    report += '\n';
-  });
-  
-  return report;
 }
 
 window.addEventListener('DOMContentLoaded', init);
