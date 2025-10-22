@@ -1,14 +1,26 @@
 <!doctype html>
 <!--
-  DROGUA CENTER v3.0 - SYNCHRONISATION TOTALE + ANNULATIONS
+  DROGUA CENTER v3.2 - VERSION FINALE AVEC PRODUITS INTÉGRÉS
   
+  ✅ 8 PRODUITS PRÉCHARGÉS :
+     1. AMNESIA (Fleurs)
+     2. DEMBELE (Résines)
+     3. STRAWBERRY 120U (Filtré)
+     4. VVS TANGER FROZEN (Frozen)
+     5. FRESH FROZEN (Frozen)
+     6. CHAMPAGNE (Frozen)
+     7. NEEDLES KETA (Keta)
+     8. EL JEFE (Blanche)
+  
+  ✅ 6 CATÉGORIES COMPLÈTES : Fleurs, Résines, Blanche, Keta, Frozen, Filtré
+  ✅ 40 VARIANTS TOTAUX avec prix et stocks
   ✅ Synchronisation en temps réel avec l'admin
   ✅ Stocks mis à jour automatiquement
-  ✅ Produits et prix synchronisés
   ✅ Commandes transmises instantanément
   ✅ Système d'annulation avec restauration des stocks
   ✅ Mise à jour automatique du chiffre d'affaires
-  ✅ Indicateur de sync stable (ne clignote pas)
+  ✅ Indicateur de sync stable
+  ✅ AUCUNE INSTALLATION REQUISE - Tout fonctionne au premier lancement !
 -->
 <html lang="fr">
 <head>
@@ -1657,8 +1669,9 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
         <button class="category-chip" data-cat="fleurs">🌿 Fleurs</button>
         <button class="category-chip" data-cat="resines">🟫 Résines</button>
         <button class="category-chip" data-cat="blanche">⚪ Blanche</button>
-        <button class="category-chip" data-cat="cali">🌟 Cali</button>
         <button class="category-chip" data-cat="keta">💎 Keta</button>
+        <button class="category-chip" data-cat="frozen">❄️ Frozen</button>
+        <button class="category-chip" data-cat="filtre">🔬 Filtré</button>
       </div>
     </section>
 
@@ -1860,7 +1873,7 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
   </section>
 
   <script>
-console.log('🚀 DROGUA CENTER v3.0 - SYNC STABLE');
+console.log('🚀 DROGUA CENTER v3.1 - VERSION COMPLÈTE');
 
 // Configuration Telegram
 const TELEGRAM_CONFIG = {
@@ -1920,6 +1933,12 @@ const SyncManager = {
         const products = JSON.parse(data);
         console.log('✅ Produits chargés:', products.length);
         return products;
+      } else {
+        // Premier démarrage : charger les produits par défaut
+        console.log('🎯 Premier démarrage - Chargement des produits par défaut...');
+        this.saveProducts(DEFAULT_PRODUCTS);
+        console.log('✅ 8 produits par défaut chargés !');
+        return DEFAULT_PRODUCTS;
       }
     } catch (e) {
       console.error('❌ Erreur chargement produits:', e);
@@ -2412,6 +2431,135 @@ const ReviewsManager = {
 
 let PRODUCTS = [];
 let currentProduct = null;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PRODUITS PAR DÉFAUT - VOS VRAIS PRODUITS
+// ═══════════════════════════════════════════════════════════════════════════
+
+const DEFAULT_PRODUCTS = [
+  // 1. AMNESIA - FLEURS
+  {
+    id: 1,
+    name: 'AMNESIA',
+    category: 'fleurs',
+    video: 'videos/amnesia.mp4',
+    variants: {
+      '3.33G': { price: 20, grams: 3.33, stock: 30 },
+      '5G': { price: 30, grams: 5, stock: 25 },
+      '10G': { price: 60, grams: 10, stock: 20 },
+      '50G': { price: 250, grams: 50, stock: 10 },
+      '100G': { price: 450, grams: 100, stock: 5 }
+    }
+  },
+
+  // 2. DEMBELE - HASH
+  {
+    id: 2,
+    name: 'DEMBELE',
+    category: 'resines',
+    video: 'videos/dembele.mp4',
+    variants: {
+      '3.5G': { price: 20, grams: 3.5, stock: 50 },
+      '5G': { price: 30, grams: 5, stock: 60 },
+      '10G': { price: 50, grams: 10, stock: 70 },
+      '25G': { price: 120, grams: 25, stock: 50 },
+      '50G': { price: 190, grams: 50, stock: 40 },
+      '100G': { price: 370, grams: 100, stock: 40 }
+    }
+  },
+
+  // 3. STRAWBERRY 120U - HASH (FILTRÉ)
+  {
+    id: 3,
+    name: 'STRAWBERRY 120U',
+    category: 'filtre',
+    video: 'videos/strawberry.mp4',
+    variants: {
+      '2G': { price: 20, grams: 2, stock: 60 },
+      '3G': { price: 30, grams: 3, stock: 60 },
+      '5G': { price: 50, grams: 5, stock: 50 },
+      '10G': { price: 80, grams: 10, stock: 50 },
+      '50G': { price: 250, grams: 50, stock: 40 }
+    }
+  },
+
+  // 4. VVS TANGER FROZEN - FROZEN
+  {
+    id: 4,
+    name: 'VVS TANGER FROZEN',
+    category: 'frozen',
+    video: 'videos/vvs-tanger.mp4',
+    variants: {
+      '1.1G': { price: 20, grams: 1.1, stock: 40 },
+      '2.5G': { price: 40, grams: 2.5, stock: 40 },
+      '5G': { price: 70, grams: 5, stock: 30 },
+      '10G': { price: 140, grams: 10, stock: 30 },
+      '25G': { price: 250, grams: 25, stock: 20 }
+    }
+  },
+
+  // 5. FRESH FROZEN - FROZEN
+  {
+    id: 5,
+    name: 'FRESH FROZEN',
+    category: 'frozen',
+    video: 'videos/fresh-frozen.mp4',
+    variants: {
+      '1.1G': { price: 20, grams: 1.1, stock: 40 },
+      '2.5G': { price: 40, grams: 2.5, stock: 40 },
+      '5G': { price: 80, grams: 5, stock: 30 },
+      '10G': { price: 150, grams: 10, stock: 30 },
+      '25G': { price: 250, grams: 25, stock: 20 }
+    }
+  },
+
+  // 6. CHAMPAGNE - FROZEN
+  {
+    id: 6,
+    name: 'CHAMPAGNE',
+    category: 'frozen',
+    video: 'videos/champagne.mp4',
+    variants: {
+      '1G': { price: 30, grams: 1, stock: 50 },
+      '2G': { price: 60, grams: 2, stock: 50 },
+      '3G': { price: 70, grams: 3, stock: 50 },
+      '5G': { price: 100, grams: 5, stock: 45 },
+      '10G': { price: 180, grams: 10, stock: 40 }
+    }
+  },
+
+  // 7. NEEDLES KETA - KETA
+  {
+    id: 7,
+    name: 'NEEDLES KETA',
+    category: 'keta',
+    video: 'videos/needles-keta.mp4',
+    variants: {
+      '1G': { price: 20, grams: 1, stock: 40 },
+      '2G': { price: 40, grams: 2, stock: 40 },
+      '3G': { price: 50, grams: 3, stock: 30 },
+      '5G': { price: 80, grams: 5, stock: 30 },
+      '10G': { price: 150, grams: 10, stock: 30 },
+      '50G': { price: 450, grams: 50, stock: 20 },
+      '100G': { price: 870, grams: 100, stock: 20 }
+    }
+  },
+
+  // 8. EL JEFE - BLANCHE
+  {
+    id: 8,
+    name: 'EL JEFE',
+    category: 'blanche',
+    video: 'videos/el-jefe.mp4',
+    variants: {
+      '0.5G': { price: 30, grams: 0.5, stock: 20 },
+      '1G': { price: 50, grams: 1, stock: 20 },
+      '2G': { price: 100, grams: 2, stock: 15 },
+      '5G': { price: 250, grams: 5, stock: 15 },
+      '10G': { price: 450, grams: 10, stock: 10 }
+    }
+  }
+];
 let selectedVariant = null;
 let quantity = 1;
 let selectedDelivery = 'millau';
@@ -3666,9 +3814,8 @@ function loadProducts() {
     document.getElementById('productGrid').innerHTML = `
       <div style="grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--text-muted)">
         <div style="font-size:48px;margin-bottom:16px;opacity:0.3">📦</div>
-        <p style="font-size:18px;font-weight:600;margin-bottom:8px">Catalogue en préparation</p>
-        <p style="font-size:14px">Les produits seront bientôt disponibles</p>
-        <p style="font-size:12px;margin-top:16px;color:var(--accent)">Synchronisation avec l'admin en cours...</p>
+        <p style="font-size:18px;font-weight:600;margin-bottom:8px">Chargement des produits...</p>
+        <p style="font-size:14px">Actualisez la page (F5) si les produits n'apparaissent pas</p>
       </div>
     `;
   } else if (productsChanged) {
@@ -3852,11 +3999,11 @@ function init() {
     // Démarrer la synchronisation automatique
     startAutoSync();
     
-    console.log('✅ DROGUA CENTER v3.0 chargé');
+    console.log('✅ DROGUA CENTER v3.1 chargé - VERSION COMPLÈTE');
     console.log('🔄 Synchronisation automatique active (toutes les 5s)');
-    console.log('🚫 Système d\'annulation avec restauration des stocks actif');
-    console.log('🎯 Indicateur de sync stable (ne clignote plus)');
-    console.log('⚡ Optimisation: Re-render uniquement si changements détectés');
+    console.log('📦 8 produits préchargés : AMNESIA, DEMBELE, STRAWBERRY 120U, VVS TANGER, FRESH FROZEN, CHAMPAGNE, NEEDLES KETA, EL JEFE');
+    console.log('🏷️ Catégories : Fleurs, Résines, Blanche, Keta, Frozen, Filtré');
+    console.log('💾 Toutes les données sont sauvegardées localement');
   } catch (error) {
     console.error('❌ Erreur initialisation:', error);
     showToast('⚠️ Erreur de chargement. Actualisez la page (F5)');
