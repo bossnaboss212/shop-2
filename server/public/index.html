@@ -3,16 +3,16 @@
   DROGUA CENTER v3.2 - VERSION FINALE AVEC PRODUITS INTÉGRÉS
   
   ✅ 8 PRODUITS PRÉCHARGÉS :
-     1. AMNESIA (Fleurs)
+     1. AMNESIA (Weed)
      2. DEMBELE (Résines)
      3. STRAWBERRY 120U (Filtré)
      4. VVS TANGER FROZEN (Frozen)
      5. FRESH FROZEN (Frozen)
-     6. CHAMPAGNE (Frozen)
+     6. CHAMPAGNE (Mdmda & Exta)
      7. NEEDLES KETA (Keta)
      8. EL JEFE (Blanche)
   
-  ✅ 6 CATÉGORIES COMPLÈTES : Fleurs, Résines, Blanche, Keta, Frozen, Filtré
+  ✅ 6 CATÉGORIES COMPLÈTES : Weed, Résines, Blanche, Keta, Frozen, Filtré, Mdma & Exta
   ✅ 40 VARIANTS TOTAUX avec prix et stocks
   ✅ Synchronisation en temps réel avec l'admin
   ✅ Stocks mis à jour automatiquement
@@ -1666,10 +1666,10 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
     <section class="categories">
       <div class="categories-scroll" id="categoriesScroll">
         <button class="category-chip active" data-cat="all">Tout</button>
-        <button class="category-chip" data-cat="fleurs">🌿 Fleurs</button>
-        <button class="category-chip" data-cat="resines">🟫 Résines</button>
+        <button class="category-chip" data-cat="Weed">🌿 Weed</button>
+        <button class="category-chip" data-cat="Mousseux">🧽 Mousseux</button>
         <button class="category-chip" data-cat="blanche">⚪ Blanche</button>
-        <button class="category-chip" data-cat="keta">💎 Keta</button>
+        <button class="category-chip" data-cat="keta">☁️ Keta</button>
         <button class="category-chip" data-cat="frozen">❄️ Frozen</button>
         <button class="category-chip" data-cat="filtre">🔬 Filtré</button>
       </div>
@@ -2437,11 +2437,11 @@ let currentProduct = null;
 // ═══════════════════════════════════════════════════════════════════════════
 
 const DEFAULT_PRODUCTS = [
-  // 1. AMNESIA - FLEURS
+  // 1. AMNESIA - WEED
   {
     id: 1,
     name: 'AMNESIA',
-    category: 'fleurs',
+    category: 'Weed',
     video: 'videos/amnesia.mp4',
     variants: {
       '3.33G': { price: 20, grams: 3.33, stock: 30 },
@@ -2452,11 +2452,11 @@ const DEFAULT_PRODUCTS = [
     }
   },
 
-  // 2. DEMBELE - HASH
+  // 2. DEMBELE - MOUSSEUX
   {
     id: 2,
     name: 'DEMBELE',
-    category: 'resines',
+    category: 'Mousseux',
     video: 'videos/dembele.mp4',
     variants: {
       '3.5G': { price: 20, grams: 3.5, stock: 50 },
@@ -2472,7 +2472,7 @@ const DEFAULT_PRODUCTS = [
   {
     id: 3,
     name: 'STRAWBERRY 120U',
-    category: 'filtre',
+    category: 'Filtre',
     video: 'videos/strawberry.mp4',
     variants: {
       '2G': { price: 20, grams: 2, stock: 60 },
@@ -2487,7 +2487,7 @@ const DEFAULT_PRODUCTS = [
   {
     id: 4,
     name: 'VVS TANGER FROZEN',
-    category: 'frozen',
+    category: 'Frozen',
     video: 'videos/vvs-tanger.mp4',
     variants: {
       '1.1G': { price: 20, grams: 1.1, stock: 40 },
@@ -2502,7 +2502,7 @@ const DEFAULT_PRODUCTS = [
   {
     id: 5,
     name: 'FRESH FROZEN',
-    category: 'frozen',
+    category: 'Frozen',
     video: 'videos/fresh-frozen.mp4',
     variants: {
       '1.1G': { price: 20, grams: 1.1, stock: 40 },
@@ -2517,7 +2517,7 @@ const DEFAULT_PRODUCTS = [
   {
     id: 6,
     name: 'CHAMPAGNE',
-    category: 'frozen',
+    category: 'Mdma & Exta',
     video: 'videos/champagne.mp4',
     variants: {
       '1G': { price: 30, grams: 1, stock: 50 },
@@ -2532,7 +2532,7 @@ const DEFAULT_PRODUCTS = [
   {
     id: 7,
     name: 'NEEDLES KETA',
-    category: 'keta',
+    category: 'Keta',
     video: 'videos/needles-keta.mp4',
     variants: {
       '1G': { price: 20, grams: 1, stock: 40 },
@@ -4002,7 +4002,7 @@ function init() {
     console.log('✅ DROGUA CENTER v3.1 chargé - VERSION COMPLÈTE');
     console.log('🔄 Synchronisation automatique active (toutes les 5s)');
     console.log('📦 8 produits préchargés : AMNESIA, DEMBELE, STRAWBERRY 120U, VVS TANGER, FRESH FROZEN, CHAMPAGNE, NEEDLES KETA, EL JEFE');
-    console.log('🏷️ Catégories : Fleurs, Résines, Blanche, Keta, Frozen, Filtré');
+    console.log('🏷️ Catégories : Weed, Mousseux, Blanche, Keta, Frozen, Filtré');
     console.log('💾 Toutes les données sont sauvegardées localement');
   } catch (error) {
     console.error('❌ Erreur initialisation:', error);
