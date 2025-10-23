@@ -4355,6 +4355,24 @@ if (document.readyState === 'loading') {
 } else {
   init();
 }
+
+// Gestion du hash pour navigation directe (ex: #orders depuis Telegram)
+window.addEventListener('load', () => {
+  const hash = window.location.hash.substring(1); // Retire le #
+  if (hash && ['orders', 'favorites', 'loyalty', 'reviews', 'support'].includes(hash)) {
+    // Activer la bonne page
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    const targetPage = document.getElementById(`page-${hash}`);
+    if (targetPage) {
+      targetPage.classList.add('active');
+
+      // Mettre à jour le bottom nav
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      const navItem = document.querySelector(`.nav-item[data-tab="${hash}"]`);
+      if (navItem) navItem.classList.add('active');
+    }
+  }
+});
   </script>
 </body>
 </html>

@@ -178,6 +178,7 @@ class TelegramAPI {
     const commands = [
       { command: 'start', description: '🏠 Menu principal' },
       { command: 'shop', description: '🛒 Ouvrir la boutique' },
+      { command: 'orders', description: '📦 Mes commandes' },
       { command: 'admin', description: '🔐 Panneau admin' },
       { command: 'help', description: '❓ Aide et support' },
       { command: 'keyboard', description: '⌨️ Afficher/Masquer le clavier' }
@@ -227,10 +228,11 @@ const Keyboards = {
         { text: '🛍️ Boutique' }
       ],
       [
-        { text: '🔐 Admin' },
-        { text: '❓ Aide' }
+        { text: '📦 Mes Commandes' },
+        { text: '🔐 Admin' }
       ],
       [
+        { text: '❓ Aide' },
         { text: '💬 Support' }
       ]
     ],
@@ -394,6 +396,33 @@ const Keyboards = {
         }
       ]
     ]
+  },
+
+  orders: {
+    inline_keyboard: [
+      [
+        {
+          text: '📱 Voir Mes Commandes',
+          web_app: { url: `${CONFIG.WEBAPP_URL}#orders` }
+        }
+      ],
+      [
+        {
+          text: '🛒 Nouvelle Commande',
+          web_app: { url: CONFIG.WEBAPP_URL }
+        }
+      ],
+      [
+        {
+          text: '💬 Support',
+          callback_data: 'contact_support'
+        },
+        {
+          text: '🏠 Menu',
+          callback_data: 'start'
+        }
+      ]
+    ]
   }
 };
 
@@ -460,6 +489,7 @@ Livraison rapide pendant les heures d'ouverture
 <b>📱 Commandes disponibles :</b>
 /start - Menu principal
 /shop - Ouvrir la boutique
+/orders - Mes commandes
 /admin - Panneau admin
 /help - Cette aide`,
 
@@ -496,7 +526,23 @@ Millau et alentours
 <b>⏰ Horaires :</b>
 ${CONFIG.BUSINESS_HOURS}
 
-Merci de votre confiance ! 💚`
+Merci de votre confiance ! 💚`,
+
+  orders: `📦 <b>MES COMMANDES</b>
+
+Consultez l'historique de vos commandes et suivez leur statut en temps réel.
+
+<b>🔍 Vous pourrez voir :</b>
+• Toutes vos commandes passées
+• Le statut de chaque commande
+• Les détails et montants
+• Possibilité d'annulation (sous 30 min)
+
+<b>📱 Programme de fidélité :</b>
+Suivez votre progression vers votre prochaine remise !
+🎁 Une remise tous les 10 achats
+
+Cliquez sur le bouton ci-dessous pour accéder à vos commandes.`
 };
 
 // ============================================================
@@ -594,6 +640,19 @@ const MessageHandlers = {
     }
   },
 
+  '/orders': async (chatId) => {
+    try {
+      await TelegramAPI.sendMessage(chatId, Messages.orders, Keyboards.orders);
+      console.log(`✅ Orders message sent to ${chatId}`);
+    } catch (error) {
+      console.error(`❌ Error in /orders handler:`, error);
+    }
+  },
+
+  '📦 Mes Commandes': async (chatId) => {
+    await MessageHandlers['/orders'](chatId);
+  },
+
   '/keyboard': async (chatId) => {
     try {
       // Toggle du clavier
@@ -616,12 +675,13 @@ Pour le réactiver, utilisez la commande /keyboard`;
         // Activer le clavier
         const keyboardText = `⌨️ <b>CLAVIER ACTIVÉ</b>
 
-Votre clavier personnalisé est maintenant activé ! 
+Votre clavier personnalisé est maintenant activé !
 
 Utilisez les boutons ci-dessous pour naviguer rapidement :
 
 🏠 <b>Menu Principal</b> - Retour à l'accueil
 🛍️ <b>Boutique</b> - Accéder au catalogue
+📦 <b>Mes Commandes</b> - Historique et suivi
 🔐 <b>Admin</b> - Panneau administrateur
 ❓ <b>Aide</b> - Support et informations
 💬 <b>Support</b> - Contacter l'équipe
@@ -702,6 +762,19 @@ const CallbackHandlers = {
       );
     } catch (error) {
       await MessageHandlers['/help'](chatId);
+    }
+  },
+
+  'show_orders': async (chatId, messageId) => {
+    try {
+      await TelegramAPI.editMessageText(
+        chatId,
+        messageId,
+        Messages.orders,
+        Keyboards.orders
+      );
+    } catch (error) {
+      await MessageHandlers['/orders'](chatId);
     }
   },
 
