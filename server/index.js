@@ -2009,6 +2009,63 @@ app.get('/api/referral-stats', apiLimiter, async (req, res) => {
   }
 });
 
+app.get('/api/referral-leaderboard', apiLimiter, async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 10;
+
+    const leaderboard = await db.all(`
+      SELECT
+        customer_contact,
+        referral_code,
+        total_referrals,
+        total_earned,
+        credit_balance
+      FROM referrals
+      WHERE total_referrals > 0
+      ORDER BY total_referrals DESC, total_earned DESC
+      LIMIT ?
+    `, [limit]);
+
+    // Calculer les paliers VIP
+    const leaderboardWithTiers = leaderboard.map((user, index) => {
+      const totalReferrals = user.total_referrals || 0;
+      let vipTier = 'Bronze 🥉';
+      let vipBonus = 0;
+
+      if (totalReferrals >= 10) {
+        vipTier = 'Diamant 💎';
+        vipBonus = 50;
+      } else if (totalReferrals >= 6) {
+        vipTier = 'Or 🥇';
+        vipBonus = 20;
+      } else if (totalReferrals >= 3) {
+        vipTier = 'Argent 🥈';
+        vipBonus = 10;
+      }
+
+      // Masquer une partie du numéro de téléphone
+      const maskedContact = user.customer_contact.replace(/(\d{2})\d+(\d{4})/, '$1****$2');
+
+      return {
+        rank: index + 1,
+        contact: maskedContact,
+        totalReferrals,
+        totalEarned: user.total_earned,
+        vipTier,
+        vipBonus
+      };
+    });
+
+    res.json({
+      ok: true,
+      leaderboard: leaderboardWithTiers
+    });
+  } catch (error) {
+    console.error('Leaderboard error:', error);
+    res.status(500).json({ ok: false, error: 'Erreur serveur' });
+  }
+});
+
 app.get('/api/credit-balance', apiLimiter, async (req, res) => {
   try {
     const { customer } = req.query;

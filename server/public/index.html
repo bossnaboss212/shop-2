@@ -1963,8 +1963,17 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
     <div class="sheet-card">
       <div class="sheet-handle"></div>
       <div class="sheet-header">
-        <h2 class="sheet-title">🎁 Mon Parrainage</h2>
+        <h2 class="sheet-title">🎁 Parrainage</h2>
         <button class="sheet-close" id="closeReferralSheet">✕</button>
+      </div>
+      <!-- Onglets -->
+      <div style="display:flex;gap:8px;padding:0 20px 16px;border-bottom:2px solid var(--border)">
+        <button id="tabMyStats" class="referral-tab active" style="flex:1;padding:12px;background:var(--accent);color:var(--bg-primary);border:none;border-radius:8px;font-weight:700;cursor:pointer;transition:all 0.2s">
+          📊 Mes Stats
+        </button>
+        <button id="tabLeaderboard" class="referral-tab" style="flex:1;padding:12px;background:var(--bg-tertiary);color:var(--text-secondary);border:none;border-radius:8px;font-weight:700;cursor:pointer;transition:all 0.2s">
+          🏆 Classement
+        </button>
       </div>
       <div class="sheet-content" id="referralContent">
         <div style="text-align:center;padding:40px 20px;color:var(--text-muted)">
