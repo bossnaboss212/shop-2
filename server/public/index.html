@@ -1462,9 +1462,9 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
 
 .delivery-price{color:var(--text-muted);font-size:13px}
 
-.address-section{margin-top:20px}
+.address-section{margin-top:20px;padding-bottom:220px}
 
-.input-wrapper{position:relative;margin-bottom:16px}
+.input-wrapper{position:relative;margin-bottom:16px;min-height:56px}
 
 .input-field{
   width:100%;
@@ -1473,8 +1473,9 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
   border:2px solid var(--border);
   border-radius:12px;
   color:var(--text-primary);
-  font-size:15px;
+  font-size:16px;
   transition:all 0.2s;
+  touch-action:manipulation;
 }
 
 .input-field:focus{
@@ -1494,8 +1495,10 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
   margin-top:8px;
   max-height:200px;
   overflow-y:auto;
-  z-index:100;
+  z-index:1001;
   box-shadow:var(--shadow-lg);
+  overflow-anchor:none;
+  -webkit-overflow-scrolling:touch;
 }
 
 .suggestion-item{
@@ -3191,7 +3194,7 @@ function renderCart() {
                 const city = addr.replace('Adresse à ', '');
                 addressInput.value = '';
                 addressInput.placeholder = `Tapez votre adresse à ${city}...`;
-                addressInput.focus();
+                addressInput.focus({ preventScroll: true });
               } else {
                 addressInput.value = addr;
               }
@@ -3230,7 +3233,7 @@ async function validateOrder() {
   
   if (!address || address.length < 5) {
     showToast('⚠️ Entrez une adresse de livraison');
-    addressInput?.focus();
+    addressInput?.focus({ preventScroll: true });
     return;
   }
   
