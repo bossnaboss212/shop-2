@@ -3397,10 +3397,10 @@ function showOrderSummary(orderData, orderId, discount = 0, notificationSent = f
 
         <div style="text-align:center;position:relative;z-index:1">
           <h3 style="font-size:26px;font-weight:800;color:#fff;margin-bottom:8px;text-shadow:2px 2px 4px rgba(0,0,0,0.2)">
-            🎊 FÉLICITATIONS ! 🎊
+            🎰 TENTEZ VOTRE CHANCE ! 🎰
           </h3>
           <p style="color:rgba(255,255,255,0.9);font-size:16px;margin-bottom:20px">
-            Vous avez gagné <strong>1 TOUR GRATUIT</strong> à la roue de la fortune !
+            Tournez la roue et <strong>PEUT-ÊTRE</strong> gagnez des réductions ! 🍀
           </p>
 
           <div id="wheelContainer" style="margin:20px auto;position:relative;width:280px;height:280px">
@@ -4004,14 +4004,16 @@ function initializeWheel() {
   const radius = 130;
 
   const prizes = [
-    { text: '50% DE RÉDUCTION', color: '#FF6B6B', emoji: '🎁' },
-    { text: '300 DA OFFERTS', color: '#4ECDC4', emoji: '💰' },
-    { text: 'LIVRAISON GRATUITE', color: '#45B7D1', emoji: '🚚' },
-    { text: '1000 DA CRÉDIT', color: '#FFA07A', emoji: '💎' },
-    { text: 'PRODUIT GRATUIT', color: '#98D8C8', emoji: '🎉' },
-    { text: 'STATUT VIP', color: '#F7DC6F', emoji: '👑' },
-    { text: '20% RÉDUCTION', color: '#BB8FCE', emoji: '🎊' },
-    { text: 'SURPRISE !', color: '#85C1E2', emoji: '✨' }
+    { text: 'PERDU !', color: '#95a5a6', emoji: '❌', isLoss: true },
+    { text: 'RÉESSAYEZ !', color: '#7f8c8d', emoji: '😢', isLoss: true },
+    { text: 'PAS CETTE FOIS', color: '#95a5a6', emoji: '🔄', isLoss: true },
+    { text: 'DOMMAGE...', color: '#7f8c8d', emoji: '💔', isLoss: true },
+    { text: 'RATÉ !', color: '#95a5a6', emoji: '🎯', isLoss: true },
+    { text: 'PRESQUE !', color: '#7f8c8d', emoji: '😔', isLoss: true },
+    { text: 'OUI PRESQUE !', color: '#95a5a6', emoji: '🤷', isLoss: true },
+    { text: 'MALCHANCE...', color: '#7f8c8d', emoji: '😕', isLoss: true },
+    { text: 'OUPS RATÉ', color: '#95a5a6', emoji: '💨', isLoss: true },
+    { text: '5% RÉDUCTION', color: '#27ae60', emoji: '🎉', isLoss: false }
   ];
 
   function drawWheel(rotation = 0) {
@@ -4093,13 +4095,28 @@ function initializeWheel() {
         // Afficher le prix
         setTimeout(() => {
           document.getElementById('prizeText').textContent = prize.text;
-          document.getElementById('prizeDisplay').style.display = 'block';
-          launchConfetti();
+          const prizeDisplay = document.getElementById('prizeDisplay');
+          prizeDisplay.style.display = 'block';
 
           // Masquer le bouton spin
           spinButton.style.display = 'none';
 
-          showToast('🎉 Félicitations ! Vous avez gagné : ' + prize.text);
+          if (prize.isLoss) {
+            // Perdu - pas de confettis, message triste
+            prizeDisplay.querySelector('div:first-child').textContent = '😔';
+            prizeDisplay.querySelector('div:nth-child(2)').textContent = 'PAS CETTE FOIS...';
+            prizeDisplay.querySelector('div:nth-child(2)').style.color = '#95a5a6';
+            prizeDisplay.querySelector('div:nth-child(3)').style.color = '#7f8c8d';
+            showToast('😢 ' + prize.text + ' - Tentez votre chance la prochaine fois !');
+          } else {
+            // Gagné - confettis et message de victoire
+            prizeDisplay.querySelector('div:first-child').textContent = '🎉';
+            prizeDisplay.querySelector('div:nth-child(2)').textContent = 'VOUS AVEZ GAGNÉ !';
+            prizeDisplay.querySelector('div:nth-child(2)').style.color = '#ffd700';
+            prizeDisplay.querySelector('div:nth-child(3)').style.color = '#fff';
+            launchConfetti();
+            showToast('🎉 Félicitations ! Vous avez gagné : ' + prize.text);
+          }
         }, 500);
       }
     }
