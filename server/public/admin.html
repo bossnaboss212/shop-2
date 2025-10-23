@@ -1627,69 +1627,144 @@ const state = {
       { id: 3, name: 'Nouveaux Clients', target: 50, current: 38, unit: '', active: true }
     ]
   },
+  
   data: {
     orders: [],
     products: [
-      { id: 1, name: 'AMNESIA', category: 'weed', buyPrice: 2.8, video: '', archived: false, variants: {
-        '3.33G': { price: 20, stock: 50, grams: 3.33 }, 
-        '5G': { price: 30, stock: 45, grams: 5 }, 
-        '10G': { price: 60, stock: 30, grams: 10 },
-        '50G': { price: 250, stock: 5, grams: 50 },
-        '100G': { price: 450, stock: 5, grams: 100 }
-      }},
-      { id: 2, name: 'EL JEFE', category: 'blanche', buyPrice: 17.5, video: '', archived: false, variants: {
-        '0.5G': { price: 30, stock: 20, grams: 0.5 }, 
-        '1G': { price: 50, stock: 15, grams: 1 },
-        '2G': { price: 100, stock: 15, grams: 2 },
-        '5G': { price: 250, stock: 15, grams: 5 },
-        '10G': { price: 450, stock: 15, grams: 10 }
-      }},
-      { id: 3, name: 'DEMBELE', category: 'hash', buyPrice: 2.7, video: '', archived: false, variants: {
-        '3.5G': { price: 20, stock: 60, grams: 3.5 }, 
-        '5G': { price: 30, stock: 50, grams: 5 },
-        '10G': { price: 50, stock: 50, grams: 10 },
-        '25G': { price: 120, stock: 50, grams: 25 },
-        '50G': { price: 190, stock: 50, grams: 50 },
-        '100G': { price: 370, stock: 50, grams: 100 }
-      }},
-      { id: 4, name: 'STRAWBERRY 120U', category: 'filtré', buyPrice: 2.75, video: '', archived: false, variants: {
-        '2G': { price: 20, stock: 55, grams: 2 },
-        '3G': { price: 30, stock: 55, grams: 3 },
-        '5G': { price: 50, stock: 45, grams: 5 },
-        '10G': { price: 80, stock: 30, grams: 10 },
-        '50G': { price: 250, stock: 55, grams: 50 }
-      }},
-      { id: 5, name: 'NEEDLES KETA', category: 'keta', buyPrice: 3.9, video: '', archived: false, variants: {
-        '1G': { price: 20, stock: 30, grams: 1 },
-        '2G': { price: 40, stock: 30, grams: 2 },
-        '3G': { price: 50, stock: 30, grams: 3 },
-        '5G': { price: 80, stock: 30, grams: 5 },
-        '10G': { price: 150, stock: 30, grams: 10 },
-        '50G': { price: 450, stock: 30, grams: 50 },
-        '100G': { price: 870, stock: 30, grams: 100 }
-      }},
-      { id: 6, name: 'VVS TANGER FROZEN', category: 'frozen', buyPrice: 4.8, video: '', archived: false, variants: {
-        '1.1G': { price: 20, stock: 40, grams: 1.1 },
-        '2.5G': { price: 40, stock: 35, grams: 2.5 },
-        '5G': { price: 70, stock: 25, grams: 5 },
-        '10G': { price: 140, stock: 30, grams: 10 },
-        '25G': { price: 250, stock: 30, grams: 25 }
-      }},
-      { id: 7, name: 'FRESH FROZEN', category: 'frozen', buyPrice: 7.0, video: '', archived: false, variants: {
-        '1.1G': { price: 20, stock: 40, grams: 1.1 },
-        '2.5G': { price: 40, stock: 35, grams: 2.5 },
-        '5G': { price: 80, stock: 25, grams: 5 },
-        '10G': { price: 150, stock: 30, grams: 10 },
-        '25G': { price: 250, stock: 30, grams: 25 }
-      }},
-      { id: 8, name: 'CHAMPAGNE', category: 'mdma', buyPrice: 3.0, video: '', archived: false, variants: {
-        '1G': { price: 30, stock: 40, grams: 1 },
-        '2G': { price: 60, stock: 55, grams: 2 },
-        '3G': { price: 70, stock: 55, grams: 3 },
-        '5G': { price: 100, stock: 30, grams: 5 },
-        '10G': { price: 180, stock: 55, grams: 10 }
-      }}
+      { 
+        id: 1, 
+        name: 'AMNESIA', 
+        category: 'weed', 
+        buyPrice: 2.8, 
+        video: '/video/amnesia.MP4',          // 👈 MODIFIER CE NOM SI NÉCESSAIRE
+        videoType: 'video/mp4',               // 👈 Format : video/mp4, video/webm, etc.
+        archived: false, 
+        variants: {
+          '3.33G': { price: 20, stock: 50, grams: 3.33 }, 
+          '5G': { price: 30, stock: 45, grams: 5 }, 
+          '10G': { price: 60, stock: 30, grams: 10 },
+          '50G': { price: 250, stock: 5, grams: 50 },
+          '100G': { price: 450, stock: 5, grams: 100 }
+        }
+      },
+      { 
+        id: 2, 
+        name: 'EL JEFE', 
+        category: 'blanche', 
+        buyPrice: 17.5, 
+        video: '/video/eljefe.MP4',           // 👈 MODIFIER CE NOM SI NÉCESSAIRE
+        videoType: 'video/mp4', 
+        archived: false, 
+        variants: {
+          '0.5G': { price: 30, stock: 20, grams: 0.5 }, 
+          '1G': { price: 50, stock: 15, grams: 1 },
+          '2G': { price: 100, stock: 15, grams: 2 },
+          '5G': { price: 250, stock: 15, grams: 5 },
+          '10G': { price: 450, stock: 15, grams: 10 }
+        }
+      },
+      { 
+        id: 3, 
+        name: 'DEMBELE', 
+        category: 'hash', 
+        buyPrice: 2.7, 
+        video: '/video/dembele.MP4',          // 👈 MODIFIER CE NOM SI NÉCESSAIRE
+        videoType: 'video/mp4', 
+        archived: false, 
+        variants: {
+          '3.5G': { price: 20, stock: 60, grams: 3.5 }, 
+          '5G': { price: 30, stock: 50, grams: 5 },
+          '10G': { price: 50, stock: 50, grams: 10 },
+          '25G': { price: 120, stock: 50, grams: 25 },
+          '50G': { price: 190, stock: 50, grams: 50 },
+          '100G': { price: 370, stock: 50, grams: 100 }
+        }
+      },
+      { 
+        id: 4, 
+        name: 'STRAWBERRY 120U', 
+        category: 'filtré', 
+        buyPrice: 2.75, 
+        video: '/video/strawberry.MP4',       // 👈 MODIFIER CE NOM SI NÉCESSAIRE
+        videoType: 'video/mp4', 
+        archived: false, 
+        variants: {
+          '2G': { price: 20, stock: 55, grams: 2 },
+          '3G': { price: 30, stock: 55, grams: 3 },
+          '5G': { price: 50, stock: 45, grams: 5 },
+          '10G': { price: 80, stock: 30, grams: 10 },
+          '50G': { price: 250, stock: 55, grams: 50 }
+        }
+      },
+      { 
+        id: 5, 
+        name: 'NEEDLES KETA', 
+        category: 'keta', 
+        buyPrice: 3.9, 
+        video: '/video/keta.MP4',             // 👈 MODIFIER CE NOM SI NÉCESSAIRE
+        videoType: 'video/mp4', 
+        archived: false, 
+        variants: {
+          '1G': { price: 20, stock: 30, grams: 1 },
+          '2G': { price: 40, stock: 30, grams: 2 },
+          '3G': { price: 50, stock: 30, grams: 3 },
+          '5G': { price: 80, stock: 30, grams: 5 },
+          '10G': { price: 150, stock: 30, grams: 10 },
+          '50G': { price: 450, stock: 30, grams: 50 },
+          '100G': { price: 870, stock: 30, grams: 100 }
+        }
+      },
+      { 
+        id: 6, 
+        name: 'VVS TANGER FROZEN', 
+        category: 'frozen', 
+        buyPrice: 4.8, 
+        video: '/video/vvs_tanger.MP4',       // 👈 MODIFIER CE NOM SI NÉCESSAIRE
+        videoType: 'video/mp4', 
+        archived: false, 
+        variants: {
+          '1.1G': { price: 20, stock: 40, grams: 1.1 },
+          '2.5G': { price: 40, stock: 35, grams: 2.5 },
+          '5G': { price: 70, stock: 25, grams: 5 },
+          '10G': { price: 140, stock: 30, grams: 10 },
+          '25G': { price: 250, stock: 30, grams: 25 }
+        }
+      },
+      { 
+        id: 7, 
+        name: 'FRESH FROZEN', 
+        category: 'frozen', 
+        buyPrice: 7.0, 
+        video: '/video/fresh_frozen.MP4',     // 👈 MODIFIER CE NOM SI NÉCESSAIRE
+        videoType: 'video/mp4', 
+        archived: false, 
+        variants: {
+          '1.1G': { price: 20, stock: 40, grams: 1.1 },
+          '2.5G': { price: 40, stock: 35, grams: 2.5 },
+          '5G': { price: 80, stock: 25, grams: 5 },
+          '10G': { price: 150, stock: 30, grams: 10 },
+          '25G': { price: 250, stock: 30, grams: 25 }
+        }
+      },
+      { 
+        id: 8, 
+        name: 'CHAMPAGNE', 
+        category: 'mdma', 
+        buyPrice: 3.0, 
+        video: '/video/champagne.MP4',        // 👈 MODIFIER CE NOM SI NÉCESSAIRE
+        videoType: 'video/mp4', 
+        archived: false, 
+        variants: {
+          '1G': { price: 30, stock: 40, grams: 1 },
+          '2G': { price: 60, stock: 55, grams: 2 },
+          '3G': { price: 70, stock: 55, grams: 3 },
+          '5G': { price: 100, stock: 30, grams: 5 },
+          '10G': { price: 180, stock: 55, grams: 10 }
+        }
+      }
     ],
+    customers: []
+  }
     customers: []
   }
 };
