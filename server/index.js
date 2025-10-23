@@ -3076,6 +3076,10 @@ async function sendOrderCustomerDetails(chatId, orderId) {
 }
 
 app.get('*', (req, res) => {
+  // Headers pour empêcher le cache (important pour Telegram WebApp)
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 

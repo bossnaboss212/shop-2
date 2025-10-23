@@ -1928,7 +1928,21 @@ const SyncManager = {
   // Charger les produits depuis l'admin
   loadProducts() {
     try {
+      // Version des données pour forcer le refresh (changer ce numéro pour forcer un reload)
+      const DATA_VERSION = 3; // Incrémenté pour forcer le rechargement avec vidéos compressées
+      const savedVersion = parseInt(localStorage.getItem('data_version') || '0');
+
       const data = localStorage.getItem('shop_products');
+
+      // Si la version a changé, on force le rechargement des produits par défaut
+      if (savedVersion < DATA_VERSION) {
+        console.log('🔄 Nouvelle version détectée, rechargement des produits...');
+        localStorage.setItem('data_version', DATA_VERSION.toString());
+        this.saveProducts(DEFAULT_PRODUCTS);
+        console.log('✅ Produits mis à jour vers version', DATA_VERSION);
+        return DEFAULT_PRODUCTS;
+      }
+
       if (data) {
         const products = JSON.parse(data);
         console.log('✅ Produits chargés:', products.length);
@@ -1936,6 +1950,7 @@ const SyncManager = {
       } else {
         // Premier démarrage : charger les produits par défaut
         console.log('🎯 Premier démarrage - Chargement des produits par défaut...');
+        localStorage.setItem('data_version', DATA_VERSION.toString());
         this.saveProducts(DEFAULT_PRODUCTS);
         console.log('✅ 8 produits par défaut chargés !');
         return DEFAULT_PRODUCTS;
