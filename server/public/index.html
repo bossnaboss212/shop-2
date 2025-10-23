@@ -2008,7 +2008,7 @@ const SyncManager = {
   createOrder(orderData) {
     try {
       const orders = JSON.parse(localStorage.getItem('shop_orders') || '[]');
-      
+
       const order = {
         id: 'DC' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substr(2, 4).toUpperCase(),
         timestamp: new Date().toISOString(),
@@ -2022,17 +2022,41 @@ const SyncManager = {
         deliveryType: orderData.type,
         status: 'pending'
       };
-      
+
       orders.push(order);
       localStorage.setItem('shop_orders', JSON.stringify(orders));
-      
-      console.log('✅ Commande créée:', order.id);
-      
+
+      console.log('✅ Commande créée localement:', order.id);
+
+      // 🔥 NOUVEAU: Envoyer la commande au serveur pour sync avec l'admin
+      fetch('/api/create-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customer: orderData.customer,
+          type: orderData.type,
+          address: orderData.address,
+          items: orderData.items,
+          total: orderData.total
+        })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.ok) {
+          console.log('✅ Commande envoyée au serveur:', data.orderId);
+        } else {
+          console.warn('⚠️ Erreur serveur (commande locale OK):', data.error);
+        }
+      })
+      .catch(err => {
+        console.warn('⚠️ Impossible de contacter le serveur (commande locale OK):', err);
+      });
+
       // Mettre à jour les stocks
       orderData.items.forEach(item => {
         this.updateStock(item.product_id, item.variant, item.qty);
       });
-      
+
       // Mettre à jour le chiffre d'affaires et incrémenter le compteur
       this.updateRevenue(orderData.total, true);
       
