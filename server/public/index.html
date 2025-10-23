@@ -132,6 +132,66 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
 
 .header-actions{display:flex;gap:8px;align-items:center}
 
+.search-bar{
+  flex:1;
+  max-width:400px;
+  position:relative;
+  margin:0 16px;
+  display:none;
+}
+
+@media (min-width:768px){
+  .search-bar{display:flex}
+}
+
+.search-bar input{
+  width:100%;
+  padding:10px 40px 10px 40px;
+  background:var(--bg-tertiary);
+  border:2px solid var(--border);
+  border-radius:12px;
+  color:var(--text-primary);
+  font-size:14px;
+  transition:all 0.2s;
+}
+
+.search-bar input:focus{
+  outline:none;
+  border-color:var(--accent);
+  box-shadow:0 0 0 3px rgba(0,212,255,0.1);
+}
+
+.search-icon{
+  position:absolute;
+  left:12px;
+  top:50%;
+  transform:translateY(-50%);
+  width:18px;
+  height:18px;
+  stroke:var(--text-muted);
+  fill:none;
+  stroke-width:2;
+  pointer-events:none;
+}
+
+.search-clear{
+  position:absolute;
+  right:8px;
+  top:50%;
+  transform:translateY(-50%);
+  background:transparent;
+  border:none;
+  color:var(--text-muted);
+  cursor:pointer;
+  padding:4px 8px;
+  font-size:16px;
+  transition:all 0.2s;
+}
+
+.search-clear:hover{
+  color:var(--text-primary);
+}
+
 .theme-toggle{
   background:var(--bg-tertiary);
   border:1px solid var(--border);
@@ -155,6 +215,99 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
   stroke:var(--text-primary);
   fill:none;
   stroke-width:2;
+}
+
+.notif-bell{
+  background:var(--bg-tertiary);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:8px;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  transition:all 0.2s;
+  position:relative;
+}
+
+.notif-bell svg{
+  width:20px;
+  height:20px;
+  stroke:var(--text-primary);
+  fill:none;
+  stroke-width:2;
+}
+
+.notif-bell:hover{
+  background:var(--bg-secondary);
+  border-color:var(--accent);
+}
+
+.notif-badge{
+  position:absolute;
+  top:-6px;
+  right:-6px;
+  background:var(--danger);
+  color:white;
+  border-radius:10px;
+  padding:2px 6px;
+  font-size:10px;
+  font-weight:700;
+  min-width:18px;
+  text-align:center;
+  animation:pulse 2s infinite;
+}
+
+@keyframes pulse{
+  0%,100%{transform:scale(1)}
+  50%{transform:scale(1.1)}
+}
+
+.toggle-switch{
+  position:relative;
+  display:inline-block;
+  width:48px;
+  height:24px;
+}
+
+.toggle-switch input{
+  opacity:0;
+  width:0;
+  height:0;
+}
+
+.toggle-slider{
+  position:absolute;
+  cursor:pointer;
+  top:0;
+  left:0;
+  right:0;
+  bottom:0;
+  background:var(--bg-tertiary);
+  border:2px solid var(--border);
+  transition:all 0.3s;
+  border-radius:24px;
+}
+
+.toggle-slider:before{
+  position:absolute;
+  content:"";
+  height:16px;
+  width:16px;
+  left:2px;
+  bottom:2px;
+  background:white;
+  transition:all 0.3s;
+  border-radius:50%;
+}
+
+.toggle-switch input:checked + .toggle-slider{
+  background:var(--accent);
+  border-color:var(--accent);
+}
+
+.toggle-switch input:checked + .toggle-slider:before{
+  transform:translateX(24px);
 }
 
 .cart-btn{
@@ -838,6 +991,29 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
 @keyframes scaleIn{
   from{transform:scale(0);opacity:0}
   to{transform:scale(1);opacity:1}
+}
+
+@keyframes slideIn{
+  from{transform:translateX(-20px);opacity:0}
+  to{transform:translateX(0);opacity:1}
+}
+
+#chatFloatingBtn:hover{
+  transform:scale(1.1);
+  box-shadow:0 12px 32px rgba(102,126,234,0.6);
+}
+
+.quick-reply:hover{
+  background:var(--accent);
+  color:var(--bg-primary);
+  border-color:var(--accent);
+  transform:translateY(-2px);
+}
+
+.history-filter.active{
+  background:var(--accent);
+  color:var(--bg-primary);
+  border-color:var(--accent);
 }
 
 .confirm-content p{
@@ -1624,6 +1800,26 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
         <svg viewBox="0 0 24 24" style="stroke:#ffd700"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
         <span style="color:#ffd700;font-weight:700">🎁 Parrainage</span>
       </button>
+      <button class="menu-item" data-page="profil">
+        <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+        <span>👤 Mon Profil</span>
+      </button>
+      <button class="menu-item" data-page="wheel" style="background:linear-gradient(135deg,rgba(255,215,0,0.05) 0%,rgba(255,140,0,0.05) 100%)">
+        <svg viewBox="0 0 24 24" style="stroke:#ffd700"><circle cx="12" cy="12" r="10"></circle><path d="M12 2v10M12 12l7.07 7.07M12 12l-7.07 7.07M12 12L4.93 4.93M12 12l7.07-7.07"></path></svg>
+        <span style="color:#ffd700">🎡 Roue Fortune</span>
+      </button>
+      <button class="menu-item" data-page="tracking">
+        <svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+        <span>🗺️ Suivi GPS</span>
+      </button>
+      <button class="menu-item" data-page="history">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+        <span>📜 Historique</span>
+      </button>
+      <button class="menu-item" data-page="compare">
+        <svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+        <span>⚖️ Comparateur</span>
+      </button>
       <button class="menu-item" data-page="infos">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
         <span>Informations</span>
@@ -1648,7 +1844,16 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
         <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='45' fill='%2300d4ff'/%3E%3Ctext x='50' y='65' font-size='40' font-weight='bold' text-anchor='middle' fill='%230a0e14'%3EDC%3C/text%3E%3C/svg%3E" alt="DROGUA CENTER">
       </div>
     </div>
+    <div class="search-bar">
+      <svg class="search-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.35-4.35"></path></svg>
+      <input type="text" id="searchInput" placeholder="Rechercher un produit..." autocomplete="off">
+      <button class="search-clear" id="searchClear" style="display:none">✕</button>
+    </div>
     <div class="header-actions">
+      <button class="notif-bell" id="notifBell">
+        <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+        <span class="notif-badge" id="notifBadge" style="display:none">0</span>
+      </button>
       <div class="sync-indicator" id="syncIndicator">
         <span class="sync-dot"></span>
         <span id="syncStatus">Sync ✓</span>
@@ -1887,6 +2092,418 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
     </div>
   </main>
 
+  <main class="page" id="page-parrainage">
+    <div class="info-section">
+      <h2 class="section-title">
+        <svg style="width:32px;height:32px;stroke:#ffd700;fill:none;stroke-width:2" viewBox="0 0 24 24">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+          <circle cx="9" cy="7" r="4"></circle>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+        </svg>
+        <span style="color:#ffd700">🎁 Parrainage</span>
+      </h2>
+
+      <!-- Mon code de parrainage -->
+      <div style="background:linear-gradient(135deg,var(--accent),#0099cc);border-radius:20px;padding:24px;margin-bottom:24px;box-shadow:0 10px 30px rgba(0,212,255,0.3)">
+        <div style="text-align:center;color:white">
+          <div style="font-size:14px;opacity:0.9;margin-bottom:8px">🎁 Votre code de parrainage</div>
+          <div id="referralCodeDisplay" style="font-size:32px;font-weight:900;letter-spacing:4px;margin:12px 0">XXXXX</div>
+          <div style="font-size:13px;opacity:0.8;margin-bottom:16px">Partagez ce code et gagnez des crédits !</div>
+          <div style="display:flex;gap:12px;justify-content:center">
+            <button id="copyReferralCode" style="background:white;color:var(--accent);border:none;padding:12px 24px;border-radius:12px;font-weight:700;cursor:pointer;transition:all 0.2s">
+              📋 Copier
+            </button>
+            <button id="shareReferralCode" style="background:rgba(255,255,255,0.2);color:white;border:2px solid white;padding:12px 24px;border-radius:12px;font-weight:700;cursor:pointer;transition:all 0.2s">
+              📱 Partager
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Statistiques -->
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:24px">
+        <div style="background:var(--bg-secondary);border:2px solid var(--border);border-radius:16px;padding:20px;text-align:center">
+          <div style="font-size:36px;font-weight:800;color:var(--accent)" id="totalReferrals">0</div>
+          <div style="color:var(--text-muted);font-size:14px;margin-top:4px">Filleuls</div>
+        </div>
+        <div style="background:var(--bg-secondary);border:2px solid var(--border);border-radius:16px;padding:20px;text-align:center">
+          <div style="font-size:36px;font-weight:800;color:#ffd700" id="totalCredits">0</div>
+          <div style="color:var(--text-muted);font-size:14px;margin-top:4px">Crédits VIP</div>
+        </div>
+      </div>
+
+      <!-- Comment ça marche -->
+      <div style="background:var(--bg-secondary);border:2px solid var(--border);border-radius:16px;padding:20px;margin-bottom:24px">
+        <h3 style="font-size:18px;font-weight:700;margin-bottom:16px;color:var(--accent)">💡 Comment ça marche ?</h3>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;align-items:start;gap:12px">
+            <div style="background:var(--accent);color:var(--bg-primary);width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">1</div>
+            <div style="flex:1">
+              <div style="font-weight:600;margin-bottom:4px">Partagez votre code</div>
+              <div style="color:var(--text-muted);font-size:14px">Envoyez votre code unique à vos amis</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:start;gap:12px">
+            <div style="background:var(--accent);color:var(--bg-primary);width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">2</div>
+            <div style="flex:1">
+              <div style="font-weight:600;margin-bottom:4px">Ils commandent</div>
+              <div style="color:var(--text-muted);font-size:14px">Votre filleul passe sa première commande</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:start;gap:12px">
+            <div style="background:#ffd700;color:var(--bg-primary);width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">3</div>
+            <div style="flex:1">
+              <div style="font-weight:600;margin-bottom:4px">Vous gagnez des crédits !</div>
+              <div style="color:var(--text-muted);font-size:14px">Utilisez vos crédits pour vos prochaines commandes</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mes filleuls -->
+      <div id="referralsList" style="margin-bottom:24px"></div>
+
+      <!-- Leaderboard -->
+      <div style="background:var(--bg-secondary);border:2px solid var(--border);border-radius:16px;padding:20px">
+        <h3 style="font-size:18px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px">
+          <span>🏆</span>
+          <span style="background:linear-gradient(135deg,#ffd700,#ff8c00);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">Top Parrains</span>
+        </h3>
+        <div id="leaderboardList"></div>
+      </div>
+    </div>
+  </main>
+
+  <main class="page" id="page-profil">
+    <div class="info-section">
+      <h2 class="section-title">
+        <svg style="width:32px;height:32px;stroke:var(--accent);fill:none;stroke-width:2" viewBox="0 0 24 24">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+          <circle cx="12" cy="7" r="4"></circle>
+        </svg>
+        👤 Mon Profil
+      </h2>
+
+      <!-- Avatar et nom -->
+      <div style="text-align:center;margin-bottom:32px">
+        <div id="userAvatar" style="width:100px;height:100px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#0099cc);margin:0 auto 16px;display:flex;align-items:center;justify-content:center;font-size:48px;font-weight:900;color:white;box-shadow:0 10px 30px rgba(0,212,255,0.3)">
+          U
+        </div>
+        <h3 id="userName" style="font-size:24px;font-weight:700;margin-bottom:4px">Utilisateur</h3>
+        <p id="userSince" style="color:var(--text-muted);font-size:14px">Membre depuis le 01/01/2025</p>
+      </div>
+
+      <!-- Statistiques personnelles -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px">
+        <div style="background:var(--bg-secondary);border:2px solid var(--border);border-radius:16px;padding:16px;text-align:center">
+          <div style="font-size:28px;font-weight:800;color:var(--accent)" id="userOrdersCount">0</div>
+          <div style="color:var(--text-muted);font-size:12px;margin-top:4px">Commandes</div>
+        </div>
+        <div style="background:var(--bg-secondary);border:2px solid var(--border);border-radius:16px;padding:16px;text-align:center">
+          <div style="font-size:28px;font-weight:800;color:#ffd700" id="userSpentTotal">0€</div>
+          <div style="color:var(--text-muted);font-size:12px;margin-top:4px">Dépensé</div>
+        </div>
+        <div style="background:var(--bg-secondary);border:2px solid var(--border);border-radius:16px;padding:16px;text-align:center">
+          <div style="font-size:28px;font-weight:800;color:#4ade80" id="userFavoritesCount">0</div>
+          <div style="color:var(--text-muted);font-size:12px;margin-top:4px">Favoris</div>
+        </div>
+      </div>
+
+      <!-- Informations -->
+      <div style="background:var(--bg-secondary);border:2px solid var(--border);border-radius:16px;padding:20px;margin-bottom:16px">
+        <h3 style="font-size:18px;font-weight:700;margin-bottom:16px">📱 Informations</h3>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="color:var(--text-muted)">Nom d'utilisateur</span>
+            <span id="userNameDisplay" style="font-weight:600">Client_123</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="color:var(--text-muted)">Email</span>
+            <span id="userEmailDisplay" style="font-weight:600">Non renseigné</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="color:var(--text-muted)">Téléphone</span>
+            <span id="userPhoneDisplay" style="font-weight:600">Non renseigné</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Adresses enregistrées -->
+      <div style="background:var(--bg-secondary);border:2px solid var(--border);border-radius:16px;padding:20px;margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+          <h3 style="font-size:18px;font-weight:700">📍 Adresses</h3>
+          <button id="addAddress" style="background:var(--accent);color:var(--bg-primary);border:none;padding:8px 16px;border-radius:8px;font-weight:600;cursor:pointer">+ Ajouter</button>
+        </div>
+        <div id="addressesList"></div>
+      </div>
+
+      <!-- Préférences -->
+      <div style="background:var(--bg-secondary);border:2px solid var(--border);border-radius:16px;padding:20px;margin-bottom:16px">
+        <h3 style="font-size:18px;font-weight:700;margin-bottom:16px">⚙️ Préférences</h3>
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div style="font-weight:600">Notifications</div>
+              <div style="color:var(--text-muted);font-size:13px">Recevoir les alertes de commande</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="prefNotifications" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div style="font-weight:600">Newsletter</div>
+              <div style="color:var(--text-muted);font-size:13px">Offres et nouveautés</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="prefNewsletter">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div style="font-weight:600">Mode sombre</div>
+              <div style="color:var(--text-muted);font-size:13px">Interface en thème sombre</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="prefDarkMode">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bouton déconnexion -->
+      <button id="logoutBtn" style="width:100%;background:transparent;border:2px solid var(--danger);color:var(--danger);padding:16px;border-radius:12px;font-weight:700;cursor:pointer;transition:all 0.2s">
+        🚪 Déconnexion
+      </button>
+    </div>
+  </main>
+
+  <main class="page" id="page-wheel">
+    <div class="info-section">
+      <h2 class="section-title">
+        <span style="font-size:32px">🎡</span>
+        <span style="background:linear-gradient(135deg,#ffd700,#ff8c00);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-weight:900">Roue de Fortune</span>
+      </h2>
+
+      <!-- Compteur de spins -->
+      <div style="text-align:center;margin-bottom:24px">
+        <div style="background:var(--bg-secondary);border:2px solid var(--border);border-radius:16px;padding:20px;display:inline-block">
+          <div style="color:var(--text-muted);font-size:14px;margin-bottom:4px">Spins disponibles</div>
+          <div style="font-size:48px;font-weight:900;background:linear-gradient(135deg,#ffd700,#ff8c00);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text" id="availableSpins">1</div>
+          <div style="color:var(--text-muted);font-size:12px;margin-top:4px">Prochain spin : <span id="nextSpinTime">23:59:59</span></div>
+        </div>
+      </div>
+
+      <!-- Roue -->
+      <div style="position:relative;width:100%;max-width:400px;margin:0 auto 32px">
+        <div id="wheelCanvas" style="width:100%;aspect-ratio:1;border-radius:50%;background:conic-gradient(from 0deg, #ff6b6b 0deg 45deg, #ffd700 45deg 90deg, #4ade80 90deg 135deg, #00d4ff 135deg 180deg, #a78bfa 180deg 225deg, #ff8c00 225deg 270deg, #ec4899 270deg 315deg, #10b981 315deg 360deg);box-shadow:0 20px 60px rgba(0,0,0,0.3),inset 0 0 30px rgba(255,255,255,0.2);border:8px solid var(--bg-secondary);position:relative;transition:transform 3s cubic-bezier(0.17,0.67,0.12,0.99)">
+          <!-- Segments -->
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none">
+            <div style="width:90%;height:90%;border-radius:50%;background:var(--bg-secondary);display:flex;align-items:center;justify-content:center;flex-direction:column;box-shadow:0 10px 30px rgba(0,0,0,0.5)">
+              <div style="font-size:64px;margin-bottom:8px">🎁</div>
+              <div style="font-size:14px;font-weight:700;color:var(--accent)">TOURNEZ!</div>
+            </div>
+          </div>
+        </div>
+        <!-- Flèche indicatrice -->
+        <div style="position:absolute;top:-20px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:20px solid transparent;border-right:20px solid transparent;border-top:40px solid var(--danger);filter:drop-shadow(0 4px 10px rgba(0,0,0,0.3));z-index:10"></div>
+      </div>
+
+      <!-- Bouton spin -->
+      <button id="spinButton" style="width:100%;max-width:400px;margin:0 auto;display:block;background:linear-gradient(135deg,#ffd700,#ff8c00);border:none;padding:20px;border-radius:16px;font-size:20px;font-weight:900;color:#000;cursor:pointer;box-shadow:0 10px 30px rgba(255,215,0,0.4);transition:all 0.2s">
+        🎰 TOURNER LA ROUE
+      </button>
+
+      <!-- Gains possibles -->
+      <div style="background:var(--bg-secondary);border:2px solid var(--border);border-radius:16px;padding:20px;margin-top:32px">
+        <h3 style="font-size:18px;font-weight:700;margin-bottom:16px">🎁 Gains possibles</h3>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px">
+          <div style="background:var(--bg-tertiary);border-radius:12px;padding:12px;text-align:center">
+            <div style="font-size:24px;margin-bottom:4px">💰</div>
+            <div style="font-size:14px;font-weight:600">5€ - 20€</div>
+          </div>
+          <div style="background:var(--bg-tertiary);border-radius:12px;padding:12px;text-align:center">
+            <div style="font-size:24px;margin-bottom:4px">🎟️</div>
+            <div style="font-size:14px;font-weight:600">Crédits VIP</div>
+          </div>
+          <div style="background:var(--bg-tertiary);border-radius:12px;padding:12px;text-align:center">
+            <div style="font-size:24px;margin-bottom:4px">📦</div>
+            <div style="font-size:14px;font-weight:600">Livraison gratuite</div>
+          </div>
+          <div style="background:var(--bg-tertiary);border-radius:12px;padding:12px;text-align:center">
+            <div style="font-size:24px;margin-bottom:4px">🎁</div>
+            <div style="font-size:14px;font-weight:600">Produit gratuit</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Historique -->
+      <div style="background:var(--bg-secondary);border:2px solid var(--border);border-radius:16px;padding:20px;margin-top:16px">
+        <h3 style="font-size:18px;font-weight:700;margin-bottom:16px">📜 Mes gains</h3>
+        <div id="wheelHistory"></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- PAGE GPS TRACKING -->
+  <main class="page" id="page-tracking">
+    <div class="info-section">
+      <h2 class="section-title">
+        <span style="font-size:32px">🗺️</span>
+        <span style="background:linear-gradient(135deg,#00d4ff,#0066ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-weight:900">Suivi Livraison</span>
+      </h2>
+
+      <!-- Sélection de commande -->
+      <div style="background:var(--bg-secondary);border:2px solid var(--border);border-radius:16px;padding:20px;margin-bottom:16px">
+        <label style="display:block;margin-bottom:8px;font-weight:600">Commande à suivre:</label>
+        <select id="trackingOrderSelect" style="width:100%;padding:12px;background:var(--bg-tertiary);border:2px solid var(--border);border-radius:12px;color:var(--text);font-size:15px">
+          <option value="">Sélectionner une commande...</option>
+        </select>
+      </div>
+
+      <!-- Carte GPS -->
+      <div id="mapContainer" style="background:var(--bg-secondary);border:2px solid var(--border);border-radius:16px;padding:20px;margin-bottom:16px;position:relative;height:400px;overflow:hidden">
+        <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;color:var(--text-muted)">
+          <div style="font-size:64px;margin-bottom:16px;opacity:0.3">🗺️</div>
+          <p style="font-size:16px">Sélectionnez une commande pour voir le suivi</p>
+        </div>
+        <!-- Carte simulée avec livreur -->
+        <div id="deliveryMap" style="display:none;width:100%;height:100%;background:linear-gradient(135deg,#e8f5e9,#c8e6c9);border-radius:12px;position:relative">
+          <!-- Marker client -->
+          <div id="clientMarker" style="position:absolute;top:20%;right:20%;width:40px;height:40px;background:#2196f3;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;box-shadow:0 4px 12px rgba(0,0,0,0.2);animation:pulse 2s infinite">
+            🏠
+          </div>
+          <!-- Marker livreur -->
+          <div id="driverMarker" style="position:absolute;bottom:30%;left:25%;width:50px;height:50px;background:#ff5722;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:28px;box-shadow:0 4px 12px rgba(0,0,0,0.3);transition:all 1s ease">
+            🚴
+          </div>
+          <!-- Ligne de trajet -->
+          <svg style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none">
+            <line id="routeLine" x1="25%" y1="70%" x2="80%" y2="20%" stroke="#2196f3" stroke-width="3" stroke-dasharray="10,5" opacity="0.5"/>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Infos livraison -->
+      <div id="deliveryInfo" style="display:none">
+        <!-- Statut -->
+        <div style="background:var(--bg-secondary);border:2px solid var(--border);border-radius:16px;padding:20px;margin-bottom:16px;text-align:center">
+          <div style="font-size:48px;margin-bottom:12px" id="deliveryStatusIcon">📦</div>
+          <h3 style="font-size:20px;font-weight:700;margin-bottom:8px" id="deliveryStatusText">En cours de livraison</h3>
+          <p style="color:var(--text-muted);font-size:14px" id="deliveryETA">Arrivée estimée : 15 min</p>
+        </div>
+
+        <!-- Infos livreur -->
+        <div style="background:var(--bg-secondary);border:2px solid var(--border);border-radius:16px;padding:20px;margin-bottom:16px">
+          <h3 style="font-size:18px;font-weight:700;margin-bottom:16px">👤 Votre livreur</h3>
+          <div style="display:flex;align-items:center;gap:16px">
+            <div style="width:60px;height:60px;background:linear-gradient(135deg,#667eea,#764ba2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;color:white">
+              M
+            </div>
+            <div style="flex:1">
+              <div style="font-weight:700;font-size:16px;margin-bottom:4px" id="driverName">Mohammed</div>
+              <div style="color:var(--text-muted);font-size:14px">⭐ 4.9/5.0 (127 livraisons)</div>
+            </div>
+            <button onclick="alert('Appel simulé au livreur')" style="width:48px;height:48px;background:var(--success);border:none;border-radius:50%;color:white;font-size:20px;cursor:pointer">
+              📞
+            </button>
+          </div>
+        </div>
+
+        <!-- Timeline -->
+        <div style="background:var(--bg-secondary);border:2px solid var(--border);border-radius:16px;padding:20px">
+          <h3 style="font-size:18px;font-weight:700;margin-bottom:16px">📍 Étapes</h3>
+          <div id="deliveryTimeline"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- PAGE HISTORIQUE NAVIGATION -->
+  <main class="page" id="page-history">
+    <div class="info-section">
+      <h2 class="section-title">
+        <span style="font-size:32px">📜</span>
+        <span style="background:linear-gradient(135deg,#a8edea,#fed6e3);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-weight:900">Récemment Vus</span>
+      </h2>
+
+      <!-- Filtres -->
+      <div style="display:flex;gap:8px;margin-bottom:16px;overflow-x:auto;padding-bottom:8px">
+        <button class="history-filter active" data-period="all" style="padding:10px 20px;background:var(--accent);color:var(--bg-primary);border:none;border-radius:12px;font-weight:600;white-space:nowrap;cursor:pointer">
+          Tout
+        </button>
+        <button class="history-filter" data-period="today" style="padding:10px 20px;background:var(--bg-secondary);color:var(--text);border:2px solid var(--border);border-radius:12px;font-weight:600;white-space:nowrap;cursor:pointer">
+          Aujourd'hui
+        </button>
+        <button class="history-filter" data-period="week" style="padding:10px 20px;background:var(--bg-secondary);color:var(--text);border:2px solid var(--border);border-radius:12px;font-weight:600;white-space:nowrap;cursor:pointer">
+          Cette semaine
+        </button>
+        <button class="history-filter" data-period="month" style="padding:10px 20px;background:var(--bg-secondary);color:var(--text);border:2px solid var(--border);border-radius:12px;font-weight:600;white-space:nowrap;cursor:pointer">
+          Ce mois
+        </button>
+      </div>
+
+      <!-- Liste des produits vus -->
+      <div id="browseHistoryList"></div>
+
+      <!-- Bouton tout supprimer -->
+      <button id="clearHistory" style="width:100%;padding:14px;background:transparent;border:2px solid var(--danger);color:var(--danger);border-radius:12px;font-weight:600;cursor:pointer;margin-top:16px">
+        🗑️ Effacer l'historique
+      </button>
+    </div>
+  </main>
+
+  <!-- PAGE COMPARAISON PRODUITS -->
+  <main class="page" id="page-compare">
+    <div class="info-section">
+      <h2 class="section-title">
+        <span style="font-size:32px">⚖️</span>
+        <span style="background:linear-gradient(135deg,#f093fb,#f5576c);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-weight:900">Comparateur</span>
+      </h2>
+
+      <!-- Instructions -->
+      <div style="background:linear-gradient(135deg,#667eea,#764ba2);border-radius:16px;padding:20px;margin-bottom:16px;color:white">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+          <div style="font-size:32px">💡</div>
+          <h3 style="font-size:18px;font-weight:700;margin:0">Comment comparer ?</h3>
+        </div>
+        <p style="opacity:0.9;font-size:14px;line-height:1.6;margin:0">
+          Ajoutez jusqu'à <strong>3 produits</strong> depuis leurs pages pour les comparer côte à côte (prix, catégorie, stock, etc.)
+        </p>
+      </div>
+
+      <!-- Sélection de produits -->
+      <div style="background:var(--bg-secondary);border:2px solid var(--border);border-radius:16px;padding:20px;margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <h3 style="font-size:18px;font-weight:700;margin:0">Produits sélectionnés</h3>
+          <span id="compareCount" style="background:var(--accent);color:var(--bg-primary);padding:4px 12px;border-radius:20px;font-weight:700;font-size:14px">0/3</span>
+        </div>
+        <div id="compareSlotsList" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px"></div>
+      </div>
+
+      <!-- Tableau de comparaison -->
+      <div id="comparisonTable" style="display:none">
+        <div style="background:var(--bg-secondary);border:2px solid var(--border);border-radius:16px;overflow:hidden">
+          <table style="width:100%;border-collapse:collapse">
+            <thead>
+              <tr id="compareTableHeader" style="background:var(--bg-tertiary)">
+                <th style="padding:16px;text-align:left;border-bottom:2px solid var(--border);font-weight:700">Critère</th>
+              </tr>
+            </thead>
+            <tbody id="compareTableBody"></tbody>
+          </table>
+        </div>
+        <button id="clearComparison" style="width:100%;padding:14px;background:transparent;border:2px solid var(--danger);color:var(--danger);border-radius:12px;font-weight:600;cursor:pointer;margin-top:16px">
+          🗑️ Réinitialiser la comparaison
+        </button>
+      </div>
+    </div>
+  </main>
+
   <nav class="bottom-nav">
     <button class="nav-item active" data-tab="home">
       <svg class="nav-icon" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
@@ -1987,6 +2604,66 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
     </div>
   </section>
 
+  <!-- CHAT SUPPORT FLOTTANT -->
+  <button id="chatFloatingBtn" style="position:fixed;bottom:80px;right:20px;width:60px;height:60px;background:linear-gradient(135deg,#667eea,#764ba2);border:none;border-radius:50%;color:white;font-size:28px;cursor:pointer;box-shadow:0 8px 24px rgba(102,126,234,0.4);z-index:9999;transition:all 0.3s;display:flex;align-items:center;justify-content:center">
+    💬
+  </button>
+
+  <div id="chatWidget" style="position:fixed;bottom:80px;right:20px;width:360px;max-width:calc(100vw - 40px);height:500px;max-height:70vh;background:var(--bg);border:2px solid var(--border);border-radius:20px;box-shadow:0 12px 40px rgba(0,0,0,0.3);z-index:10000;display:none;flex-direction:column;overflow:hidden">
+    <!-- Header -->
+    <div style="background:linear-gradient(135deg,#667eea,#764ba2);padding:16px;display:flex;justify-content:space-between;align-items:center;color:white">
+      <div>
+        <h3 style="font-size:18px;font-weight:700;margin:0 0 4px 0">💬 Support Live</h3>
+        <div style="font-size:13px;opacity:0.9;display:flex;align-items:center;gap:6px">
+          <div style="width:8px;height:8px;background:#4ade80;border-radius:50%;animation:pulse 2s infinite"></div>
+          En ligne
+        </div>
+      </div>
+      <button id="chatCloseBtn" style="background:rgba(255,255,255,0.2);border:none;width:32px;height:32px;border-radius:50%;color:white;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center">
+        ✕
+      </button>
+    </div>
+
+    <!-- Messages -->
+    <div id="chatMessages" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;background:var(--bg-secondary)">
+      <!-- Message de bienvenue -->
+      <div style="display:flex;gap:8px;animation:slideIn 0.3s">
+        <div style="width:36px;height:36px;background:linear-gradient(135deg,#667eea,#764ba2);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px">
+          👤
+        </div>
+        <div style="flex:1">
+          <div style="background:var(--bg);padding:12px;border-radius:12px 12px 12px 4px;border:2px solid var(--border)">
+            <p style="margin:0;font-size:14px;line-height:1.5">Bonjour ! 👋 Comment puis-je vous aider aujourd'hui ?</p>
+          </div>
+          <div style="color:var(--text-muted);font-size:12px;margin-top:4px">À l'instant</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Suggestions rapides -->
+    <div id="chatQuickReplies" style="padding:12px 16px;border-top:2px solid var(--border);display:flex;gap:8px;overflow-x:auto;background:var(--bg)">
+      <button class="quick-reply" data-msg="Où est ma commande ?" style="padding:8px 16px;background:var(--bg-secondary);border:2px solid var(--border);border-radius:20px;white-space:nowrap;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s">
+        📦 Ma commande
+      </button>
+      <button class="quick-reply" data-msg="Problème de paiement" style="padding:8px 16px;background:var(--bg-secondary);border:2px solid var(--border);border-radius:20px;white-space:nowrap;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s">
+        💳 Paiement
+      </button>
+      <button class="quick-reply" data-msg="Question produit" style="padding:8px 16px;background:var(--bg-secondary);border:2px solid var(--border);border-radius:20px;white-space:nowrap;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s">
+        🛍️ Produits
+      </button>
+    </div>
+
+    <!-- Input -->
+    <div style="padding:16px;border-top:2px solid var(--border);background:var(--bg)">
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="text" id="chatInput" placeholder="Tapez votre message..." style="flex:1;padding:12px;background:var(--bg-secondary);border:2px solid var(--border);border-radius:12px;color:var(--text);font-size:14px">
+        <button id="chatSendBtn" style="width:44px;height:44px;background:linear-gradient(135deg,#667eea,#764ba2);border:none;border-radius:12px;color:white;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          ➤
+        </button>
+      </div>
+    </div>
+  </div>
+
   <script>
 console.log('🚀 DROGUA CENTER v3.1 - VERSION COMPLÈTE');
 
@@ -2009,6 +2686,23 @@ function sanitizeInput(input) {
   const div = document.createElement('div');
   div.textContent = input;
   return div.innerHTML;
+}
+
+function getCategoryEmoji(category) {
+  const emojis = {
+    'Weed': '🌿',
+    'Mousseux': '🧽',
+    'blanche': '⚪',
+    'Blanche': '⚪',
+    'keta': '☁️',
+    'Keta': '☁️',
+    'frozen': '❄️',
+    'Frozen': '❄️',
+    'filtre': '🔬',
+    'Filtré': '🔬',
+    'Filtré': '🔬'
+  };
+  return emojis[category] || '📦';
 }
 
 function debounce(func, wait) {
@@ -5815,7 +6509,7 @@ if (document.readyState === 'loading') {
 // Gestion du hash pour navigation directe (ex: #orders depuis Telegram)
 window.addEventListener('load', () => {
   const hash = window.location.hash.substring(1); // Retire le #
-  if (hash && ['orders', 'favorites', 'loyalty', 'reviews', 'support'].includes(hash)) {
+  if (hash && ['orders', 'favorites', 'loyalty', 'reviews', 'support', 'parrainage'].includes(hash)) {
     // Activer la bonne page
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     const targetPage = document.getElementById(`page-${hash}`);
@@ -5829,6 +6523,1219 @@ window.addEventListener('load', () => {
     }
   }
 });
+
+// ================================================
+// RECHERCHE DE PRODUITS
+// ================================================
+const searchInput = document.getElementById('searchInput');
+const searchClear = document.getElementById('searchClear');
+
+if (searchInput) {
+  searchInput.addEventListener('input', (e) => {
+    const query = e.target.value.trim().toLowerCase();
+
+    // Afficher/masquer le bouton clear
+    searchClear.style.display = query ? 'block' : 'none';
+
+    if (!query) {
+      renderProducts(); // Afficher tous les produits
+      return;
+    }
+
+    // Filtrer les produits
+    const allProducts = DataManager.loadProducts();
+    const filtered = allProducts.filter(p =>
+      p.name.toLowerCase().includes(query) ||
+      p.category.toLowerCase().includes(query) ||
+      (p.farm && p.farm.toLowerCase().includes(query))
+    );
+
+    // Afficher les résultats
+    renderFilteredProducts(filtered, query);
+  });
+
+  searchClear.addEventListener('click', () => {
+    searchInput.value = '';
+    searchClear.style.display = 'none';
+    renderProducts();
+    searchInput.focus();
+  });
+}
+
+function renderFilteredProducts(products, query) {
+  const grid = document.getElementById('productGrid');
+
+  if (products.length === 0) {
+    grid.innerHTML = `
+      <div style="grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--text-muted)">
+        <div style="font-size:48px;margin-bottom:16px;opacity:0.3">🔍</div>
+        <p style="font-size:18px;margin-bottom:8px">Aucun résultat pour "${sanitizeInput(query)}"</p>
+        <p style="font-size:14px">Essayez avec un autre mot-clé</p>
+      </div>
+    `;
+    document.getElementById('resultsCount').textContent = '0 article';
+    return;
+  }
+
+  document.getElementById('resultsCount').textContent = `${products.length} résultat${products.length > 1 ? 's' : ''}`;
+  renderProducts('all', 'default');
+}
+
+// ================================================
+// PAGE PARRAINAGE
+// ================================================
+function loadReferralPage() {
+  // Simuler les données (à remplacer par un appel API réel)
+  const referralCode = localStorage.getItem('user_referral_code') || generateReferralCode();
+  localStorage.setItem('user_referral_code', referralCode);
+
+  document.getElementById('referralCodeDisplay').textContent = referralCode;
+
+  // Charger stats depuis localStorage
+  const referralStats = JSON.parse(localStorage.getItem('referral_stats') || '{"referrals":0,"credits":0}');
+  document.getElementById('totalReferrals').textContent = referralStats.referrals || 0;
+  document.getElementById('totalCredits').textContent = referralStats.credits || 0;
+
+  // Liste des filleuls
+  const referralsList = JSON.parse(localStorage.getItem('referrals_list') || '[]');
+  loadReferralsList(referralsList);
+
+  // Leaderboard
+  loadLeaderboard();
+}
+
+function generateReferralCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 5; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
+
+function loadReferralsList(referrals) {
+  const container = document.getElementById('referralsList');
+
+  if (referrals.length === 0) {
+    container.innerHTML = `
+      <div style="background:var(--bg-secondary);border:2px solid var(--border);border-radius:16px;padding:24px;text-align:center">
+        <div style="font-size:48px;margin-bottom:12px;opacity:0.3">👥</div>
+        <p style="color:var(--text-muted)">Aucun filleul pour le moment</p>
+        <p style="color:var(--text-muted);font-size:14px;margin-top:8px">Partagez votre code pour commencer !</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = `
+    <div style="background:var(--bg-secondary);border:2px solid var(--border);border-radius:16px;padding:20px">
+      <h3 style="font-size:18px;font-weight:700;margin-bottom:16px">👥 Mes filleuls (${referrals.length})</h3>
+      ${referrals.map(r => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--bg-tertiary);border-radius:12px;margin-bottom:8px">
+          <div>
+            <div style="font-weight:600">${sanitizeInput(r.name || 'Filleul')}</div>
+            <div style="color:var(--text-muted);font-size:13px">${new Date(r.joinedAt).toLocaleDateString('fr-FR')}</div>
+          </div>
+          <div style="color:#ffd700;font-weight:700">+${r.creditsEarned || 10} crédits</div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function loadLeaderboard() {
+  const container = document.getElementById('leaderboardList');
+
+  // Données simulées (à remplacer par API)
+  const leaders = [
+    { name: 'TurboMax', referrals: 25, credits: 250 },
+    { name: 'CryptoKing', referrals: 18, credits: 180 },
+    { name: 'MoneyMaker', referrals: 15, credits: 150 },
+    { name: 'ProParrain', referrals: 12, credits: 120 },
+    { name: 'ViralBoss', referrals: 10, credits: 100 }
+  ];
+
+  container.innerHTML = leaders.map((leader, index) => {
+    const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '';
+    return `
+      <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--bg-tertiary);border-radius:12px;margin-bottom:8px">
+        <div style="width:32px;text-align:center;font-size:20px;font-weight:700">${medal || (index + 1)}</div>
+        <div style="flex:1">
+          <div style="font-weight:600">${sanitizeInput(leader.name)}</div>
+          <div style="color:var(--text-muted);font-size:13px">${leader.referrals} filleul${leader.referrals > 1 ? 's' : ''}</div>
+        </div>
+        <div style="color:#ffd700;font-weight:700">${leader.credits} crédits</div>
+      </div>
+    `;
+  }).join('');
+}
+
+// Boutons parrainage
+document.getElementById('copyReferralCode')?.addEventListener('click', () => {
+  const code = document.getElementById('referralCodeDisplay').textContent;
+  if (code && code !== 'XXXXX') {
+    navigator.clipboard.writeText(code).then(() => {
+      showToast('✅ Code copié dans le presse-papier !');
+    }).catch(() => {
+      showToast('❌ Erreur de copie');
+    });
+  }
+});
+
+document.getElementById('shareReferralCode')?.addEventListener('click', () => {
+  const code = document.getElementById('referralCodeDisplay').textContent;
+  if (code && code !== 'XXXXX') {
+    const text = `🎁 Rejoins DROGUA CENTER avec mon code de parrainage: ${code}\n\nTu recevras des crédits VIP pour ta première commande !`;
+    const url = `${window.location.origin}?ref=${code}`;
+
+    if (navigator.share) {
+      navigator.share({
+        title: 'Code de parrainage DROGUA CENTER',
+        text: text
+      }).catch(() => {});
+    } else {
+      // Fallback: Partager sur Telegram
+      const telegramUrl = `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`;
+      window.open(telegramUrl, '_blank');
+    }
+  }
+});
+
+// Charger les données de parrainage quand on ouvre la page
+document.querySelector('.menu-item[data-page="parrainage"]')?.addEventListener('click', () => {
+  setTimeout(() => loadReferralPage(), 200);
+});
+
+// ================================================
+// PAGE PROFIL
+// ================================================
+function loadProfilePage() {
+  // Charger les statistiques utilisateur
+  const orders = OrdersManager.getOrders();
+  const totalOrders = orders.length;
+  const totalSpent = orders.reduce((sum, o) => sum + (o.total || 0), 0);
+  const favorites = FavoritesManager.getFavorites();
+
+  document.getElementById('userOrdersCount').textContent = totalOrders;
+  document.getElementById('userSpentTotal').textContent = fmt(totalSpent);
+  document.getElementById('userFavoritesCount').textContent = favorites.length;
+
+  // Charger infos utilisateur (localStorage ou API)
+  const userInfo = JSON.parse(localStorage.getItem('user_info') || '{}');
+  document.getElementById('userNameDisplay').textContent = userInfo.name || 'Client';
+  document.getElementById('userEmailDisplay').textContent = userInfo.email || 'non renseigné';
+  document.getElementById('userPhoneDisplay').textContent = userInfo.phone || 'non renseigné';
+  document.getElementById('userAvatar').textContent = (userInfo.name || 'User')[0].toUpperCase();
+
+  // Charger adresses
+  loadAddresses();
+
+  // Charger préférences
+  const prefs = JSON.parse(localStorage.getItem('user_preferences') || '{}');
+  document.getElementById('prefNotifications').checked = prefs.notifications !== false;
+  document.getElementById('prefNewsletter').checked = prefs.newsletter === true;
+  document.getElementById('prefDarkMode').checked = document.body.getAttribute('data-theme') === 'dark';
+}
+
+function loadAddresses() {
+  const addresses = JSON.parse(localStorage.getItem('user_addresses') || '[]');
+  const container = document.getElementById('addressesList');
+
+  if (addresses.length === 0) {
+    container.innerHTML = `
+      <div style="padding:20px;text-align:center;color:var(--text-muted);background:var(--bg-tertiary);border-radius:12px">
+        <div style="font-size:32px;margin-bottom:8px;opacity:0.3">📍</div>
+        <p>Aucune adresse enregistrée</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = addresses.map((addr, index) => `
+    <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--bg-tertiary);border:2px solid var(--border);border-radius:12px;margin-bottom:8px">
+      <div style="flex:1">
+        <div style="font-weight:600;margin-bottom:4px">${sanitizeInput(addr.label || 'Adresse')}</div>
+        <div style="color:var(--text-muted);font-size:14px">${sanitizeInput(addr.address)}</div>
+      </div>
+      <button class="btn-danger" onclick="deleteAddress(${index})" style="padding:8px 12px;background:var(--danger);color:white;border:none;border-radius:8px;cursor:pointer">
+        🗑️
+      </button>
+    </div>
+  `).join('');
+}
+
+window.deleteAddress = function(index) {
+  if (!confirm('Supprimer cette adresse ?')) return;
+  const addresses = JSON.parse(localStorage.getItem('user_addresses') || '[]');
+  addresses.splice(index, 1);
+  localStorage.setItem('user_addresses', JSON.stringify(addresses));
+  loadAddresses();
+  showToast('✅ Adresse supprimée');
+};
+
+// Ajouter une nouvelle adresse
+document.getElementById('addAddress')?.addEventListener('click', () => {
+  const address = prompt('Entrez la nouvelle adresse:');
+  if (!address || !address.trim()) return;
+
+  const label = prompt('Nom de l\'adresse (ex: Domicile, Bureau):') || 'Adresse';
+
+  const addresses = JSON.parse(localStorage.getItem('user_addresses') || '[]');
+  addresses.push({ label, address: address.trim() });
+  localStorage.setItem('user_addresses', JSON.stringify(addresses));
+  loadAddresses();
+  showToast('✅ Adresse ajoutée');
+});
+
+// Sauvegarder les préférences
+document.getElementById('prefNotifications')?.addEventListener('change', (e) => {
+  const prefs = JSON.parse(localStorage.getItem('user_preferences') || '{}');
+  prefs.notifications = e.target.checked;
+  localStorage.setItem('user_preferences', JSON.stringify(prefs));
+  showToast(e.target.checked ? '🔔 Notifications activées' : '🔕 Notifications désactivées');
+});
+
+document.getElementById('prefNewsletter')?.addEventListener('change', (e) => {
+  const prefs = JSON.parse(localStorage.getItem('user_preferences') || '{}');
+  prefs.newsletter = e.target.checked;
+  localStorage.setItem('user_preferences', JSON.stringify(prefs));
+  showToast(e.target.checked ? '📧 Newsletter activée' : '📧 Newsletter désactivée');
+});
+
+document.getElementById('prefDarkMode')?.addEventListener('change', (e) => {
+  document.body.setAttribute('data-theme', e.target.checked ? 'dark' : 'light');
+  localStorage.setItem('theme', e.target.checked ? 'dark' : 'light');
+  showToast(e.target.checked ? '🌙 Mode sombre activé' : '☀️ Mode clair activé');
+});
+
+// Déconnexion
+document.getElementById('logoutBtn')?.addEventListener('click', () => {
+  if (!confirm('Êtes-vous sûr de vouloir vous déconnecter ?')) return;
+
+  // Garder uniquement les données essentielles (produits)
+  const products = localStorage.getItem('products');
+  localStorage.clear();
+  if (products) localStorage.setItem('products', products);
+
+  showToast('✅ Déconnexion réussie');
+  setTimeout(() => window.location.reload(), 1000);
+});
+
+// Charger le profil quand on ouvre la page
+document.querySelector('.menu-item[data-page="profil"]')?.addEventListener('click', () => {
+  setTimeout(() => loadProfilePage(), 200);
+});
+
+// ================================================
+// ROUE DE LA FORTUNE
+// ================================================
+const wheelPrizes = [
+  { label: '5€ de réduction', color: '#ff6b6b', credits: 5 },
+  { label: 'Livraison gratuite', color: '#4ecdc4', credits: 0, special: 'free_delivery' },
+  { label: '10€ de réduction', color: '#ffe66d', credits: 10 },
+  { label: '+1 spin gratuit', color: '#95e1d3', credits: 0, special: 'extra_spin' },
+  { label: '15€ de réduction', color: '#ff6b9d', credits: 15 },
+  { label: 'Produit mystère gratuit', color: '#c7b8ea', credits: 0, special: 'free_product' },
+  { label: '20€ de réduction', color: '#ffd93d', credits: 20 },
+  { label: 'Réessayez', color: '#a8dadc', credits: 0 }
+];
+
+let isSpinning = false;
+let currentRotation = 0;
+
+function initWheel() {
+  const wheelData = JSON.parse(localStorage.getItem('wheel_data') || '{"spins":1,"lastSpin":0,"history":[]}');
+
+  // Vérifier si l'utilisateur peut tourner (1 spin par jour)
+  const now = Date.now();
+  const lastSpin = wheelData.lastSpin || 0;
+  const oneDayMs = 24 * 60 * 60 * 1000;
+
+  if (now - lastSpin >= oneDayMs) {
+    wheelData.spins = 1; // Reset daily spin
+    localStorage.setItem('wheel_data', JSON.stringify(wheelData));
+  }
+
+  document.getElementById('availableSpins').textContent = wheelData.spins || 0;
+
+  // Afficher le temps avant prochain spin
+  if (wheelData.spins === 0) {
+    updateNextSpinTime(lastSpin + oneDayMs);
+  } else {
+    document.getElementById('nextSpinTime').textContent = 'Disponible maintenant !';
+  }
+
+  // Charger l'historique
+  loadWheelHistory(wheelData.history);
+}
+
+function updateNextSpinTime(nextSpinTimestamp) {
+  const interval = setInterval(() => {
+    const now = Date.now();
+    const diff = nextSpinTimestamp - now;
+
+    if (diff <= 0) {
+      document.getElementById('nextSpinTime').textContent = 'Disponible maintenant !';
+      clearInterval(interval);
+      initWheel(); // Reload pour activer le spin
+      return;
+    }
+
+    const hours = Math.floor(diff / (60 * 60 * 1000));
+    const minutes = Math.floor((diff % (60 * 60 * 1000)) / (60 * 1000));
+    const seconds = Math.floor((diff % (60 * 1000)) / 1000);
+
+    document.getElementById('nextSpinTime').textContent = `${hours}h ${minutes}m ${seconds}s`;
+  }, 1000);
+}
+
+function loadWheelHistory(history) {
+  const container = document.getElementById('wheelHistory');
+
+  if (!history || history.length === 0) {
+    container.innerHTML = `
+      <div style="padding:20px;text-align:center;color:var(--text-muted)">
+        <div style="font-size:32px;margin-bottom:8px;opacity:0.3">🎡</div>
+        <p>Aucun gain pour le moment</p>
+        <p style="font-size:14px;margin-top:4px">Tournez la roue pour gagner !</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = history.slice(0, 10).map(h => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:var(--bg-tertiary);border-radius:10px;margin-bottom:6px">
+      <div>
+        <div style="font-weight:600">${sanitizeInput(h.prize)}</div>
+        <div style="color:var(--text-muted);font-size:12px">${new Date(h.date).toLocaleDateString('fr-FR')}</div>
+      </div>
+      <div style="font-size:20px">${h.emoji || '🎁'}</div>
+    </div>
+  `).join('');
+}
+
+document.getElementById('spinBtn')?.addEventListener('click', () => {
+  if (isSpinning) return;
+
+  const wheelData = JSON.parse(localStorage.getItem('wheel_data') || '{"spins":0,"lastSpin":0,"history":[]}');
+
+  if (wheelData.spins <= 0) {
+    showToast('❌ Vous n\'avez plus de spins disponibles !');
+    return;
+  }
+
+  // Démarrer la rotation
+  isSpinning = true;
+  const spinBtn = document.getElementById('spinBtn');
+  spinBtn.disabled = true;
+  spinBtn.style.opacity = '0.5';
+
+  // Choisir un prix aléatoire (avec pondération)
+  const randomIndex = Math.floor(Math.random() * wheelPrizes.length);
+  const selectedPrize = wheelPrizes[randomIndex];
+
+  // Calculer la rotation (plusieurs tours + position finale)
+  const degreesPerSlice = 360 / wheelPrizes.length;
+  const extraRotations = 5; // 5 tours complets
+  const targetRotation = (extraRotations * 360) + (randomIndex * degreesPerSlice) + (degreesPerSlice / 2);
+
+  const wheel = document.getElementById('wheelCanvas');
+  currentRotation += targetRotation;
+
+  wheel.style.transition = 'transform 4s cubic-bezier(0.17, 0.67, 0.12, 0.99)';
+  wheel.style.transform = `rotate(${currentRotation}deg)`;
+
+  // Afficher le résultat après l'animation
+  setTimeout(() => {
+    isSpinning = false;
+    spinBtn.disabled = false;
+    spinBtn.style.opacity = '1';
+
+    // Décrémenter les spins
+    wheelData.spins--;
+    wheelData.lastSpin = Date.now();
+
+    // Ajouter le gain à l'historique
+    const emoji = selectedPrize.credits > 0 ? '💰' : selectedPrize.special === 'free_delivery' ? '🚚' : selectedPrize.special === 'extra_spin' ? '🎡' : selectedPrize.special === 'free_product' ? '🎁' : '😢';
+    wheelData.history.unshift({
+      prize: selectedPrize.label,
+      credits: selectedPrize.credits,
+      special: selectedPrize.special,
+      emoji: emoji,
+      date: Date.now()
+    });
+
+    localStorage.setItem('wheel_data', JSON.stringify(wheelData));
+
+    // Appliquer le gain
+    if (selectedPrize.credits > 0) {
+      // Ajouter des crédits au compte fidélité
+      const loyalty = JSON.parse(localStorage.getItem('loyalty') || '{"points":0,"tier":"Bronze","discount":0}');
+      loyalty.points = (loyalty.points || 0) + selectedPrize.credits;
+      localStorage.setItem('loyalty', JSON.stringify(loyalty));
+      showToast(`🎉 Vous avez gagné ${selectedPrize.credits}€ de crédits !`);
+    } else if (selectedPrize.special === 'extra_spin') {
+      wheelData.spins++;
+      localStorage.setItem('wheel_data', JSON.stringify(wheelData));
+      showToast('🎡 Vous avez gagné un spin supplémentaire !');
+    } else if (selectedPrize.special === 'free_delivery') {
+      localStorage.setItem('free_delivery_voucher', 'true');
+      showToast('🚚 Livraison gratuite sur votre prochaine commande !');
+    } else if (selectedPrize.special === 'free_product') {
+      showToast('🎁 Produit mystère offert ! Contactez le support.');
+    } else {
+      showToast('😢 Réessayez demain !');
+    }
+
+    // Recharger l'interface
+    initWheel();
+  }, 4000);
+});
+
+// Charger la roue quand on ouvre la page
+document.querySelector('.menu-item[data-page="wheel"]')?.addEventListener('click', () => {
+  setTimeout(() => initWheel(), 200);
+});
+
+// Charger le suivi GPS quand on ouvre la page
+document.querySelector('.menu-item[data-page="tracking"]')?.addEventListener('click', () => {
+  setTimeout(() => TrackingManager.init(), 200);
+});
+
+// Charger l'historique quand on ouvre la page
+document.querySelector('.menu-item[data-page="history"]')?.addEventListener('click', () => {
+  setTimeout(() => BrowseHistoryManager.render(), 200);
+});
+
+// Charger le comparateur quand on ouvre la page
+document.querySelector('.menu-item[data-page="compare"]')?.addEventListener('click', () => {
+  setTimeout(() => ComparisonManager.render(), 200);
+});
+
+// ================================================
+// SYSTÈME DE NOTIFICATIONS
+// ================================================
+const NotificationManager = {
+  notifications: [],
+
+  init() {
+    this.notifications = JSON.parse(localStorage.getItem('notifications') || '[]');
+    this.updateBadge();
+    this.renderNotifications();
+  },
+
+  add(title, message, type = 'info') {
+    const notification = {
+      id: Date.now(),
+      title,
+      message,
+      type, // 'info', 'success', 'warning', 'danger'
+      read: false,
+      date: Date.now()
+    };
+
+    this.notifications.unshift(notification);
+    localStorage.setItem('notifications', JSON.stringify(this.notifications));
+    this.updateBadge();
+    this.renderNotifications();
+
+    // Afficher un toast
+    showToast(`🔔 ${title}`);
+  },
+
+  markAsRead(id) {
+    const notif = this.notifications.find(n => n.id === id);
+    if (notif) {
+      notif.read = true;
+      localStorage.setItem('notifications', JSON.stringify(this.notifications));
+      this.updateBadge();
+      this.renderNotifications();
+    }
+  },
+
+  markAllAsRead() {
+    this.notifications.forEach(n => n.read = true);
+    localStorage.setItem('notifications', JSON.stringify(this.notifications));
+    this.updateBadge();
+    this.renderNotifications();
+  },
+
+  updateBadge() {
+    const unreadCount = this.notifications.filter(n => !n.read).length;
+    const badge = document.getElementById('notifBadge');
+    if (badge) {
+      badge.textContent = unreadCount;
+      badge.style.display = unreadCount > 0 ? 'flex' : 'none';
+    }
+  },
+
+  renderNotifications() {
+    const container = document.getElementById('notificationsList');
+    if (!container) return;
+
+    if (this.notifications.length === 0) {
+      container.innerHTML = `
+        <div style="padding:40px 20px;text-align:center;color:var(--text-muted)">
+          <div style="font-size:48px;margin-bottom:12px;opacity:0.3">🔔</div>
+          <p style="font-size:16px">Aucune notification</p>
+          <p style="font-size:14px;margin-top:4px">Vous serez notifié des nouveautés ici</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = this.notifications.map(n => {
+      const typeColors = {
+        info: '#3498db',
+        success: '#2ecc71',
+        warning: '#f39c12',
+        danger: '#e74c3c'
+      };
+      const bgColor = n.read ? 'var(--bg-tertiary)' : 'var(--bg-secondary)';
+      const borderColor = n.read ? 'var(--border)' : typeColors[n.type] || '#3498db';
+
+      return `
+        <div onclick="NotificationManager.markAsRead(${n.id})" style="padding:16px;background:${bgColor};border-left:4px solid ${borderColor};border-radius:12px;margin-bottom:12px;cursor:pointer;${n.read ? 'opacity:0.7' : ''}">
+          <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px">
+            <div style="font-weight:700;font-size:15px">${sanitizeInput(n.title)}</div>
+            ${n.read ? '' : '<div style="width:8px;height:8px;background:#3498db;border-radius:50%"></div>'}
+          </div>
+          <div style="color:var(--text-muted);font-size:14px;margin-bottom:6px">${sanitizeInput(n.message)}</div>
+          <div style="color:var(--text-muted);font-size:12px">${new Date(n.date).toLocaleString('fr-FR')}</div>
+        </div>
+      `;
+    }).join('');
+  },
+
+  clear() {
+    if (!confirm('Supprimer toutes les notifications ?')) return;
+    this.notifications = [];
+    localStorage.setItem('notifications', JSON.stringify(this.notifications));
+    this.updateBadge();
+    this.renderNotifications();
+    showToast('✅ Notifications supprimées');
+  }
+};
+
+// Initialiser les notifications au chargement
+NotificationManager.init();
+
+// Bouton cloche
+document.getElementById('notifBell')?.addEventListener('click', () => {
+  openSheet('notifications');
+  NotificationManager.markAllAsRead();
+});
+
+// Fonction pour ouvrir une sheet personnalisée
+function openSheet(type) {
+  const existingSheet = document.querySelector('.notif-sheet');
+  if (existingSheet) existingSheet.remove();
+
+  const sheet = document.createElement('div');
+  sheet.className = 'sheet notif-sheet';
+  sheet.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:10000;display:flex;align-items:flex-end;animation:fadeIn 0.2s';
+
+  let content = '';
+  if (type === 'notifications') {
+    content = `
+      <div style="background:var(--bg);width:100%;max-height:80vh;border-radius:24px 24px 0 0;overflow:hidden;display:flex;flex-direction:column">
+        <div style="padding:20px;border-bottom:2px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+          <h2 style="font-size:20px;font-weight:700;margin:0">🔔 Notifications</h2>
+          <button onclick="this.closest('.sheet').remove()" style="background:transparent;border:none;font-size:24px;cursor:pointer;color:var(--text)">×</button>
+        </div>
+        <div id="notificationsList" style="flex:1;overflow-y:auto;padding:16px"></div>
+        <div style="padding:16px;border-top:2px solid var(--border)">
+          <button onclick="NotificationManager.clear()" class="btn" style="width:100%;padding:14px;background:var(--danger);color:white;border:none;border-radius:12px;font-weight:600;cursor:pointer">
+            🗑️ Tout supprimer
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  sheet.innerHTML = content;
+  document.body.appendChild(sheet);
+
+  NotificationManager.renderNotifications();
+
+  sheet.addEventListener('click', (e) => {
+    if (e.target === sheet) sheet.remove();
+  });
+}
+
+// Ajouter des notifications de test au premier chargement (à supprimer en production)
+if (!localStorage.getItem('notifications_initialized')) {
+  NotificationManager.add('Bienvenue !', 'Merci de rejoindre DROGUA CENTER. Profitez de -10% sur votre première commande.', 'success');
+  NotificationManager.add('Nouveauté', 'Nouveau produit disponible : STRAWBERRY 120U', 'info');
+  localStorage.setItem('notifications_initialized', 'true');
+}
+
+// ================================================
+// GPS TRACKING - SUIVI LIVRAISON
+// ================================================
+const TrackingManager = {
+  currentTrackingInterval: null,
+
+  init() {
+    this.loadTrackingOrders();
+  },
+
+  loadTrackingOrders() {
+    const orders = OrdersManager.getOrders();
+    const activeOrders = orders.filter(o => ['confirmed', 'preparing', 'delivering'].includes(o.status));
+
+    const select = document.getElementById('trackingOrderSelect');
+    if (!select) return;
+
+    select.innerHTML = '<option value="">Sélectionner une commande...</option>';
+    activeOrders.forEach(order => {
+      const option = document.createElement('option');
+      option.value = order.id;
+      option.textContent = `Commande #${order.id} - ${order.items?.length || 0} article(s)`;
+      select.appendChild(option);
+    });
+  },
+
+  startTracking(orderId) {
+    const order = OrdersManager.getOrders().find(o => o.id === orderId);
+    if (!order) return;
+
+    // Afficher la carte et les infos
+    document.getElementById('deliveryMap').style.display = 'block';
+    document.getElementById('deliveryInfo').style.display = 'block';
+    document.querySelector('#mapContainer > div:first-child').style.display = 'none';
+
+    // Simuler le mouvement du livreur
+    this.simulateDelivery(order);
+
+    // Afficher la timeline
+    this.renderTimeline(order);
+  },
+
+  simulateDelivery(order) {
+    // Positions simulées du livreur
+    const positions = [
+      { bottom: '30%', left: '25%', eta: '15 min', status: 'En cours de livraison' },
+      { bottom: '35%', left: '35%', eta: '12 min', status: 'En approche' },
+      { bottom: '40%', left: '45%', eta: '8 min', status: 'Presque arrivé' },
+      { bottom: '25%', left: '60%', eta: '5 min', status: 'À proximité' },
+      { top: '22%', right: '22%', left: 'auto', bottom: 'auto', eta: '2 min', status: 'Arrivé !' }
+    ];
+
+    let currentPos = 0;
+
+    // Arrêter l'intervalle précédent
+    if (this.currentTrackingInterval) {
+      clearInterval(this.currentTrackingInterval);
+    }
+
+    this.currentTrackingInterval = setInterval(() => {
+      if (currentPos >= positions.length) {
+        clearInterval(this.currentTrackingInterval);
+        showToast('🎉 Le livreur est arrivé !');
+        document.getElementById('deliveryStatusIcon').textContent = '✅';
+        document.getElementById('deliveryStatusText').textContent = 'Livré !';
+        return;
+      }
+
+      const pos = positions[currentPos];
+      const marker = document.getElementById('driverMarker');
+
+      Object.keys(pos).forEach(key => {
+        if (key !== 'eta' && key !== 'status') {
+          marker.style[key] = pos[key];
+        }
+      });
+
+      document.getElementById('deliveryETA').textContent = `Arrivée estimée : ${pos.eta}`;
+      document.getElementById('deliveryStatusText').textContent = pos.status;
+
+      currentPos++;
+    }, 3000); // Déplace toutes les 3 secondes
+  },
+
+  renderTimeline(order) {
+    const steps = [
+      { icon: '✅', label: 'Commande confirmée', time: '14:30', completed: true },
+      { icon: '👨‍🍳', label: 'En préparation', time: '14:35', completed: true },
+      { icon: '📦', label: 'Prête pour livraison', time: '14:50', completed: true },
+      { icon: '🚴', label: 'En cours de livraison', time: '15:00', completed: true },
+      { icon: '🏠', label: 'Livrée', time: 'Bientôt', completed: false }
+    ];
+
+    const container = document.getElementById('deliveryTimeline');
+    container.innerHTML = steps.map((step, index) => `
+      <div style="display:flex;gap:12px;margin-bottom:${index < steps.length - 1 ? '20px' : '0'}">
+        <div style="display:flex;flex-direction:column;align-items:center">
+          <div style="width:40px;height:40px;border-radius:50%;background:${step.completed ? 'var(--success)' : 'var(--bg-tertiary)'};color:white;display:flex;align-items:center;justify-content:center;font-size:18px;border:2px solid ${step.completed ? 'var(--success)' : 'var(--border)'}">
+            ${step.icon}
+          </div>
+          ${index < steps.length - 1 ? `<div style="width:2px;height:20px;background:${step.completed ? 'var(--success)' : 'var(--border)'}"></div>` : ''}
+        </div>
+        <div style="flex:1;padding-top:8px">
+          <div style="font-weight:${step.completed ? '700' : '600'};color:${step.completed ? 'var(--text)' : 'var(--text-muted)'}">${step.label}</div>
+          <div style="color:var(--text-muted);font-size:13px;margin-top:2px">${step.time}</div>
+        </div>
+      </div>
+    `).join('');
+  },
+
+  stopTracking() {
+    if (this.currentTrackingInterval) {
+      clearInterval(this.currentTrackingInterval);
+      this.currentTrackingInterval = null;
+    }
+  }
+};
+
+document.getElementById('trackingOrderSelect')?.addEventListener('change', (e) => {
+  if (e.target.value) {
+    TrackingManager.startTracking(parseInt(e.target.value));
+  } else {
+    TrackingManager.stopTracking();
+    document.getElementById('deliveryMap').style.display = 'none';
+    document.getElementById('deliveryInfo').style.display = 'none';
+    document.querySelector('#mapContainer > div:first-child').style.display = 'block';
+  }
+});
+
+// ================================================
+// HISTORIQUE DE NAVIGATION
+// ================================================
+const BrowseHistoryManager = {
+  history: [],
+
+  init() {
+    this.history = JSON.parse(localStorage.getItem('browse_history') || '[]');
+    this.render();
+  },
+
+  addProduct(product) {
+    // Retirer si déjà présent
+    this.history = this.history.filter(h => h.productId !== product.id);
+
+    // Ajouter en tête
+    this.history.unshift({
+      productId: product.id,
+      product: product,
+      viewedAt: Date.now()
+    });
+
+    // Limiter à 50 produits
+    if (this.history.length > 50) {
+      this.history = this.history.slice(0, 50);
+    }
+
+    localStorage.setItem('browse_history', JSON.stringify(this.history));
+  },
+
+  filter(period) {
+    const now = Date.now();
+    let filtered = this.history;
+
+    if (period === 'today') {
+      const startOfDay = new Date().setHours(0, 0, 0, 0);
+      filtered = this.history.filter(h => h.viewedAt >= startOfDay);
+    } else if (period === 'week') {
+      const weekAgo = now - (7 * 24 * 60 * 60 * 1000);
+      filtered = this.history.filter(h => h.viewedAt >= weekAgo);
+    } else if (period === 'month') {
+      const monthAgo = now - (30 * 24 * 60 * 60 * 1000);
+      filtered = this.history.filter(h => h.viewedAt >= monthAgo);
+    }
+
+    return filtered;
+  },
+
+  render(period = 'all') {
+    const container = document.getElementById('browseHistoryList');
+    if (!container) return;
+
+    const filtered = this.filter(period);
+
+    if (filtered.length === 0) {
+      container.innerHTML = `
+        <div style="padding:60px 20px;text-align:center;color:var(--text-muted)">
+          <div style="font-size:64px;margin-bottom:16px;opacity:0.3">📜</div>
+          <p style="font-size:18px;margin-bottom:8px">Aucun produit consulté</p>
+          <p style="font-size:14px">Votre historique apparaîtra ici</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = filtered.map(item => {
+      const p = item.product;
+      const timeAgo = formatTimeAgo(item.viewedAt);
+
+      return `
+        <div onclick="openProductDetails(${p.id})" style="background:var(--bg-secondary);border:2px solid var(--border);border-radius:16px;padding:16px;margin-bottom:12px;cursor:pointer;transition:all 0.2s;display:flex;gap:16px;align-items:center" onmouseover="this.style.transform='translateY(-4px)';this.style.boxShadow='var(--shadow-lg)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
+          <div style="width:80px;height:80px;background:var(--bg-tertiary);border-radius:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:36px">
+            ${getCategoryEmoji(p.category)}
+          </div>
+          <div style="flex:1;min-width:0">
+            <h3 style="font-size:16px;font-weight:700;margin:0 0 4px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${sanitizeInput(p.name)}</h3>
+            <div style="color:var(--text-muted);font-size:14px;margin-bottom:6px">${sanitizeInput(p.category)}</div>
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div style="color:var(--accent);font-weight:700;font-size:18px">${fmt(p.price)}</div>
+              <div style="color:var(--text-muted);font-size:13px">${timeAgo}</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  },
+
+  clear() {
+    if (!confirm('Effacer tout l\'historique de navigation ?')) return;
+    this.history = [];
+    localStorage.setItem('browse_history', JSON.stringify(this.history));
+    this.render();
+    showToast('✅ Historique effacé');
+  }
+};
+
+function formatTimeAgo(timestamp) {
+  const now = Date.now();
+  const diff = now - timestamp;
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+
+  if (minutes < 1) return 'À l\'instant';
+  if (minutes < 60) return `Il y a ${minutes} min`;
+  if (hours < 24) return `Il y a ${hours}h`;
+  return `Il y a ${days}j`;
+}
+
+// Filtres historique
+document.querySelectorAll('.history-filter').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.history-filter').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    BrowseHistoryManager.render(btn.dataset.period);
+  });
+});
+
+document.getElementById('clearHistory')?.addEventListener('click', () => {
+  BrowseHistoryManager.clear();
+});
+
+// Ajouter le produit à l'historique quand on l'ouvre
+const originalOpenProductDetails = window.openProductDetails;
+window.openProductDetails = function(productId) {
+  const product = DataManager.loadProducts().find(p => p.id === productId);
+  if (product) {
+    BrowseHistoryManager.addProduct(product);
+  }
+  if (originalOpenProductDetails) {
+    originalOpenProductDetails(productId);
+  }
+};
+
+// ================================================
+// COMPARAISON DE PRODUITS
+// ================================================
+const ComparisonManager = {
+  products: [],
+
+  init() {
+    this.products = JSON.parse(localStorage.getItem('comparison_products') || '[]');
+    this.render();
+  },
+
+  addProduct(product) {
+    if (this.products.length >= 3) {
+      showToast('⚠️ Maximum 3 produits pour la comparaison');
+      return false;
+    }
+
+    if (this.products.find(p => p.id === product.id)) {
+      showToast('⚠️ Ce produit est déjà dans la comparaison');
+      return false;
+    }
+
+    this.products.push(product);
+    localStorage.setItem('comparison_products', JSON.stringify(this.products));
+    this.render();
+    showToast('✅ Produit ajouté à la comparaison');
+    return true;
+  },
+
+  removeProduct(productId) {
+    this.products = this.products.filter(p => p.id !== productId);
+    localStorage.setItem('comparison_products', JSON.stringify(this.products));
+    this.render();
+    showToast('✅ Produit retiré de la comparaison');
+  },
+
+  clear() {
+    if (!confirm('Réinitialiser la comparaison ?')) return;
+    this.products = [];
+    localStorage.setItem('comparison_products', JSON.stringify(this.products));
+    this.render();
+    showToast('✅ Comparaison réinitialisée');
+  },
+
+  render() {
+    this.renderSlots();
+    this.renderTable();
+  },
+
+  renderSlots() {
+    const container = document.getElementById('compareSlotsList');
+    const count = document.getElementById('compareCount');
+
+    if (!container || !count) return;
+
+    count.textContent = `${this.products.length}/3`;
+
+    const slots = [];
+    for (let i = 0; i < 3; i++) {
+      const product = this.products[i];
+
+      if (product) {
+        slots.push(`
+          <div style="aspect-ratio:1;background:var(--bg-tertiary);border:2px solid var(--accent);border-radius:12px;padding:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;position:relative">
+            <button onclick="ComparisonManager.removeProduct(${product.id})" style="position:absolute;top:4px;right:4px;width:24px;height:24px;background:var(--danger);border:none;border-radius:50%;color:white;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center">✕</button>
+            <div style="font-size:32px;margin-bottom:8px">${getCategoryEmoji(product.category)}</div>
+            <div style="font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:100%">${sanitizeInput(product.name)}</div>
+          </div>
+        `);
+      } else {
+        slots.push(`
+          <div style="aspect-ratio:1;background:var(--bg-tertiary);border:2px dashed var(--border);border-radius:12px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:32px;opacity:0.3">
+            +
+          </div>
+        `);
+      }
+    }
+
+    container.innerHTML = slots.join('');
+  },
+
+  renderTable() {
+    const table = document.getElementById('comparisonTable');
+    const header = document.getElementById('compareTableHeader');
+    const body = document.getElementById('compareTableBody');
+
+    if (!table || !header || !body) return;
+
+    if (this.products.length < 2) {
+      table.style.display = 'none';
+      return;
+    }
+
+    table.style.display = 'block';
+
+    // Header avec noms des produits
+    header.innerHTML = '<th style="padding:16px;text-align:left;border-bottom:2px solid var(--border);font-weight:700">Critère</th>';
+    this.products.forEach(p => {
+      header.innerHTML += `<th style="padding:16px;text-align:center;border-bottom:2px solid var(--border);font-weight:700;font-size:14px">${sanitizeInput(p.name)}</th>`;
+    });
+
+    // Lignes de comparaison
+    const criteria = [
+      { label: 'Catégorie', key: 'category' },
+      { label: 'Prix', key: 'price', format: v => fmt(v) },
+      { label: 'Ferme', key: 'farm' },
+      { label: 'Variantes', key: 'variants', format: v => v?.length || 0 }
+    ];
+
+    body.innerHTML = criteria.map((criterion, index) => {
+      const style = index % 2 === 0 ? 'background:var(--bg-tertiary)' : '';
+      let row = `<tr style="${style}"><td style="padding:12px;font-weight:600;border-bottom:1px solid var(--border)">${criterion.label}</td>`;
+
+      this.products.forEach(p => {
+        let value = p[criterion.key];
+        if (criterion.format) value = criterion.format(value);
+        if (!value || value === 'undefined') value = '-';
+        row += `<td style="padding:12px;text-align:center;border-bottom:1px solid var(--border)">${sanitizeInput(String(value))}</td>`;
+      });
+
+      row += '</tr>';
+      return row;
+    }).join('');
+  }
+};
+
+document.getElementById('clearComparison')?.addEventListener('click', () => {
+  ComparisonManager.clear();
+});
+
+// ================================================
+// CHAT SUPPORT LIVE
+// ================================================
+const ChatManager = {
+  messages: [],
+  isOpen: false,
+
+  init() {
+    this.messages = JSON.parse(localStorage.getItem('chat_messages') || '[]');
+    this.renderMessages();
+  },
+
+  toggle() {
+    const widget = document.getElementById('chatWidget');
+    const btn = document.getElementById('chatFloatingBtn');
+
+    this.isOpen = !this.isOpen;
+
+    if (this.isOpen) {
+      widget.style.display = 'flex';
+      btn.style.transform = 'scale(0.9)';
+      btn.style.opacity = '0.8';
+
+      // Auto-focus input
+      setTimeout(() => {
+        document.getElementById('chatInput')?.focus();
+      }, 100);
+    } else {
+      widget.style.display = 'none';
+      btn.style.transform = 'scale(1)';
+      btn.style.opacity = '1';
+    }
+  },
+
+  sendMessage(text) {
+    if (!text.trim()) return;
+
+    // Message utilisateur
+    const userMsg = {
+      id: Date.now(),
+      text: text.trim(),
+      sender: 'user',
+      timestamp: Date.now()
+    };
+
+    this.messages.push(userMsg);
+    this.renderMessages();
+
+    // Simuler réponse du support (dans un vrai système, ce serait via WebSocket/API)
+    setTimeout(() => {
+      const responses = [
+        "Merci pour votre message ! Un agent va vous répondre dans quelques instants. 😊",
+        "Je vous remercie de votre patience. Je vérifie votre demande... 🔍",
+        "Votre commande est bien en cours de traitement. Vous recevrez une notification dès qu'elle sera prête ! 📦",
+        "Pour toute urgence, vous pouvez aussi nous contacter sur Telegram : @assistancenter 💬"
+      ];
+
+      const supportMsg = {
+        id: Date.now(),
+        text: responses[Math.floor(Math.random() * responses.length)],
+        sender: 'support',
+        timestamp: Date.now()
+      };
+
+      this.messages.push(supportMsg);
+      this.renderMessages();
+      this.saveMessages();
+    }, 1000 + Math.random() * 2000);
+
+    // Clear input
+    document.getElementById('chatInput').value = '';
+    this.saveMessages();
+  },
+
+  renderMessages() {
+    const container = document.getElementById('chatMessages');
+    if (!container) return;
+
+    // Garder le message de bienvenue si pas de messages
+    if (this.messages.length === 0) {
+      container.innerHTML = `
+        <div style="display:flex;gap:8px;animation:slideIn 0.3s">
+          <div style="width:36px;height:36px;background:linear-gradient(135deg,#667eea,#764ba2);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px">
+            👤
+          </div>
+          <div style="flex:1">
+            <div style="background:var(--bg);padding:12px;border-radius:12px 12px 12px 4px;border:2px solid var(--border)">
+              <p style="margin:0;font-size:14px;line-height:1.5">Bonjour ! 👋 Comment puis-je vous aider aujourd'hui ?</p>
+            </div>
+            <div style="color:var(--text-muted);font-size:12px;margin-top:4px">À l'instant</div>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = this.messages.map(msg => {
+      const isUser = msg.sender === 'user';
+      const time = new Date(msg.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+
+      if (isUser) {
+        return `
+          <div style="display:flex;justify-content:flex-end;animation:slideIn 0.3s">
+            <div style="max-width:80%">
+              <div style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:12px;border-radius:12px 12px 4px 12px">
+                <p style="margin:0;font-size:14px;line-height:1.5">${sanitizeInput(msg.text)}</p>
+              </div>
+              <div style="color:var(--text-muted);font-size:12px;margin-top:4px;text-align:right">${time}</div>
+            </div>
+          </div>
+        `;
+      } else {
+        return `
+          <div style="display:flex;gap:8px;animation:slideIn 0.3s">
+            <div style="width:36px;height:36px;background:linear-gradient(135deg,#667eea,#764ba2);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px">
+              👤
+            </div>
+            <div style="flex:1">
+              <div style="background:var(--bg);padding:12px;border-radius:12px 12px 12px 4px;border:2px solid var(--border)">
+                <p style="margin:0;font-size:14px;line-height:1.5">${sanitizeInput(msg.text)}</p>
+              </div>
+              <div style="color:var(--text-muted);font-size:12px;margin-top:4px">${time}</div>
+            </div>
+          </div>
+        `;
+      }
+    }).join('');
+
+    // Scroll to bottom
+    container.scrollTop = container.scrollHeight;
+  },
+
+  saveMessages() {
+    localStorage.setItem('chat_messages', JSON.stringify(this.messages));
+  }
+};
+
+// Events chat
+document.getElementById('chatFloatingBtn')?.addEventListener('click', () => {
+  ChatManager.toggle();
+});
+
+document.getElementById('chatCloseBtn')?.addEventListener('click', () => {
+  ChatManager.toggle();
+});
+
+document.getElementById('chatSendBtn')?.addEventListener('click', () => {
+  const input = document.getElementById('chatInput');
+  if (input) {
+    ChatManager.sendMessage(input.value);
+  }
+});
+
+document.getElementById('chatInput')?.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') {
+    ChatManager.sendMessage(e.target.value);
+  }
+});
+
+// Quick replies
+document.querySelectorAll('.quick-reply').forEach(btn => {
+  btn.addEventListener('click', () => {
+    ChatManager.sendMessage(btn.dataset.msg);
+  });
+});
+
+// Initialiser tous les nouveaux managers
+TrackingManager.init();
+BrowseHistoryManager.init();
+ComparisonManager.init();
+ChatManager.init();
+
+console.log('✅ PHASE 3 chargée : GPS Tracking, Historique Navigation, Comparaison, Chat Support');
   </script>
 </body>
 </html>
