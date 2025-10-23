@@ -217,6 +217,99 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
   stroke-width:2;
 }
 
+.notif-bell{
+  background:var(--bg-tertiary);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:8px;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  transition:all 0.2s;
+  position:relative;
+}
+
+.notif-bell svg{
+  width:20px;
+  height:20px;
+  stroke:var(--text-primary);
+  fill:none;
+  stroke-width:2;
+}
+
+.notif-bell:hover{
+  background:var(--bg-secondary);
+  border-color:var(--accent);
+}
+
+.notif-badge{
+  position:absolute;
+  top:-6px;
+  right:-6px;
+  background:var(--danger);
+  color:white;
+  border-radius:10px;
+  padding:2px 6px;
+  font-size:10px;
+  font-weight:700;
+  min-width:18px;
+  text-align:center;
+  animation:pulse 2s infinite;
+}
+
+@keyframes pulse{
+  0%,100%{transform:scale(1)}
+  50%{transform:scale(1.1)}
+}
+
+.toggle-switch{
+  position:relative;
+  display:inline-block;
+  width:48px;
+  height:24px;
+}
+
+.toggle-switch input{
+  opacity:0;
+  width:0;
+  height:0;
+}
+
+.toggle-slider{
+  position:absolute;
+  cursor:pointer;
+  top:0;
+  left:0;
+  right:0;
+  bottom:0;
+  background:var(--bg-tertiary);
+  border:2px solid var(--border);
+  transition:all 0.3s;
+  border-radius:24px;
+}
+
+.toggle-slider:before{
+  position:absolute;
+  content:"";
+  height:16px;
+  width:16px;
+  left:2px;
+  bottom:2px;
+  background:white;
+  transition:all 0.3s;
+  border-radius:50%;
+}
+
+.toggle-switch input:checked + .toggle-slider{
+  background:var(--accent);
+  border-color:var(--accent);
+}
+
+.toggle-switch input:checked + .toggle-slider:before{
+  transform:translateX(24px);
+}
+
 .cart-btn{
   background:var(--bg-tertiary);
   border:1px solid var(--border);
@@ -1684,6 +1777,14 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
         <svg viewBox="0 0 24 24" style="stroke:#ffd700"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
         <span style="color:#ffd700;font-weight:700">🎁 Parrainage</span>
       </button>
+      <button class="menu-item" data-page="profil">
+        <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+        <span>👤 Mon Profil</span>
+      </button>
+      <button class="menu-item" data-page="wheel" style="background:linear-gradient(135deg,rgba(255,215,0,0.05) 0%,rgba(255,140,0,0.05) 100%)">
+        <svg viewBox="0 0 24 24" style="stroke:#ffd700"><circle cx="12" cy="12" r="10"></circle><path d="M12 2v10M12 12l7.07 7.07M12 12l-7.07 7.07M12 12L4.93 4.93M12 12l7.07-7.07"></path></svg>
+        <span style="color:#ffd700">🎡 Roue Fortune</span>
+      </button>
       <button class="menu-item" data-page="infos">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
         <span>Informations</span>
@@ -1714,6 +1815,10 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
       <button class="search-clear" id="searchClear" style="display:none">✕</button>
     </div>
     <div class="header-actions">
+      <button class="notif-bell" id="notifBell">
+        <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+        <span class="notif-badge" id="notifBadge" style="display:none">0</span>
+      </button>
       <div class="sync-indicator" id="syncIndicator">
         <span class="sync-dot"></span>
         <span id="syncStatus">Sync ✓</span>
@@ -2031,6 +2136,170 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
           <span style="background:linear-gradient(135deg,#ffd700,#ff8c00);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">Top Parrains</span>
         </h3>
         <div id="leaderboardList"></div>
+      </div>
+    </div>
+  </main>
+
+  <main class="page" id="page-profil">
+    <div class="info-section">
+      <h2 class="section-title">
+        <svg style="width:32px;height:32px;stroke:var(--accent);fill:none;stroke-width:2" viewBox="0 0 24 24">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+          <circle cx="12" cy="7" r="4"></circle>
+        </svg>
+        👤 Mon Profil
+      </h2>
+
+      <!-- Avatar et nom -->
+      <div style="text-align:center;margin-bottom:32px">
+        <div id="userAvatar" style="width:100px;height:100px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#0099cc);margin:0 auto 16px;display:flex;align-items:center;justify-content:center;font-size:48px;font-weight:900;color:white;box-shadow:0 10px 30px rgba(0,212,255,0.3)">
+          U
+        </div>
+        <h3 id="userName" style="font-size:24px;font-weight:700;margin-bottom:4px">Utilisateur</h3>
+        <p id="userSince" style="color:var(--text-muted);font-size:14px">Membre depuis le 01/01/2025</p>
+      </div>
+
+      <!-- Statistiques personnelles -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px">
+        <div style="background:var(--bg-secondary);border:2px solid var(--border);border-radius:16px;padding:16px;text-align:center">
+          <div style="font-size:28px;font-weight:800;color:var(--accent)" id="userTotalOrders">0</div>
+          <div style="color:var(--text-muted);font-size:12px;margin-top:4px">Commandes</div>
+        </div>
+        <div style="background:var(--bg-secondary);border:2px solid var(--border);border-radius:16px;padding:16px;text-align:center">
+          <div style="font-size:28px;font-weight:800;color:#ffd700" id="userTotalSpent">0€</div>
+          <div style="color:var(--text-muted);font-size:12px;margin-top:4px">Dépensé</div>
+        </div>
+        <div style="background:var(--bg-secondary);border:2px solid var(--border);border-radius:16px;padding:16px;text-align:center">
+          <div style="font-size:28px;font-weight:800;color:#4ade80" id="userFavorites">0</div>
+          <div style="color:var(--text-muted);font-size:12px;margin-top:4px">Favoris</div>
+        </div>
+      </div>
+
+      <!-- Informations -->
+      <div style="background:var(--bg-secondary);border:2px solid var(--border);border-radius:16px;padding:20px;margin-bottom:16px">
+        <h3 style="font-size:18px;font-weight:700;margin-bottom:16px">📱 Informations</h3>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="color:var(--text-muted)">Nom d'utilisateur</span>
+            <span id="profileUsername" style="font-weight:600">Client_123</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="color:var(--text-muted)">Email</span>
+            <span id="profileEmail" style="font-weight:600">Non renseigné</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="color:var(--text-muted)">Téléphone</span>
+            <span id="profilePhone" style="font-weight:600">Non renseigné</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Adresses enregistrées -->
+      <div style="background:var(--bg-secondary);border:2px solid var(--border);border-radius:16px;padding:20px;margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+          <h3 style="font-size:18px;font-weight:700">📍 Adresses</h3>
+          <button id="addAddressBtn" style="background:var(--accent);color:var(--bg-primary);border:none;padding:8px 16px;border-radius:8px;font-weight:600;cursor:pointer">+ Ajouter</button>
+        </div>
+        <div id="addressesList"></div>
+      </div>
+
+      <!-- Préférences -->
+      <div style="background:var(--bg-secondary);border:2px solid var(--border);border-radius:16px;padding:20px;margin-bottom:16px">
+        <h3 style="font-size:18px;font-weight:700;margin-bottom:16px">⚙️ Préférences</h3>
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div style="font-weight:600">Notifications</div>
+              <div style="color:var(--text-muted);font-size:13px">Recevoir les alertes de commande</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="notifToggle" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div style="font-weight:600">Newsletter</div>
+              <div style="color:var(--text-muted);font-size:13px">Offres et nouveautés</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="newsletterToggle">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bouton déconnexion -->
+      <button id="logoutBtn" style="width:100%;background:transparent;border:2px solid var(--danger);color:var(--danger);padding:16px;border-radius:12px;font-weight:700;cursor:pointer;transition:all 0.2s">
+        🚪 Déconnexion
+      </button>
+    </div>
+  </main>
+
+  <main class="page" id="page-wheel">
+    <div class="info-section">
+      <h2 class="section-title">
+        <span style="font-size:32px">🎡</span>
+        <span style="background:linear-gradient(135deg,#ffd700,#ff8c00);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-weight:900">Roue de Fortune</span>
+      </h2>
+
+      <!-- Compteur de spins -->
+      <div style="text-align:center;margin-bottom:24px">
+        <div style="background:var(--bg-secondary);border:2px solid var(--border);border-radius:16px;padding:20px;display:inline-block">
+          <div style="color:var(--text-muted);font-size:14px;margin-bottom:4px">Spins disponibles</div>
+          <div style="font-size:48px;font-weight:900;background:linear-gradient(135deg,#ffd700,#ff8c00);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text" id="availableSpins">1</div>
+          <div style="color:var(--text-muted);font-size:12px;margin-top:4px">Prochain spin : <span id="nextSpinTime">23:59:59</span></div>
+        </div>
+      </div>
+
+      <!-- Roue -->
+      <div style="position:relative;width:100%;max-width:400px;margin:0 auto 32px">
+        <div id="wheelCanvas" style="width:100%;aspect-ratio:1;border-radius:50%;background:conic-gradient(from 0deg, #ff6b6b 0deg 45deg, #ffd700 45deg 90deg, #4ade80 90deg 135deg, #00d4ff 135deg 180deg, #a78bfa 180deg 225deg, #ff8c00 225deg 270deg, #ec4899 270deg 315deg, #10b981 315deg 360deg);box-shadow:0 20px 60px rgba(0,0,0,0.3),inset 0 0 30px rgba(255,255,255,0.2);border:8px solid var(--bg-secondary);position:relative;transition:transform 3s cubic-bezier(0.17,0.67,0.12,0.99)">
+          <!-- Segments -->
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none">
+            <div style="width:90%;height:90%;border-radius:50%;background:var(--bg-secondary);display:flex;align-items:center;justify-content:center;flex-direction:column;box-shadow:0 10px 30px rgba(0,0,0,0.5)">
+              <div style="font-size:64px;margin-bottom:8px">🎁</div>
+              <div style="font-size:14px;font-weight:700;color:var(--accent)">TOURNEZ!</div>
+            </div>
+          </div>
+        </div>
+        <!-- Flèche indicatrice -->
+        <div style="position:absolute;top:-20px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:20px solid transparent;border-right:20px solid transparent;border-top:40px solid var(--danger);filter:drop-shadow(0 4px 10px rgba(0,0,0,0.3));z-index:10"></div>
+      </div>
+
+      <!-- Bouton spin -->
+      <button id="spinButton" style="width:100%;max-width:400px;margin:0 auto;display:block;background:linear-gradient(135deg,#ffd700,#ff8c00);border:none;padding:20px;border-radius:16px;font-size:20px;font-weight:900;color:#000;cursor:pointer;box-shadow:0 10px 30px rgba(255,215,0,0.4);transition:all 0.2s">
+        🎰 TOURNER LA ROUE
+      </button>
+
+      <!-- Gains possibles -->
+      <div style="background:var(--bg-secondary);border:2px solid var(--border);border-radius:16px;padding:20px;margin-top:32px">
+        <h3 style="font-size:18px;font-weight:700;margin-bottom:16px">🎁 Gains possibles</h3>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px">
+          <div style="background:var(--bg-tertiary);border-radius:12px;padding:12px;text-align:center">
+            <div style="font-size:24px;margin-bottom:4px">💰</div>
+            <div style="font-size:14px;font-weight:600">5€ - 20€</div>
+          </div>
+          <div style="background:var(--bg-tertiary);border-radius:12px;padding:12px;text-align:center">
+            <div style="font-size:24px;margin-bottom:4px">🎟️</div>
+            <div style="font-size:14px;font-weight:600">Crédits VIP</div>
+          </div>
+          <div style="background:var(--bg-tertiary);border-radius:12px;padding:12px;text-align:center">
+            <div style="font-size:24px;margin-bottom:4px">📦</div>
+            <div style="font-size:14px;font-weight:600">Livraison gratuite</div>
+          </div>
+          <div style="background:var(--bg-tertiary);border-radius:12px;padding:12px;text-align:center">
+            <div style="font-size:24px;margin-bottom:4px">🎁</div>
+            <div style="font-size:14px;font-weight:600">Produit gratuit</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Historique -->
+      <div style="background:var(--bg-secondary);border:2px solid var(--border);border-radius:16px;padding:20px;margin-top:16px">
+        <h3 style="font-size:18px;font-weight:700;margin-bottom:16px">📜 Mes gains</h3>
+        <div id="wheelHistory"></div>
       </div>
     </div>
   </main>
@@ -6159,6 +6428,455 @@ document.getElementById('shareReferralCode')?.addEventListener('click', () => {
 document.querySelector('.menu-item[data-page="parrainage"]')?.addEventListener('click', () => {
   setTimeout(() => loadReferralPage(), 200);
 });
+
+// ================================================
+// PAGE PROFIL
+// ================================================
+function loadProfilePage() {
+  // Charger les statistiques utilisateur
+  const orders = OrdersManager.getOrders();
+  const totalOrders = orders.length;
+  const totalSpent = orders.reduce((sum, o) => sum + (o.total || 0), 0);
+  const favorites = FavoritesManager.getFavorites();
+
+  document.getElementById('userOrdersCount').textContent = totalOrders;
+  document.getElementById('userSpentTotal').textContent = fmt(totalSpent);
+  document.getElementById('userFavoritesCount').textContent = favorites.length;
+
+  // Charger infos utilisateur (localStorage ou API)
+  const userInfo = JSON.parse(localStorage.getItem('user_info') || '{}');
+  document.getElementById('userNameDisplay').textContent = userInfo.name || 'Client';
+  document.getElementById('userEmailDisplay').textContent = userInfo.email || 'non renseigné';
+  document.getElementById('userPhoneDisplay').textContent = userInfo.phone || 'non renseigné';
+  document.getElementById('userAvatar').textContent = (userInfo.name || 'User')[0].toUpperCase();
+
+  // Charger adresses
+  loadAddresses();
+
+  // Charger préférences
+  const prefs = JSON.parse(localStorage.getItem('user_preferences') || '{}');
+  document.getElementById('prefNotifications').checked = prefs.notifications !== false;
+  document.getElementById('prefNewsletter').checked = prefs.newsletter === true;
+  document.getElementById('prefDarkMode').checked = document.body.getAttribute('data-theme') === 'dark';
+}
+
+function loadAddresses() {
+  const addresses = JSON.parse(localStorage.getItem('user_addresses') || '[]');
+  const container = document.getElementById('addressesList');
+
+  if (addresses.length === 0) {
+    container.innerHTML = `
+      <div style="padding:20px;text-align:center;color:var(--text-muted);background:var(--bg-tertiary);border-radius:12px">
+        <div style="font-size:32px;margin-bottom:8px;opacity:0.3">📍</div>
+        <p>Aucune adresse enregistrée</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = addresses.map((addr, index) => `
+    <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--bg-tertiary);border:2px solid var(--border);border-radius:12px;margin-bottom:8px">
+      <div style="flex:1">
+        <div style="font-weight:600;margin-bottom:4px">${sanitizeInput(addr.label || 'Adresse')}</div>
+        <div style="color:var(--text-muted);font-size:14px">${sanitizeInput(addr.address)}</div>
+      </div>
+      <button class="btn-danger" onclick="deleteAddress(${index})" style="padding:8px 12px;background:var(--danger);color:white;border:none;border-radius:8px;cursor:pointer">
+        🗑️
+      </button>
+    </div>
+  `).join('');
+}
+
+window.deleteAddress = function(index) {
+  if (!confirm('Supprimer cette adresse ?')) return;
+  const addresses = JSON.parse(localStorage.getItem('user_addresses') || '[]');
+  addresses.splice(index, 1);
+  localStorage.setItem('user_addresses', JSON.stringify(addresses));
+  loadAddresses();
+  showToast('✅ Adresse supprimée');
+};
+
+// Ajouter une nouvelle adresse
+document.getElementById('addAddress')?.addEventListener('click', () => {
+  const address = prompt('Entrez la nouvelle adresse:');
+  if (!address || !address.trim()) return;
+
+  const label = prompt('Nom de l\'adresse (ex: Domicile, Bureau):') || 'Adresse';
+
+  const addresses = JSON.parse(localStorage.getItem('user_addresses') || '[]');
+  addresses.push({ label, address: address.trim() });
+  localStorage.setItem('user_addresses', JSON.stringify(addresses));
+  loadAddresses();
+  showToast('✅ Adresse ajoutée');
+});
+
+// Sauvegarder les préférences
+document.getElementById('prefNotifications')?.addEventListener('change', (e) => {
+  const prefs = JSON.parse(localStorage.getItem('user_preferences') || '{}');
+  prefs.notifications = e.target.checked;
+  localStorage.setItem('user_preferences', JSON.stringify(prefs));
+  showToast(e.target.checked ? '🔔 Notifications activées' : '🔕 Notifications désactivées');
+});
+
+document.getElementById('prefNewsletter')?.addEventListener('change', (e) => {
+  const prefs = JSON.parse(localStorage.getItem('user_preferences') || '{}');
+  prefs.newsletter = e.target.checked;
+  localStorage.setItem('user_preferences', JSON.stringify(prefs));
+  showToast(e.target.checked ? '📧 Newsletter activée' : '📧 Newsletter désactivée');
+});
+
+document.getElementById('prefDarkMode')?.addEventListener('change', (e) => {
+  document.body.setAttribute('data-theme', e.target.checked ? 'dark' : 'light');
+  localStorage.setItem('theme', e.target.checked ? 'dark' : 'light');
+  showToast(e.target.checked ? '🌙 Mode sombre activé' : '☀️ Mode clair activé');
+});
+
+// Déconnexion
+document.getElementById('logoutBtn')?.addEventListener('click', () => {
+  if (!confirm('Êtes-vous sûr de vouloir vous déconnecter ?')) return;
+
+  // Garder uniquement les données essentielles (produits)
+  const products = localStorage.getItem('products');
+  localStorage.clear();
+  if (products) localStorage.setItem('products', products);
+
+  showToast('✅ Déconnexion réussie');
+  setTimeout(() => window.location.reload(), 1000);
+});
+
+// Charger le profil quand on ouvre la page
+document.querySelector('.menu-item[data-page="profil"]')?.addEventListener('click', () => {
+  setTimeout(() => loadProfilePage(), 200);
+});
+
+// ================================================
+// ROUE DE LA FORTUNE
+// ================================================
+const wheelPrizes = [
+  { label: '5€ de réduction', color: '#ff6b6b', credits: 5 },
+  { label: 'Livraison gratuite', color: '#4ecdc4', credits: 0, special: 'free_delivery' },
+  { label: '10€ de réduction', color: '#ffe66d', credits: 10 },
+  { label: '+1 spin gratuit', color: '#95e1d3', credits: 0, special: 'extra_spin' },
+  { label: '15€ de réduction', color: '#ff6b9d', credits: 15 },
+  { label: 'Produit mystère gratuit', color: '#c7b8ea', credits: 0, special: 'free_product' },
+  { label: '20€ de réduction', color: '#ffd93d', credits: 20 },
+  { label: 'Réessayez', color: '#a8dadc', credits: 0 }
+];
+
+let isSpinning = false;
+let currentRotation = 0;
+
+function initWheel() {
+  const wheelData = JSON.parse(localStorage.getItem('wheel_data') || '{"spins":1,"lastSpin":0,"history":[]}');
+
+  // Vérifier si l'utilisateur peut tourner (1 spin par jour)
+  const now = Date.now();
+  const lastSpin = wheelData.lastSpin || 0;
+  const oneDayMs = 24 * 60 * 60 * 1000;
+
+  if (now - lastSpin >= oneDayMs) {
+    wheelData.spins = 1; // Reset daily spin
+    localStorage.setItem('wheel_data', JSON.stringify(wheelData));
+  }
+
+  document.getElementById('availableSpins').textContent = wheelData.spins || 0;
+
+  // Afficher le temps avant prochain spin
+  if (wheelData.spins === 0) {
+    updateNextSpinTime(lastSpin + oneDayMs);
+  } else {
+    document.getElementById('nextSpinTime').textContent = 'Disponible maintenant !';
+  }
+
+  // Charger l'historique
+  loadWheelHistory(wheelData.history);
+}
+
+function updateNextSpinTime(nextSpinTimestamp) {
+  const interval = setInterval(() => {
+    const now = Date.now();
+    const diff = nextSpinTimestamp - now;
+
+    if (diff <= 0) {
+      document.getElementById('nextSpinTime').textContent = 'Disponible maintenant !';
+      clearInterval(interval);
+      initWheel(); // Reload pour activer le spin
+      return;
+    }
+
+    const hours = Math.floor(diff / (60 * 60 * 1000));
+    const minutes = Math.floor((diff % (60 * 60 * 1000)) / (60 * 1000));
+    const seconds = Math.floor((diff % (60 * 1000)) / 1000);
+
+    document.getElementById('nextSpinTime').textContent = `${hours}h ${minutes}m ${seconds}s`;
+  }, 1000);
+}
+
+function loadWheelHistory(history) {
+  const container = document.getElementById('wheelHistory');
+
+  if (!history || history.length === 0) {
+    container.innerHTML = `
+      <div style="padding:20px;text-align:center;color:var(--text-muted)">
+        <div style="font-size:32px;margin-bottom:8px;opacity:0.3">🎡</div>
+        <p>Aucun gain pour le moment</p>
+        <p style="font-size:14px;margin-top:4px">Tournez la roue pour gagner !</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = history.slice(0, 10).map(h => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:var(--bg-tertiary);border-radius:10px;margin-bottom:6px">
+      <div>
+        <div style="font-weight:600">${sanitizeInput(h.prize)}</div>
+        <div style="color:var(--text-muted);font-size:12px">${new Date(h.date).toLocaleDateString('fr-FR')}</div>
+      </div>
+      <div style="font-size:20px">${h.emoji || '🎁'}</div>
+    </div>
+  `).join('');
+}
+
+document.getElementById('spinBtn')?.addEventListener('click', () => {
+  if (isSpinning) return;
+
+  const wheelData = JSON.parse(localStorage.getItem('wheel_data') || '{"spins":0,"lastSpin":0,"history":[]}');
+
+  if (wheelData.spins <= 0) {
+    showToast('❌ Vous n\'avez plus de spins disponibles !');
+    return;
+  }
+
+  // Démarrer la rotation
+  isSpinning = true;
+  const spinBtn = document.getElementById('spinBtn');
+  spinBtn.disabled = true;
+  spinBtn.style.opacity = '0.5';
+
+  // Choisir un prix aléatoire (avec pondération)
+  const randomIndex = Math.floor(Math.random() * wheelPrizes.length);
+  const selectedPrize = wheelPrizes[randomIndex];
+
+  // Calculer la rotation (plusieurs tours + position finale)
+  const degreesPerSlice = 360 / wheelPrizes.length;
+  const extraRotations = 5; // 5 tours complets
+  const targetRotation = (extraRotations * 360) + (randomIndex * degreesPerSlice) + (degreesPerSlice / 2);
+
+  const wheel = document.getElementById('wheelCanvas');
+  currentRotation += targetRotation;
+
+  wheel.style.transition = 'transform 4s cubic-bezier(0.17, 0.67, 0.12, 0.99)';
+  wheel.style.transform = `rotate(${currentRotation}deg)`;
+
+  // Afficher le résultat après l'animation
+  setTimeout(() => {
+    isSpinning = false;
+    spinBtn.disabled = false;
+    spinBtn.style.opacity = '1';
+
+    // Décrémenter les spins
+    wheelData.spins--;
+    wheelData.lastSpin = Date.now();
+
+    // Ajouter le gain à l'historique
+    const emoji = selectedPrize.credits > 0 ? '💰' : selectedPrize.special === 'free_delivery' ? '🚚' : selectedPrize.special === 'extra_spin' ? '🎡' : selectedPrize.special === 'free_product' ? '🎁' : '😢';
+    wheelData.history.unshift({
+      prize: selectedPrize.label,
+      credits: selectedPrize.credits,
+      special: selectedPrize.special,
+      emoji: emoji,
+      date: Date.now()
+    });
+
+    localStorage.setItem('wheel_data', JSON.stringify(wheelData));
+
+    // Appliquer le gain
+    if (selectedPrize.credits > 0) {
+      // Ajouter des crédits au compte fidélité
+      const loyalty = JSON.parse(localStorage.getItem('loyalty') || '{"points":0,"tier":"Bronze","discount":0}');
+      loyalty.points = (loyalty.points || 0) + selectedPrize.credits;
+      localStorage.setItem('loyalty', JSON.stringify(loyalty));
+      showToast(`🎉 Vous avez gagné ${selectedPrize.credits}€ de crédits !`);
+    } else if (selectedPrize.special === 'extra_spin') {
+      wheelData.spins++;
+      localStorage.setItem('wheel_data', JSON.stringify(wheelData));
+      showToast('🎡 Vous avez gagné un spin supplémentaire !');
+    } else if (selectedPrize.special === 'free_delivery') {
+      localStorage.setItem('free_delivery_voucher', 'true');
+      showToast('🚚 Livraison gratuite sur votre prochaine commande !');
+    } else if (selectedPrize.special === 'free_product') {
+      showToast('🎁 Produit mystère offert ! Contactez le support.');
+    } else {
+      showToast('😢 Réessayez demain !');
+    }
+
+    // Recharger l'interface
+    initWheel();
+  }, 4000);
+});
+
+// Charger la roue quand on ouvre la page
+document.querySelector('.menu-item[data-page="wheel"]')?.addEventListener('click', () => {
+  setTimeout(() => initWheel(), 200);
+});
+
+// ================================================
+// SYSTÈME DE NOTIFICATIONS
+// ================================================
+const NotificationManager = {
+  notifications: [],
+
+  init() {
+    this.notifications = JSON.parse(localStorage.getItem('notifications') || '[]');
+    this.updateBadge();
+    this.renderNotifications();
+  },
+
+  add(title, message, type = 'info') {
+    const notification = {
+      id: Date.now(),
+      title,
+      message,
+      type, // 'info', 'success', 'warning', 'danger'
+      read: false,
+      date: Date.now()
+    };
+
+    this.notifications.unshift(notification);
+    localStorage.setItem('notifications', JSON.stringify(this.notifications));
+    this.updateBadge();
+    this.renderNotifications();
+
+    // Afficher un toast
+    showToast(`🔔 ${title}`);
+  },
+
+  markAsRead(id) {
+    const notif = this.notifications.find(n => n.id === id);
+    if (notif) {
+      notif.read = true;
+      localStorage.setItem('notifications', JSON.stringify(this.notifications));
+      this.updateBadge();
+      this.renderNotifications();
+    }
+  },
+
+  markAllAsRead() {
+    this.notifications.forEach(n => n.read = true);
+    localStorage.setItem('notifications', JSON.stringify(this.notifications));
+    this.updateBadge();
+    this.renderNotifications();
+  },
+
+  updateBadge() {
+    const unreadCount = this.notifications.filter(n => !n.read).length;
+    const badge = document.getElementById('notifBadge');
+    if (badge) {
+      badge.textContent = unreadCount;
+      badge.style.display = unreadCount > 0 ? 'flex' : 'none';
+    }
+  },
+
+  renderNotifications() {
+    const container = document.getElementById('notificationsList');
+    if (!container) return;
+
+    if (this.notifications.length === 0) {
+      container.innerHTML = `
+        <div style="padding:40px 20px;text-align:center;color:var(--text-muted)">
+          <div style="font-size:48px;margin-bottom:12px;opacity:0.3">🔔</div>
+          <p style="font-size:16px">Aucune notification</p>
+          <p style="font-size:14px;margin-top:4px">Vous serez notifié des nouveautés ici</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = this.notifications.map(n => {
+      const typeColors = {
+        info: '#3498db',
+        success: '#2ecc71',
+        warning: '#f39c12',
+        danger: '#e74c3c'
+      };
+      const bgColor = n.read ? 'var(--bg-tertiary)' : 'var(--bg-secondary)';
+      const borderColor = n.read ? 'var(--border)' : typeColors[n.type] || '#3498db';
+
+      return `
+        <div onclick="NotificationManager.markAsRead(${n.id})" style="padding:16px;background:${bgColor};border-left:4px solid ${borderColor};border-radius:12px;margin-bottom:12px;cursor:pointer;${n.read ? 'opacity:0.7' : ''}">
+          <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px">
+            <div style="font-weight:700;font-size:15px">${sanitizeInput(n.title)}</div>
+            ${n.read ? '' : '<div style="width:8px;height:8px;background:#3498db;border-radius:50%"></div>'}
+          </div>
+          <div style="color:var(--text-muted);font-size:14px;margin-bottom:6px">${sanitizeInput(n.message)}</div>
+          <div style="color:var(--text-muted);font-size:12px">${new Date(n.date).toLocaleString('fr-FR')}</div>
+        </div>
+      `;
+    }).join('');
+  },
+
+  clear() {
+    if (!confirm('Supprimer toutes les notifications ?')) return;
+    this.notifications = [];
+    localStorage.setItem('notifications', JSON.stringify(this.notifications));
+    this.updateBadge();
+    this.renderNotifications();
+    showToast('✅ Notifications supprimées');
+  }
+};
+
+// Initialiser les notifications au chargement
+NotificationManager.init();
+
+// Bouton cloche
+document.getElementById('notifBell')?.addEventListener('click', () => {
+  openSheet('notifications');
+  NotificationManager.markAllAsRead();
+});
+
+// Fonction pour ouvrir une sheet personnalisée
+function openSheet(type) {
+  const existingSheet = document.querySelector('.notif-sheet');
+  if (existingSheet) existingSheet.remove();
+
+  const sheet = document.createElement('div');
+  sheet.className = 'sheet notif-sheet';
+  sheet.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:10000;display:flex;align-items:flex-end;animation:fadeIn 0.2s';
+
+  let content = '';
+  if (type === 'notifications') {
+    content = `
+      <div style="background:var(--bg);width:100%;max-height:80vh;border-radius:24px 24px 0 0;overflow:hidden;display:flex;flex-direction:column">
+        <div style="padding:20px;border-bottom:2px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+          <h2 style="font-size:20px;font-weight:700;margin:0">🔔 Notifications</h2>
+          <button onclick="this.closest('.sheet').remove()" style="background:transparent;border:none;font-size:24px;cursor:pointer;color:var(--text)">×</button>
+        </div>
+        <div id="notificationsList" style="flex:1;overflow-y:auto;padding:16px"></div>
+        <div style="padding:16px;border-top:2px solid var(--border)">
+          <button onclick="NotificationManager.clear()" class="btn" style="width:100%;padding:14px;background:var(--danger);color:white;border:none;border-radius:12px;font-weight:600;cursor:pointer">
+            🗑️ Tout supprimer
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  sheet.innerHTML = content;
+  document.body.appendChild(sheet);
+
+  NotificationManager.renderNotifications();
+
+  sheet.addEventListener('click', (e) => {
+    if (e.target === sheet) sheet.remove();
+  });
+}
+
+// Ajouter des notifications de test au premier chargement (à supprimer en production)
+if (!localStorage.getItem('notifications_initialized')) {
+  NotificationManager.add('Bienvenue !', 'Merci de rejoindre DROGUA CENTER. Profitez de -10% sur votre première commande.', 'success');
+  NotificationManager.add('Nouveauté', 'Nouveau produit disponible : STRAWBERRY 120U', 'info');
+  localStorage.setItem('notifications_initialized', 'true');
+}
   </script>
 </body>
 </html>
