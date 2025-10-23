@@ -370,6 +370,29 @@ async function initDB() {
       FOREIGN KEY (order_id) REFERENCES orders(id)
     );
 
+    CREATE TABLE IF NOT EXISTS referrals (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      referral_code TEXT NOT NULL UNIQUE,
+      customer_contact TEXT NOT NULL,
+      credit_balance REAL DEFAULT 0,
+      total_referrals INTEGER DEFAULT 0,
+      total_earned REAL DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS referral_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      referrer_code TEXT NOT NULL,
+      referrer_contact TEXT NOT NULL,
+      referred_contact TEXT NOT NULL,
+      order_id INTEGER,
+      referrer_credit REAL NOT NULL,
+      referred_credit REAL NOT NULL,
+      status TEXT DEFAULT 'completed' CHECK(status IN ('pending', 'completed', 'cancelled')),
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (order_id) REFERENCES orders(id)
+    );
+
     CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
     CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date DESC);
@@ -379,6 +402,10 @@ async function initDB() {
     CREATE INDEX IF NOT EXISTS idx_customers_created_at ON customers(created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_chat_messages_order ON chat_messages(order_id, created_at);
     CREATE INDEX IF NOT EXISTS idx_telegram_clients_contact ON telegram_clients(contact);
+    CREATE INDEX IF NOT EXISTS idx_referrals_code ON referrals(referral_code);
+    CREATE INDEX IF NOT EXISTS idx_referrals_contact ON referrals(customer_contact);
+    CREATE INDEX IF NOT EXISTS idx_referral_history_referrer ON referral_history(referrer_code);
+    CREATE INDEX IF NOT EXISTS idx_referral_history_order ON referral_history(order_id);
   `);
 
   await db.run(`
@@ -930,6 +957,144 @@ async function restoreStockForOrder(items, orderId) {
   }
 }
 
+// ==================== REFERRAL SYSTEM ====================
+async function generateReferralCode(customer, orderId) {
+  // Générer code unique basé sur le nom du client et l'ID de commande
+  const cleanCustomer = customer.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 6);
+  const code = `${cleanCustomer}${orderId}`;
+  return code;
+}
+
+async function getOrCreateReferralCode(customer, orderId) {
+  // Vérifier si le client a déjà un code de parrainage
+  let referral = await db.get(
+    'SELECT * FROM referrals WHERE customer_contact = ?',
+    [customer]
+  );
+
+  if (!referral) {
+    const code = await generateReferralCode(customer, orderId);
+    await db.run(
+      'INSERT INTO referrals (referral_code, customer_contact) VALUES (?, ?)',
+      [code, customer]
+    );
+    referral = await db.get(
+      'SELECT * FROM referrals WHERE referral_code = ?',
+      [code]
+    );
+  }
+
+  return referral;
+}
+
+async function validateReferralCode(code) {
+  if (!code || code.length === 0) {
+    return null;
+  }
+
+  const referral = await db.get(
+    'SELECT * FROM referrals WHERE referral_code = ?',
+    [code]
+  );
+
+  return referral;
+}
+
+async function applyReferralCredits(referrerCode, newCustomer, orderId) {
+  const referrer = await db.get(
+    'SELECT * FROM referrals WHERE referral_code = ?',
+    [referrerCode]
+  );
+
+  if (!referrer) {
+    console.log(`⚠️ Referral code not found: ${referrerCode}`);
+    return { referrerCredit: 0, referredCredit: 0 };
+  }
+
+  // Vérifier que le client ne se parraine pas lui-même
+  if (referrer.customer_contact === newCustomer) {
+    console.log(`⚠️ Self-referral attempt blocked: ${newCustomer}`);
+    return { referrerCredit: 0, referredCredit: 0 };
+  }
+
+  // Vérifier si le client a déjà été parrainé
+  const existingReferral = await db.get(
+    'SELECT * FROM referral_history WHERE referred_contact = ?',
+    [newCustomer]
+  );
+
+  if (existingReferral) {
+    console.log(`⚠️ Customer already referred: ${newCustomer}`);
+    return { referrerCredit: 0, referredCredit: 0 };
+  }
+
+  const REFERRER_CREDIT = 500; // 500 DA pour le parrain
+  const REFERRED_CREDIT = 300; // 300 DA pour le filleul
+
+  // Créditer le parrain
+  await db.run(
+    `UPDATE referrals
+     SET credit_balance = credit_balance + ?,
+         total_referrals = total_referrals + 1,
+         total_earned = total_earned + ?
+     WHERE referral_code = ?`,
+    [REFERRER_CREDIT, REFERRER_CREDIT, referrerCode]
+  );
+
+  // Créer le code de parrainage pour le nouveau client
+  await getOrCreateReferralCode(newCustomer, orderId);
+
+  // Créditer le filleul
+  await db.run(
+    `UPDATE referrals
+     SET credit_balance = credit_balance + ?
+     WHERE customer_contact = ?`,
+    [REFERRED_CREDIT, newCustomer]
+  );
+
+  // Enregistrer dans l'historique
+  await db.run(
+    `INSERT INTO referral_history
+     (referrer_code, referrer_contact, referred_contact, order_id, referrer_credit, referred_credit, status)
+     VALUES (?, ?, ?, ?, ?, ?, 'completed')`,
+    [referrerCode, referrer.customer_contact, newCustomer, orderId, REFERRER_CREDIT, REFERRED_CREDIT]
+  );
+
+  console.log(`✅ Referral applied: ${referrer.customer_contact} → ${newCustomer} (${REFERRER_CREDIT} DA + ${REFERRED_CREDIT} DA)`);
+
+  return {
+    referrerCredit: REFERRER_CREDIT,
+    referredCredit: REFERRED_CREDIT,
+    referrerContact: referrer.customer_contact
+  };
+}
+
+async function getReferralStats(customer) {
+  const referral = await db.get(
+    'SELECT * FROM referrals WHERE customer_contact = ?',
+    [customer]
+  );
+
+  if (!referral) {
+    return null;
+  }
+
+  const history = await db.all(
+    `SELECT * FROM referral_history
+     WHERE referrer_contact = ?
+     ORDER BY created_at DESC`,
+    [customer]
+  );
+
+  return {
+    code: referral.referral_code,
+    creditBalance: referral.credit_balance,
+    totalReferrals: referral.total_referrals,
+    totalEarned: referral.total_earned,
+    history
+  };
+}
+
 // ==================== NOTIFICATION SYSTEM ====================
 async function notifyNewCustomerOrder(order, items, customerRecord) {
   if (config.telegram.adminChatId) {
@@ -1412,10 +1577,10 @@ app.post('/api/cancel-order-items', apiLimiter, async (req, res) => {
 app.post('/api/create-order', apiLimiter, async (req, res) => {
   try {
     console.log('📨 New order received');
-    
+
     validateOrderInput(req.body);
-    
-    const { customer, type, address, items, total } = req.body;
+
+    const { customer, type, address, items, total, referralCode } = req.body;
     
     const sanitizedCustomer = sanitizeString(customer, 100);
     const sanitizedType = sanitizeString(type, 50);
@@ -1504,25 +1669,43 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
     }
     
     const order = await db.get('SELECT * FROM orders WHERE id = ?', [orderId]);
-    
+
+    // ==================== SYSTÈME DE PARRAINAGE ====================
+    // Créer ou récupérer le code de parrainage du client
+    const customerReferral = await getOrCreateReferralCode(sanitizedCustomer, orderId);
+    let referralResult = null;
+
+    // Appliquer les crédits de parrainage si un code a été fourni
+    if (referralCode && referralCode.trim().length > 0) {
+      referralResult = await applyReferralCredits(referralCode.trim(), sanitizedCustomer, orderId);
+    }
+
     if (isNewCustomer) {
-      await notifyNewCustomerOrder(order, items, customerRecord).catch(err => 
+      await notifyNewCustomerOrder(order, items, customerRecord).catch(err =>
         console.error('Notification error:', err.message)
       );
-      
-      res.json({ 
-        ok: true, 
-        orderId, 
+
+      res.json({
+        ok: true,
+        orderId,
         discount,
         requiresApproval: true,
-        message: 'Votre commande est en attente de validation. Vous serez notifié sous peu.' 
+        message: 'Votre commande est en attente de validation. Vous serez notifié sous peu.',
+        referralCode: customerReferral.referral_code,
+        referralCredit: referralResult?.referredCredit || 0
       });
     } else {
-      await notifyNewOrder(order, items).catch(err => 
+      await notifyNewOrder(order, items).catch(err =>
         console.error('Notification error:', err.message)
       );
-      
-      res.json({ ok: true, orderId, discount });
+
+      res.json({
+        ok: true,
+        orderId,
+        discount,
+        referralCode: customerReferral.referral_code,
+        referralCredit: referralResult?.referredCredit || 0
+      });
     }
     
   } catch (error) {
@@ -1561,6 +1744,65 @@ app.get('/api/geocode', apiLimiter, async (req, res) => {
   } catch (error) {
     console.error('Geocode error:', error.message);
     res.json({ features: [] });
+  }
+});
+
+// ==================== REFERRAL ENDPOINTS ====================
+app.post('/api/validate-referral', apiLimiter, async (req, res) => {
+  try {
+    const { code } = req.body;
+
+    if (!code || code.trim().length === 0) {
+      return res.json({ valid: false, error: 'Code vide' });
+    }
+
+    const referral = await validateReferralCode(code.trim());
+
+    if (!referral) {
+      return res.json({ valid: false, error: 'Code invalide' });
+    }
+
+    res.json({
+      valid: true,
+      referrerContact: referral.customer_contact,
+      totalReferrals: referral.total_referrals
+    });
+  } catch (error) {
+    console.error('Validate referral error:', error);
+    res.status(500).json({ valid: false, error: 'Erreur serveur' });
+  }
+});
+
+app.get('/api/referral-stats', apiLimiter, async (req, res) => {
+  try {
+    const { customer } = req.query;
+
+    if (!customer) {
+      return res.status(400).json({ ok: false, error: 'Contact client manquant' });
+    }
+
+    const stats = await getReferralStats(customer);
+
+    if (!stats) {
+      return res.json({
+        ok: true,
+        exists: false,
+        code: null,
+        creditBalance: 0,
+        totalReferrals: 0,
+        totalEarned: 0,
+        history: []
+      });
+    }
+
+    res.json({
+      ok: true,
+      exists: true,
+      ...stats
+    });
+  } catch (error) {
+    console.error('Referral stats error:', error);
+    res.status(500).json({ ok: false, error: 'Erreur serveur' });
   }
 });
 
