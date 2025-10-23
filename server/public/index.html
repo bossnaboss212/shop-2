@@ -3510,23 +3510,49 @@ function showOrderSummary(orderData, orderId, discount = 0, notificationSent = f
       </a>
     </div>
     
-    <div style="text-align:center;margin-top:20px;padding-top:20px;border-top:1px solid var(--border)">
+    <div id="cancellationSection" style="text-align:center;margin-top:20px;padding-top:20px;border-top:1px solid var(--border)">
+      <!-- Chronomètre 30 minutes -->
+      <div id="cancellationTimer" style="background:linear-gradient(135deg,rgba(255,107,107,0.1) 0%,rgba(255,159,64,0.1) 100%);border:2px solid var(--danger);border-radius:12px;padding:16px;margin-bottom:16px">
+        <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:8px">
+          <svg style="width:24px;height:24px;stroke:var(--danger);fill:none;stroke-width:2" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+          <span style="font-size:20px;font-weight:700;color:var(--danger)" id="timerDisplay">--:--</span>
+        </div>
+        <p style="color:var(--text-secondary);font-size:13px;margin:0">Temps restant pour annuler</p>
+      </div>
+
       <p style="color:var(--text-muted);font-size:14px;margin-bottom:12px">Vous souhaitez annuler cette commande ?</p>
-      <button id="cancelOrderBtn" data-order-id="${orderId}" data-customer="${orderData.customer}" style="display:inline-flex;align-items:center;gap:8px;background:var(--danger);border:none;border-radius:12px;padding:12px 20px;color:#fff;font-weight:600;cursor:pointer;transition:all 0.2s" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
-        <svg style="width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2" viewBox="0 0 24 24">
-          <circle cx="12" cy="12" r="10"></circle>
-          <line x1="15" y1="9" x2="9" y2="15"></line>
-          <line x1="9" y1="9" x2="15" y2="15"></line>
-        </svg>
-        Annuler la commande
-      </button>
+
+      <div style="display:flex;flex-direction:column;gap:12px;max-width:400px;margin:0 auto">
+        <button id="cancelPartialBtn" data-order-id="${orderId}" data-order-data='${JSON.stringify(orderData).replace(/'/g, "&apos;")}' style="display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--warning,#ff9f40);border:none;border-radius:12px;padding:12px 20px;color:#fff;font-weight:600;cursor:pointer;transition:all 0.2s" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
+          <svg style="width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2" viewBox="0 0 24 24">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+          </svg>
+          Annuler certains articles
+        </button>
+
+        <button id="cancelOrderBtn" data-order-id="${orderId}" data-customer="${orderData.customer}" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--danger);border:none;border-radius:12px;padding:12px 20px;color:#fff;font-weight:600;cursor:pointer;transition:all 0.2s" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
+          <svg style="width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="15" y1="9" x2="9" y2="15"></line>
+            <line x1="9" y1="9" x2="15" y2="15"></line>
+          </svg>
+          Annuler toute la commande
+        </button>
+      </div>
     </div>
   `;
   
   document.getElementById('orderSummarySheet').classList.remove('hidden');
   document.body.classList.add('modal-open');
-  
-  // Ajouter l'événement pour le bouton d'annulation
+
+  // Démarrer le chronomètre de 30 minutes
+  startCancellationTimer(orderId);
+
+  // Ajouter l'événement pour le bouton d'annulation complète
   const cancelBtn = document.getElementById('cancelOrderBtn');
   if (cancelBtn) {
     cancelBtn.onclick = function() {
@@ -3535,6 +3561,281 @@ function showOrderSummary(orderData, orderId, discount = 0, notificationSent = f
       cancelOrder(orderId, customer);
     };
   }
+
+  // Ajouter l'événement pour le bouton d'annulation partielle
+  const cancelPartialBtn = document.getElementById('cancelPartialBtn');
+  if (cancelPartialBtn) {
+    cancelPartialBtn.onclick = function() {
+      const orderId = this.dataset.orderId;
+      const orderData = JSON.parse(this.dataset.orderData);
+      showPartialCancellationDialog(orderId, orderData);
+    };
+  }
+}
+
+// Chronomètre de 30 minutes pour l'annulation
+function startCancellationTimer(orderId) {
+  const timerDisplay = document.getElementById('timerDisplay');
+  const cancellationSection = document.getElementById('cancellationSection');
+
+  if (!timerDisplay) return;
+
+  // Récupérer l'heure de création de la commande
+  const order = SyncManager.getOrderById(orderId);
+  if (!order || !order.timestamp) return;
+
+  const orderTime = order.timestamp;
+  const THIRTY_MINUTES = 30 * 60 * 1000; // 30 minutes en millisecondes
+
+  function updateTimer() {
+    const now = Date.now();
+    const elapsed = now - orderTime;
+    const remaining = THIRTY_MINUTES - elapsed;
+
+    if (remaining <= 0) {
+      timerDisplay.textContent = '00:00';
+      timerDisplay.style.color = '#ff6b6b';
+
+      // Désactiver les boutons d'annulation
+      const cancelBtn = document.getElementById('cancelOrderBtn');
+      const cancelPartialBtn = document.getElementById('cancelPartialBtn');
+
+      if (cancelBtn) {
+        cancelBtn.disabled = true;
+        cancelBtn.style.opacity = '0.5';
+        cancelBtn.style.cursor = 'not-allowed';
+      }
+
+      if (cancelPartialBtn) {
+        cancelPartialBtn.disabled = true;
+        cancelPartialBtn.style.opacity = '0.5';
+        cancelPartialBtn.style.cursor = 'not-allowed';
+      }
+
+      // Afficher un message
+      const timerContainer = document.getElementById('cancellationTimer');
+      if (timerContainer) {
+        timerContainer.innerHTML = `
+          <div style="display:flex;align-items:center;justify-content:center;gap:12px">
+            <svg style="width:24px;height:24px;stroke:var(--danger);fill:none;stroke-width:2" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="12"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+            <span style="font-size:16px;font-weight:600;color:var(--danger)">Délai d'annulation dépassé</span>
+          </div>
+          <p style="color:var(--text-secondary);font-size:13px;margin:8px 0 0 0">Contactez le support pour toute demande</p>
+        `;
+      }
+
+      clearInterval(timerInterval);
+      return;
+    }
+
+    const minutes = Math.floor(remaining / 60000);
+    const seconds = Math.floor((remaining % 60000) / 1000);
+    timerDisplay.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+
+    // Changer la couleur selon le temps restant
+    if (remaining < 5 * 60 * 1000) { // Moins de 5 minutes
+      timerDisplay.style.color = '#ff6b6b';
+    } else if (remaining < 10 * 60 * 1000) { // Moins de 10 minutes
+      timerDisplay.style.color = '#ff9f40';
+    } else {
+      timerDisplay.style.color = 'var(--danger)';
+    }
+  }
+
+  updateTimer();
+  const timerInterval = setInterval(updateTimer, 1000);
+}
+
+// Dialogue d'annulation partielle
+function showPartialCancellationDialog(orderId, orderData) {
+  const dialog = document.createElement('div');
+  dialog.className = 'confirm-dialog';
+  dialog.style.zIndex = '2002';
+
+  dialog.innerHTML = `
+    <div class="confirm-content" style="max-width:600px;max-height:90vh;overflow-y:auto">
+      <h3 style="font-size:22px;font-weight:700;margin-bottom:16px;text-align:center">📦 Annulation partielle</h3>
+      <p style="font-size:15px;margin-bottom:20px;text-align:center;color:var(--text-secondary)">
+        Sélectionnez les articles à annuler :
+      </p>
+
+      <div id="itemsList" style="margin-bottom:20px">
+        ${orderData.items.map((item, index) => `
+          <div class="cancel-item" data-index="${index}" style="background:var(--bg-tertiary);border:2px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px;cursor:pointer;transition:all 0.2s">
+            <div style="display:flex;align-items:center;gap:12px">
+              <input type="checkbox" id="item-${index}" data-product-id="${item.product_id}" data-variant="${item.variant}" data-price="${item.price}" data-qty="${item.qty}" style="width:20px;height:20px;cursor:pointer">
+              <label for="item-${index}" style="flex:1;cursor:pointer">
+                <div style="font-weight:600;margin-bottom:4px">${sanitizeInput(item.name)}</div>
+                <div style="color:var(--text-muted);font-size:13px">${sanitizeInput(item.variant)}</div>
+              </label>
+              <div style="text-align:right">
+                <div style="font-size:16px;font-weight:700;color:var(--accent)">${fmt(item.lineTotal)}</div>
+                <div style="color:var(--text-muted);font-size:13px">Qté: ${item.qty}</div>
+              </div>
+            </div>
+            <div id="qty-selector-${index}" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+              <label style="display:block;font-size:13px;color:var(--text-secondary);margin-bottom:8px">
+                Quantité à annuler (max: ${item.qty})
+              </label>
+              <input type="number" id="qty-input-${index}" min="1" max="${item.qty}" value="${item.qty}" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:14px">
+            </div>
+          </div>
+        `).join('')}
+      </div>
+
+      <div style="background:var(--bg-tertiary);border-radius:12px;padding:16px;margin-bottom:20px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-weight:600">Montant à rembourser :</span>
+          <span id="refundAmount" style="font-size:20px;font-weight:700;color:var(--danger)">0 DA</span>
+        </div>
+      </div>
+
+      <div style="margin-bottom:20px">
+        <label style="display:block;font-size:14px;font-weight:600;margin-bottom:8px">Motif d'annulation :</label>
+        <textarea id="partialCancelReason" class="input-field" placeholder="Expliquez pourquoi vous annulez ces articles..." rows="3" style="margin:0;resize:vertical" maxlength="200"></textarea>
+      </div>
+
+      <div style="display:flex;gap:12px">
+        <button id="confirmPartialCancel" style="flex:1;padding:12px 24px;border:none;border-radius:12px;font-weight:600;font-size:15px;cursor:pointer;transition:all 0.2s;background:var(--danger);color:#fff" disabled>
+          Confirmer l'annulation
+        </button>
+        <button id="cancelPartialDialog" style="flex:1;padding:12px 24px;border:none;border-radius:12px;font-weight:600;font-size:15px;cursor:pointer;transition:all 0.2s;background:var(--bg-tertiary);color:var(--text-primary);border:1px solid var(--border)">
+          Retour
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(dialog);
+
+  // Gérer la sélection des articles
+  const confirmBtn = document.getElementById('confirmPartialCancel');
+  const refundAmountEl = document.getElementById('refundAmount');
+
+  function updateRefundAmount() {
+    let total = 0;
+    let hasSelection = false;
+
+    orderData.items.forEach((item, index) => {
+      const checkbox = document.getElementById(`item-${index}`);
+      if (checkbox && checkbox.checked) {
+        hasSelection = true;
+        const qtyInput = document.getElementById(`qty-input-${index}`);
+        const qty = qtyInput ? parseInt(qtyInput.value) || item.qty : item.qty;
+        total += item.price * qty;
+      }
+    });
+
+    refundAmountEl.textContent = fmt(total);
+    confirmBtn.disabled = !hasSelection;
+    confirmBtn.style.opacity = hasSelection ? '1' : '0.5';
+    confirmBtn.style.cursor = hasSelection ? 'pointer' : 'not-allowed';
+  }
+
+  // Ajouter les événements aux checkboxes
+  orderData.items.forEach((item, index) => {
+    const checkbox = document.getElementById(`item-${index}`);
+    const qtySelector = document.getElementById(`qty-selector-${index}`);
+    const qtyInput = document.getElementById(`qty-input-${index}`);
+
+    if (checkbox) {
+      checkbox.onchange = function() {
+        if (this.checked) {
+          qtySelector.style.display = 'block';
+        } else {
+          qtySelector.style.display = 'none';
+        }
+        updateRefundAmount();
+      };
+    }
+
+    if (qtyInput) {
+      qtyInput.oninput = updateRefundAmount;
+    }
+
+    // Permettre de cliquer sur toute la div pour cocher
+    const itemDiv = document.querySelector(`[data-index="${index}"]`);
+    if (itemDiv) {
+      itemDiv.onclick = function(e) {
+        if (e.target.tagName !== 'INPUT') {
+          checkbox.checked = !checkbox.checked;
+          checkbox.onchange();
+        }
+      };
+    }
+  });
+
+  // Bouton Retour
+  document.getElementById('cancelPartialDialog').onclick = () => {
+    dialog.remove();
+  };
+
+  // Bouton Confirmer
+  confirmBtn.onclick = async () => {
+    const itemsToCancel = [];
+
+    orderData.items.forEach((item, index) => {
+      const checkbox = document.getElementById(`item-${index}`);
+      if (checkbox && checkbox.checked) {
+        const qtyInput = document.getElementById(`qty-input-${index}`);
+        const qty = qtyInput ? parseInt(qtyInput.value) || item.qty : item.qty;
+
+        itemsToCancel.push({
+          product_id: item.product_id,
+          variant: item.variant,
+          qty: qty
+        });
+      }
+    });
+
+    if (itemsToCancel.length === 0) {
+      showToast('⚠️ Veuillez sélectionner au moins un article');
+      return;
+    }
+
+    const reason = document.getElementById('partialCancelReason').value.trim() || 'Annulation partielle';
+
+    // Désactiver le bouton pendant le traitement
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Annulation en cours...';
+
+    try {
+      const response = await fetch('/api/cancel-order-items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId, itemsToCancel, reason })
+      });
+
+      const data = await response.json();
+
+      if (data.ok) {
+        showToast('✅ ' + data.message);
+        dialog.remove();
+
+        // Fermer le récapitulatif de commande
+        document.getElementById('orderSummarySheet').classList.add('hidden');
+        document.body.classList.remove('modal-open');
+
+        // Rafraîchir l'affichage si nécessaire
+        if (typeof loadOrders === 'function') {
+          setTimeout(() => loadOrders(), 1000);
+        }
+      } else {
+        showToast('❌ ' + (data.error || 'Erreur lors de l\'annulation'));
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Confirmer l\'annulation';
+      }
+    } catch (error) {
+      console.error('Partial cancel error:', error);
+      showToast('❌ Erreur de connexion');
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = 'Confirmer l\'annulation';
+    }
+  };
 }
 
 function cancelOrder(orderId, customerName) {

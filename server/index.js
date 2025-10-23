@@ -1188,53 +1188,223 @@ app.get('/api/stock/:productId/:variant', apiLimiter, async (req, res) => {
 app.post('/api/cancel-order', apiLimiter, async (req, res) => {
   try {
     const { orderId, reason } = req.body;
-    
+
     if (!orderId) {
       return res.status(400).json({ ok: false, error: 'ID commande manquant' });
     }
-    
+
     const order = await db.get('SELECT * FROM orders WHERE id = ?', [orderId]);
-    
+
     if (!order) {
       return res.status(404).json({ ok: false, error: 'Commande introuvable' });
     }
-    
+
     if (order.status === 'cancelled') {
       return res.status(400).json({ ok: false, error: 'Commande déjà annulée' });
     }
-    
+
     if (order.status === 'delivered') {
       return res.status(400).json({ ok: false, error: 'Impossible d\'annuler une commande livrée' });
     }
-    
+
+    // Vérifier la limite de 30 minutes
+    const orderCreatedAt = new Date(order.created_at);
+    const now = new Date();
+    const timeDiffMinutes = (now - orderCreatedAt) / (1000 * 60);
+
+    if (timeDiffMinutes > 30) {
+      return res.status(400).json({
+        ok: false,
+        error: 'Délai d\'annulation dépassé (30 minutes maximum)',
+        timeElapsed: Math.floor(timeDiffMinutes)
+      });
+    }
+
     // Restaurer les stocks
     const items = JSON.parse(order.items);
     await restoreStockForOrder(items, orderId);
-    
+
     // Supprimer la transaction
     await db.run(
       'DELETE FROM transactions WHERE description = ?',
       [`Commande #${orderId}`]
     );
-    
+
     // Marquer comme annulée
     await db.run(
       'UPDATE orders SET status = ?, cancel_reason = ?, cancelled_at = CURRENT_TIMESTAMP WHERE id = ?',
       ['cancelled', reason || 'Annulée par le client', orderId]
     );
-    
+
     // Fermer les conversations liées
     chatManager.closeConversation(parseInt(orderId));
-    
+
     console.log(`✅ Order #${orderId} cancelled. Stocks restored.`);
-    
-    res.json({ 
-      ok: true, 
+
+    res.json({
+      ok: true,
       message: 'Commande annulée et stocks restaurés',
       orderAmount: order.total
     });
   } catch (error) {
     console.error('Cancel order error:', error);
+    res.status(500).json({ ok: false, error: 'Erreur serveur' });
+  }
+});
+
+// ==================== ANNULATION PARTIELLE ====================
+app.post('/api/cancel-order-items', apiLimiter, async (req, res) => {
+  try {
+    const { orderId, itemsToCancel, reason } = req.body;
+
+    if (!orderId || !itemsToCancel || !Array.isArray(itemsToCancel) || itemsToCancel.length === 0) {
+      return res.status(400).json({ ok: false, error: 'Données invalides' });
+    }
+
+    const order = await db.get('SELECT * FROM orders WHERE id = ?', [orderId]);
+
+    if (!order) {
+      return res.status(404).json({ ok: false, error: 'Commande introuvable' });
+    }
+
+    if (order.status === 'cancelled') {
+      return res.status(400).json({ ok: false, error: 'Commande déjà annulée' });
+    }
+
+    if (order.status === 'delivered') {
+      return res.status(400).json({ ok: false, error: 'Impossible d\'annuler une commande livrée' });
+    }
+
+    // Vérifier la limite de 30 minutes
+    const orderCreatedAt = new Date(order.created_at);
+    const now = new Date();
+    const timeDiffMinutes = (now - orderCreatedAt) / (1000 * 60);
+
+    if (timeDiffMinutes > 30) {
+      return res.status(400).json({
+        ok: false,
+        error: 'Délai d\'annulation dépassé (30 minutes maximum)',
+        timeElapsed: Math.floor(timeDiffMinutes)
+      });
+    }
+
+    const allItems = JSON.parse(order.items);
+
+    // Vérifier que tous les articles à annuler existent dans la commande
+    const itemsToRemove = [];
+    let amountToRefund = 0;
+
+    for (const cancelItem of itemsToCancel) {
+      const foundItem = allItems.find(item =>
+        item.product_id === cancelItem.product_id &&
+        item.variant === cancelItem.variant
+      );
+
+      if (!foundItem) {
+        return res.status(400).json({
+          ok: false,
+          error: `Article introuvable: ${cancelItem.product_id} - ${cancelItem.variant}`
+        });
+      }
+
+      if (cancelItem.qty > foundItem.qty) {
+        return res.status(400).json({
+          ok: false,
+          error: `Quantité invalide pour ${cancelItem.product_id}`
+        });
+      }
+
+      itemsToRemove.push({
+        ...foundItem,
+        qty: cancelItem.qty
+      });
+
+      // Calculer le montant à rembourser
+      amountToRefund += foundItem.price * cancelItem.qty;
+    }
+
+    // Restaurer le stock pour les articles annulés
+    await restoreStockForOrder(itemsToRemove, orderId);
+
+    // Mettre à jour la commande
+    const remainingItems = [];
+    for (const item of allItems) {
+      const cancelItem = itemsToCancel.find(ci =>
+        ci.product_id === item.product_id && ci.variant === item.variant
+      );
+
+      if (cancelItem) {
+        const remainingQty = item.qty - cancelItem.qty;
+        if (remainingQty > 0) {
+          remainingItems.push({
+            ...item,
+            qty: remainingQty
+          });
+        }
+      } else {
+        remainingItems.push(item);
+      }
+    }
+
+    // Si tous les articles sont annulés, annuler complètement la commande
+    if (remainingItems.length === 0) {
+      await db.run(
+        'DELETE FROM transactions WHERE description = ?',
+        [`Commande #${orderId}`]
+      );
+
+      await db.run(
+        'UPDATE orders SET status = ?, cancel_reason = ?, cancelled_at = CURRENT_TIMESTAMP WHERE id = ?',
+        ['cancelled', reason || 'Annulation totale des articles', orderId]
+      );
+
+      chatManager.closeConversation(parseInt(orderId));
+
+      console.log(`✅ Order #${orderId} fully cancelled (all items removed)`);
+
+      return res.json({
+        ok: true,
+        message: 'Tous les articles annulés - Commande complètement annulée',
+        fullyCancelled: true,
+        refundAmount: amountToRefund
+      });
+    }
+
+    // Recalculer le total de la commande
+    let newTotal = 0;
+    for (const item of remainingItems) {
+      newTotal += item.price * item.qty;
+    }
+
+    // Appliquer la réduction si elle existe
+    if (order.discount > 0) {
+      newTotal = newTotal * (1 - order.discount / 100);
+    }
+
+    // Mettre à jour la commande avec les articles restants
+    await db.run(
+      'UPDATE orders SET items = ?, total = ? WHERE id = ?',
+      [JSON.stringify(remainingItems), newTotal, orderId]
+    );
+
+    // Mettre à jour la transaction
+    await db.run(
+      'UPDATE transactions SET amount = ? WHERE description = ?',
+      [newTotal, `Commande #${orderId}`]
+    );
+
+    console.log(`✅ Order #${orderId} partially cancelled. ${itemsToRemove.length} item(s) removed.`);
+
+    res.json({
+      ok: true,
+      message: 'Articles annulés avec succès',
+      fullyCancelled: false,
+      refundAmount: amountToRefund,
+      newTotal: newTotal,
+      remainingItems: remainingItems.length
+    });
+  } catch (error) {
+    console.error('Partial cancel error:', error);
     res.status(500).json({ ok: false, error: 'Erreur serveur' });
   }
 });
