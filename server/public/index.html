@@ -3384,7 +3384,155 @@ function showOrderSummary(orderData, orderId, discount = 0, notificationSent = f
       <h3 style="font-size:24px;font-weight:700;margin-bottom:8px;color:var(--success)">Commande confirmée !</h3>
       <p style="color:var(--text-secondary);font-size:16px">Numéro de commande : <strong style="color:var(--accent)">#${orderId}</strong></p>
     </div>
-    
+
+    <!-- 🎰 ROUE DE LA FORTUNE & PROGRAMME VIRAL -->
+    <div id="viralSection" style="margin:30px 0;position:relative">
+
+      <!-- Animation Confettis -->
+      <canvas id="confettiCanvas" style="position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;display:none"></canvas>
+
+      <!-- Roue de la Fortune -->
+      <div style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);border-radius:20px;padding:24px;margin-bottom:20px;box-shadow:0 10px 30px rgba(102,126,234,0.3);position:relative;overflow:hidden">
+        <div style="position:absolute;top:0;right:0;font-size:100px;opacity:0.1">🎰</div>
+
+        <div style="text-align:center;position:relative;z-index:1">
+          <h3 style="font-size:26px;font-weight:800;color:#fff;margin-bottom:8px;text-shadow:2px 2px 4px rgba(0,0,0,0.2)">
+            🎊 FÉLICITATIONS ! 🎊
+          </h3>
+          <p style="color:rgba(255,255,255,0.9);font-size:16px;margin-bottom:20px">
+            Vous avez gagné <strong>1 TOUR GRATUIT</strong> à la roue de la fortune !
+          </p>
+
+          <div id="wheelContainer" style="margin:20px auto;position:relative;width:280px;height:280px">
+            <canvas id="wheelCanvas" width="280" height="280" style="border-radius:50%;box-shadow:0 10px 30px rgba(0,0,0,0.3)"></canvas>
+            <div id="wheelPointer" style="position:absolute;top:-15px;left:50%;transform:translateX(-50%);font-size:40px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.3))">
+              🔻
+            </div>
+            <button id="spinButton" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:80px;height:80px;border-radius:50%;background:#fff;border:4px solid #ffd700;font-weight:800;font-size:14px;cursor:pointer;box-shadow:0 4px 15px rgba(0,0,0,0.3);transition:all 0.3s;z-index:10">
+              TOURNER !
+            </button>
+          </div>
+
+          <div id="prizeDisplay" style="display:none;background:rgba(255,255,255,0.2);border:2px solid #ffd700;border-radius:16px;padding:20px;margin-top:20px;backdrop-filter:blur(10px)">
+            <div style="font-size:50px;margin-bottom:10px">🎉</div>
+            <div style="font-size:20px;font-weight:700;color:#ffd700;margin-bottom:8px">VOUS AVEZ GAGNÉ !</div>
+            <div id="prizeText" style="font-size:24px;font-weight:800;color:#fff"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Programme de Parrainage -->
+      <div style="background:linear-gradient(135deg,#f093fb 0%,#f5576c 100%);border-radius:20px;padding:24px;margin-bottom:20px;box-shadow:0 10px 30px rgba(240,147,251,0.3);position:relative;overflow:hidden">
+        <div style="position:absolute;top:0;right:0;font-size:100px;opacity:0.1">💰</div>
+
+        <div style="position:relative;z-index:1">
+          <div style="text-align:center;margin-bottom:20px">
+            <h3 style="font-size:24px;font-weight:800;color:#fff;margin-bottom:8px;text-shadow:2px 2px 4px rgba(0,0,0,0.2)">
+              💰 GAGNEZ 500 DA PAR AMI ! 💰
+            </h3>
+            <p style="color:rgba(255,255,255,0.9);font-size:15px">
+              Partagez votre code et gagnez de l'argent à chaque parrainage
+            </p>
+          </div>
+
+          <div style="background:rgba(255,255,255,0.2);border:2px dashed #fff;border-radius:12px;padding:16px;text-align:center;margin-bottom:16px;backdrop-filter:blur(10px)">
+            <div style="color:rgba(255,255,255,0.8);font-size:13px;margin-bottom:8px">Votre code personnel</div>
+            <div id="referralCode" style="font-size:32px;font-weight:800;color:#fff;letter-spacing:2px;text-shadow:2px 2px 4px rgba(0,0,0,0.2)">${orderData.customer.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 6)}${orderId}</div>
+            <button onclick="copyReferralCode('${orderData.customer.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 6)}${orderId}')" style="margin-top:12px;padding:10px 20px;background:#fff;border:none;border-radius:8px;font-weight:600;color:#f5576c;cursor:pointer;transition:all 0.2s">
+              📋 Copier le code
+            </button>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+            <div style="background:rgba(255,255,255,0.2);border-radius:12px;padding:12px;text-align:center;backdrop-filter:blur(10px)">
+              <div style="font-size:24px;font-weight:800;color:#ffd700">500 DA</div>
+              <div style="font-size:12px;color:rgba(255,255,255,0.9)">Vous gagnez</div>
+            </div>
+            <div style="background:rgba(255,255,255,0.2);border-radius:12px;padding:12px;text-align:center;backdrop-filter:blur(10px)">
+              <div style="font-size:24px;font-weight:800;color:#ffd700">300 DA</div>
+              <div style="font-size:12px;color:rgba(255,255,255,0.9)">Votre ami reçoit</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Partage Social -->
+      <div style="background:linear-gradient(135deg,#4facfe 0%,#00f2fe 100%);border-radius:20px;padding:24px;margin-bottom:20px;box-shadow:0 10px 30px rgba(79,172,254,0.3)">
+        <div style="text-align:center;margin-bottom:20px">
+          <h3 style="font-size:22px;font-weight:800;color:#fff;margin-bottom:8px;text-shadow:2px 2px 4px rgba(0,0,0,0.2)">
+            📱 PARTAGEZ ET GAGNEZ PLUS ! 📱
+          </h3>
+          <p style="color:rgba(255,255,255,0.9);font-size:14px">
+            <strong>BONUS :</strong> Partagez maintenant et doublez vos gains ! ⚡
+          </p>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <button onclick="shareToWhatsApp('${orderData.customer.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 6)}${orderId}')" style="background:#25D366;border:none;border-radius:12px;padding:14px;color:#fff;font-weight:700;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;box-shadow:0 4px 12px rgba(37,211,102,0.3)">
+            <span style="font-size:20px">📱</span>
+            WhatsApp
+          </button>
+
+          <button onclick="shareToFacebook()" style="background:#1877F2;border:none;border-radius:12px;padding:14px;color:#fff;font-weight:700;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;box-shadow:0 4px 12px rgba(24,119,242,0.3)">
+            <span style="font-size:20px">📘</span>
+            Facebook
+          </button>
+
+          <button onclick="shareToTwitter('${orderData.customer.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 6)}${orderId}')" style="background:#1DA1F2;border:none;border-radius:12px;padding:14px;color:#fff;font-weight:700;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;box-shadow:0 4px 12px rgba(29,161,242,0.3)">
+            <span style="font-size:20px">🐦</span>
+            Twitter
+          </button>
+
+          <button onclick="copyShareLink('${orderData.customer.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 6)}${orderId}')" style="background:#667eea;border:none;border-radius:12px;padding:14px;color:#fff;font-weight:700;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;box-shadow:0 4px 12px rgba(102,126,234,0.3)">
+            <span style="font-size:20px">🔗</span>
+            Copier lien
+          </button>
+        </div>
+      </div>
+
+      <!-- Système VIP -->
+      <div style="background:linear-gradient(135deg,#ffd89b 0%,#19547b 100%);border-radius:20px;padding:24px;box-shadow:0 10px 30px rgba(255,216,155,0.3);position:relative;overflow:hidden">
+        <div style="position:absolute;top:0;right:0;font-size:100px;opacity:0.1">👑</div>
+
+        <div style="position:relative;z-index:1">
+          <div style="text-align:center;margin-bottom:16px">
+            <h3 style="font-size:22px;font-weight:800;color:#fff;margin-bottom:8px;text-shadow:2px 2px 4px rgba(0,0,0,0.2)">
+              👑 VOTRE STATUT VIP 👑
+            </h3>
+            <div style="font-size:40px;margin:12px 0">🥉</div>
+            <div style="font-size:20px;font-weight:700;color:#ffd700">BRONZE</div>
+            <p style="color:rgba(255,255,255,0.9);font-size:13px;margin-top:8px">
+              Plus que 2 commandes pour devenir <strong>ARGENT 🥈</strong>
+            </p>
+          </div>
+
+          <div style="background:rgba(255,255,255,0.2);border-radius:12px;padding:4px;margin-bottom:16px;backdrop-filter:blur(10px)">
+            <div style="background:#ffd700;height:12px;border-radius:8px;width:33%;transition:all 0.5s"></div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;text-align:center">
+            <div>
+              <div style="font-size:24px;opacity:1">🥉</div>
+              <div style="font-size:10px;color:rgba(255,255,255,0.8)">Bronze</div>
+            </div>
+            <div>
+              <div style="font-size:24px;opacity:0.4">🥈</div>
+              <div style="font-size:10px;color:rgba(255,255,255,0.8)">Argent</div>
+            </div>
+            <div>
+              <div style="font-size:24px;opacity:0.4">🥇</div>
+              <div style="font-size:10px;color:rgba(255,255,255,0.8)">Or</div>
+            </div>
+            <div>
+              <div style="font-size:24px;opacity:0.4">💎</div>
+              <div style="font-size:10px;color:rgba(255,255,255,0.8)">Diamant</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
     ${notificationSent ? `
     <div style="background:rgba(0,212,255,0.1);border:2px solid var(--accent);border-radius:16px;padding:16px;margin:20px 0;display:flex;align-items:center;gap:12px">
       <div style="width:40px;height:40px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0">
@@ -3571,6 +3719,11 @@ function showOrderSummary(orderData, orderId, discount = 0, notificationSent = f
       showPartialCancellationDialog(orderId, orderData);
     };
   }
+
+  // Initialiser la roue de la fortune
+  setTimeout(() => {
+    initializeWheel();
+  }, 500);
 }
 
 // Chronomètre de 30 minutes pour l'annulation
@@ -3836,6 +3989,224 @@ function showPartialCancellationDialog(orderId, orderData) {
       confirmBtn.textContent = 'Confirmer l\'annulation';
     }
   };
+}
+
+// ==================== FONCTIONS VIRALES ====================
+
+// Roue de la Fortune
+function initializeWheel() {
+  const canvas = document.getElementById('wheelCanvas');
+  if (!canvas) return;
+
+  const ctx = canvas.getContext('2d');
+  const centerX = 140;
+  const centerY = 140;
+  const radius = 130;
+
+  const prizes = [
+    { text: '50% DE RÉDUCTION', color: '#FF6B6B', emoji: '🎁' },
+    { text: '300 DA OFFERTS', color: '#4ECDC4', emoji: '💰' },
+    { text: 'LIVRAISON GRATUITE', color: '#45B7D1', emoji: '🚚' },
+    { text: '1000 DA CRÉDIT', color: '#FFA07A', emoji: '💎' },
+    { text: 'PRODUIT GRATUIT', color: '#98D8C8', emoji: '🎉' },
+    { text: 'STATUT VIP', color: '#F7DC6F', emoji: '👑' },
+    { text: '20% RÉDUCTION', color: '#BB8FCE', emoji: '🎊' },
+    { text: 'SURPRISE !', color: '#85C1E2', emoji: '✨' }
+  ];
+
+  function drawWheel(rotation = 0) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const anglePerSlice = (2 * Math.PI) / prizes.length;
+
+    prizes.forEach((prize, index) => {
+      const startAngle = rotation + index * anglePerSlice;
+      const endAngle = startAngle + anglePerSlice;
+
+      // Dessiner la part
+      ctx.beginPath();
+      ctx.moveTo(centerX, centerY);
+      ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+      ctx.closePath();
+      ctx.fillStyle = prize.color;
+      ctx.fill();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+
+      // Ajouter le texte
+      ctx.save();
+      ctx.translate(centerX, centerY);
+      ctx.rotate(startAngle + anglePerSlice / 2);
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 12px Arial';
+      ctx.fillText(prize.emoji, radius / 2, -5);
+      ctx.font = 'bold 10px Arial';
+      ctx.fillText(prize.text, radius / 2, 10);
+      ctx.restore();
+    });
+
+    // Centre de la roue
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, 25, 0, 2 * Math.PI);
+    ctx.fillStyle = '#FFD700';
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+  }
+
+  drawWheel();
+
+  const spinButton = document.getElementById('spinButton');
+  let isSpinning = false;
+
+  spinButton.addEventListener('click', function() {
+    if (isSpinning) return;
+
+    isSpinning = true;
+    spinButton.disabled = true;
+    spinButton.textContent = '...';
+
+    const spins = 5 + Math.random() * 3;
+    const randomAngle = Math.random() * 2 * Math.PI;
+    const totalRotation = spins * 2 * Math.PI + randomAngle;
+    const duration = 4000;
+    const startTime = Date.now();
+
+    function animate() {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const easeOut = 1 - Math.pow(1 - progress, 3);
+      const currentRotation = totalRotation * easeOut;
+
+      drawWheel(currentRotation);
+
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      } else {
+        const normalizedAngle = (currentRotation % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+        const anglePerSlice = (2 * Math.PI) / prizes.length;
+        const winningIndex = Math.floor((2 * Math.PI - normalizedAngle) / anglePerSlice) % prizes.length;
+        const prize = prizes[winningIndex];
+
+        // Afficher le prix
+        setTimeout(() => {
+          document.getElementById('prizeText').textContent = prize.text;
+          document.getElementById('prizeDisplay').style.display = 'block';
+          launchConfetti();
+
+          // Masquer le bouton spin
+          spinButton.style.display = 'none';
+
+          showToast('🎉 Félicitations ! Vous avez gagné : ' + prize.text);
+        }, 500);
+      }
+    }
+
+    animate();
+  });
+}
+
+// Animation Confettis
+function launchConfetti() {
+  const canvas = document.getElementById('confettiCanvas');
+  if (!canvas) return;
+
+  canvas.style.display = 'block';
+  const ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+
+  const confetti = [];
+  const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F'];
+
+  for (let i = 0; i < 150; i++) {
+    confetti.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height - canvas.height,
+      size: Math.random() * 8 + 4,
+      speedY: Math.random() * 3 + 2,
+      speedX: Math.random() * 2 - 1,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      rotation: Math.random() * 360,
+      rotationSpeed: Math.random() * 10 - 5
+    });
+  }
+
+  function animateConfetti() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    confetti.forEach((piece, index) => {
+      piece.y += piece.speedY;
+      piece.x += piece.speedX;
+      piece.rotation += piece.rotationSpeed;
+
+      ctx.save();
+      ctx.translate(piece.x, piece.y);
+      ctx.rotate((piece.rotation * Math.PI) / 180);
+      ctx.fillStyle = piece.color;
+      ctx.fillRect(-piece.size / 2, -piece.size / 2, piece.size, piece.size);
+      ctx.restore();
+
+      if (piece.y > canvas.height) {
+        confetti.splice(index, 1);
+      }
+    });
+
+    if (confetti.length > 0) {
+      requestAnimationFrame(animateConfetti);
+    } else {
+      canvas.style.display = 'none';
+    }
+  }
+
+  animateConfetti();
+}
+
+// Copier le code de parrainage
+function copyReferralCode(code) {
+  navigator.clipboard.writeText(code).then(() => {
+    showToast('✅ Code copié : ' + code);
+  }).catch(() => {
+    showToast('❌ Erreur lors de la copie');
+  });
+}
+
+// Partage WhatsApp
+function shareToWhatsApp(code) {
+  const text = encodeURIComponent(`🎉 J'ai commandé sur ce site INCROYABLE et j'ai gagné des cadeaux ! 💰\n\n🎰 Tournez la roue de la fortune et gagnez :\n• Réductions jusqu'à 50%\n• Livraison gratuite\n• Produits offerts\n• Crédit 1000 DA\n\n🎁 Utilisez mon code ${code} et recevez 300 DA de bienvenue !\n\nJe gagne 500 DA par parrainage 💵\n\n👉 ${window.location.origin}`);
+
+  window.open(`https://wa.me/?text=${text}`, '_blank');
+  showToast('📱 Partage WhatsApp ouvert !');
+}
+
+// Partage Facebook
+function shareToFacebook() {
+  const url = encodeURIComponent(window.location.origin);
+  const quote = encodeURIComponent('🎉 Site de shopping incroyable avec roue de la fortune et cadeaux ! 💰 Tournez et gagnez des réductions jusqu\'à 50% ! 🎁');
+
+  window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}&quote=${quote}`, '_blank');
+  showToast('📘 Partage Facebook ouvert !');
+}
+
+// Partage Twitter
+function shareToTwitter(code) {
+  const text = encodeURIComponent(`🎉 J'ai commandé et gagné des cadeaux incroyables ! 🎰 Tournez la roue et gagnez des réductions jusqu'à 50%, livraison gratuite, produits offerts ! 💰 Code: ${code}`);
+  const url = encodeURIComponent(window.location.origin);
+
+  window.open(`https://twitter.com/intent/tweet?text=${text}&url=${url}`, '_blank');
+  showToast('🐦 Partage Twitter ouvert !');
+}
+
+// Copier lien de partage
+function copyShareLink(code) {
+  const link = `${window.location.origin}?ref=${code}`;
+  navigator.clipboard.writeText(link).then(() => {
+    showToast('🔗 Lien copié ! Partagez-le pour gagner 500 DA par ami');
+  }).catch(() => {
+    showToast('❌ Erreur lors de la copie du lien');
+  });
 }
 
 function cancelOrder(orderId, customerName) {
