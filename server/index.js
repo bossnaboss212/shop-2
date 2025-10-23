@@ -1031,14 +1031,39 @@ async function applyReferralCredits(referrerCode, newCustomer, orderId) {
   const REFERRER_CREDIT = 500; // 500 DA pour le parrain
   const REFERRED_CREDIT = 300; // 300 DA pour le filleul
 
-  // Créditer le parrain
+  // ==================== SYSTÈME DE PALIERS VIP ====================
+  // Calculer le bonus selon le nombre de parrainages
+  const totalReferrals = referrer.total_referrals || 0;
+  let vipBonus = 0;
+  let vipTier = 'Bronze';
+
+  if (totalReferrals >= 10) {
+    vipBonus = 0.5; // +50% bonus
+    vipTier = 'Diamant 💎';
+  } else if (totalReferrals >= 6) {
+    vipBonus = 0.2; // +20% bonus
+    vipTier = 'Or 🥇';
+  } else if (totalReferrals >= 3) {
+    vipBonus = 0.1; // +10% bonus
+    vipTier = 'Argent 🥈';
+  } else {
+    vipBonus = 0; // Pas de bonus
+    vipTier = 'Bronze 🥉';
+  }
+
+  const bonusAmount = Math.floor(REFERRER_CREDIT * vipBonus);
+  const totalReferrerCredit = REFERRER_CREDIT + bonusAmount;
+
+  console.log(`👑 VIP Tier: ${vipTier} - Bonus: ${vipBonus * 100}% (+${bonusAmount} DA)`);
+
+  // Créditer le parrain avec bonus VIP
   await db.run(
     `UPDATE referrals
      SET credit_balance = credit_balance + ?,
          total_referrals = total_referrals + 1,
          total_earned = total_earned + ?
      WHERE referral_code = ?`,
-    [REFERRER_CREDIT, REFERRER_CREDIT, referrerCode]
+    [totalReferrerCredit, totalReferrerCredit, referrerCode]
   );
 
   // Créer le code de parrainage pour le nouveau client
@@ -1060,12 +1085,15 @@ async function applyReferralCredits(referrerCode, newCustomer, orderId) {
     [referrerCode, referrer.customer_contact, newCustomer, orderId, REFERRER_CREDIT, REFERRED_CREDIT]
   );
 
-  console.log(`✅ Referral applied: ${referrer.customer_contact} → ${newCustomer} (${REFERRER_CREDIT} DA + ${REFERRED_CREDIT} DA)`);
+  console.log(`✅ Referral applied: ${referrer.customer_contact} → ${newCustomer} (${totalReferrerCredit} DA + ${REFERRED_CREDIT} DA)`);
 
   return {
-    referrerCredit: REFERRER_CREDIT,
+    referrerCredit: totalReferrerCredit,
     referredCredit: REFERRED_CREDIT,
-    referrerContact: referrer.customer_contact
+    referrerContact: referrer.customer_contact,
+    vipTier,
+    vipBonus: vipBonus * 100, // Percentage
+    bonusAmount
   };
 }
 
@@ -1096,15 +1124,21 @@ async function getReferralStats(customer) {
 }
 
 // ==================== NOTIFICATION SYSTEM ====================
-async function notifyReferralSuccess(referrerContact, newCustomerContact, creditAmount, orderId) {
+async function notifyReferralSuccess(referrerContact, newCustomerContact, creditAmount, orderId, vipInfo = {}) {
   // Essayer de trouver l'ID Telegram du parrain
   const referrerTelegramId = await getClientTelegramId(referrerContact);
 
   if (referrerTelegramId && config.telegram.botToken) {
+    let vipMessage = '';
+    if (vipInfo.vipTier && vipInfo.bonusAmount > 0) {
+      vipMessage = `\n👑 <b>BONUS VIP ${vipInfo.vipTier}:</b> +${vipInfo.bonusAmount} DA (${vipInfo.vipBonus}%)\n`;
+    } else if (vipInfo.vipTier) {
+      vipMessage = `\n🥉 <b>Palier actuel:</b> ${vipInfo.vipTier}\n`;
+    }
+
     const message = `🎉 <b>FÉLICITATIONS ! PARRAINAGE RÉUSSI !</b>
 
-💰 <b>+${creditAmount} DA ajoutés à votre crédit !</b>
-
+💰 <b>+${creditAmount} DA ajoutés à votre crédit !</b>${vipMessage}
 👤 <b>Nouveau client parrainé:</b> ${newCustomerContact}
 📦 <b>Commande:</b> #${orderId}
 
@@ -1756,7 +1790,12 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
         referralResult.referrerContact,
         sanitizedCustomer,
         referralResult.referrerCredit,
-        orderId
+        orderId,
+        {
+          vipTier: referralResult.vipTier,
+          vipBonus: referralResult.vipBonus,
+          bonusAmount: referralResult.bonusAmount
+        }
       ).catch(err => console.error('Referral notification error:', err.message));
     }
 
@@ -2465,6 +2504,85 @@ app.put('/api/admin/customers/:contact', requireAdmin, async (req, res) => {
     res.json({ ok: true });
   } catch (error) {
     console.error('Update customer error:', error);
+    res.status(500).json({ ok: false, error: 'Erreur serveur' });
+  }
+});
+
+// ==================== ADMIN REFERRAL ENDPOINTS ====================
+app.get('/api/admin/referrals', requireAdmin, async (req, res) => {
+  try {
+    const referrals = await db.all(`
+      SELECT
+        r.*,
+        COUNT(rh.id) as total_referrals_count,
+        SUM(rh.referrer_credit) as total_earned_from_history
+      FROM referrals r
+      LEFT JOIN referral_history rh ON r.referral_code = rh.referrer_code
+      GROUP BY r.id
+      ORDER BY r.total_earned DESC
+    `);
+
+    // Calculate VIP tiers for each referral
+    const referralsWithTiers = referrals.map(ref => {
+      const totalReferrals = ref.total_referrals || 0;
+      let vipTier = 'Bronze 🥉';
+      let vipBonus = 0;
+
+      if (totalReferrals >= 10) {
+        vipTier = 'Diamant 💎';
+        vipBonus = 50;
+      } else if (totalReferrals >= 6) {
+        vipTier = 'Or 🥇';
+        vipBonus = 20;
+      } else if (totalReferrals >= 3) {
+        vipTier = 'Argent 🥈';
+        vipBonus = 10;
+      }
+
+      return {
+        ...ref,
+        vipTier,
+        vipBonus
+      };
+    });
+
+    res.json({ ok: true, referrals: referralsWithTiers });
+  } catch (error) {
+    console.error('Get referrals error:', error);
+    res.status(500).json({ ok: false, error: 'Erreur serveur' });
+  }
+});
+
+app.get('/api/admin/referrals/export', requireAdmin, async (req, res) => {
+  try {
+    const referrals = await db.all(`
+      SELECT
+        r.*,
+        COUNT(rh.id) as total_referrals_count
+      FROM referrals r
+      LEFT JOIN referral_history rh ON r.referral_code = rh.referrer_code
+      GROUP BY r.id
+      ORDER BY r.created_at DESC
+    `);
+
+    // Create CSV
+    let csv = 'Code Parrainage,Contact Client,Solde Crédit,Total Parrainages,Total Gagné,Palier VIP,Date Création\n';
+
+    referrals.forEach(ref => {
+      const totalReferrals = ref.total_referrals || 0;
+      let vipTier = 'Bronze';
+      if (totalReferrals >= 10) vipTier = 'Diamant';
+      else if (totalReferrals >= 6) vipTier = 'Or';
+      else if (totalReferrals >= 3) vipTier = 'Argent';
+
+      csv += `${ref.referral_code},${ref.customer_contact},${ref.credit_balance},${ref.total_referrals},${ref.total_earned},${vipTier},${ref.created_at}\n`;
+    });
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename=referrals_export.csv');
+    res.send(csv);
+  } catch (error) {
+    console.error('Export referrals error:', error);
     res.status(500).json({ ok: false, error: 'Erreur serveur' });
   }
 });

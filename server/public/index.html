@@ -2033,11 +2033,13 @@ const SyncManager = {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          customer: orderData.customer,
+          customer: orderData.customer || orderData.phone,
           type: orderData.type,
           address: orderData.address,
           items: orderData.items,
-          total: orderData.total
+          total: orderData.total,
+          referralCode: orderData.referralCode || '',
+          useCredit: orderData.useCredit || false
         })
       })
       .then(res => res.json())
@@ -2606,6 +2608,8 @@ let currentSort = 'default';
 let currentCategory = 'all';
 let appliedPromo = null;
 let syncInterval = null;
+let userCreditBalance = 0;
+let useCreditEnabled = false;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // INTERFACE & RENDERING
@@ -2963,6 +2967,28 @@ function closeProduct() {
   document.body.classList.remove('modal-open');
 }
 
+async function fetchUserCredit(customerContact) {
+  if (!customerContact || customerContact.trim().length === 0) {
+    userCreditBalance = 0;
+    return 0;
+  }
+
+  try {
+    const response = await fetch(`/api/referral-stats?customer=${encodeURIComponent(customerContact)}`);
+    const data = await response.json();
+
+    if (data.ok && data.stats) {
+      userCreditBalance = data.stats.creditBalance || 0;
+      return userCreditBalance;
+    }
+  } catch (error) {
+    console.error('Error fetching credit:', error);
+  }
+
+  userCreditBalance = 0;
+  return 0;
+}
+
 function renderCart() {
   const content = document.getElementById('cartContent');
   
@@ -2983,7 +3009,7 @@ function renderCart() {
   const subtotal = CartManager.getTotal();
   const deliveryFee = selectedDelivery === 'exterieur' ? 20 : 0;
   let discount = 0;
-  
+
   if (appliedPromo) {
     if (appliedPromo.type === 'percent') {
       discount = subtotal * (appliedPromo.value / 100);
@@ -2991,8 +3017,10 @@ function renderCart() {
       discount = appliedPromo.value;
     }
   }
-  
-  const total = subtotal + deliveryFee - discount;
+
+  const totalBeforeCredit = subtotal + deliveryFee - discount;
+  const creditToApply = useCreditEnabled ? Math.min(userCreditBalance, totalBeforeCredit) : 0;
+  const total = totalBeforeCredit - creditToApply;
   
   content.innerHTML = `
     ${CartManager.items.map((item, idx) => `
@@ -3062,7 +3090,26 @@ function renderCart() {
         </div>
       </div>
     </div>
-    
+
+    <div class="contact-section" style="margin-top:16px">
+      <div class="section-label">📱 Numéro de téléphone</div>
+      <div class="input-wrapper">
+        <input type="tel" class="input-field" id="phoneInput" placeholder="Ex: 0612345678" maxlength="20">
+      </div>
+      <div style="font-size:12px;color:var(--text-muted);margin-top:8px">
+        💡 Nécessaire pour utiliser votre crédit et les codes de parrainage
+      </div>
+    </div>
+
+    <div class="referral-input-section" style="margin-top:16px">
+      <div class="section-label">🎁 Code de parrainage (optionnel)</div>
+      <div class="promo-input-wrapper">
+        <input type="text" class="promo-input" id="referralInput" placeholder="Entrez un code ami" maxlength="20">
+        <button class="promo-btn" id="applyReferral">Vérifier</button>
+      </div>
+      <div id="referralStatus" style="margin-top:8px;font-size:13px"></div>
+    </div>
+
     <div class="address-section">
       <div class="section-label">📍 Adresse de livraison</div>
       <div class="input-wrapper">
@@ -3070,12 +3117,37 @@ function renderCart() {
         <div class="suggestions" id="suggestions" style="display:none"></div>
       </div>
     </div>
-    
+
+    ${userCreditBalance > 0 ? `
+    <div class="credit-section" style="background:var(--card-bg);border-radius:12px;padding:16px;margin-top:16px;border:1px solid var(--border)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="font-size:24px">💰</div>
+          <div>
+            <div style="font-weight:700;font-size:14px">Crédit disponible</div>
+            <div style="color:var(--success);font-size:18px;font-weight:700">${fmt(userCreditBalance)}</div>
+          </div>
+        </div>
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:12px;background:var(--bg);border-radius:8px;border:2px solid ${useCreditEnabled ? 'var(--success)' : 'var(--border)'}">
+        <input type="checkbox" id="useCreditCheckbox" ${useCreditEnabled ? 'checked' : ''} style="width:20px;height:20px;cursor:pointer">
+        <span style="font-size:14px;font-weight:600">Utiliser mon crédit pour cette commande</span>
+      </label>
+      ${useCreditEnabled && creditToApply > 0 ? `
+        <div style="margin-top:12px;padding:12px;background:var(--success-bg,rgba(34,197,94,0.1));border-radius:8px;color:var(--success)">
+          <div style="font-size:13px">✅ <strong>${fmt(creditToApply)}</strong> seront déduits de votre total</div>
+          ${creditToApply < userCreditBalance ? `<div style="font-size:12px;margin-top:4px;opacity:0.8">Solde restant: ${fmt(userCreditBalance - creditToApply)}</div>` : ''}
+        </div>
+      ` : ''}
+    </div>
+    ` : ''}
+
     <div class="cart-total">
       <div>
         <div style="color:var(--text-muted);font-size:14px;margin-bottom:4px">Sous-total : ${fmt(subtotal)}</div>
         ${deliveryFee > 0 ? `<div style="color:var(--text-muted);font-size:14px">Livraison : ${fmt(deliveryFee)}</div>` : ''}
         ${discount > 0 ? `<div style="color:var(--success);font-size:14px">Réduction : -${fmt(discount)}</div>` : ''}
+        ${creditToApply > 0 ? `<div style="color:var(--success);font-size:14px;font-weight:700">💰 Crédit : -${fmt(creditToApply)}</div>` : ''}
       </div>
       <span class="total-amount">${fmt(total)}</span>
     </div>
@@ -3126,7 +3198,64 @@ function renderCart() {
       renderCart();
     };
   }
-  
+
+  const useCreditCheckbox = content.querySelector('#useCreditCheckbox');
+  if (useCreditCheckbox) {
+    useCreditCheckbox.onchange = () => {
+      useCreditEnabled = useCreditCheckbox.checked;
+      renderCart();
+      if (useCreditEnabled) {
+        showToast('💰 Crédit activé pour cette commande');
+      }
+    };
+  }
+
+  const phoneInput = content.querySelector('#phoneInput');
+  if (phoneInput) {
+    let phoneTimer = null;
+    phoneInput.addEventListener('input', () => {
+      clearTimeout(phoneTimer);
+      phoneTimer = setTimeout(async () => {
+        const phone = phoneInput.value.trim();
+        if (phone.length >= 8) {
+          await fetchUserCredit(phone);
+          renderCart();
+        }
+      }, 800);
+    });
+  }
+
+  const applyReferralBtn = content.querySelector('#applyReferral');
+  if (applyReferralBtn) {
+    applyReferralBtn.onclick = async () => {
+      const input = content.querySelector('#referralInput');
+      const code = input.value.trim().toUpperCase();
+      const statusDiv = content.querySelector('#referralStatus');
+
+      if (!code) {
+        statusDiv.innerHTML = '<span style="color:var(--error)">❌ Entrez un code</span>';
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/validate-referral?code=${encodeURIComponent(code)}`);
+        const data = await response.json();
+
+        if (data.ok && data.valid) {
+          statusDiv.innerHTML = '<span style="color:var(--success)">✅ Code valide ! Vous recevrez 300 DA après votre commande</span>';
+          input.disabled = true;
+          applyReferralBtn.disabled = true;
+          applyReferralBtn.textContent = 'Validé';
+          applyReferralBtn.style.background = 'var(--success)';
+        } else {
+          statusDiv.innerHTML = '<span style="color:var(--error)">❌ Code invalide</span>';
+        }
+      } catch (error) {
+        statusDiv.innerHTML = '<span style="color:var(--error)">❌ Erreur de vérification</span>';
+      }
+    };
+  }
+
   const addressInput = content.querySelector('#addressInput');
   if (addressInput) {
     let timer = null;
@@ -3224,10 +3353,19 @@ async function validateOrder() {
     showToast('⚠️ Votre panier est vide');
     return;
   }
-  
+
+  const phoneInput = document.getElementById('phoneInput');
+  const phone = phoneInput?.value.trim() || '';
+
+  if (!phone || phone.length < 8) {
+    showToast('⚠️ Entrez votre numéro de téléphone');
+    phoneInput?.focus();
+    return;
+  }
+
   const addressInput = document.getElementById('addressInput');
   const address = addressInput?.value.trim() || '';
-  
+
   if (!address || address.length < 5) {
     showToast('⚠️ Entrez une adresse de livraison');
     addressInput?.focus();
@@ -3286,13 +3424,19 @@ async function validateOrder() {
     
     const totalDiscount = promoDiscount + loyaltyDiscount;
     const total = subtotalWithDelivery - totalDiscount;
-    
+
+    const referralInput = document.getElementById('referralInput');
+    const referralCode = referralInput?.value.trim().toUpperCase() || '';
+
     const orderData = {
-      customer: clientId,
+      customer: phone,
+      phone: phone,
       type: deliveryType,
       address: address,
       items: items,
-      total: total
+      total: total,
+      referralCode: referralCode,
+      useCredit: useCreditEnabled
     };
     
     // Créer la commande via SyncManager
@@ -3451,6 +3595,18 @@ function showOrderSummary(orderData, orderId, discount = 0, notificationSent = f
             <div style="background:rgba(255,255,255,0.2);border-radius:12px;padding:12px;text-align:center;backdrop-filter:blur(10px)">
               <div style="font-size:24px;font-weight:800;color:#ffd700">300 DA</div>
               <div style="font-size:12px;color:rgba(255,255,255,0.9)">Votre ami reçoit</div>
+            </div>
+          </div>
+
+          <!-- VIP Tier System -->
+          <div id="vipTierDisplay" style="background:rgba(255,255,255,0.15);border:2px solid rgba(255,215,0,0.5);border-radius:12px;padding:16px;text-align:center;backdrop-filter:blur(10px)">
+            <div style="font-size:14px;color:rgba(255,255,255,0.8);margin-bottom:8px">👑 PALIER VIP</div>
+            <div id="vipTierName" style="font-size:28px;font-weight:800;color:#ffd700;margin-bottom:8px">Bronze 🥉</div>
+            <div id="vipTierProgress" style="font-size:13px;color:rgba(255,255,255,0.9);margin-bottom:8px">0/3 parrainages pour Argent 🥈</div>
+            <div style="font-size:12px;color:rgba(255,255,255,0.7)">
+              <strong>Bonus actuel:</strong> <span id="vipBonusText">0%</span>
+              <br>
+              <span style="font-size:11px">Plus de parrainages = Plus de bonus !</span>
             </div>
           </div>
         </div>
@@ -3720,10 +3876,60 @@ function showOrderSummary(orderData, orderId, discount = 0, notificationSent = f
     };
   }
 
+  // Fetch and display VIP tier info
+  if (orderData.phone) {
+    fetchAndDisplayVIPTier(orderData.phone);
+  }
+
   // Initialiser la roue de la fortune
   setTimeout(() => {
     initializeWheel();
   }, 500);
+}
+
+// Fetch and display VIP tier information
+async function fetchAndDisplayVIPTier(customerContact) {
+  try {
+    const response = await fetch(`/api/referral-stats?customer=${encodeURIComponent(customerContact)}`);
+    const data = await response.json();
+
+    if (data.ok && data.stats) {
+      const totalReferrals = data.stats.totalReferrals || 0;
+      let vipTier = 'Bronze 🥉';
+      let vipBonus = 0;
+      let nextTier = 'Argent 🥈';
+      let nextTierCount = 3;
+
+      if (totalReferrals >= 10) {
+        vipTier = 'Diamant 💎';
+        vipBonus = 50;
+        nextTier = 'Maximum';
+        nextTierCount = totalReferrals;
+      } else if (totalReferrals >= 6) {
+        vipTier = 'Or 🥇';
+        vipBonus = 20;
+        nextTier = 'Diamant 💎';
+        nextTierCount = 10;
+      } else if (totalReferrals >= 3) {
+        vipTier = 'Argent 🥈';
+        vipBonus = 10;
+        nextTier = 'Or 🥇';
+        nextTierCount = 6;
+      }
+
+      // Update VIP display
+      document.getElementById('vipTierName').textContent = vipTier;
+      document.getElementById('vipBonusText').textContent = `${vipBonus}%`;
+
+      if (nextTier !== 'Maximum') {
+        document.getElementById('vipTierProgress').textContent = `${totalReferrals}/${nextTierCount} parrainages pour ${nextTier}`;
+      } else {
+        document.getElementById('vipTierProgress').textContent = `🏆 Palier maximum atteint !`;
+      }
+    }
+  } catch (error) {
+    console.error('Error fetching VIP tier:', error);
+  }
 }
 
 // Chronomètre de 30 minutes pour l'annulation
