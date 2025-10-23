@@ -1598,6 +1598,7 @@ function extractGrams(variantLabel) {
 const state = {
   currentPassword: 'admin',
   passwordHash: CryptoJS.SHA256('admin').toString(),
+  apiToken: null,
   loginAttempts: 0,
   lockoutUntil: null,
   charts: {},
@@ -1772,6 +1773,9 @@ function init() {
   console.log('🚀 Initialisation du panel admin...');
   loadData();
   console.log('📦 État initial - Produits:', state.data.products.length);
+
+  // La synchronisation des commandes se fera après le login (quand on aura le token)
+
   checkAuth();
   generateDemoData();
   console.log('✅ Initialisation terminée');
@@ -1921,11 +1925,30 @@ function login() {
   if (hash === state.passwordHash) {
     state.loginAttempts = 0;
     state.lockoutUntil = null;
-    
+
     const expiry = Date.now() + (24 * 60 * 60 * 1000);
     localStorage.setItem('admin_auth', 'true');
     localStorage.setItem('session_expiry', expiry.toString());
-    
+
+    // Obtenir le token API pour la synchronisation
+    fetch('/api/admin/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pass })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.ok && data.token) {
+        state.apiToken = data.token;
+        console.log('✅ Token API obtenu');
+
+        // 🔥 Synchroniser les commandes maintenant qu'on a le token
+        syncOrders(false);
+        console.log('🔄 Synchronisation des commandes depuis le serveur...');
+      }
+    })
+    .catch(err => console.warn('⚠️ Impossible d\'obtenir le token API:', err));
+
     showDashboard();
     showToast('✅ Connexion réussie !', 'success');
   } else {
@@ -3725,13 +3748,72 @@ function exportData(type) {
 }
 
 function syncOrders(manual = false) {
-  const lastSyncEl = document.getElementById('lastSyncTime');
-  if (lastSyncEl) {
-    lastSyncEl.textContent = new Date().toLocaleTimeString('fr-FR');
+  // Si pas de token, on ne peut pas sync
+  if (!state.apiToken) {
+    console.warn('⚠️ Pas de token API - impossible de synchroniser');
+    return;
   }
-  if (manual) {
-    showToast('Sync OK', 'success');
-  }
+
+  // Récupérer les commandes depuis le serveur (base de données)
+  fetch('/api/admin/orders?limit=100', {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-admin-token': state.apiToken
+    }
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.ok && data.orders) {
+      // Convertir format API vers format admin
+      const serverOrders = data.orders.map(order => ({
+        id: order.id,
+        date: new Date(order.created_at).toLocaleString('fr-FR'),
+        customer: order.customer || 'Client',
+        products: order.items.map(item => `${item.qty}x ${item.name}`).join(', '),
+        total: order.total,
+        status: order.status || 'pending',
+        payment: order.payment_method || 'Espèces',
+        delivery: order.delivery_type || '',
+        address: order.delivery_address || '',
+        timestamp: order.created_at,
+        items: order.items
+      }));
+
+      // Fusionner avec les commandes existantes (éviter les doublons)
+      const existingIds = new Set(state.data.orders.map(o => o.id));
+      const newOrders = serverOrders.filter(o => !existingIds.has(o.id));
+
+      if (newOrders.length > 0) {
+        state.data.orders = [...state.data.orders, ...newOrders];
+        saveData();
+        loadOrders();
+        console.log(`✅ ${newOrders.length} nouvelle(s) commande(s) depuis le serveur`);
+
+        if (manual) {
+          showToast(`✅ ${newOrders.length} nouvelle(s) commande(s) importée(s)`, 'success');
+        }
+      } else if (manual) {
+        showToast('✅ Aucune nouvelle commande', 'info');
+      }
+
+      const lastSyncEl = document.getElementById('lastSyncTime');
+      if (lastSyncEl) {
+        lastSyncEl.textContent = new Date().toLocaleTimeString('fr-FR');
+      }
+    } else {
+      console.warn('⚠️ Erreur API:', data.error || 'Erreur inconnue');
+      if (manual) {
+        showToast('⚠️ Erreur de synchronisation', 'warning');
+      }
+    }
+  })
+  .catch(error => {
+    console.error('❌ Erreur sync serveur:', error);
+    if (manual) {
+      showToast('❌ Impossible de contacter le serveur', 'error');
+    }
+  });
 }
 
 function autoBackup() {
