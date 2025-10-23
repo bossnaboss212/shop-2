@@ -3467,33 +3467,23 @@ function showOrderSummary(orderData, orderId, discount = 0, notificationSent = f
           </p>
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
-          <button onclick="shareToWhatsApp('${orderData.customer.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 6)}${orderId}')" style="background:#25D366;border:none;border-radius:12px;padding:14px;color:#fff;font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;box-shadow:0 4px 12px rgba(37,211,102,0.3)">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <button onclick="shareToWhatsApp('${orderData.customer.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 6)}${orderId}')" style="background:#25D366;border:none;border-radius:12px;padding:14px;color:#fff;font-weight:700;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;box-shadow:0 4px 12px rgba(37,211,102,0.3)">
             <span style="font-size:20px">📱</span>
             WhatsApp
           </button>
 
-          <button onclick="shareToTelegram('${orderData.customer.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 6)}${orderId}')" style="background:#0088cc;border:none;border-radius:12px;padding:14px;color:#fff;font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;box-shadow:0 4px 12px rgba(0,136,204,0.3)">
+          <button onclick="shareToTelegram('${orderData.customer.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 6)}${orderId}')" style="background:#0088cc;border:none;border-radius:12px;padding:14px;color:#fff;font-weight:700;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;box-shadow:0 4px 12px rgba(0,136,204,0.3)">
             <span style="font-size:20px">✈️</span>
             Telegram
           </button>
 
-          <button onclick="shareToSnapchat()" style="background:#FFFC00;border:none;border-radius:12px;padding:14px;color:#000;font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;box-shadow:0 4px 12px rgba(255,252,0,0.3)">
+          <button onclick="shareToSnapchat()" style="background:#FFFC00;border:none;border-radius:12px;padding:14px;color:#000;font-weight:700;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;box-shadow:0 4px 12px rgba(255,252,0,0.3)">
             <span style="font-size:20px">👻</span>
             Snapchat
           </button>
 
-          <button onclick="shareToFacebook()" style="background:#1877F2;border:none;border-radius:12px;padding:14px;color:#fff;font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;box-shadow:0 4px 12px rgba(24,119,242,0.3)">
-            <span style="font-size:20px">📘</span>
-            Facebook
-          </button>
-
-          <button onclick="shareToTwitter('${orderData.customer.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 6)}${orderId}')" style="background:#1DA1F2;border:none;border-radius:12px;padding:14px;color:#fff;font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;box-shadow:0 4px 12px rgba(29,161,242,0.3)">
-            <span style="font-size:20px">🐦</span>
-            Twitter
-          </button>
-
-          <button onclick="copyShareLink('${orderData.customer.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 6)}${orderId}')" style="background:#667eea;border:none;border-radius:12px;padding:14px;color:#fff;font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;box-shadow:0 4px 12px rgba(102,126,234,0.3)">
+          <button onclick="copyShareLink('${orderData.customer.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 6)}${orderId}')" style="background:#667eea;border:none;border-radius:12px;padding:14px;color:#fff;font-weight:700;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;box-shadow:0 4px 12px rgba(102,126,234,0.3)">
             <span style="font-size:20px">🔗</span>
             Copier lien
           </button>
@@ -4206,24 +4196,6 @@ function shareToWhatsApp(code) {
 
   window.open(`https://wa.me/?text=${text}`, '_blank');
   showToast('📱 Partage WhatsApp ouvert !');
-}
-
-// Partage Facebook
-function shareToFacebook() {
-  const url = encodeURIComponent(window.location.origin);
-  const quote = encodeURIComponent('🎉 Site de shopping incroyable avec roue de la fortune et cadeaux ! 💰 Tournez et gagnez des réductions jusqu\'à 50% ! 🎁');
-
-  window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}&quote=${quote}`, '_blank');
-  showToast('📘 Partage Facebook ouvert !');
-}
-
-// Partage Twitter
-function shareToTwitter(code) {
-  const text = encodeURIComponent(`🎉 J'ai commandé et gagné des cadeaux incroyables ! 🎰 Tournez la roue et gagnez des réductions jusqu'à 50%, livraison gratuite, produits offerts ! 💰 Code: ${code}`);
-  const url = encodeURIComponent(window.location.origin);
-
-  window.open(`https://twitter.com/intent/tweet?text=${text}&url=${url}`, '_blank');
-  showToast('🐦 Partage Twitter ouvert !');
 }
 
 // Partage Telegram
