@@ -2953,6 +2953,19 @@ function openProduct(id) {
         <span style="color:var(--text-muted)">(127 avis)</span>
       </div>
     </div>
+    <!-- Bouton de partage -->
+    <div style="margin:16px 0;padding:12px;background:linear-gradient(135deg,rgba(255,215,0,0.1) 0%,rgba(255,165,0,0.1) 100%);border-radius:12px;border:2px dashed #ffd700">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="font-size:32px">🎁</div>
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:14px;color:var(--accent);margin-bottom:2px">Partagez et gagnez !</div>
+          <div style="font-size:12px;color:var(--text-muted)">500 DA par ami qui commande</div>
+        </div>
+        <button onclick="shareProduct(${id})" style="padding:10px 16px;background:var(--accent);border:none;border-radius:8px;color:var(--bg-primary);font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap">
+          📤 Partager
+        </button>
+      </div>
+    </div>
     <div class="variants-section">
       <div class="variants-title">Sélectionnez une taille :</div>
       ${Object.entries(currentProduct.variants).map(([label, data]) => {
@@ -3377,6 +3390,453 @@ document.getElementById('closeReferralSheet')?.addEventListener('click', () => {
   document.getElementById('referralSheet').classList.add('hidden');
   document.body.classList.remove('modal-open');
 });
+
+// Variable pour stocker les stats actuelles
+let currentReferralStats = null;
+
+// Fonction pour afficher le leaderboard
+async function showLeaderboard() {
+  const content = document.getElementById('referralContent');
+
+  // Update tabs
+  document.getElementById('tabMyStats').style.background = 'var(--bg-tertiary)';
+  document.getElementById('tabMyStats').style.color = 'var(--text-secondary)';
+  document.getElementById('tabLeaderboard').style.background = 'var(--accent)';
+  document.getElementById('tabLeaderboard').style.color = 'var(--bg-primary)';
+
+  content.innerHTML = `
+    <div style="text-align:center;padding:40px 20px;color:var(--text-muted)">
+      <div style="font-size:48px;margin-bottom:16px">⏳</div>
+      <p>Chargement du classement...</p>
+    </div>
+  `;
+
+  try {
+    const response = await fetch('/api/referral-leaderboard?limit=20');
+    const data = await response.json();
+
+    if (!data.ok || !data.leaderboard || data.leaderboard.length === 0) {
+      content.innerHTML = `
+        <div style="text-align:center;padding:40px 20px;color:var(--text-muted)">
+          <div style="font-size:64px;margin-bottom:20px">🏆</div>
+          <h3 style="font-size:18px;font-weight:700;margin-bottom:8px">Classement vide</h3>
+          <p style="font-size:14px">Soyez le premier à parrainer et à dominer le classement !</p>
+        </div>
+      `;
+      return;
+    }
+
+    // Récupérer le numéro de téléphone pour savoir si l'utilisateur est dans le classement
+    const phoneInput = document.getElementById('phoneInput');
+    const phone = phoneInput?.value.trim() || '';
+
+    content.innerHTML = `
+      <div style="padding:20px">
+        <!-- Header -->
+        <div style="text-align:center;margin-bottom:24px">
+          <div style="font-size:64px;margin-bottom:12px">🏆</div>
+          <h3 style="font-size:24px;font-weight:800;margin-bottom:8px">Top Parrains</h3>
+          <p style="font-size:14px;color:var(--text-muted)">Les meilleurs ambassadeurs du mois</p>
+        </div>
+
+        <!-- Podium Top 3 -->
+        ${data.leaderboard.length >= 3 ? `
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:24px;align-items:end">
+          <!-- 2ème place -->
+          <div style="text-align:center">
+            <div style="font-size:48px;margin-bottom:8px">🥈</div>
+            <div style="background:linear-gradient(135deg,#c0c0c0 0%,#d4d4d4 100%);border-radius:16px;padding:16px;box-shadow:0 4px 12px rgba(192,192,192,0.3)">
+              <div style="font-size:14px;font-weight:700;margin-bottom:8px;color:#000">${data.leaderboard[1].masked_contact}</div>
+              <div style="font-size:20px;font-weight:800;color:#000;margin-bottom:4px">${data.leaderboard[1].total_referrals}</div>
+              <div style="font-size:11px;color:#333">parrainages</div>
+              <div style="font-size:13px;font-weight:700;color:#000;margin-top:8px">${Math.floor(data.leaderboard[1].total_earned)} DA</div>
+            </div>
+          </div>
+
+          <!-- 1ère place -->
+          <div style="text-align:center">
+            <div style="font-size:64px;margin-bottom:8px;animation:bounce 2s infinite">🥇</div>
+            <div style="background:linear-gradient(135deg,#ffd700 0%,#ffed4e 100%);border-radius:20px;padding:20px;box-shadow:0 6px 16px rgba(255,215,0,0.4);transform:scale(1.05)">
+              <div style="font-size:16px;font-weight:800;margin-bottom:8px;color:#000">${data.leaderboard[0].masked_contact}</div>
+              <div style="font-size:28px;font-weight:900;color:#000;margin-bottom:4px">${data.leaderboard[0].total_referrals}</div>
+              <div style="font-size:12px;color:#333;font-weight:600">parrainages</div>
+              <div style="font-size:15px;font-weight:800;color:#000;margin-top:8px">${Math.floor(data.leaderboard[0].total_earned)} DA</div>
+            </div>
+          </div>
+
+          <!-- 3ème place -->
+          <div style="text-align:center">
+            <div style="font-size:48px;margin-bottom:8px">🥉</div>
+            <div style="background:linear-gradient(135deg,#cd7f32 0%,#d4895a 100%);border-radius:16px;padding:16px;box-shadow:0 4px 12px rgba(205,127,50,0.3)">
+              <div style="font-size:14px;font-weight:700;margin-bottom:8px;color:#000">${data.leaderboard[2].masked_contact}</div>
+              <div style="font-size:20px;font-weight:800;color:#000;margin-bottom:4px">${data.leaderboard[2].total_referrals}</div>
+              <div style="font-size:11px;color:#333">parrainages</div>
+              <div style="font-size:13px;font-weight:700;color:#000;margin-top:8px">${Math.floor(data.leaderboard[2].total_earned)} DA</div>
+            </div>
+          </div>
+        </div>
+        ` : ''}
+
+        <!-- Liste complète -->
+        <div style="background:var(--card-bg);border-radius:16px;padding:16px">
+          <div style="font-weight:700;font-size:16px;margin-bottom:16px;color:var(--accent)">📋 Classement Complet</div>
+          <div style="display:flex;flex-direction:column;gap:8px;max-height:400px;overflow-y:auto">
+            ${data.leaderboard.map((user, index) => {
+              const isCurrentUser = phone && user.customer_contact === phone;
+              let rankIcon = '👤';
+              let borderColor = 'var(--border)';
+              let bgColor = 'var(--bg-tertiary)';
+
+              if (index === 0) {
+                rankIcon = '🥇';
+                borderColor = '#ffd700';
+                bgColor = 'rgba(255,215,0,0.1)';
+              } else if (index === 1) {
+                rankIcon = '🥈';
+                borderColor = '#c0c0c0';
+                bgColor = 'rgba(192,192,192,0.1)';
+              } else if (index === 2) {
+                rankIcon = '🥉';
+                borderColor = '#cd7f32';
+                bgColor = 'rgba(205,127,50,0.1)';
+              }
+
+              // Calculer VIP tier
+              let vipTier = '🥉';
+              if (user.total_referrals >= 10) vipTier = '💎';
+              else if (user.total_referrals >= 6) vipTier = '🥇';
+              else if (user.total_referrals >= 3) vipTier = '🥈';
+
+              return `
+                <div style="display:flex;align-items:center;gap:12px;padding:12px;background:${bgColor};border-radius:12px;border-left:3px solid ${borderColor}${isCurrentUser ? ';box-shadow:0 0 0 2px var(--accent)' : ''}">
+                  <div style="min-width:32px;text-align:center;font-size:20px">${rankIcon}</div>
+                  <div style="min-width:28px;height:28px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:var(--bg-primary)">${index + 1}</div>
+                  <div style="flex:1">
+                    <div style="font-weight:700;font-size:14px;margin-bottom:2px">
+                      ${isCurrentUser ? '🌟 ' : ''}${user.masked_contact}${isCurrentUser ? ' (Vous)' : ''}
+                    </div>
+                    <div style="font-size:12px;color:var(--text-muted)">
+                      ${vipTier} ${user.total_referrals} parrainage${user.total_referrals > 1 ? 's' : ''} • ${Math.floor(user.total_earned)} DA gagnés
+                    </div>
+                  </div>
+                  <div style="text-align:right">
+                    <div style="font-size:12px;color:var(--text-muted)">Crédit</div>
+                    <div style="font-size:16px;font-weight:700;color:var(--success)">${Math.floor(user.credit_balance)} DA</div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+
+        <!-- Info -->
+        <div style="text-align:center;padding:16px;background:var(--bg-tertiary);border-radius:12px;margin-top:16px">
+          <div style="font-size:14px;color:var(--text-secondary)">
+            💡 <strong>Plus vous parrainez, plus vous montez dans le classement !</strong>
+          </div>
+        </div>
+      </div>
+    `;
+  } catch (error) {
+    console.error('Error loading leaderboard:', error);
+    content.innerHTML = `
+      <div style="text-align:center;padding:40px 20px;color:var(--text-muted)">
+        <div style="font-size:48px;margin-bottom:16px">❌</div>
+        <p>Erreur lors du chargement du classement</p>
+      </div>
+    `;
+  }
+}
+
+// Fonction pour afficher les stats (onglet Mes Stats)
+function showMyStats() {
+  // Update tabs
+  document.getElementById('tabMyStats').style.background = 'var(--accent)';
+  document.getElementById('tabMyStats').style.color = 'var(--bg-primary)';
+  document.getElementById('tabLeaderboard').style.background = 'var(--bg-tertiary)';
+  document.getElementById('tabLeaderboard').style.color = 'var(--text-secondary)';
+
+  // Recharger les stats
+  openReferralSheet();
+}
+
+// Event listeners pour les onglets
+document.getElementById('tabMyStats')?.addEventListener('click', showMyStats);
+document.getElementById('tabLeaderboard')?.addEventListener('click', showLeaderboard);
+
+// Fonction pour partager un produit avec code de parrainage
+async function shareProduct(productId) {
+  const product = PRODUCTS.find(p => p.id === productId);
+  if (!product) {
+    showToast('❌ Produit introuvable');
+    return;
+  }
+
+  // Récupérer le numéro de téléphone pour le code de parrainage
+  const phoneInput = document.getElementById('phoneInput');
+  const phone = phoneInput?.value.trim() || '';
+
+  let referralCode = '';
+  let shareMessage = '';
+
+  if (phone && phone.length >= 8) {
+    // Essayer de récupérer le code de parrainage
+    try {
+      const response = await fetch(`/api/referral-stats?customer=${encodeURIComponent(phone)}`);
+      const data = await response.json();
+
+      if (data.ok && data.stats && data.stats.code) {
+        referralCode = data.stats.code;
+      }
+    } catch (error) {
+      console.error('Error fetching referral code:', error);
+    }
+  }
+
+  // Construire le message de partage
+  if (referralCode) {
+    shareMessage = `🌟 Découvre ce produit incroyable sur DROGUA CENTER !
+
+🔥 ${product.name}
+📦 Catégorie: ${product.category}
+
+🎁 Utilise mon code de parrainage: ${referralCode}
+💰 Tu reçois 300 DA de crédit de bienvenue !
+
+👉 Commande maintenant: ${window.location.origin}`;
+  } else {
+    shareMessage = `🌟 Découvre ce produit incroyable sur DROGUA CENTER !
+
+🔥 ${product.name}
+📦 Catégorie: ${product.category}
+
+💰 Profite de réductions et de la roue de la fortune !
+
+👉 Commande maintenant: ${window.location.origin}`;
+  }
+
+  const encodedMessage = encodeURIComponent(shareMessage);
+
+  // Afficher un menu de partage
+  const shareMenu = document.createElement('div');
+  shareMenu.style.cssText = `
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--card-bg);
+    border-radius: 20px 20px 0 0;
+    padding: 24px;
+    z-index: 10001;
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.3);
+    animation: slideUp 0.3s ease-out;
+  `;
+
+  shareMenu.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <h3 style="font-size:18px;font-weight:800">📤 Partager ce produit</h3>
+      <button id="closeShareMenu" style="width:32px;height:32px;border:none;background:var(--bg-tertiary);border-radius:50%;cursor:pointer;font-size:20px;color:var(--text-secondary)">✕</button>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+      <a href="https://wa.me/?text=${encodedMessage}" target="_blank" style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px;background:linear-gradient(135deg,#25d366 0%,#128c7e 100%);border-radius:12px;text-decoration:none;color:#fff;font-weight:600">
+        <span style="font-size:32px">📱</span>
+        <span>WhatsApp</span>
+      </a>
+
+      <a href="https://t.me/share/url?url=${encodeURIComponent(window.location.origin)}&text=${encodedMessage}" target="_blank" style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px;background:linear-gradient(135deg,#0088cc 0%,#005f8a 100%);border-radius:12px;text-decoration:none;color:#fff;font-weight:600">
+        <span style="font-size:32px">✈️</span>
+        <span>Telegram</span>
+      </a>
+
+      <button onclick="copyToClipboard(\`${shareMessage.replace(/`/g, '\\`')}\`); document.getElementById('shareMenuOverlay').remove()" style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);border:none;border-radius:12px;color:#fff;font-weight:600;cursor:pointer">
+        <span style="font-size:32px">📋</span>
+        <span>Copier</span>
+      </button>
+
+      <button onclick="shareNative(\`${shareMessage.replace(/`/g, '\\`')}\`)" style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px;background:linear-gradient(135deg,#f093fb 0%,#f5576c 100%);border:none;border-radius:12px;color:#fff;font-weight:600;cursor:pointer">
+        <span style="font-size:32px">📲</span>
+        <span>Plus</span>
+      </button>
+    </div>
+
+    ${referralCode ? `
+    <div style="padding:12px;background:linear-gradient(135deg,rgba(255,215,0,0.1) 0%,rgba(255,165,0,0.1) 100%);border-radius:8px;border:1px solid #ffd700;text-align:center">
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">Votre code: <strong style="color:var(--accent)">${referralCode}</strong></div>
+      <div style="font-size:11px;color:var(--text-muted)">💰 Gagnez 500 DA par parrainage validé !</div>
+    </div>
+    ` : `
+    <div style="padding:12px;background:var(--bg-tertiary);border-radius:8px;text-align:center">
+      <div style="font-size:12px;color:var(--text-muted)">💡 Passez une commande pour obtenir votre code de parrainage !</div>
+    </div>
+    `}
+  `;
+
+  // Créer l'overlay
+  const overlay = document.createElement('div');
+  overlay.id = 'shareMenuOverlay';
+  overlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 10000;
+    animation: fadeIn 0.3s ease-out;
+  `;
+
+  overlay.appendChild(shareMenu);
+  document.body.appendChild(overlay);
+
+  // Fermer le menu
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) {
+      overlay.remove();
+    }
+  });
+
+  document.getElementById('closeShareMenu').addEventListener('click', () => {
+    overlay.remove();
+  });
+}
+
+// Fonction pour copier dans le presse-papiers
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(() => {
+    showToast('✅ Message copié !');
+  }).catch(() => {
+    showToast('❌ Erreur lors de la copie');
+  });
+}
+
+// Fonction pour partage natif
+function shareNative(text) {
+  if (navigator.share) {
+    navigator.share({
+      title: 'DROGUA CENTER',
+      text: text,
+      url: window.location.origin
+    }).then(() => {
+      showToast('✅ Partagé avec succès !');
+      document.getElementById('shareMenuOverlay')?.remove();
+    }).catch((error) => {
+      if (error.name !== 'AbortError') {
+        console.error('Error sharing:', error);
+      }
+    });
+  } else {
+    showToast('❌ Partage non disponible sur cet appareil');
+  }
+}
+
+// Ajouter les animations CSS pour le menu de partage
+if (!document.getElementById('shareMenuStyles')) {
+  const style = document.createElement('style');
+  style.id = 'shareMenuStyles';
+  style.textContent = `
+    @keyframes slideUp {
+      from {
+        transform: translateY(100%);
+        opacity: 0;
+      }
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+// Animation de célébration pour gains de crédit
+function celebrateCredit(amount) {
+  // Créer un élément de célébration
+  const celebration = document.createElement('div');
+  celebration.style.cssText = `
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10000;
+    text-align: center;
+    animation: celebrationBounce 0.6s ease-out;
+    pointer-events: none;
+  `;
+
+  celebration.innerHTML = `
+    <div style="font-size:80px;margin-bottom:16px">🎉</div>
+    <div style="background:linear-gradient(135deg,#ffd700 0%,#ffed4e 100%);padding:24px 32px;border-radius:20px;box-shadow:0 10px 40px rgba(255,215,0,0.6)">
+      <div style="font-size:16px;font-weight:600;color:#000;margin-bottom:8px">Félicitations !</div>
+      <div style="font-size:32px;font-weight:900;color:#000">+${amount} DA</div>
+      <div style="font-size:14px;font-weight:600;color:#000;margin-top:8px">💰 Crédit gagné</div>
+    </div>
+  `;
+
+  document.body.appendChild(celebration);
+
+  // Ajouter des confettis
+  for (let i = 0; i < 30; i++) {
+    const confetti = document.createElement('div');
+    const colors = ['#ffd700', '#ff6b6b', '#4ecdc4', '#45b7d1', '#f7b731', '#5f27cd'];
+    const randomColor = colors[Math.floor(Math.random() * colors.length)];
+    const randomX = Math.random() * 100 - 50;
+    const randomDelay = Math.random() * 0.3;
+
+    confetti.style.cssText = `
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      width: 10px;
+      height: 10px;
+      background: ${randomColor};
+      border-radius: 50%;
+      z-index: 9999;
+      animation: confettiFall 1s ease-out ${randomDelay}s;
+      animation-fill-mode: forwards;
+      pointer-events: none;
+    `;
+
+    confetti.style.setProperty('--random-x', randomX + 'vw');
+
+    document.body.appendChild(confetti);
+
+    setTimeout(() => confetti.remove(), 1300);
+  }
+
+  // Supprimer l'élément après l'animation
+  setTimeout(() => celebration.remove(), 2000);
+}
+
+// Ajouter les animations CSS nécessaires
+if (!document.getElementById('celebrationStyles')) {
+  const style = document.createElement('style');
+  style.id = 'celebrationStyles';
+  style.textContent = `
+    @keyframes celebrationBounce {
+      0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+      50% { transform: translate(-50%, -50%) scale(1.1); }
+      100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    }
+
+    @keyframes confettiFall {
+      0% {
+        transform: translate(0, 0) rotate(0deg);
+        opacity: 1;
+      }
+      100% {
+        transform: translate(var(--random-x), 100vh) rotate(720deg);
+        opacity: 0;
+      }
+    }
+  `;
+  document.head.appendChild(style);
+}
 
 function renderCart() {
   const content = document.getElementById('cartContent');
