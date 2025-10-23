@@ -1636,8 +1636,8 @@ const state = {
         name: 'AMNESIA', 
         category: 'weed', 
         buyPrice: 2.8, 
-        video: '/video/amnesia.MP4',          // 👈 MODIFIER CE NOM SI NÉCESSAIRE
-        videoType: 'video/mp4',               // 👈 Format : video/mp4, video/webm, etc.
+        video: '/video/amnesia.MP4',
+        videoType: 'video/mp4',
         archived: false, 
         variants: {
           '3.33G': { price: 20, stock: 50, grams: 3.33 }, 
@@ -1652,7 +1652,7 @@ const state = {
         name: 'EL JEFE', 
         category: 'blanche', 
         buyPrice: 17.5, 
-        video: '/video/eljefe.MP4',           // 👈 MODIFIER CE NOM SI NÉCESSAIRE
+        video: '/video/eljefe.MP4',
         videoType: 'video/mp4', 
         archived: false, 
         variants: {
@@ -1668,7 +1668,7 @@ const state = {
         name: 'DEMBELE', 
         category: 'hash', 
         buyPrice: 2.7, 
-        video: '/video/dembele.MP4',          // 👈 MODIFIER CE NOM SI NÉCESSAIRE
+        video: '/video/dembele.MP4',
         videoType: 'video/mp4', 
         archived: false, 
         variants: {
@@ -1685,7 +1685,7 @@ const state = {
         name: 'STRAWBERRY 120U', 
         category: 'filtré', 
         buyPrice: 2.75, 
-        video: '/video/strawberry.MP4',       // 👈 MODIFIER CE NOM SI NÉCESSAIRE
+        video: '/video/strawberry.MP4',
         videoType: 'video/mp4', 
         archived: false, 
         variants: {
@@ -1701,7 +1701,7 @@ const state = {
         name: 'NEEDLES KETA', 
         category: 'keta', 
         buyPrice: 3.9, 
-        video: '/video/keta.MP4',             // 👈 MODIFIER CE NOM SI NÉCESSAIRE
+        video: '/video/keta.MP4',
         videoType: 'video/mp4', 
         archived: false, 
         variants: {
@@ -1719,7 +1719,7 @@ const state = {
         name: 'VVS TANGER FROZEN', 
         category: 'frozen', 
         buyPrice: 4.8, 
-        video: '/video/vvs_tanger.MP4',       // 👈 MODIFIER CE NOM SI NÉCESSAIRE
+        video: '/video/vvs_tanger.MP4',
         videoType: 'video/mp4', 
         archived: false, 
         variants: {
@@ -1735,7 +1735,7 @@ const state = {
         name: 'FRESH FROZEN', 
         category: 'frozen', 
         buyPrice: 7.0, 
-        video: '/video/fresh_frozen.MP4',     // 👈 MODIFIER CE NOM SI NÉCESSAIRE
+        video: '/video/fresh_frozen.MP4',
         videoType: 'video/mp4', 
         archived: false, 
         variants: {
@@ -1751,7 +1751,7 @@ const state = {
         name: 'CHAMPAGNE', 
         category: 'mdma', 
         buyPrice: 3.0, 
-        video: '/video/champagne.MP4',        // 👈 MODIFIER CE NOM SI NÉCESSAIRE
+        video: '/video/champagne.MP4',
         videoType: 'video/mp4', 
         archived: false, 
         variants: {
@@ -1761,13 +1761,18 @@ const state = {
           '5G': { price: 100, stock: 30, grams: 5 },
           '10G': { price: 180, stock: 55, grams: 10 }
         }
-    customers: []
-  }
-};
+      }
+    ],
+    customers: []  // ✅ UNE SEULE FOIS ICI
+  }  // ✅ FERMETURE DE "data"
+};  // ✅ FERMETURE DE "state"
 
+// ✅ Ensuite les fonctions commencent :
 function init() {
   console.log('🚀 Initialisation du panel admin...');
   loadData();
+  // ... reste du code
+}
   console.log('📦 État initial - Produits:', state.data.products.length);
   checkAuth();
   generateDemoData();
