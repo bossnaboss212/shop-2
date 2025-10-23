@@ -674,11 +674,7 @@
       <p id="loginMessage" style="text-align:center;margin-top:12px;font-size:12px;display:none"></p>
     </div>
     <div style="text-align:center;margin-top:20px;color:var(--muted);font-size:13px">
-      <p>🔒 Mot de passe : <strong style="color:var(--accent)">admin</strong></p>
-      <p style="margin-top:8px">🔐 Sécurité SHA-256</p>
-      <button onclick="resetPassword()" style="margin-top:16px;background:var(--warning);font-size:12px;padding:10px 20px">
-        🔄 Réinitialiser
-      </button>
+      <p>🔐 Sécurité SHA-256</p>
     </div>
   </div>
 
@@ -1880,21 +1876,6 @@ function saveData() {
     if (e.name === 'QuotaExceededError') {
       showToast('⚠️ Espace de stockage insuffisant ! Réduisez la taille des vidéos.', 'error');
     }
-  }
-}
-
-function resetPassword() {
-  if (confirm('Réinitialiser le mot de passe à "admin" ?')) {
-    localStorage.removeItem('admin_password');
-    localStorage.removeItem('admin_auth');
-    localStorage.removeItem('session_expiry');
-    state.currentPassword = 'admin';
-    state.passwordHash = CryptoJS.SHA256('admin').toString();
-    state.loginAttempts = 0;
-    state.lockoutUntil = null;
-    showToast('✅ Mot de passe réinitialisé : admin', 'success');
-    document.getElementById('pass').value = '';
-    showLoginMessage('Mot de passe réinitialisé ! Utilisez : admin', 'success');
   }
 }
 
