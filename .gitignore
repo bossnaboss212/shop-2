@@ -2,3 +2,11 @@ node_modules/
 boutique.db
 .env
 .DS_Store
+
+# Videos - too large for git
+*.mp4
+*.MP4
+*.webm
+*.mov
+public/video/
+server/public/videos/
