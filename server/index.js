@@ -1087,6 +1087,29 @@ async function applyReferralCredits(referrerCode, newCustomer, orderId) {
 
   console.log(`✅ Referral applied: ${referrer.customer_contact} → ${newCustomer} (${totalReferrerCredit} DA + ${REFERRED_CREDIT} DA)`);
 
+  // ==================== NOTIFICATION CHANGEMENT DE PALIER VIP ====================
+  const newTotalReferrals = totalReferrals + 1;
+  let tierUpgrade = false;
+  let newTier = '';
+
+  if (newTotalReferrals === 3) {
+    tierUpgrade = true;
+    newTier = 'Argent 🥈';
+  } else if (newTotalReferrals === 6) {
+    tierUpgrade = true;
+    newTier = 'Or 🥇';
+  } else if (newTotalReferrals === 10) {
+    tierUpgrade = true;
+    newTier = 'Diamant 💎';
+  }
+
+  // Envoyer notification de montée de palier
+  if (tierUpgrade) {
+    await notifyVIPTierUpgrade(referrer.customer_contact, newTier, newTotalReferrals).catch(err =>
+      console.error('VIP tier notification error:', err.message)
+    );
+  }
+
   return {
     referrerCredit: totalReferrerCredit,
     referredCredit: REFERRED_CREDIT,
@@ -1167,6 +1190,63 @@ Utilisez-le lors de votre prochaine commande !
       await telegram.sendMessage(config.telegram.adminChatId, adminMessage);
     } catch (error) {
       console.error('Failed to send admin referral notification:', error.message);
+    }
+  }
+}
+
+async function notifyVIPTierUpgrade(referrerContact, newTier, totalReferrals) {
+  // Essayer de trouver l'ID Telegram du parrain
+  const referrerTelegramId = await getClientTelegramId(referrerContact);
+
+  if (referrerTelegramId && config.telegram.botToken) {
+    let bonusPercent = 0;
+    let nextTierText = '';
+
+    if (newTier === 'Argent 🥈') {
+      bonusPercent = 10;
+      nextTierText = '\n\n🎯 <b>Prochain palier :</b> Or 🥇 (6 parrainages)';
+    } else if (newTier === 'Or 🥇') {
+      bonusPercent = 20;
+      nextTierText = '\n\n🎯 <b>Prochain palier :</b> Diamant 💎 (10 parrainages)';
+    } else if (newTier === 'Diamant 💎') {
+      bonusPercent = 50;
+      nextTierText = '\n\n🏆 <b>PALIER MAXIMUM ATTEINT !</b>';
+    }
+
+    const message = `👑 <b>NOUVEAU PALIER VIP DÉBLOQUÉ !</b>
+
+🎊 <b>Félicitations ${referrerContact} !</b>
+
+Vous venez de passer au palier <b>${newTier}</b> !
+
+⚡ <b>Nouveau bonus :</b> +${bonusPercent}%
+💰 <b>Vous gagnez maintenant ${Math.floor(500 * (1 + bonusPercent/100))} DA</b> par parrainage
+📊 <b>Parrainages réussis :</b> ${totalReferrals}${nextTierText}
+
+🚀 Continuez à partager votre code et maximisez vos gains !
+
+Tapez /parrainage pour voir votre progression complète 📈`;
+
+    try {
+      await telegram.sendMessage(referrerTelegramId, message);
+      console.log(`✅ VIP tier upgrade notification sent to ${referrerContact}`);
+    } catch (error) {
+      console.error(`❌ Failed to send VIP tier notification to ${referrerContact}:`, error.message);
+    }
+  }
+
+  // Notification admin
+  if (config.telegram.adminChatId) {
+    const adminMessage = `👑 <b>MONTÉE DE PALIER VIP</b>
+
+👤 Client: ${referrerContact}
+🎯 Nouveau palier: ${newTier}
+📊 Total parrainages: ${totalReferrals}`;
+
+    try {
+      await telegram.sendMessage(config.telegram.adminChatId, adminMessage);
+    } catch (error) {
+      console.error('Failed to send admin VIP tier notification:', error.message);
     }
   }
 }
@@ -2651,6 +2731,10 @@ function getPermanentKeyboard(chatId) {
       keyboard: [
         [{ text: '🛒 Ouvrir la Boutique', web_app: { url: config.webapp.url } }],
         [
+          { text: '💰 Mon Crédit' },
+          { text: '🎁 Parrainage' }
+        ],
+        [
           { text: 'ℹ️ Info' },
           { text: '📞 Contact' }
         ],
@@ -2696,8 +2780,14 @@ async function handleTelegramMessage(message) {
   } else if (text === '❓ Aide') {
     await sendHelpMessage(chatId);
     return;
+  } else if (text === '💰 Mon Crédit') {
+    await sendCreditBalance(chatId);
+    return;
+  } else if (text === '🎁 Parrainage') {
+    await sendReferralStats(chatId);
+    return;
   }
-  
+
   if (text === '/start') {
     await sendWelcomeMessage(chatId, firstName);
     return;
@@ -2722,8 +2812,17 @@ async function handleTelegramMessage(message) {
   } else if (text === '/zones' && chatId.toString() === config.telegram.adminChatId) {
     await sendZoneStats(chatId);
     return;
+  } else if (text === '/credit' || text === '/solde') {
+    await sendCreditBalance(chatId);
+    return;
+  } else if (text === '/parrainage' || text === '/referral') {
+    await sendReferralStats(chatId);
+    return;
+  } else if (text === '/moncode') {
+    await sendMyReferralCode(chatId);
+    return;
   }
-  
+
   if (!text.startsWith('/')) {
     const driverConv = chatManager.findConversationByChatId(chatId, 'driver');
     if (driverConv) {
@@ -2750,7 +2849,19 @@ async function handleTelegramCallback(callback_query) {
   if (data === 'noop') {
     return;
   }
-  
+
+  // Callbacks pour crédit et parrainage
+  if (data === 'show_credit') {
+    await sendCreditBalance(chatId);
+    return;
+  } else if (data === 'show_referral_code') {
+    await sendMyReferralCode(chatId);
+    return;
+  } else if (data === 'show_referral_stats') {
+    await sendReferralStats(chatId);
+    return;
+  }
+
   if (data.startsWith('end_conv_')) {
     const orderId = parseInt(data.replace('end_conv_', ''));
     await stopConversationForOrder(chatId, orderId);
@@ -2825,6 +2936,11 @@ async function sendWelcomeMessage(chatId, firstName) {
 Votre boutique premium accessible directement depuis Telegram.
 
 <b>🛍️ Utilisez le menu en bas pour naviguer</b>
+
+<b>🎁 PROGRAMME DE PARRAINAGE EXCLUSIF :</b>
+💰 Gagnez 500 DA par ami parrainé !
+🎉 Vos amis reçoivent 300 DA de bienvenue
+👑 Débloquez des bonus VIP jusqu'à +50%
 
 ✨ <i>Programme de fidélité actif !</i>
 Bénéficiez d'une remise tous les ${config.loyalty.defaultThreshold} achats.
@@ -3028,6 +3144,253 @@ Des questions ? Contactez le support ! 💬`;
   };
   
   await telegram.sendMessage(chatId, text, { reply_markup: keyboard });
+}
+
+// ==================== FONCTIONS CRÉDIT & PARRAINAGE ====================
+async function sendCreditBalance(chatId) {
+  try {
+    // Récupérer le contact client depuis telegram_clients
+    const client = await db.get(
+      'SELECT contact FROM telegram_clients WHERE telegram_id = ?',
+      [chatId.toString()]
+    );
+
+    if (!client || !client.contact) {
+      const text = `💰 <b>MON CRÉDIT</b>
+
+❌ <b>Aucun crédit disponible</b>
+
+Pour obtenir du crédit, passez une commande et utilisez un code de parrainage, ou parrainez vos amis !
+
+<b>🎁 Comment gagner du crédit ?</b>
+1️⃣ Utilisez un code ami lors de votre première commande → <b>300 DA</b>
+2️⃣ Parrainez des amis et gagnez <b>500 DA</b> par filleul !
+3️⃣ Débloquez des bonus VIP jusqu'à <b>+50%</b> !
+
+Tapez /parrainage pour voir votre code personnel 🚀`;
+
+      await telegram.sendMessage(chatId, text);
+      return;
+    }
+
+    // Récupérer les stats de parrainage
+    const stats = await getReferralStats(client.contact);
+
+    if (!stats) {
+      const text = `💰 <b>MON CRÉDIT</b>
+
+<b>Solde actuel :</b> 0 DA
+
+Pour obtenir du crédit, parrainez vos amis ou utilisez un code ami lors de votre commande !
+
+Tapez /parrainage pour voir votre code personnel 🚀`;
+
+      await telegram.sendMessage(chatId, text);
+      return;
+    }
+
+    // Calculer le palier VIP
+    const totalReferrals = stats.totalReferrals || 0;
+    let vipTier = 'Bronze 🥉';
+    let vipBonus = 0;
+
+    if (totalReferrals >= 10) {
+      vipTier = 'Diamant 💎';
+      vipBonus = 50;
+    } else if (totalReferrals >= 6) {
+      vipTier = 'Or 🥇';
+      vipBonus = 20;
+    } else if (totalReferrals >= 3) {
+      vipTier = 'Argent 🥈';
+      vipBonus = 10;
+    }
+
+    const text = `💰 <b>MON CRÉDIT</b>
+
+<b>💵 Solde disponible :</b> <b>${stats.creditBalance.toFixed(0)} DA</b>
+
+<b>👑 Palier VIP :</b> ${vipTier}
+<b>⚡ Bonus actuel :</b> +${vipBonus}%
+
+<b>📊 Statistiques :</b>
+• Total gagné : ${stats.totalEarned.toFixed(0)} DA
+• Parrainages réussis : ${totalReferrals}
+
+<b>💡 Utilisation :</b>
+Votre crédit sera automatiquement proposé lors de votre prochaine commande sur la boutique !
+
+🎁 Parrainez plus d'amis pour débloquer de meilleurs bonus VIP !`;
+
+    const keyboard = {
+      inline_keyboard: [
+        [{ text: '🎁 Voir Mon Code Parrainage', callback_data: 'show_referral_code' }],
+        [{ text: '🛒 Commander', web_app: { url: config.webapp.url } }]
+      ]
+    };
+
+    await telegram.sendMessage(chatId, text, { reply_markup: keyboard });
+  } catch (error) {
+    console.error('Error sending credit balance:', error);
+    await telegram.sendMessage(chatId, '❌ Erreur lors de la récupération de votre crédit. Réessayez plus tard.');
+  }
+}
+
+async function sendReferralStats(chatId) {
+  try {
+    // Récupérer le contact client
+    const client = await db.get(
+      'SELECT contact FROM telegram_clients WHERE telegram_id = ?',
+      [chatId.toString()]
+    );
+
+    if (!client || !client.contact) {
+      const text = `🎁 <b>PROGRAMME DE PARRAINAGE</b>
+
+❌ <b>Pas encore de code parrainage</b>
+
+Pour obtenir votre code personnel, passez votre première commande sur la boutique !
+
+<b>💰 Comment ça marche ?</b>
+1️⃣ Vous parrainez un ami → Vous gagnez <b>500 DA</b>
+2️⃣ Votre ami reçoit <b>300 DA</b> de bienvenue
+3️⃣ Plus vous parrainez, plus vous gagnez de bonus !
+
+<b>🏆 Paliers VIP :</b>
+🥉 Bronze : 0% bonus (départ)
+🥈 Argent : +10% bonus (3 parrainages)
+🥇 Or : +20% bonus (6 parrainages)
+💎 Diamant : +50% bonus (10 parrainages)
+
+Commandez maintenant pour débloquer votre code ! 🚀`;
+
+      const keyboard = {
+        inline_keyboard: [
+          [{ text: '🛒 Commander', web_app: { url: config.webapp.url } }]
+        ]
+      };
+
+      await telegram.sendMessage(chatId, text, { reply_markup: keyboard });
+      return;
+    }
+
+    // Récupérer les stats
+    const stats = await getReferralStats(client.contact);
+
+    if (!stats) {
+      await sendMyReferralCode(chatId);
+      return;
+    }
+
+    // Calculer VIP
+    const totalReferrals = stats.totalReferrals || 0;
+    let vipTier = 'Bronze 🥉';
+    let vipBonus = 0;
+    let nextTier = 'Argent 🥈';
+    let nextTierCount = 3;
+
+    if (totalReferrals >= 10) {
+      vipTier = 'Diamant 💎';
+      vipBonus = 50;
+      nextTier = 'Maximum atteint';
+      nextTierCount = totalReferrals;
+    } else if (totalReferrals >= 6) {
+      vipTier = 'Or 🥇';
+      vipBonus = 20;
+      nextTier = 'Diamant 💎';
+      nextTierCount = 10;
+    } else if (totalReferrals >= 3) {
+      vipTier = 'Argent 🥈';
+      vipBonus = 10;
+      nextTier = 'Or 🥇';
+      nextTierCount = 6;
+    }
+
+    const progressText = nextTier === 'Maximum atteint'
+      ? '🏆 Palier maximum atteint !'
+      : `${totalReferrals}/${nextTierCount} pour ${nextTier}`;
+
+    const text = `🎁 <b>MON PARRAINAGE</b>
+
+<b>🔑 Votre code personnel :</b>
+<code>${stats.code}</code>
+
+<b>👑 Palier VIP :</b> ${vipTier}
+<b>⚡ Bonus actuel :</b> +${vipBonus}%
+<b>📈 Progression :</b> ${progressText}
+
+<b>📊 Statistiques :</b>
+• Parrainages réussis : ${totalReferrals}
+• Total gagné : ${stats.totalEarned.toFixed(0)} DA
+• Crédit disponible : ${stats.creditBalance.toFixed(0)} DA
+
+<b>💰 Gains par parrainage :</b>
+Base : 500 DA + ${vipBonus}% bonus = <b>${Math.floor(500 * (1 + vipBonus/100))} DA</b>
+
+<b>🚀 Partagez votre code :</b>
+Vos amis gagneront 300 DA en l'utilisant lors de leur première commande !
+
+Plus vous parrainez, plus vos bonus augmentent ! 💪`;
+
+    const shareText = encodeURIComponent(`🎉 Commande sur DROGUA CENTER et reçois 300 DA de crédit !\n\n🎁 Utilise mon code : ${stats.code}\n\n💰 Profite de réductions et de la roue de la fortune !\n\n👉 ${config.webapp.url}`);
+
+    const keyboard = {
+      inline_keyboard: [
+        [{ text: '📤 Partager sur WhatsApp', url: `https://wa.me/?text=${shareText}` }],
+        [{ text: '📤 Partager sur Telegram', url: `https://t.me/share/url?url=${encodeURIComponent(config.webapp.url)}&text=${shareText}` }],
+        [{ text: '💰 Voir Mon Crédit', callback_data: 'show_credit' }]
+      ]
+    };
+
+    await telegram.sendMessage(chatId, text, { reply_markup: keyboard });
+  } catch (error) {
+    console.error('Error sending referral stats:', error);
+    await telegram.sendMessage(chatId, '❌ Erreur lors de la récupération de vos stats. Réessayez plus tard.');
+  }
+}
+
+async function sendMyReferralCode(chatId) {
+  try {
+    const client = await db.get(
+      'SELECT contact FROM telegram_clients WHERE telegram_id = ?',
+      [chatId.toString()]
+    );
+
+    if (!client || !client.contact) {
+      await telegram.sendMessage(chatId, '❌ Passez d\'abord une commande pour obtenir votre code personnel !');
+      return;
+    }
+
+    // Créer ou récupérer le code
+    const referral = await getOrCreateReferralCode(client.contact, 0);
+
+    const text = `🎁 <b>VOTRE CODE PARRAINAGE</b>
+
+<b>🔑 Code personnel :</b>
+<code>${referral}</code>
+
+<b>💰 Partagez et gagnez :</b>
+• Vous : 500 DA par parrainage
+• Votre ami : 300 DA de bienvenue
+
+<b>🏆 Débloquez des bonus VIP :</b>
+Plus vous parrainez, plus vos gains augmentent !
+
+Partagez dès maintenant ! 🚀`;
+
+    const shareText = encodeURIComponent(`🎉 Commande sur DROGUA CENTER et reçois 300 DA !\n\n🎁 Code : ${referral}\n\n👉 ${config.webapp.url}`);
+
+    const keyboard = {
+      inline_keyboard: [
+        [{ text: '📤 Partager', url: `https://wa.me/?text=${shareText}` }],
+        [{ text: '📊 Voir Mes Stats', callback_data: 'show_referral_stats' }]
+      ]
+    };
+
+    await telegram.sendMessage(chatId, text, { reply_markup: keyboard });
+  } catch (error) {
+    console.error('Error sending referral code:', error);
+    await telegram.sendMessage(chatId, '❌ Erreur. Réessayez plus tard.');
+  }
 }
 
 async function sendDriverDeliveries(chatId) {
