@@ -1772,6 +1772,11 @@ function init() {
   console.log('🚀 Initialisation du panel admin...');
   loadData();
   console.log('📦 État initial - Produits:', state.data.products.length);
+
+  // Synchroniser les commandes de la boutique
+  syncOrders(false);
+  console.log('🔄 Commandes synchronisées');
+
   checkAuth();
   generateDemoData();
   console.log('✅ Initialisation terminée');
@@ -3725,12 +3730,53 @@ function exportData(type) {
 }
 
 function syncOrders(manual = false) {
-  const lastSyncEl = document.getElementById('lastSyncTime');
-  if (lastSyncEl) {
-    lastSyncEl.textContent = new Date().toLocaleTimeString('fr-FR');
-  }
-  if (manual) {
-    showToast('Sync OK', 'success');
+  try {
+    // Charger les commandes depuis le localStorage de la boutique
+    const shopOrders = JSON.parse(localStorage.getItem('shop_orders') || '[]');
+
+    if (shopOrders.length > 0) {
+      // Convertir le format shop vers format admin
+      const adminOrders = shopOrders.map(order => ({
+        id: order.id,
+        date: new Date(order.timestamp).toLocaleString('fr-FR'),
+        customer: order.name || 'Client',
+        products: order.items.map(item => `${item.qty}x ${item.name}`).join(', '),
+        total: order.total,
+        status: order.status || 'pending',
+        payment: order.paymentMethod || 'Espèces',
+        delivery: order.deliveryType || '',
+        address: order.deliveryAddress || '',
+        timestamp: order.timestamp,
+        items: order.items
+      }));
+
+      // Fusionner avec les commandes existantes (éviter les doublons)
+      const existingIds = new Set(state.data.orders.map(o => o.id));
+      const newOrders = adminOrders.filter(o => !existingIds.has(o.id));
+
+      if (newOrders.length > 0) {
+        state.data.orders = [...state.data.orders, ...newOrders];
+        saveData();
+        loadOrders();
+        console.log(`✅ ${newOrders.length} nouvelle(s) commande(s) synchronisée(s)`);
+
+        if (manual) {
+          showToast(`✅ ${newOrders.length} nouvelle(s) commande(s) importée(s)`, 'success');
+        }
+      } else if (manual) {
+        showToast('✅ Aucune nouvelle commande', 'info');
+      }
+    }
+
+    const lastSyncEl = document.getElementById('lastSyncTime');
+    if (lastSyncEl) {
+      lastSyncEl.textContent = new Date().toLocaleTimeString('fr-FR');
+    }
+  } catch (error) {
+    console.error('❌ Erreur sync commandes:', error);
+    if (manual) {
+      showToast('❌ Erreur de synchronisation', 'error');
+    }
   }
 }
 
