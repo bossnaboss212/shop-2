@@ -190,6 +190,42 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
   text-align:center;
 }
 
+.credit-widget{
+  background:linear-gradient(135deg,#ffd700 0%,#ffed4e 100%);
+  border:2px solid #ffa500;
+  border-radius:12px;
+  padding:6px 12px;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  gap:6px;
+  transition:all 0.3s;
+  font-weight:700;
+  color:#000;
+  font-size:14px;
+  box-shadow:0 4px 12px rgba(255,215,0,0.3);
+}
+
+.credit-widget:hover{
+  transform:translateY(-2px) scale(1.05);
+  box-shadow:0 6px 20px rgba(255,215,0,0.5);
+}
+
+.credit-amount{
+  font-size:16px;
+  font-weight:800;
+  letter-spacing:0.5px;
+}
+
+@keyframes creditPulse{
+  0%,100%{transform:scale(1)}
+  50%{transform:scale(1.1)}
+}
+
+.credit-widget.pulse{
+  animation:creditPulse 0.6s ease-in-out;
+}
+
 .sync-indicator{
   display:flex;
   align-items:center;
@@ -1613,6 +1649,11 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
           <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
         </svg>
       </button>
+      <button class="credit-widget" id="creditWidget" style="display:none" title="Mon crédit disponible">
+        <span style="font-size:18px">💰</span>
+        <span class="credit-amount" id="headerCreditAmount">0</span>
+        <span style="font-size:10px;opacity:0.8">DA</span>
+      </button>
       <button class="cart-btn" id="cartBtn">
         <svg class="cart-icon" viewBox="0 0 24 24">
           <circle cx="9" cy="21" r="1"></circle>
@@ -1868,6 +1909,23 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
         <button class="btn-primary" id="closeOrderSummaryBtn" style="background:var(--bg-tertiary);color:var(--text-primary);box-shadow:none">
           Retour à l'accueil
         </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 🎁 SHEET PARRAINAGE -->
+  <section class="sheet hidden" id="referralSheet">
+    <div class="sheet-card">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <h2 class="sheet-title">🎁 Mon Parrainage</h2>
+        <button class="sheet-close" id="closeReferralSheet">✕</button>
+      </div>
+      <div class="sheet-content" id="referralContent">
+        <div style="text-align:center;padding:40px 20px;color:var(--text-muted)">
+          <div style="font-size:48px;margin-bottom:16px">🎁</div>
+          <p>Chargement...</p>
+        </div>
       </div>
     </div>
   </section>
@@ -2970,6 +3028,7 @@ function closeProduct() {
 async function fetchUserCredit(customerContact) {
   if (!customerContact || customerContact.trim().length === 0) {
     userCreditBalance = 0;
+    updateHeaderCreditDisplay(0);
     return 0;
   }
 
@@ -2979,6 +3038,7 @@ async function fetchUserCredit(customerContact) {
 
     if (data.ok && data.stats) {
       userCreditBalance = data.stats.creditBalance || 0;
+      updateHeaderCreditDisplay(userCreditBalance);
       return userCreditBalance;
     }
   } catch (error) {
@@ -2986,8 +3046,241 @@ async function fetchUserCredit(customerContact) {
   }
 
   userCreditBalance = 0;
+  updateHeaderCreditDisplay(0);
   return 0;
 }
+
+function updateHeaderCreditDisplay(creditAmount) {
+  const widget = document.getElementById('creditWidget');
+  const amountDisplay = document.getElementById('headerCreditAmount');
+
+  if (creditAmount > 0) {
+    widget.style.display = 'flex';
+    amountDisplay.textContent = Math.floor(creditAmount);
+
+    // Animation pulse quand le crédit change
+    widget.classList.add('pulse');
+    setTimeout(() => widget.classList.remove('pulse'), 600);
+  } else {
+    widget.style.display = 'none';
+  }
+}
+
+// Ajouter onclick au widget pour ouvrir une sheet de parrainage
+document.getElementById('creditWidget')?.addEventListener('click', () => {
+  openReferralSheet();
+});
+
+async function openReferralSheet() {
+  document.getElementById('referralSheet').classList.remove('hidden');
+  document.body.classList.add('modal-open');
+
+  const content = document.getElementById('referralContent');
+
+  // Récupérer le numéro de téléphone s'il existe
+  const phoneInput = document.getElementById('phoneInput');
+  const phone = phoneInput?.value.trim() || '';
+
+  if (!phone || phone.length < 8) {
+    content.innerHTML = `
+      <div style="text-align:center;padding:40px 20px">
+        <div style="font-size:64px;margin-bottom:20px">🎁</div>
+        <h3 style="font-size:22px;font-weight:700;margin-bottom:12px">Programme de Parrainage</h3>
+        <p style="color:var(--text-muted);margin-bottom:24px">Passez une commande pour obtenir votre code personnel !</p>
+
+        <div style="background:var(--card-bg);border-radius:16px;padding:20px;text-align:left;margin-bottom:20px">
+          <div style="font-weight:700;font-size:16px;margin-bottom:16px;color:var(--accent)">💰 Comment ça marche ?</div>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div style="display:flex;gap:12px;align-items:start">
+              <div style="min-width:28px;height:28px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px">1</div>
+              <div style="flex:1">
+                <div style="font-weight:600;margin-bottom:4px">Vous parrainez un ami</div>
+                <div style="font-size:13px;color:var(--text-muted)">Partagez votre code personnel</div>
+              </div>
+            </div>
+            <div style="display:flex;gap:12px;align-items:start">
+              <div style="min-width:28px;height:28px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px">2</div>
+              <div style="flex:1">
+                <div style="font-weight:600;margin-bottom:4px">Votre ami commande</div>
+                <div style="font-size:13px;color:var(--text-muted)">Il reçoit 300 DA de bienvenue</div>
+              </div>
+            </div>
+            <div style="display:flex;gap:12px;align-items:start">
+              <div style="min-width:28px;height:28px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px">3</div>
+              <div style="flex:1">
+                <div style="font-weight:600;margin-bottom:4px">Vous gagnez 500 DA !</div>
+                <div style="font-size:13px;color:var(--text-muted)">Crédit utilisable immédiatement</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);border-radius:16px;padding:20px;color:#fff;margin-bottom:20px">
+          <div style="font-weight:700;font-size:16px;margin-bottom:12px">👑 Paliers VIP</div>
+          <div style="display:flex;flex-direction:column;gap:8px;font-size:14px">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span>🥉 Bronze</span>
+              <span style="opacity:0.9">0% bonus</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span>🥈 Argent (3+)</span>
+              <span style="font-weight:700">+10% bonus</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span>🥇 Or (6+)</span>
+              <span style="font-weight:700">+20% bonus</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span>💎 Diamant (10+)</span>
+              <span style="font-weight:700">+50% bonus</span>
+            </div>
+          </div>
+        </div>
+
+        <button onclick="openCart()" style="width:100%;padding:14px;background:var(--accent);border:none;border-radius:12px;color:var(--bg-primary);font-weight:700;font-size:16px;cursor:pointer">
+          🛒 Commander Maintenant
+        </button>
+      </div>
+    `;
+    return;
+  }
+
+  // Récupérer les stats de parrainage
+  try {
+    const response = await fetch(`/api/referral-stats?customer=${encodeURIComponent(phone)}`);
+    const data = await response.json();
+
+    if (!data.ok || !data.stats) {
+      content.innerHTML = `
+        <div style="text-align:center;padding:40px 20px;color:var(--text-muted)">
+          <div style="font-size:48px;margin-bottom:16px">😔</div>
+          <p>Aucune donnée de parrainage disponible</p>
+        </div>
+      `;
+      return;
+    }
+
+    const stats = data.stats;
+    const totalReferrals = stats.totalReferrals || 0;
+
+    // Calculer VIP
+    let vipTier = 'Bronze 🥉';
+    let vipBonus = 0;
+    let nextTier = 'Argent 🥈';
+    let nextTierCount = 3;
+    let vipColor = '#cd7f32';
+
+    if (totalReferrals >= 10) {
+      vipTier = 'Diamant 💎';
+      vipBonus = 50;
+      nextTier = 'Maximum';
+      nextTierCount = totalReferrals;
+      vipColor = '#b9f2ff';
+    } else if (totalReferrals >= 6) {
+      vipTier = 'Or 🥇';
+      vipBonus = 20;
+      nextTier = 'Diamant 💎';
+      nextTierCount = 10;
+      vipColor = '#ffd700';
+    } else if (totalReferrals >= 3) {
+      vipTier = 'Argent 🥈';
+      vipBonus = 10;
+      nextTier = 'Or 🥇';
+      nextTierCount = 6;
+      vipColor = '#c0c0c0';
+    }
+
+    const progress = nextTier === 'Maximum' ? 100 : (totalReferrals / nextTierCount) * 100;
+    const progressText = nextTier === 'Maximum'
+      ? '🏆 Palier maximum atteint !'
+      : `${totalReferrals}/${nextTierCount} pour ${nextTier}`;
+
+    const shareText = encodeURIComponent(`🎉 Commande sur DROGUA CENTER et reçois 300 DA de crédit !\n\n🎁 Utilise mon code : ${stats.code}\n\n💰 Profite de réductions et de la roue de la fortune !\n\n👉 ${window.location.origin}`);
+
+    content.innerHTML = `
+      <div style="padding:20px">
+        <!-- Code de parrainage -->
+        <div style="background:linear-gradient(135deg,#f093fb 0%,#f5576c 100%);border-radius:20px;padding:24px;margin-bottom:20px;box-shadow:0 10px 30px rgba(240,147,251,0.3);text-align:center">
+          <div style="color:rgba(255,255,255,0.9);font-size:14px;margin-bottom:8px">Votre code personnel</div>
+          <div style="font-size:32px;font-weight:800;color:#fff;letter-spacing:2px;text-shadow:2px 2px 4px rgba(0,0,0,0.2);margin-bottom:16px;font-family:monospace">${stats.code}</div>
+          <button onclick="navigator.clipboard.writeText('${stats.code}');showToast('✅ Code copié !')" style="padding:12px 24px;background:#fff;border:none;border-radius:12px;font-weight:700;color:#f5576c;cursor:pointer;margin-bottom:12px">
+            📋 Copier le code
+          </button>
+          <div style="display:flex;gap:8px;justify-content:center;margin-top:12px">
+            <a href="https://wa.me/?text=${shareText}" target="_blank" style="flex:1;padding:10px;background:rgba(255,255,255,0.2);border-radius:8px;text-decoration:none;color:#fff;font-weight:600;font-size:14px">📱 WhatsApp</a>
+            <a href="https://t.me/share/url?url=${encodeURIComponent(window.location.origin)}&text=${shareText}" target="_blank" style="flex:1;padding:10px;background:rgba(255,255,255,0.2);border-radius:8px;text-decoration:none;color:#fff;font-weight:600;font-size:14px">✈️ Telegram</a>
+          </div>
+        </div>
+
+        <!-- Palier VIP -->
+        <div style="background:linear-gradient(135deg,${vipColor}40 0%,${vipColor}20 100%);border:2px solid ${vipColor};border-radius:16px;padding:20px;margin-bottom:20px">
+          <div style="text-align:center;margin-bottom:16px">
+            <div style="font-size:14px;color:var(--text-muted);margin-bottom:8px">👑 Palier VIP</div>
+            <div style="font-size:28px;font-weight:800;color:var(--text-primary);margin-bottom:4px">${vipTier}</div>
+            <div style="font-size:16px;font-weight:700;color:var(--accent)">⚡ +${vipBonus}% de bonus</div>
+          </div>
+          <div style="margin-bottom:8px">
+            <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;color:var(--text-secondary)">
+              <span>Progression</span>
+              <span>${progressText}</span>
+            </div>
+            <div style="height:8px;background:var(--bg-tertiary);border-radius:4px;overflow:hidden">
+              <div style="height:100%;background:${vipColor};width:${progress}%;transition:width 0.3s"></div>
+            </div>
+          </div>
+          <div style="text-align:center;font-size:13px;color:var(--text-muted);margin-top:12px">
+            Vous gagnez <strong style="color:var(--accent)">${Math.floor(500 * (1 + vipBonus/100))} DA</strong> par parrainage
+          </div>
+        </div>
+
+        <!-- Statistiques -->
+        <div style="background:var(--card-bg);border-radius:16px;padding:20px;margin-bottom:20px">
+          <div style="font-weight:700;font-size:16px;margin-bottom:16px;color:var(--accent)">📊 Mes Statistiques</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div style="text-align:center;padding:16px;background:var(--bg-tertiary);border-radius:12px">
+              <div style="font-size:24px;font-weight:800;color:var(--accent);margin-bottom:4px">${totalReferrals}</div>
+              <div style="font-size:13px;color:var(--text-muted)">Parrainages</div>
+            </div>
+            <div style="text-align:center;padding:16px;background:var(--bg-tertiary);border-radius:12px">
+              <div style="font-size:24px;font-weight:800;color:var(--success);margin-bottom:4px">${Math.floor(stats.totalEarned)}</div>
+              <div style="font-size:13px;color:var(--text-muted)">Total gagné (DA)</div>
+            </div>
+            <div style="text-align:center;padding:16px;background:var(--bg-tertiary);border-radius:12px">
+              <div style="font-size:24px;font-weight:800;color:#ffd700;margin-bottom:4px">${Math.floor(stats.creditBalance)}</div>
+              <div style="font-size:13px;color:var(--text-muted)">Crédit disponible (DA)</div>
+            </div>
+            <div style="text-align:center;padding:16px;background:var(--bg-tertiary);border-radius:12px">
+              <div style="font-size:24px;font-weight:800;color:var(--accent);margin-bottom:4px">${vipBonus}%</div>
+              <div style="font-size:13px;color:var(--text-muted)">Bonus actuel</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CTA -->
+        <div style="text-align:center;padding:16px;background:var(--success-bg,rgba(34,197,94,0.1));border-radius:12px;border:2px solid var(--success)">
+          <div style="font-size:14px;font-weight:600;color:var(--success);margin-bottom:4px">💡 Astuce</div>
+          <div style="font-size:13px;color:var(--text-secondary)">
+            Plus vous parrainez, plus vos bonus augmentent ! Partagez votre code dès maintenant 🚀
+          </div>
+        </div>
+      </div>
+    `;
+  } catch (error) {
+    console.error('Error loading referral stats:', error);
+    content.innerHTML = `
+      <div style="text-align:center;padding:40px 20px;color:var(--text-muted)">
+        <div style="font-size:48px;margin-bottom:16px">❌</div>
+        <p>Erreur lors du chargement des statistiques</p>
+      </div>
+    `;
+  }
+}
+
+// Event listeners pour la sheet de parrainage
+document.getElementById('closeReferralSheet')?.addEventListener('click', () => {
+  document.getElementById('referralSheet').classList.add('hidden');
+  document.body.classList.remove('modal-open');
+});
 
 function renderCart() {
   const content = document.getElementById('cartContent');
