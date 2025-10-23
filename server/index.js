@@ -370,6 +370,29 @@ async function initDB() {
       FOREIGN KEY (order_id) REFERENCES orders(id)
     );
 
+    CREATE TABLE IF NOT EXISTS referrals (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      referral_code TEXT NOT NULL UNIQUE,
+      customer_contact TEXT NOT NULL,
+      credit_balance REAL DEFAULT 0,
+      total_referrals INTEGER DEFAULT 0,
+      total_earned REAL DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS referral_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      referrer_code TEXT NOT NULL,
+      referrer_contact TEXT NOT NULL,
+      referred_contact TEXT NOT NULL,
+      order_id INTEGER,
+      referrer_credit REAL NOT NULL,
+      referred_credit REAL NOT NULL,
+      status TEXT DEFAULT 'completed' CHECK(status IN ('pending', 'completed', 'cancelled')),
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (order_id) REFERENCES orders(id)
+    );
+
     CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
     CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date DESC);
@@ -379,6 +402,10 @@ async function initDB() {
     CREATE INDEX IF NOT EXISTS idx_customers_created_at ON customers(created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_chat_messages_order ON chat_messages(order_id, created_at);
     CREATE INDEX IF NOT EXISTS idx_telegram_clients_contact ON telegram_clients(contact);
+    CREATE INDEX IF NOT EXISTS idx_referrals_code ON referrals(referral_code);
+    CREATE INDEX IF NOT EXISTS idx_referrals_contact ON referrals(customer_contact);
+    CREATE INDEX IF NOT EXISTS idx_referral_history_referrer ON referral_history(referrer_code);
+    CREATE INDEX IF NOT EXISTS idx_referral_history_order ON referral_history(order_id);
   `);
 
   await db.run(`
@@ -930,7 +957,300 @@ async function restoreStockForOrder(items, orderId) {
   }
 }
 
+// ==================== REFERRAL SYSTEM ====================
+async function generateReferralCode(customer, orderId) {
+  // Générer code unique basé sur le nom du client et l'ID de commande
+  const cleanCustomer = customer.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 6);
+  const code = `${cleanCustomer}${orderId}`;
+  return code;
+}
+
+async function getOrCreateReferralCode(customer, orderId) {
+  // Vérifier si le client a déjà un code de parrainage
+  let referral = await db.get(
+    'SELECT * FROM referrals WHERE customer_contact = ?',
+    [customer]
+  );
+
+  if (!referral) {
+    const code = await generateReferralCode(customer, orderId);
+    await db.run(
+      'INSERT INTO referrals (referral_code, customer_contact) VALUES (?, ?)',
+      [code, customer]
+    );
+    referral = await db.get(
+      'SELECT * FROM referrals WHERE referral_code = ?',
+      [code]
+    );
+  }
+
+  return referral;
+}
+
+async function validateReferralCode(code) {
+  if (!code || code.length === 0) {
+    return null;
+  }
+
+  const referral = await db.get(
+    'SELECT * FROM referrals WHERE referral_code = ?',
+    [code]
+  );
+
+  return referral;
+}
+
+async function applyReferralCredits(referrerCode, newCustomer, orderId) {
+  const referrer = await db.get(
+    'SELECT * FROM referrals WHERE referral_code = ?',
+    [referrerCode]
+  );
+
+  if (!referrer) {
+    console.log(`⚠️ Referral code not found: ${referrerCode}`);
+    return { referrerCredit: 0, referredCredit: 0 };
+  }
+
+  // Vérifier que le client ne se parraine pas lui-même
+  if (referrer.customer_contact === newCustomer) {
+    console.log(`⚠️ Self-referral attempt blocked: ${newCustomer}`);
+    return { referrerCredit: 0, referredCredit: 0 };
+  }
+
+  // Vérifier si le client a déjà été parrainé
+  const existingReferral = await db.get(
+    'SELECT * FROM referral_history WHERE referred_contact = ?',
+    [newCustomer]
+  );
+
+  if (existingReferral) {
+    console.log(`⚠️ Customer already referred: ${newCustomer}`);
+    return { referrerCredit: 0, referredCredit: 0 };
+  }
+
+  const REFERRER_CREDIT = 500; // 500 DA pour le parrain
+  const REFERRED_CREDIT = 300; // 300 DA pour le filleul
+
+  // ==================== SYSTÈME DE PALIERS VIP ====================
+  // Calculer le bonus selon le nombre de parrainages
+  const totalReferrals = referrer.total_referrals || 0;
+  let vipBonus = 0;
+  let vipTier = 'Bronze';
+
+  if (totalReferrals >= 10) {
+    vipBonus = 0.5; // +50% bonus
+    vipTier = 'Diamant 💎';
+  } else if (totalReferrals >= 6) {
+    vipBonus = 0.2; // +20% bonus
+    vipTier = 'Or 🥇';
+  } else if (totalReferrals >= 3) {
+    vipBonus = 0.1; // +10% bonus
+    vipTier = 'Argent 🥈';
+  } else {
+    vipBonus = 0; // Pas de bonus
+    vipTier = 'Bronze 🥉';
+  }
+
+  const bonusAmount = Math.floor(REFERRER_CREDIT * vipBonus);
+  const totalReferrerCredit = REFERRER_CREDIT + bonusAmount;
+
+  console.log(`👑 VIP Tier: ${vipTier} - Bonus: ${vipBonus * 100}% (+${bonusAmount} DA)`);
+
+  // Créditer le parrain avec bonus VIP
+  await db.run(
+    `UPDATE referrals
+     SET credit_balance = credit_balance + ?,
+         total_referrals = total_referrals + 1,
+         total_earned = total_earned + ?
+     WHERE referral_code = ?`,
+    [totalReferrerCredit, totalReferrerCredit, referrerCode]
+  );
+
+  // Créer le code de parrainage pour le nouveau client
+  await getOrCreateReferralCode(newCustomer, orderId);
+
+  // Créditer le filleul
+  await db.run(
+    `UPDATE referrals
+     SET credit_balance = credit_balance + ?
+     WHERE customer_contact = ?`,
+    [REFERRED_CREDIT, newCustomer]
+  );
+
+  // Enregistrer dans l'historique
+  await db.run(
+    `INSERT INTO referral_history
+     (referrer_code, referrer_contact, referred_contact, order_id, referrer_credit, referred_credit, status)
+     VALUES (?, ?, ?, ?, ?, ?, 'completed')`,
+    [referrerCode, referrer.customer_contact, newCustomer, orderId, REFERRER_CREDIT, REFERRED_CREDIT]
+  );
+
+  console.log(`✅ Referral applied: ${referrer.customer_contact} → ${newCustomer} (${totalReferrerCredit} DA + ${REFERRED_CREDIT} DA)`);
+
+  // ==================== NOTIFICATION CHANGEMENT DE PALIER VIP ====================
+  const newTotalReferrals = totalReferrals + 1;
+  let tierUpgrade = false;
+  let newTier = '';
+
+  if (newTotalReferrals === 3) {
+    tierUpgrade = true;
+    newTier = 'Argent 🥈';
+  } else if (newTotalReferrals === 6) {
+    tierUpgrade = true;
+    newTier = 'Or 🥇';
+  } else if (newTotalReferrals === 10) {
+    tierUpgrade = true;
+    newTier = 'Diamant 💎';
+  }
+
+  // Envoyer notification de montée de palier
+  if (tierUpgrade) {
+    await notifyVIPTierUpgrade(referrer.customer_contact, newTier, newTotalReferrals).catch(err =>
+      console.error('VIP tier notification error:', err.message)
+    );
+  }
+
+  return {
+    referrerCredit: totalReferrerCredit,
+    referredCredit: REFERRED_CREDIT,
+    referrerContact: referrer.customer_contact,
+    vipTier,
+    vipBonus: vipBonus * 100, // Percentage
+    bonusAmount
+  };
+}
+
+async function getReferralStats(customer) {
+  const referral = await db.get(
+    'SELECT * FROM referrals WHERE customer_contact = ?',
+    [customer]
+  );
+
+  if (!referral) {
+    return null;
+  }
+
+  const history = await db.all(
+    `SELECT * FROM referral_history
+     WHERE referrer_contact = ?
+     ORDER BY created_at DESC`,
+    [customer]
+  );
+
+  return {
+    code: referral.referral_code,
+    creditBalance: referral.credit_balance,
+    totalReferrals: referral.total_referrals,
+    totalEarned: referral.total_earned,
+    history
+  };
+}
+
 // ==================== NOTIFICATION SYSTEM ====================
+async function notifyReferralSuccess(referrerContact, newCustomerContact, creditAmount, orderId, vipInfo = {}) {
+  // Essayer de trouver l'ID Telegram du parrain
+  const referrerTelegramId = await getClientTelegramId(referrerContact);
+
+  if (referrerTelegramId && config.telegram.botToken) {
+    let vipMessage = '';
+    if (vipInfo.vipTier && vipInfo.bonusAmount > 0) {
+      vipMessage = `\n👑 <b>BONUS VIP ${vipInfo.vipTier}:</b> +${vipInfo.bonusAmount} DA (${vipInfo.vipBonus}%)\n`;
+    } else if (vipInfo.vipTier) {
+      vipMessage = `\n🥉 <b>Palier actuel:</b> ${vipInfo.vipTier}\n`;
+    }
+
+    const message = `🎉 <b>FÉLICITATIONS ! PARRAINAGE RÉUSSI !</b>
+
+💰 <b>+${creditAmount} DA ajoutés à votre crédit !</b>${vipMessage}
+👤 <b>Nouveau client parrainé:</b> ${newCustomerContact}
+📦 <b>Commande:</b> #${orderId}
+
+💳 <b>Votre crédit est disponible immédiatement</b>
+Utilisez-le lors de votre prochaine commande !
+
+🚀 Continuez à partager votre code et gagnez encore plus !`;
+
+    try {
+      await telegram.sendMessage(referrerTelegramId, message);
+      console.log(`✅ Referral notification sent to ${referrerContact}`);
+    } catch (error) {
+      console.error(`❌ Failed to send referral notification to ${referrerContact}:`, error.message);
+    }
+  }
+
+  // Notification admin optionnelle
+  if (config.telegram.adminChatId) {
+    const adminMessage = `💰 <b>PARRAINAGE RÉUSSI</b>
+
+👤 Parrain: ${referrerContact} → +${creditAmount} DA
+🆕 Filleul: ${newCustomerContact}
+📦 Commande: #${orderId}`;
+
+    try {
+      await telegram.sendMessage(config.telegram.adminChatId, adminMessage);
+    } catch (error) {
+      console.error('Failed to send admin referral notification:', error.message);
+    }
+  }
+}
+
+async function notifyVIPTierUpgrade(referrerContact, newTier, totalReferrals) {
+  // Essayer de trouver l'ID Telegram du parrain
+  const referrerTelegramId = await getClientTelegramId(referrerContact);
+
+  if (referrerTelegramId && config.telegram.botToken) {
+    let bonusPercent = 0;
+    let nextTierText = '';
+
+    if (newTier === 'Argent 🥈') {
+      bonusPercent = 10;
+      nextTierText = '\n\n🎯 <b>Prochain palier :</b> Or 🥇 (6 parrainages)';
+    } else if (newTier === 'Or 🥇') {
+      bonusPercent = 20;
+      nextTierText = '\n\n🎯 <b>Prochain palier :</b> Diamant 💎 (10 parrainages)';
+    } else if (newTier === 'Diamant 💎') {
+      bonusPercent = 50;
+      nextTierText = '\n\n🏆 <b>PALIER MAXIMUM ATTEINT !</b>';
+    }
+
+    const message = `👑 <b>NOUVEAU PALIER VIP DÉBLOQUÉ !</b>
+
+🎊 <b>Félicitations ${referrerContact} !</b>
+
+Vous venez de passer au palier <b>${newTier}</b> !
+
+⚡ <b>Nouveau bonus :</b> +${bonusPercent}%
+💰 <b>Vous gagnez maintenant ${Math.floor(500 * (1 + bonusPercent/100))} DA</b> par parrainage
+📊 <b>Parrainages réussis :</b> ${totalReferrals}${nextTierText}
+
+🚀 Continuez à partager votre code et maximisez vos gains !
+
+Tapez /parrainage pour voir votre progression complète 📈`;
+
+    try {
+      await telegram.sendMessage(referrerTelegramId, message);
+      console.log(`✅ VIP tier upgrade notification sent to ${referrerContact}`);
+    } catch (error) {
+      console.error(`❌ Failed to send VIP tier notification to ${referrerContact}:`, error.message);
+    }
+  }
+
+  // Notification admin
+  if (config.telegram.adminChatId) {
+    const adminMessage = `👑 <b>MONTÉE DE PALIER VIP</b>
+
+👤 Client: ${referrerContact}
+🎯 Nouveau palier: ${newTier}
+📊 Total parrainages: ${totalReferrals}`;
+
+    try {
+      await telegram.sendMessage(config.telegram.adminChatId, adminMessage);
+    } catch (error) {
+      console.error('Failed to send admin VIP tier notification:', error.message);
+    }
+  }
+}
+
 async function notifyNewCustomerOrder(order, items, customerRecord) {
   if (config.telegram.adminChatId) {
     const message = `🆕 <b>NOUVEAU CLIENT - VALIDATION REQUISE</b>
@@ -1412,10 +1732,10 @@ app.post('/api/cancel-order-items', apiLimiter, async (req, res) => {
 app.post('/api/create-order', apiLimiter, async (req, res) => {
   try {
     console.log('📨 New order received');
-    
+
     validateOrderInput(req.body);
-    
-    const { customer, type, address, items, total } = req.body;
+
+    const { customer, type, address, items, total, referralCode, useCredit } = req.body;
     
     const sanitizedCustomer = sanitizeString(customer, 100);
     const sanitizedType = sanitizeString(type, 50);
@@ -1467,14 +1787,43 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
     
     const isNewCustomer = customerRecord.status === 'pending';
     const isApproved = customerRecord.status === 'approved';
-    
+
     let discount = 0;
     if (isApproved) {
       const loyaltyResult = await calculateLoyaltyDiscount(sanitizedCustomer, total);
       discount = loyaltyResult.discount;
     }
-    
-    const finalTotal = total - discount;
+
+    // ==================== UTILISATION DU CRÉDIT ====================
+    let creditUsed = 0;
+    let remainingCredit = 0;
+
+    if (useCredit === true || useCredit === 'true') {
+      // Récupérer le crédit disponible du client
+      const customerReferralCheck = await db.get(
+        'SELECT credit_balance FROM referrals WHERE customer_contact = ?',
+        [sanitizedCustomer]
+      );
+
+      if (customerReferralCheck && customerReferralCheck.credit_balance > 0) {
+        const availableCredit = customerReferralCheck.credit_balance;
+        const totalAfterDiscount = total - discount;
+
+        // Utiliser le crédit (ne peut pas dépasser le total de la commande)
+        creditUsed = Math.min(availableCredit, totalAfterDiscount);
+        remainingCredit = availableCredit - creditUsed;
+
+        // Déduire le crédit utilisé
+        await db.run(
+          'UPDATE referrals SET credit_balance = ? WHERE customer_contact = ?',
+          [remainingCredit, sanitizedCustomer]
+        );
+
+        console.log(`💳 Credit used: ${creditUsed} DA (remaining: ${remainingCredit} DA)`);
+      }
+    }
+
+    const finalTotal = total - discount - creditUsed;
     const orderStatus = isNewCustomer ? 'pending_approval' : 'pending';
     
     // Récupérer l'ID Telegram du client s'il existe
@@ -1504,25 +1853,62 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
     }
     
     const order = await db.get('SELECT * FROM orders WHERE id = ?', [orderId]);
-    
+
+    // ==================== SYSTÈME DE PARRAINAGE ====================
+    // Créer ou récupérer le code de parrainage du client
+    const customerReferral = await getOrCreateReferralCode(sanitizedCustomer, orderId);
+    let referralResult = null;
+
+    // Appliquer les crédits de parrainage si un code a été fourni
+    if (referralCode && referralCode.trim().length > 0) {
+      referralResult = await applyReferralCredits(referralCode.trim(), sanitizedCustomer, orderId);
+    }
+
+    // Notification Telegram pour le parrain si un code a été utilisé
+    if (referralResult && referralResult.referrerContact) {
+      await notifyReferralSuccess(
+        referralResult.referrerContact,
+        sanitizedCustomer,
+        referralResult.referrerCredit,
+        orderId,
+        {
+          vipTier: referralResult.vipTier,
+          vipBonus: referralResult.vipBonus,
+          bonusAmount: referralResult.bonusAmount
+        }
+      ).catch(err => console.error('Referral notification error:', err.message));
+    }
+
     if (isNewCustomer) {
-      await notifyNewCustomerOrder(order, items, customerRecord).catch(err => 
+      await notifyNewCustomerOrder(order, items, customerRecord).catch(err =>
         console.error('Notification error:', err.message)
       );
-      
-      res.json({ 
-        ok: true, 
-        orderId, 
+
+      res.json({
+        ok: true,
+        orderId,
         discount,
+        creditUsed,
+        remainingCredit,
         requiresApproval: true,
-        message: 'Votre commande est en attente de validation. Vous serez notifié sous peu.' 
+        message: 'Votre commande est en attente de validation. Vous serez notifié sous peu.',
+        referralCode: customerReferral.referral_code,
+        referralCredit: referralResult?.referredCredit || 0
       });
     } else {
-      await notifyNewOrder(order, items).catch(err => 
+      await notifyNewOrder(order, items).catch(err =>
         console.error('Notification error:', err.message)
       );
-      
-      res.json({ ok: true, orderId, discount });
+
+      res.json({
+        ok: true,
+        orderId,
+        discount,
+        creditUsed,
+        remainingCredit,
+        referralCode: customerReferral.referral_code,
+        referralCredit: referralResult?.referredCredit || 0
+      });
     }
     
   } catch (error) {
@@ -1561,6 +1947,145 @@ app.get('/api/geocode', apiLimiter, async (req, res) => {
   } catch (error) {
     console.error('Geocode error:', error.message);
     res.json({ features: [] });
+  }
+});
+
+// ==================== REFERRAL ENDPOINTS ====================
+app.post('/api/validate-referral', apiLimiter, async (req, res) => {
+  try {
+    const { code } = req.body;
+
+    if (!code || code.trim().length === 0) {
+      return res.json({ valid: false, error: 'Code vide' });
+    }
+
+    const referral = await validateReferralCode(code.trim());
+
+    if (!referral) {
+      return res.json({ valid: false, error: 'Code invalide' });
+    }
+
+    res.json({
+      valid: true,
+      referrerContact: referral.customer_contact,
+      totalReferrals: referral.total_referrals
+    });
+  } catch (error) {
+    console.error('Validate referral error:', error);
+    res.status(500).json({ valid: false, error: 'Erreur serveur' });
+  }
+});
+
+app.get('/api/referral-stats', apiLimiter, async (req, res) => {
+  try {
+    const { customer } = req.query;
+
+    if (!customer) {
+      return res.status(400).json({ ok: false, error: 'Contact client manquant' });
+    }
+
+    const stats = await getReferralStats(customer);
+
+    if (!stats) {
+      return res.json({
+        ok: true,
+        exists: false,
+        code: null,
+        creditBalance: 0,
+        totalReferrals: 0,
+        totalEarned: 0,
+        history: []
+      });
+    }
+
+    res.json({
+      ok: true,
+      exists: true,
+      ...stats
+    });
+  } catch (error) {
+    console.error('Referral stats error:', error);
+    res.status(500).json({ ok: false, error: 'Erreur serveur' });
+  }
+});
+
+app.get('/api/referral-leaderboard', apiLimiter, async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 10;
+
+    const leaderboard = await db.all(`
+      SELECT
+        customer_contact,
+        referral_code,
+        total_referrals,
+        total_earned,
+        credit_balance
+      FROM referrals
+      WHERE total_referrals > 0
+      ORDER BY total_referrals DESC, total_earned DESC
+      LIMIT ?
+    `, [limit]);
+
+    // Calculer les paliers VIP
+    const leaderboardWithTiers = leaderboard.map((user, index) => {
+      const totalReferrals = user.total_referrals || 0;
+      let vipTier = 'Bronze 🥉';
+      let vipBonus = 0;
+
+      if (totalReferrals >= 10) {
+        vipTier = 'Diamant 💎';
+        vipBonus = 50;
+      } else if (totalReferrals >= 6) {
+        vipTier = 'Or 🥇';
+        vipBonus = 20;
+      } else if (totalReferrals >= 3) {
+        vipTier = 'Argent 🥈';
+        vipBonus = 10;
+      }
+
+      // Masquer une partie du numéro de téléphone
+      const maskedContact = user.customer_contact.replace(/(\d{2})\d+(\d{4})/, '$1****$2');
+
+      return {
+        rank: index + 1,
+        contact: maskedContact,
+        totalReferrals,
+        totalEarned: user.total_earned,
+        vipTier,
+        vipBonus
+      };
+    });
+
+    res.json({
+      ok: true,
+      leaderboard: leaderboardWithTiers
+    });
+  } catch (error) {
+    console.error('Leaderboard error:', error);
+    res.status(500).json({ ok: false, error: 'Erreur serveur' });
+  }
+});
+
+app.get('/api/credit-balance', apiLimiter, async (req, res) => {
+  try {
+    const { customer } = req.query;
+
+    if (!customer) {
+      return res.status(400).json({ ok: false, error: 'Contact client manquant' });
+    }
+
+    const referral = await db.get(
+      'SELECT credit_balance FROM referrals WHERE customer_contact = ?',
+      [customer]
+    );
+
+    res.json({
+      ok: true,
+      creditBalance: referral?.credit_balance || 0
+    });
+  } catch (error) {
+    console.error('Credit balance error:', error);
+    res.status(500).json({ ok: false, error: 'Erreur serveur' });
   }
 });
 
@@ -2120,6 +2645,85 @@ app.put('/api/admin/customers/:contact', requireAdmin, async (req, res) => {
   }
 });
 
+// ==================== ADMIN REFERRAL ENDPOINTS ====================
+app.get('/api/admin/referrals', requireAdmin, async (req, res) => {
+  try {
+    const referrals = await db.all(`
+      SELECT
+        r.*,
+        COUNT(rh.id) as total_referrals_count,
+        SUM(rh.referrer_credit) as total_earned_from_history
+      FROM referrals r
+      LEFT JOIN referral_history rh ON r.referral_code = rh.referrer_code
+      GROUP BY r.id
+      ORDER BY r.total_earned DESC
+    `);
+
+    // Calculate VIP tiers for each referral
+    const referralsWithTiers = referrals.map(ref => {
+      const totalReferrals = ref.total_referrals || 0;
+      let vipTier = 'Bronze 🥉';
+      let vipBonus = 0;
+
+      if (totalReferrals >= 10) {
+        vipTier = 'Diamant 💎';
+        vipBonus = 50;
+      } else if (totalReferrals >= 6) {
+        vipTier = 'Or 🥇';
+        vipBonus = 20;
+      } else if (totalReferrals >= 3) {
+        vipTier = 'Argent 🥈';
+        vipBonus = 10;
+      }
+
+      return {
+        ...ref,
+        vipTier,
+        vipBonus
+      };
+    });
+
+    res.json({ ok: true, referrals: referralsWithTiers });
+  } catch (error) {
+    console.error('Get referrals error:', error);
+    res.status(500).json({ ok: false, error: 'Erreur serveur' });
+  }
+});
+
+app.get('/api/admin/referrals/export', requireAdmin, async (req, res) => {
+  try {
+    const referrals = await db.all(`
+      SELECT
+        r.*,
+        COUNT(rh.id) as total_referrals_count
+      FROM referrals r
+      LEFT JOIN referral_history rh ON r.referral_code = rh.referrer_code
+      GROUP BY r.id
+      ORDER BY r.created_at DESC
+    `);
+
+    // Create CSV
+    let csv = 'Code Parrainage,Contact Client,Solde Crédit,Total Parrainages,Total Gagné,Palier VIP,Date Création\n';
+
+    referrals.forEach(ref => {
+      const totalReferrals = ref.total_referrals || 0;
+      let vipTier = 'Bronze';
+      if (totalReferrals >= 10) vipTier = 'Diamant';
+      else if (totalReferrals >= 6) vipTier = 'Or';
+      else if (totalReferrals >= 3) vipTier = 'Argent';
+
+      csv += `${ref.referral_code},${ref.customer_contact},${ref.credit_balance},${ref.total_referrals},${ref.total_earned},${vipTier},${ref.created_at}\n`;
+    });
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename=referrals_export.csv');
+    res.send(csv);
+  } catch (error) {
+    console.error('Export referrals error:', error);
+    res.status(500).json({ ok: false, error: 'Erreur serveur' });
+  }
+});
+
 // ==================== TELEGRAM BOT ====================
 if (config.telegram.token) {
   console.log('🤖 Configuring Telegram bot...');
@@ -2184,6 +2788,10 @@ function getPermanentKeyboard(chatId) {
       keyboard: [
         [{ text: '🛒 Ouvrir la Boutique', web_app: { url: config.webapp.url } }],
         [
+          { text: '💰 Mon Crédit' },
+          { text: '🎁 Parrainage' }
+        ],
+        [
           { text: 'ℹ️ Info' },
           { text: '📞 Contact' }
         ],
@@ -2229,8 +2837,14 @@ async function handleTelegramMessage(message) {
   } else if (text === '❓ Aide') {
     await sendHelpMessage(chatId);
     return;
+  } else if (text === '💰 Mon Crédit') {
+    await sendCreditBalance(chatId);
+    return;
+  } else if (text === '🎁 Parrainage') {
+    await sendReferralStats(chatId);
+    return;
   }
-  
+
   if (text === '/start') {
     await sendWelcomeMessage(chatId, firstName);
     return;
@@ -2255,8 +2869,17 @@ async function handleTelegramMessage(message) {
   } else if (text === '/zones' && chatId.toString() === config.telegram.adminChatId) {
     await sendZoneStats(chatId);
     return;
+  } else if (text === '/credit' || text === '/solde') {
+    await sendCreditBalance(chatId);
+    return;
+  } else if (text === '/parrainage' || text === '/referral') {
+    await sendReferralStats(chatId);
+    return;
+  } else if (text === '/moncode') {
+    await sendMyReferralCode(chatId);
+    return;
   }
-  
+
   if (!text.startsWith('/')) {
     const driverConv = chatManager.findConversationByChatId(chatId, 'driver');
     if (driverConv) {
@@ -2283,7 +2906,19 @@ async function handleTelegramCallback(callback_query) {
   if (data === 'noop') {
     return;
   }
-  
+
+  // Callbacks pour crédit et parrainage
+  if (data === 'show_credit') {
+    await sendCreditBalance(chatId);
+    return;
+  } else if (data === 'show_referral_code') {
+    await sendMyReferralCode(chatId);
+    return;
+  } else if (data === 'show_referral_stats') {
+    await sendReferralStats(chatId);
+    return;
+  }
+
   if (data.startsWith('end_conv_')) {
     const orderId = parseInt(data.replace('end_conv_', ''));
     await stopConversationForOrder(chatId, orderId);
@@ -2358,6 +2993,11 @@ async function sendWelcomeMessage(chatId, firstName) {
 Votre boutique premium accessible directement depuis Telegram.
 
 <b>🛍️ Utilisez le menu en bas pour naviguer</b>
+
+<b>🎁 PROGRAMME DE PARRAINAGE EXCLUSIF :</b>
+💰 Gagnez 500 DA par ami parrainé !
+🎉 Vos amis reçoivent 300 DA de bienvenue
+👑 Débloquez des bonus VIP jusqu'à +50%
 
 ✨ <i>Programme de fidélité actif !</i>
 Bénéficiez d'une remise tous les ${config.loyalty.defaultThreshold} achats.
@@ -2561,6 +3201,253 @@ Des questions ? Contactez le support ! 💬`;
   };
   
   await telegram.sendMessage(chatId, text, { reply_markup: keyboard });
+}
+
+// ==================== FONCTIONS CRÉDIT & PARRAINAGE ====================
+async function sendCreditBalance(chatId) {
+  try {
+    // Récupérer le contact client depuis telegram_clients
+    const client = await db.get(
+      'SELECT contact FROM telegram_clients WHERE telegram_id = ?',
+      [chatId.toString()]
+    );
+
+    if (!client || !client.contact) {
+      const text = `💰 <b>MON CRÉDIT</b>
+
+❌ <b>Aucun crédit disponible</b>
+
+Pour obtenir du crédit, passez une commande et utilisez un code de parrainage, ou parrainez vos amis !
+
+<b>🎁 Comment gagner du crédit ?</b>
+1️⃣ Utilisez un code ami lors de votre première commande → <b>300 DA</b>
+2️⃣ Parrainez des amis et gagnez <b>500 DA</b> par filleul !
+3️⃣ Débloquez des bonus VIP jusqu'à <b>+50%</b> !
+
+Tapez /parrainage pour voir votre code personnel 🚀`;
+
+      await telegram.sendMessage(chatId, text);
+      return;
+    }
+
+    // Récupérer les stats de parrainage
+    const stats = await getReferralStats(client.contact);
+
+    if (!stats) {
+      const text = `💰 <b>MON CRÉDIT</b>
+
+<b>Solde actuel :</b> 0 DA
+
+Pour obtenir du crédit, parrainez vos amis ou utilisez un code ami lors de votre commande !
+
+Tapez /parrainage pour voir votre code personnel 🚀`;
+
+      await telegram.sendMessage(chatId, text);
+      return;
+    }
+
+    // Calculer le palier VIP
+    const totalReferrals = stats.totalReferrals || 0;
+    let vipTier = 'Bronze 🥉';
+    let vipBonus = 0;
+
+    if (totalReferrals >= 10) {
+      vipTier = 'Diamant 💎';
+      vipBonus = 50;
+    } else if (totalReferrals >= 6) {
+      vipTier = 'Or 🥇';
+      vipBonus = 20;
+    } else if (totalReferrals >= 3) {
+      vipTier = 'Argent 🥈';
+      vipBonus = 10;
+    }
+
+    const text = `💰 <b>MON CRÉDIT</b>
+
+<b>💵 Solde disponible :</b> <b>${stats.creditBalance.toFixed(0)} DA</b>
+
+<b>👑 Palier VIP :</b> ${vipTier}
+<b>⚡ Bonus actuel :</b> +${vipBonus}%
+
+<b>📊 Statistiques :</b>
+• Total gagné : ${stats.totalEarned.toFixed(0)} DA
+• Parrainages réussis : ${totalReferrals}
+
+<b>💡 Utilisation :</b>
+Votre crédit sera automatiquement proposé lors de votre prochaine commande sur la boutique !
+
+🎁 Parrainez plus d'amis pour débloquer de meilleurs bonus VIP !`;
+
+    const keyboard = {
+      inline_keyboard: [
+        [{ text: '🎁 Voir Mon Code Parrainage', callback_data: 'show_referral_code' }],
+        [{ text: '🛒 Commander', web_app: { url: config.webapp.url } }]
+      ]
+    };
+
+    await telegram.sendMessage(chatId, text, { reply_markup: keyboard });
+  } catch (error) {
+    console.error('Error sending credit balance:', error);
+    await telegram.sendMessage(chatId, '❌ Erreur lors de la récupération de votre crédit. Réessayez plus tard.');
+  }
+}
+
+async function sendReferralStats(chatId) {
+  try {
+    // Récupérer le contact client
+    const client = await db.get(
+      'SELECT contact FROM telegram_clients WHERE telegram_id = ?',
+      [chatId.toString()]
+    );
+
+    if (!client || !client.contact) {
+      const text = `🎁 <b>PROGRAMME DE PARRAINAGE</b>
+
+❌ <b>Pas encore de code parrainage</b>
+
+Pour obtenir votre code personnel, passez votre première commande sur la boutique !
+
+<b>💰 Comment ça marche ?</b>
+1️⃣ Vous parrainez un ami → Vous gagnez <b>500 DA</b>
+2️⃣ Votre ami reçoit <b>300 DA</b> de bienvenue
+3️⃣ Plus vous parrainez, plus vous gagnez de bonus !
+
+<b>🏆 Paliers VIP :</b>
+🥉 Bronze : 0% bonus (départ)
+🥈 Argent : +10% bonus (3 parrainages)
+🥇 Or : +20% bonus (6 parrainages)
+💎 Diamant : +50% bonus (10 parrainages)
+
+Commandez maintenant pour débloquer votre code ! 🚀`;
+
+      const keyboard = {
+        inline_keyboard: [
+          [{ text: '🛒 Commander', web_app: { url: config.webapp.url } }]
+        ]
+      };
+
+      await telegram.sendMessage(chatId, text, { reply_markup: keyboard });
+      return;
+    }
+
+    // Récupérer les stats
+    const stats = await getReferralStats(client.contact);
+
+    if (!stats) {
+      await sendMyReferralCode(chatId);
+      return;
+    }
+
+    // Calculer VIP
+    const totalReferrals = stats.totalReferrals || 0;
+    let vipTier = 'Bronze 🥉';
+    let vipBonus = 0;
+    let nextTier = 'Argent 🥈';
+    let nextTierCount = 3;
+
+    if (totalReferrals >= 10) {
+      vipTier = 'Diamant 💎';
+      vipBonus = 50;
+      nextTier = 'Maximum atteint';
+      nextTierCount = totalReferrals;
+    } else if (totalReferrals >= 6) {
+      vipTier = 'Or 🥇';
+      vipBonus = 20;
+      nextTier = 'Diamant 💎';
+      nextTierCount = 10;
+    } else if (totalReferrals >= 3) {
+      vipTier = 'Argent 🥈';
+      vipBonus = 10;
+      nextTier = 'Or 🥇';
+      nextTierCount = 6;
+    }
+
+    const progressText = nextTier === 'Maximum atteint'
+      ? '🏆 Palier maximum atteint !'
+      : `${totalReferrals}/${nextTierCount} pour ${nextTier}`;
+
+    const text = `🎁 <b>MON PARRAINAGE</b>
+
+<b>🔑 Votre code personnel :</b>
+<code>${stats.code}</code>
+
+<b>👑 Palier VIP :</b> ${vipTier}
+<b>⚡ Bonus actuel :</b> +${vipBonus}%
+<b>📈 Progression :</b> ${progressText}
+
+<b>📊 Statistiques :</b>
+• Parrainages réussis : ${totalReferrals}
+• Total gagné : ${stats.totalEarned.toFixed(0)} DA
+• Crédit disponible : ${stats.creditBalance.toFixed(0)} DA
+
+<b>💰 Gains par parrainage :</b>
+Base : 500 DA + ${vipBonus}% bonus = <b>${Math.floor(500 * (1 + vipBonus/100))} DA</b>
+
+<b>🚀 Partagez votre code :</b>
+Vos amis gagneront 300 DA en l'utilisant lors de leur première commande !
+
+Plus vous parrainez, plus vos bonus augmentent ! 💪`;
+
+    const shareText = encodeURIComponent(`🎉 Commande sur DROGUA CENTER et reçois 300 DA de crédit !\n\n🎁 Utilise mon code : ${stats.code}\n\n💰 Profite de réductions et de la roue de la fortune !\n\n👉 ${config.webapp.url}`);
+
+    const keyboard = {
+      inline_keyboard: [
+        [{ text: '📤 Partager sur WhatsApp', url: `https://wa.me/?text=${shareText}` }],
+        [{ text: '📤 Partager sur Telegram', url: `https://t.me/share/url?url=${encodeURIComponent(config.webapp.url)}&text=${shareText}` }],
+        [{ text: '💰 Voir Mon Crédit', callback_data: 'show_credit' }]
+      ]
+    };
+
+    await telegram.sendMessage(chatId, text, { reply_markup: keyboard });
+  } catch (error) {
+    console.error('Error sending referral stats:', error);
+    await telegram.sendMessage(chatId, '❌ Erreur lors de la récupération de vos stats. Réessayez plus tard.');
+  }
+}
+
+async function sendMyReferralCode(chatId) {
+  try {
+    const client = await db.get(
+      'SELECT contact FROM telegram_clients WHERE telegram_id = ?',
+      [chatId.toString()]
+    );
+
+    if (!client || !client.contact) {
+      await telegram.sendMessage(chatId, '❌ Passez d\'abord une commande pour obtenir votre code personnel !');
+      return;
+    }
+
+    // Créer ou récupérer le code
+    const referral = await getOrCreateReferralCode(client.contact, 0);
+
+    const text = `🎁 <b>VOTRE CODE PARRAINAGE</b>
+
+<b>🔑 Code personnel :</b>
+<code>${referral}</code>
+
+<b>💰 Partagez et gagnez :</b>
+• Vous : 500 DA par parrainage
+• Votre ami : 300 DA de bienvenue
+
+<b>🏆 Débloquez des bonus VIP :</b>
+Plus vous parrainez, plus vos gains augmentent !
+
+Partagez dès maintenant ! 🚀`;
+
+    const shareText = encodeURIComponent(`🎉 Commande sur DROGUA CENTER et reçois 300 DA !\n\n🎁 Code : ${referral}\n\n👉 ${config.webapp.url}`);
+
+    const keyboard = {
+      inline_keyboard: [
+        [{ text: '📤 Partager', url: `https://wa.me/?text=${shareText}` }],
+        [{ text: '📊 Voir Mes Stats', callback_data: 'show_referral_stats' }]
+      ]
+    };
+
+    await telegram.sendMessage(chatId, text, { reply_markup: keyboard });
+  } catch (error) {
+    console.error('Error sending referral code:', error);
+    await telegram.sendMessage(chatId, '❌ Erreur. Réessayez plus tard.');
+  }
 }
 
 async function sendDriverDeliveries(chatId) {

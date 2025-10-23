@@ -190,6 +190,52 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
   text-align:center;
 }
 
+.credit-widget{
+  background:linear-gradient(135deg,#ffd700 0%,#ffed4e 100%);
+  border:2px solid #ffa500;
+  border-radius:12px;
+  padding:6px 12px;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  gap:6px;
+  transition:all 0.3s;
+  font-weight:700;
+  color:#000;
+  font-size:14px;
+  box-shadow:0 4px 12px rgba(255,215,0,0.3);
+}
+
+.credit-widget:hover{
+  transform:translateY(-2px) scale(1.05);
+  box-shadow:0 6px 20px rgba(255,215,0,0.5);
+}
+
+.credit-amount{
+  font-size:16px;
+  font-weight:800;
+  letter-spacing:0.5px;
+}
+
+@keyframes creditPulse{
+  0%,100%{transform:scale(1)}
+  50%{transform:scale(1.1)}
+}
+
+.credit-widget.pulse{
+  animation:creditPulse 0.6s ease-in-out;
+}
+
+@keyframes bounce{
+  0%,100%{transform:translateY(0)}
+  50%{transform:translateY(-10px)}
+}
+
+#referralPromoBanner:hover{
+  transform:scale(1.02);
+  box-shadow:0 12px 32px rgba(255,215,0,0.6);
+}
+
 .sync-indicator{
   display:flex;
   align-items:center;
@@ -1574,6 +1620,10 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
         <svg viewBox="0 0 24 24"><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h6"></path><polyline points="9 11 12 14 22 4"></polyline></svg>
         <span>Fidélité</span>
       </button>
+      <button class="menu-item" id="menuReferralBtn" style="background:linear-gradient(135deg,rgba(255,215,0,0.1) 0%,rgba(255,165,0,0.1) 100%);border-left:3px solid #ffd700">
+        <svg viewBox="0 0 24 24" style="stroke:#ffd700"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+        <span style="color:#ffd700;font-weight:700">🎁 Parrainage</span>
+      </button>
       <button class="menu-item" data-page="infos">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
         <span>Informations</span>
@@ -1616,6 +1666,11 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
           <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
         </svg>
       </button>
+      <button class="credit-widget" id="creditWidget" style="display:none" title="Mon crédit disponible">
+        <span style="font-size:18px">💰</span>
+        <span class="credit-amount" id="headerCreditAmount">0</span>
+        <span style="font-size:10px;opacity:0.8">DA</span>
+      </button>
       <button class="cart-btn" id="cartBtn">
         <svg class="cart-icon" viewBox="0 0 24 24">
           <circle cx="9" cy="21" r="1"></circle>
@@ -1647,6 +1702,37 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
         <p class="hero-subtitle">Votre boutique premium - Sync temps réel</p>
       </div>
     </section>
+
+    <!-- 🎁 BANNIÈRE PARRAINAGE -->
+    <div id="referralPromoBanner" style="margin:16px;padding:20px;background:linear-gradient(135deg,#ffd700 0%,#ffed4e 50%,#ffa500 100%);border-radius:16px;box-shadow:0 8px 24px rgba(255,215,0,0.4);cursor:pointer;transition:all 0.3s;position:relative;overflow:hidden" onclick="openReferralSheet()">
+      <div style="position:absolute;top:-20px;right:-20px;font-size:120px;opacity:0.1">💎</div>
+      <div style="position:relative;z-index:1">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+          <div style="font-size:40px;animation:bounce 2s infinite">🎁</div>
+          <div style="flex:1">
+            <div style="font-size:18px;font-weight:800;color:#000;margin-bottom:4px">GAGNEZ 500 DA PAR AMI !</div>
+            <div style="font-size:14px;color:rgba(0,0,0,0.7);font-weight:600">Parrainez vos amis et débloquez des bonus VIP 👑</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
+          <div style="background:rgba(0,0,0,0.1);padding:8px;border-radius:8px;text-align:center">
+            <div style="font-size:20px;font-weight:800;color:#000">500 DA</div>
+            <div style="font-size:11px;color:rgba(0,0,0,0.7)">Pour vous</div>
+          </div>
+          <div style="background:rgba(0,0,0,0.1);padding:8px;border-radius:8px;text-align:center">
+            <div style="font-size:20px;font-weight:800;color:#000">300 DA</div>
+            <div style="font-size:11px;color:rgba(0,0,0,0.7)">Pour votre ami</div>
+          </div>
+          <div style="background:rgba(0,0,0,0.1);padding:8px;border-radius:8px;text-align:center">
+            <div style="font-size:20px;font-weight:800;color:#000">+50%</div>
+            <div style="font-size:11px;color:rgba(0,0,0,0.7)">Bonus VIP max</div>
+          </div>
+        </div>
+        <div style="text-align:center;padding:10px;background:rgba(0,0,0,0.8);border-radius:8px;color:#ffd700;font-weight:700;font-size:14px">
+          👆 Cliquez pour obtenir votre code maintenant !
+        </div>
+      </div>
+    </div>
 
     <section class="search-section">
       <div class="search-box">
@@ -1820,9 +1906,9 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
       <svg class="nav-icon" viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
       <span class="nav-label">Commandes</span>
     </button>
-    <button class="nav-item" data-tab="support">
-      <svg class="nav-icon" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
-      <span class="nav-label">Support</span>
+    <button class="nav-item" id="navReferralBtn">
+      <svg class="nav-icon" viewBox="0 0 24 24" style="stroke:#ffd700"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+      <span class="nav-label" style="color:#ffd700;font-weight:700">Parrainage</span>
     </button>
   </nav>
 
@@ -1871,6 +1957,32 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
         <button class="btn-primary" id="closeOrderSummaryBtn" style="background:var(--bg-tertiary);color:var(--text-primary);box-shadow:none">
           Retour à l'accueil
         </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 🎁 SHEET PARRAINAGE -->
+  <section class="sheet hidden" id="referralSheet">
+    <div class="sheet-card">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <h2 class="sheet-title">🎁 Parrainage</h2>
+        <button class="sheet-close" id="closeReferralSheet">✕</button>
+      </div>
+      <!-- Onglets -->
+      <div style="display:flex;gap:8px;padding:0 20px 16px;border-bottom:2px solid var(--border)">
+        <button id="tabMyStats" class="referral-tab active" style="flex:1;padding:12px;background:var(--accent);color:var(--bg-primary);border:none;border-radius:8px;font-weight:700;cursor:pointer;transition:all 0.2s">
+          📊 Mes Stats
+        </button>
+        <button id="tabLeaderboard" class="referral-tab" style="flex:1;padding:12px;background:var(--bg-tertiary);color:var(--text-secondary);border:none;border-radius:8px;font-weight:700;cursor:pointer;transition:all 0.2s">
+          🏆 Classement
+        </button>
+      </div>
+      <div class="sheet-content" id="referralContent">
+        <div style="text-align:center;padding:40px 20px;color:var(--text-muted)">
+          <div style="font-size:48px;margin-bottom:16px">🎁</div>
+          <p>Chargement...</p>
+        </div>
       </div>
     </div>
   </section>
@@ -2036,11 +2148,13 @@ const SyncManager = {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          customer: orderData.customer,
+          customer: orderData.customer || orderData.phone,
           type: orderData.type,
           address: orderData.address,
           items: orderData.items,
-          total: orderData.total
+          total: orderData.total,
+          referralCode: orderData.referralCode || '',
+          useCredit: orderData.useCredit || false
         })
       })
       .then(res => res.json())
@@ -2609,6 +2723,8 @@ let currentSort = 'default';
 let currentCategory = 'all';
 let appliedPromo = null;
 let syncInterval = null;
+let userCreditBalance = 0;
+let useCreditEnabled = false;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // INTERFACE & RENDERING
@@ -2840,6 +2956,19 @@ function openProduct(id) {
         <span style="color:var(--text-muted)">(127 avis)</span>
       </div>
     </div>
+    <!-- Bouton de partage -->
+    <div style="margin:16px 0;padding:12px;background:linear-gradient(135deg,rgba(255,215,0,0.1) 0%,rgba(255,165,0,0.1) 100%);border-radius:12px;border:2px dashed #ffd700">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="font-size:32px">🎁</div>
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:14px;color:var(--accent);margin-bottom:2px">Partagez et gagnez !</div>
+          <div style="font-size:12px;color:var(--text-muted)">500 DA par ami qui commande</div>
+        </div>
+        <button onclick="shareProduct(${id})" style="padding:10px 16px;background:var(--accent);border:none;border-radius:8px;color:var(--bg-primary);font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap">
+          📤 Partager
+        </button>
+      </div>
+    </div>
     <div class="variants-section">
       <div class="variants-title">Sélectionnez une taille :</div>
       ${Object.entries(currentProduct.variants).map(([label, data]) => {
@@ -2966,6 +3095,752 @@ function closeProduct() {
   document.body.classList.remove('modal-open');
 }
 
+async function fetchUserCredit(customerContact) {
+  if (!customerContact || customerContact.trim().length === 0) {
+    userCreditBalance = 0;
+    updateHeaderCreditDisplay(0);
+    return 0;
+  }
+
+  try {
+    const response = await fetch(`/api/referral-stats?customer=${encodeURIComponent(customerContact)}`);
+    const data = await response.json();
+
+    if (data.ok && data.stats) {
+      userCreditBalance = data.stats.creditBalance || 0;
+      updateHeaderCreditDisplay(userCreditBalance);
+      return userCreditBalance;
+    }
+  } catch (error) {
+    console.error('Error fetching credit:', error);
+  }
+
+  userCreditBalance = 0;
+  updateHeaderCreditDisplay(0);
+  return 0;
+}
+
+function updateHeaderCreditDisplay(creditAmount) {
+  const widget = document.getElementById('creditWidget');
+  const amountDisplay = document.getElementById('headerCreditAmount');
+
+  if (creditAmount > 0) {
+    widget.style.display = 'flex';
+    amountDisplay.textContent = Math.floor(creditAmount);
+
+    // Animation pulse quand le crédit change
+    widget.classList.add('pulse');
+    setTimeout(() => widget.classList.remove('pulse'), 600);
+  } else {
+    widget.style.display = 'none';
+  }
+}
+
+// Ajouter onclick au widget pour ouvrir une sheet de parrainage
+document.getElementById('creditWidget')?.addEventListener('click', () => {
+  openReferralSheet();
+});
+
+async function openReferralSheet() {
+  document.getElementById('referralSheet').classList.remove('hidden');
+  document.body.classList.add('modal-open');
+
+  const content = document.getElementById('referralContent');
+
+  // Récupérer le numéro de téléphone s'il existe
+  const phoneInput = document.getElementById('phoneInput');
+  const phone = phoneInput?.value.trim() || '';
+
+  if (!phone || phone.length < 8) {
+    content.innerHTML = `
+      <div style="text-align:center;padding:40px 20px">
+        <div style="font-size:64px;margin-bottom:20px">🎁</div>
+        <h3 style="font-size:22px;font-weight:700;margin-bottom:12px">Programme de Parrainage</h3>
+        <p style="color:var(--text-muted);margin-bottom:24px">Passez une commande pour obtenir votre code personnel !</p>
+
+        <div style="background:var(--card-bg);border-radius:16px;padding:20px;text-align:left;margin-bottom:20px">
+          <div style="font-weight:700;font-size:16px;margin-bottom:16px;color:var(--accent)">💰 Comment ça marche ?</div>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div style="display:flex;gap:12px;align-items:start">
+              <div style="min-width:28px;height:28px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px">1</div>
+              <div style="flex:1">
+                <div style="font-weight:600;margin-bottom:4px">Vous parrainez un ami</div>
+                <div style="font-size:13px;color:var(--text-muted)">Partagez votre code personnel</div>
+              </div>
+            </div>
+            <div style="display:flex;gap:12px;align-items:start">
+              <div style="min-width:28px;height:28px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px">2</div>
+              <div style="flex:1">
+                <div style="font-weight:600;margin-bottom:4px">Votre ami commande</div>
+                <div style="font-size:13px;color:var(--text-muted)">Il reçoit 300 DA de bienvenue</div>
+              </div>
+            </div>
+            <div style="display:flex;gap:12px;align-items:start">
+              <div style="min-width:28px;height:28px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px">3</div>
+              <div style="flex:1">
+                <div style="font-weight:600;margin-bottom:4px">Vous gagnez 500 DA !</div>
+                <div style="font-size:13px;color:var(--text-muted)">Crédit utilisable immédiatement</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);border-radius:16px;padding:20px;color:#fff;margin-bottom:20px">
+          <div style="font-weight:700;font-size:16px;margin-bottom:12px">👑 Paliers VIP</div>
+          <div style="display:flex;flex-direction:column;gap:8px;font-size:14px">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span>🥉 Bronze</span>
+              <span style="opacity:0.9">0% bonus</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span>🥈 Argent (3+)</span>
+              <span style="font-weight:700">+10% bonus</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span>🥇 Or (6+)</span>
+              <span style="font-weight:700">+20% bonus</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span>💎 Diamant (10+)</span>
+              <span style="font-weight:700">+50% bonus</span>
+            </div>
+          </div>
+        </div>
+
+        <button onclick="openCart()" style="width:100%;padding:14px;background:var(--accent);border:none;border-radius:12px;color:var(--bg-primary);font-weight:700;font-size:16px;cursor:pointer">
+          🛒 Commander Maintenant
+        </button>
+      </div>
+    `;
+    return;
+  }
+
+  // Récupérer les stats de parrainage
+  try {
+    const response = await fetch(`/api/referral-stats?customer=${encodeURIComponent(phone)}`);
+    const data = await response.json();
+
+    if (!data.ok || !data.stats) {
+      content.innerHTML = `
+        <div style="text-align:center;padding:40px 20px;color:var(--text-muted)">
+          <div style="font-size:48px;margin-bottom:16px">😔</div>
+          <p>Aucune donnée de parrainage disponible</p>
+        </div>
+      `;
+      return;
+    }
+
+    const stats = data.stats;
+    const totalReferrals = stats.totalReferrals || 0;
+
+    // Calculer VIP
+    let vipTier = 'Bronze 🥉';
+    let vipBonus = 0;
+    let nextTier = 'Argent 🥈';
+    let nextTierCount = 3;
+    let vipColor = '#cd7f32';
+
+    if (totalReferrals >= 10) {
+      vipTier = 'Diamant 💎';
+      vipBonus = 50;
+      nextTier = 'Maximum';
+      nextTierCount = totalReferrals;
+      vipColor = '#b9f2ff';
+    } else if (totalReferrals >= 6) {
+      vipTier = 'Or 🥇';
+      vipBonus = 20;
+      nextTier = 'Diamant 💎';
+      nextTierCount = 10;
+      vipColor = '#ffd700';
+    } else if (totalReferrals >= 3) {
+      vipTier = 'Argent 🥈';
+      vipBonus = 10;
+      nextTier = 'Or 🥇';
+      nextTierCount = 6;
+      vipColor = '#c0c0c0';
+    }
+
+    const progress = nextTier === 'Maximum' ? 100 : (totalReferrals / nextTierCount) * 100;
+    const progressText = nextTier === 'Maximum'
+      ? '🏆 Palier maximum atteint !'
+      : `${totalReferrals}/${nextTierCount} pour ${nextTier}`;
+
+    const shareText = encodeURIComponent(`🎉 Commande sur DROGUA CENTER et reçois 300 DA de crédit !\n\n🎁 Utilise mon code : ${stats.code}\n\n💰 Profite de réductions et de la roue de la fortune !\n\n👉 ${window.location.origin}`);
+
+    content.innerHTML = `
+      <div style="padding:20px">
+        <!-- Code de parrainage -->
+        <div style="background:linear-gradient(135deg,#f093fb 0%,#f5576c 100%);border-radius:20px;padding:24px;margin-bottom:20px;box-shadow:0 10px 30px rgba(240,147,251,0.3);text-align:center">
+          <div style="color:rgba(255,255,255,0.9);font-size:14px;margin-bottom:8px">Votre code personnel</div>
+          <div style="font-size:32px;font-weight:800;color:#fff;letter-spacing:2px;text-shadow:2px 2px 4px rgba(0,0,0,0.2);margin-bottom:16px;font-family:monospace">${stats.code}</div>
+          <button onclick="navigator.clipboard.writeText('${stats.code}');showToast('✅ Code copié !')" style="padding:12px 24px;background:#fff;border:none;border-radius:12px;font-weight:700;color:#f5576c;cursor:pointer;margin-bottom:12px">
+            📋 Copier le code
+          </button>
+          <div style="display:flex;gap:8px;justify-content:center;margin-top:12px">
+            <a href="https://wa.me/?text=${shareText}" target="_blank" style="flex:1;padding:10px;background:rgba(255,255,255,0.2);border-radius:8px;text-decoration:none;color:#fff;font-weight:600;font-size:14px">📱 WhatsApp</a>
+            <a href="https://t.me/share/url?url=${encodeURIComponent(window.location.origin)}&text=${shareText}" target="_blank" style="flex:1;padding:10px;background:rgba(255,255,255,0.2);border-radius:8px;text-decoration:none;color:#fff;font-weight:600;font-size:14px">✈️ Telegram</a>
+          </div>
+        </div>
+
+        <!-- Palier VIP -->
+        <div style="background:linear-gradient(135deg,${vipColor}40 0%,${vipColor}20 100%);border:2px solid ${vipColor};border-radius:16px;padding:20px;margin-bottom:20px">
+          <div style="text-align:center;margin-bottom:16px">
+            <div style="font-size:14px;color:var(--text-muted);margin-bottom:8px">👑 Palier VIP</div>
+            <div style="font-size:28px;font-weight:800;color:var(--text-primary);margin-bottom:4px">${vipTier}</div>
+            <div style="font-size:16px;font-weight:700;color:var(--accent)">⚡ +${vipBonus}% de bonus</div>
+          </div>
+          <div style="margin-bottom:8px">
+            <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;color:var(--text-secondary)">
+              <span>Progression</span>
+              <span>${progressText}</span>
+            </div>
+            <div style="height:8px;background:var(--bg-tertiary);border-radius:4px;overflow:hidden">
+              <div style="height:100%;background:${vipColor};width:${progress}%;transition:width 0.3s"></div>
+            </div>
+          </div>
+          <div style="text-align:center;font-size:13px;color:var(--text-muted);margin-top:12px">
+            Vous gagnez <strong style="color:var(--accent)">${Math.floor(500 * (1 + vipBonus/100))} DA</strong> par parrainage
+          </div>
+        </div>
+
+        <!-- Statistiques -->
+        <div style="background:var(--card-bg);border-radius:16px;padding:20px;margin-bottom:20px">
+          <div style="font-weight:700;font-size:16px;margin-bottom:16px;color:var(--accent)">📊 Mes Statistiques</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div style="text-align:center;padding:16px;background:var(--bg-tertiary);border-radius:12px">
+              <div style="font-size:24px;font-weight:800;color:var(--accent);margin-bottom:4px">${totalReferrals}</div>
+              <div style="font-size:13px;color:var(--text-muted)">Parrainages</div>
+            </div>
+            <div style="text-align:center;padding:16px;background:var(--bg-tertiary);border-radius:12px">
+              <div style="font-size:24px;font-weight:800;color:var(--success);margin-bottom:4px">${Math.floor(stats.totalEarned)}</div>
+              <div style="font-size:13px;color:var(--text-muted)">Total gagné (DA)</div>
+            </div>
+            <div style="text-align:center;padding:16px;background:var(--bg-tertiary);border-radius:12px">
+              <div style="font-size:24px;font-weight:800;color:#ffd700;margin-bottom:4px">${Math.floor(stats.creditBalance)}</div>
+              <div style="font-size:13px;color:var(--text-muted)">Crédit disponible (DA)</div>
+            </div>
+            <div style="text-align:center;padding:16px;background:var(--bg-tertiary);border-radius:12px">
+              <div style="font-size:24px;font-weight:800;color:var(--accent);margin-bottom:4px">${vipBonus}%</div>
+              <div style="font-size:13px;color:var(--text-muted)">Bonus actuel</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Historique des parrainages -->
+        ${stats.history && stats.history.length > 0 ? `
+        <div style="background:var(--card-bg);border-radius:16px;padding:20px;margin-bottom:20px">
+          <div style="font-weight:700;font-size:16px;margin-bottom:16px;color:var(--accent)">📜 Historique des Parrainages</div>
+          <div style="display:flex;flex-direction:column;gap:12px;max-height:300px;overflow-y:auto">
+            ${stats.history.map(h => {
+              const date = new Date(h.created_at);
+              const dateStr = date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+              return `
+                <div style="padding:12px;background:var(--bg-tertiary);border-radius:12px;border-left:3px solid var(--success)">
+                  <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:6px">
+                    <div style="flex:1">
+                      <div style="font-weight:600;font-size:14px;color:var(--text-primary);margin-bottom:4px">
+                        👤 ${h.referred_contact}
+                      </div>
+                      <div style="font-size:12px;color:var(--text-muted)">
+                        📅 ${dateStr}
+                        ${h.order_id ? `• 📦 Commande #${h.order_id}` : ''}
+                      </div>
+                    </div>
+                    <div style="text-align:right">
+                      <div style="font-size:16px;font-weight:700;color:var(--success)">+${h.referrer_credit} DA</div>
+                      <div style="font-size:11px;color:var(--text-muted)">${h.status === 'completed' ? '✅ Validé' : '⏳ En attente'}</div>
+                    </div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+        ` : `
+        <div style="background:var(--card-bg);border-radius:16px;padding:20px;margin-bottom:20px;text-align:center">
+          <div style="font-size:48px;margin-bottom:12px;opacity:0.5">📜</div>
+          <div style="font-size:14px;color:var(--text-muted)">
+            Aucun parrainage pour le moment
+          </div>
+          <div style="font-size:13px;color:var(--text-muted);margin-top:8px">
+            Partagez votre code pour commencer à gagner ! 🚀
+          </div>
+        </div>
+        `}
+
+        <!-- CTA -->
+        <div style="text-align:center;padding:16px;background:var(--success-bg,rgba(34,197,94,0.1));border-radius:12px;border:2px solid var(--success)">
+          <div style="font-size:14px;font-weight:600;color:var(--success);margin-bottom:4px">💡 Astuce</div>
+          <div style="font-size:13px;color:var(--text-secondary)">
+            Plus vous parrainez, plus vos bonus augmentent ! Partagez votre code dès maintenant 🚀
+          </div>
+        </div>
+      </div>
+    `;
+  } catch (error) {
+    console.error('Error loading referral stats:', error);
+    content.innerHTML = `
+      <div style="text-align:center;padding:40px 20px;color:var(--text-muted)">
+        <div style="font-size:48px;margin-bottom:16px">❌</div>
+        <p>Erreur lors du chargement des statistiques</p>
+      </div>
+    `;
+  }
+}
+
+// Event listeners pour la sheet de parrainage
+document.getElementById('closeReferralSheet')?.addEventListener('click', () => {
+  document.getElementById('referralSheet').classList.add('hidden');
+  document.body.classList.remove('modal-open');
+});
+
+// Variable pour stocker les stats actuelles
+let currentReferralStats = null;
+
+// Fonction pour afficher le leaderboard
+async function showLeaderboard() {
+  const content = document.getElementById('referralContent');
+
+  // Update tabs
+  document.getElementById('tabMyStats').style.background = 'var(--bg-tertiary)';
+  document.getElementById('tabMyStats').style.color = 'var(--text-secondary)';
+  document.getElementById('tabLeaderboard').style.background = 'var(--accent)';
+  document.getElementById('tabLeaderboard').style.color = 'var(--bg-primary)';
+
+  content.innerHTML = `
+    <div style="text-align:center;padding:40px 20px;color:var(--text-muted)">
+      <div style="font-size:48px;margin-bottom:16px">⏳</div>
+      <p>Chargement du classement...</p>
+    </div>
+  `;
+
+  try {
+    const response = await fetch('/api/referral-leaderboard?limit=20');
+    const data = await response.json();
+
+    if (!data.ok || !data.leaderboard || data.leaderboard.length === 0) {
+      content.innerHTML = `
+        <div style="text-align:center;padding:40px 20px;color:var(--text-muted)">
+          <div style="font-size:64px;margin-bottom:20px">🏆</div>
+          <h3 style="font-size:18px;font-weight:700;margin-bottom:8px">Classement vide</h3>
+          <p style="font-size:14px">Soyez le premier à parrainer et à dominer le classement !</p>
+        </div>
+      `;
+      return;
+    }
+
+    // Récupérer le numéro de téléphone pour savoir si l'utilisateur est dans le classement
+    const phoneInput = document.getElementById('phoneInput');
+    const phone = phoneInput?.value.trim() || '';
+
+    content.innerHTML = `
+      <div style="padding:20px">
+        <!-- Header -->
+        <div style="text-align:center;margin-bottom:24px">
+          <div style="font-size:64px;margin-bottom:12px">🏆</div>
+          <h3 style="font-size:24px;font-weight:800;margin-bottom:8px">Top Parrains</h3>
+          <p style="font-size:14px;color:var(--text-muted)">Les meilleurs ambassadeurs du mois</p>
+        </div>
+
+        <!-- Podium Top 3 -->
+        ${data.leaderboard.length >= 3 ? `
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:24px;align-items:end">
+          <!-- 2ème place -->
+          <div style="text-align:center">
+            <div style="font-size:48px;margin-bottom:8px">🥈</div>
+            <div style="background:linear-gradient(135deg,#c0c0c0 0%,#d4d4d4 100%);border-radius:16px;padding:16px;box-shadow:0 4px 12px rgba(192,192,192,0.3)">
+              <div style="font-size:14px;font-weight:700;margin-bottom:8px;color:#000">${data.leaderboard[1].masked_contact}</div>
+              <div style="font-size:20px;font-weight:800;color:#000;margin-bottom:4px">${data.leaderboard[1].total_referrals}</div>
+              <div style="font-size:11px;color:#333">parrainages</div>
+              <div style="font-size:13px;font-weight:700;color:#000;margin-top:8px">${Math.floor(data.leaderboard[1].total_earned)} DA</div>
+            </div>
+          </div>
+
+          <!-- 1ère place -->
+          <div style="text-align:center">
+            <div style="font-size:64px;margin-bottom:8px;animation:bounce 2s infinite">🥇</div>
+            <div style="background:linear-gradient(135deg,#ffd700 0%,#ffed4e 100%);border-radius:20px;padding:20px;box-shadow:0 6px 16px rgba(255,215,0,0.4);transform:scale(1.05)">
+              <div style="font-size:16px;font-weight:800;margin-bottom:8px;color:#000">${data.leaderboard[0].masked_contact}</div>
+              <div style="font-size:28px;font-weight:900;color:#000;margin-bottom:4px">${data.leaderboard[0].total_referrals}</div>
+              <div style="font-size:12px;color:#333;font-weight:600">parrainages</div>
+              <div style="font-size:15px;font-weight:800;color:#000;margin-top:8px">${Math.floor(data.leaderboard[0].total_earned)} DA</div>
+            </div>
+          </div>
+
+          <!-- 3ème place -->
+          <div style="text-align:center">
+            <div style="font-size:48px;margin-bottom:8px">🥉</div>
+            <div style="background:linear-gradient(135deg,#cd7f32 0%,#d4895a 100%);border-radius:16px;padding:16px;box-shadow:0 4px 12px rgba(205,127,50,0.3)">
+              <div style="font-size:14px;font-weight:700;margin-bottom:8px;color:#000">${data.leaderboard[2].masked_contact}</div>
+              <div style="font-size:20px;font-weight:800;color:#000;margin-bottom:4px">${data.leaderboard[2].total_referrals}</div>
+              <div style="font-size:11px;color:#333">parrainages</div>
+              <div style="font-size:13px;font-weight:700;color:#000;margin-top:8px">${Math.floor(data.leaderboard[2].total_earned)} DA</div>
+            </div>
+          </div>
+        </div>
+        ` : ''}
+
+        <!-- Liste complète -->
+        <div style="background:var(--card-bg);border-radius:16px;padding:16px">
+          <div style="font-weight:700;font-size:16px;margin-bottom:16px;color:var(--accent)">📋 Classement Complet</div>
+          <div style="display:flex;flex-direction:column;gap:8px;max-height:400px;overflow-y:auto">
+            ${data.leaderboard.map((user, index) => {
+              const isCurrentUser = phone && user.customer_contact === phone;
+              let rankIcon = '👤';
+              let borderColor = 'var(--border)';
+              let bgColor = 'var(--bg-tertiary)';
+
+              if (index === 0) {
+                rankIcon = '🥇';
+                borderColor = '#ffd700';
+                bgColor = 'rgba(255,215,0,0.1)';
+              } else if (index === 1) {
+                rankIcon = '🥈';
+                borderColor = '#c0c0c0';
+                bgColor = 'rgba(192,192,192,0.1)';
+              } else if (index === 2) {
+                rankIcon = '🥉';
+                borderColor = '#cd7f32';
+                bgColor = 'rgba(205,127,50,0.1)';
+              }
+
+              // Calculer VIP tier
+              let vipTier = '🥉';
+              if (user.total_referrals >= 10) vipTier = '💎';
+              else if (user.total_referrals >= 6) vipTier = '🥇';
+              else if (user.total_referrals >= 3) vipTier = '🥈';
+
+              return `
+                <div style="display:flex;align-items:center;gap:12px;padding:12px;background:${bgColor};border-radius:12px;border-left:3px solid ${borderColor}${isCurrentUser ? ';box-shadow:0 0 0 2px var(--accent)' : ''}">
+                  <div style="min-width:32px;text-align:center;font-size:20px">${rankIcon}</div>
+                  <div style="min-width:28px;height:28px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:var(--bg-primary)">${index + 1}</div>
+                  <div style="flex:1">
+                    <div style="font-weight:700;font-size:14px;margin-bottom:2px">
+                      ${isCurrentUser ? '🌟 ' : ''}${user.masked_contact}${isCurrentUser ? ' (Vous)' : ''}
+                    </div>
+                    <div style="font-size:12px;color:var(--text-muted)">
+                      ${vipTier} ${user.total_referrals} parrainage${user.total_referrals > 1 ? 's' : ''} • ${Math.floor(user.total_earned)} DA gagnés
+                    </div>
+                  </div>
+                  <div style="text-align:right">
+                    <div style="font-size:12px;color:var(--text-muted)">Crédit</div>
+                    <div style="font-size:16px;font-weight:700;color:var(--success)">${Math.floor(user.credit_balance)} DA</div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+
+        <!-- Info -->
+        <div style="text-align:center;padding:16px;background:var(--bg-tertiary);border-radius:12px;margin-top:16px">
+          <div style="font-size:14px;color:var(--text-secondary)">
+            💡 <strong>Plus vous parrainez, plus vous montez dans le classement !</strong>
+          </div>
+        </div>
+      </div>
+    `;
+  } catch (error) {
+    console.error('Error loading leaderboard:', error);
+    content.innerHTML = `
+      <div style="text-align:center;padding:40px 20px;color:var(--text-muted)">
+        <div style="font-size:48px;margin-bottom:16px">❌</div>
+        <p>Erreur lors du chargement du classement</p>
+      </div>
+    `;
+  }
+}
+
+// Fonction pour afficher les stats (onglet Mes Stats)
+function showMyStats() {
+  // Update tabs
+  document.getElementById('tabMyStats').style.background = 'var(--accent)';
+  document.getElementById('tabMyStats').style.color = 'var(--bg-primary)';
+  document.getElementById('tabLeaderboard').style.background = 'var(--bg-tertiary)';
+  document.getElementById('tabLeaderboard').style.color = 'var(--text-secondary)';
+
+  // Recharger les stats
+  openReferralSheet();
+}
+
+// Event listeners pour les onglets
+document.getElementById('tabMyStats')?.addEventListener('click', showMyStats);
+document.getElementById('tabLeaderboard')?.addEventListener('click', showLeaderboard);
+
+// Fonction pour partager un produit avec code de parrainage
+async function shareProduct(productId) {
+  const product = PRODUCTS.find(p => p.id === productId);
+  if (!product) {
+    showToast('❌ Produit introuvable');
+    return;
+  }
+
+  // Récupérer le numéro de téléphone pour le code de parrainage
+  const phoneInput = document.getElementById('phoneInput');
+  const phone = phoneInput?.value.trim() || '';
+
+  let referralCode = '';
+  let shareMessage = '';
+
+  if (phone && phone.length >= 8) {
+    // Essayer de récupérer le code de parrainage
+    try {
+      const response = await fetch(`/api/referral-stats?customer=${encodeURIComponent(phone)}`);
+      const data = await response.json();
+
+      if (data.ok && data.stats && data.stats.code) {
+        referralCode = data.stats.code;
+      }
+    } catch (error) {
+      console.error('Error fetching referral code:', error);
+    }
+  }
+
+  // Construire le message de partage
+  if (referralCode) {
+    shareMessage = `🌟 Découvre ce produit incroyable sur DROGUA CENTER !
+
+🔥 ${product.name}
+📦 Catégorie: ${product.category}
+
+🎁 Utilise mon code de parrainage: ${referralCode}
+💰 Tu reçois 300 DA de crédit de bienvenue !
+
+👉 Commande maintenant: ${window.location.origin}`;
+  } else {
+    shareMessage = `🌟 Découvre ce produit incroyable sur DROGUA CENTER !
+
+🔥 ${product.name}
+📦 Catégorie: ${product.category}
+
+💰 Profite de réductions et de la roue de la fortune !
+
+👉 Commande maintenant: ${window.location.origin}`;
+  }
+
+  const encodedMessage = encodeURIComponent(shareMessage);
+
+  // Afficher un menu de partage
+  const shareMenu = document.createElement('div');
+  shareMenu.style.cssText = `
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--card-bg);
+    border-radius: 20px 20px 0 0;
+    padding: 24px;
+    z-index: 10001;
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.3);
+    animation: slideUp 0.3s ease-out;
+  `;
+
+  shareMenu.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <h3 style="font-size:18px;font-weight:800">📤 Partager ce produit</h3>
+      <button id="closeShareMenu" style="width:32px;height:32px;border:none;background:var(--bg-tertiary);border-radius:50%;cursor:pointer;font-size:20px;color:var(--text-secondary)">✕</button>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+      <a href="https://wa.me/?text=${encodedMessage}" target="_blank" style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px;background:linear-gradient(135deg,#25d366 0%,#128c7e 100%);border-radius:12px;text-decoration:none;color:#fff;font-weight:600">
+        <span style="font-size:32px">📱</span>
+        <span>WhatsApp</span>
+      </a>
+
+      <a href="https://t.me/share/url?url=${encodeURIComponent(window.location.origin)}&text=${encodedMessage}" target="_blank" style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px;background:linear-gradient(135deg,#0088cc 0%,#005f8a 100%);border-radius:12px;text-decoration:none;color:#fff;font-weight:600">
+        <span style="font-size:32px">✈️</span>
+        <span>Telegram</span>
+      </a>
+
+      <button onclick="copyToClipboard(\`${shareMessage.replace(/`/g, '\\`')}\`); document.getElementById('shareMenuOverlay').remove()" style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);border:none;border-radius:12px;color:#fff;font-weight:600;cursor:pointer">
+        <span style="font-size:32px">📋</span>
+        <span>Copier</span>
+      </button>
+
+      <button onclick="shareNative(\`${shareMessage.replace(/`/g, '\\`')}\`)" style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px;background:linear-gradient(135deg,#f093fb 0%,#f5576c 100%);border:none;border-radius:12px;color:#fff;font-weight:600;cursor:pointer">
+        <span style="font-size:32px">📲</span>
+        <span>Plus</span>
+      </button>
+    </div>
+
+    ${referralCode ? `
+    <div style="padding:12px;background:linear-gradient(135deg,rgba(255,215,0,0.1) 0%,rgba(255,165,0,0.1) 100%);border-radius:8px;border:1px solid #ffd700;text-align:center">
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">Votre code: <strong style="color:var(--accent)">${referralCode}</strong></div>
+      <div style="font-size:11px;color:var(--text-muted)">💰 Gagnez 500 DA par parrainage validé !</div>
+    </div>
+    ` : `
+    <div style="padding:12px;background:var(--bg-tertiary);border-radius:8px;text-align:center">
+      <div style="font-size:12px;color:var(--text-muted)">💡 Passez une commande pour obtenir votre code de parrainage !</div>
+    </div>
+    `}
+  `;
+
+  // Créer l'overlay
+  const overlay = document.createElement('div');
+  overlay.id = 'shareMenuOverlay';
+  overlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 10000;
+    animation: fadeIn 0.3s ease-out;
+  `;
+
+  overlay.appendChild(shareMenu);
+  document.body.appendChild(overlay);
+
+  // Fermer le menu
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) {
+      overlay.remove();
+    }
+  });
+
+  document.getElementById('closeShareMenu').addEventListener('click', () => {
+    overlay.remove();
+  });
+}
+
+// Fonction pour copier dans le presse-papiers
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(() => {
+    showToast('✅ Message copié !');
+  }).catch(() => {
+    showToast('❌ Erreur lors de la copie');
+  });
+}
+
+// Fonction pour partage natif
+function shareNative(text) {
+  if (navigator.share) {
+    navigator.share({
+      title: 'DROGUA CENTER',
+      text: text,
+      url: window.location.origin
+    }).then(() => {
+      showToast('✅ Partagé avec succès !');
+      document.getElementById('shareMenuOverlay')?.remove();
+    }).catch((error) => {
+      if (error.name !== 'AbortError') {
+        console.error('Error sharing:', error);
+      }
+    });
+  } else {
+    showToast('❌ Partage non disponible sur cet appareil');
+  }
+}
+
+// Ajouter les animations CSS pour le menu de partage
+if (!document.getElementById('shareMenuStyles')) {
+  const style = document.createElement('style');
+  style.id = 'shareMenuStyles';
+  style.textContent = `
+    @keyframes slideUp {
+      from {
+        transform: translateY(100%);
+        opacity: 0;
+      }
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+// Animation de célébration pour gains de crédit
+function celebrateCredit(amount) {
+  // Créer un élément de célébration
+  const celebration = document.createElement('div');
+  celebration.style.cssText = `
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10000;
+    text-align: center;
+    animation: celebrationBounce 0.6s ease-out;
+    pointer-events: none;
+  `;
+
+  celebration.innerHTML = `
+    <div style="font-size:80px;margin-bottom:16px">🎉</div>
+    <div style="background:linear-gradient(135deg,#ffd700 0%,#ffed4e 100%);padding:24px 32px;border-radius:20px;box-shadow:0 10px 40px rgba(255,215,0,0.6)">
+      <div style="font-size:16px;font-weight:600;color:#000;margin-bottom:8px">Félicitations !</div>
+      <div style="font-size:32px;font-weight:900;color:#000">+${amount} DA</div>
+      <div style="font-size:14px;font-weight:600;color:#000;margin-top:8px">💰 Crédit gagné</div>
+    </div>
+  `;
+
+  document.body.appendChild(celebration);
+
+  // Ajouter des confettis
+  for (let i = 0; i < 30; i++) {
+    const confetti = document.createElement('div');
+    const colors = ['#ffd700', '#ff6b6b', '#4ecdc4', '#45b7d1', '#f7b731', '#5f27cd'];
+    const randomColor = colors[Math.floor(Math.random() * colors.length)];
+    const randomX = Math.random() * 100 - 50;
+    const randomDelay = Math.random() * 0.3;
+
+    confetti.style.cssText = `
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      width: 10px;
+      height: 10px;
+      background: ${randomColor};
+      border-radius: 50%;
+      z-index: 9999;
+      animation: confettiFall 1s ease-out ${randomDelay}s;
+      animation-fill-mode: forwards;
+      pointer-events: none;
+    `;
+
+    confetti.style.setProperty('--random-x', randomX + 'vw');
+
+    document.body.appendChild(confetti);
+
+    setTimeout(() => confetti.remove(), 1300);
+  }
+
+  // Supprimer l'élément après l'animation
+  setTimeout(() => celebration.remove(), 2000);
+}
+
+// Ajouter les animations CSS nécessaires
+if (!document.getElementById('celebrationStyles')) {
+  const style = document.createElement('style');
+  style.id = 'celebrationStyles';
+  style.textContent = `
+    @keyframes celebrationBounce {
+      0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+      50% { transform: translate(-50%, -50%) scale(1.1); }
+      100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    }
+
+    @keyframes confettiFall {
+      0% {
+        transform: translate(0, 0) rotate(0deg);
+        opacity: 1;
+      }
+      100% {
+        transform: translate(var(--random-x), 100vh) rotate(720deg);
+        opacity: 0;
+      }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
 function renderCart() {
   const content = document.getElementById('cartContent');
   
@@ -2986,7 +3861,7 @@ function renderCart() {
   const subtotal = CartManager.getTotal();
   const deliveryFee = selectedDelivery === 'exterieur' ? 20 : 0;
   let discount = 0;
-  
+
   if (appliedPromo) {
     if (appliedPromo.type === 'percent') {
       discount = subtotal * (appliedPromo.value / 100);
@@ -2994,8 +3869,10 @@ function renderCart() {
       discount = appliedPromo.value;
     }
   }
-  
-  const total = subtotal + deliveryFee - discount;
+
+  const totalBeforeCredit = subtotal + deliveryFee - discount;
+  const creditToApply = useCreditEnabled ? Math.min(userCreditBalance, totalBeforeCredit) : 0;
+  const total = totalBeforeCredit - creditToApply;
   
   content.innerHTML = `
     ${CartManager.items.map((item, idx) => `
@@ -3065,7 +3942,26 @@ function renderCart() {
         </div>
       </div>
     </div>
-    
+
+    <div class="contact-section" style="margin-top:16px">
+      <div class="section-label">📱 Numéro de téléphone</div>
+      <div class="input-wrapper">
+        <input type="tel" class="input-field" id="phoneInput" placeholder="Ex: 0612345678" maxlength="20">
+      </div>
+      <div style="font-size:12px;color:var(--text-muted);margin-top:8px">
+        💡 Nécessaire pour utiliser votre crédit et les codes de parrainage
+      </div>
+    </div>
+
+    <div class="referral-input-section" style="margin-top:16px">
+      <div class="section-label">🎁 Code de parrainage (optionnel)</div>
+      <div class="promo-input-wrapper">
+        <input type="text" class="promo-input" id="referralInput" placeholder="Entrez un code ami" maxlength="20">
+        <button class="promo-btn" id="applyReferral">Vérifier</button>
+      </div>
+      <div id="referralStatus" style="margin-top:8px;font-size:13px"></div>
+    </div>
+
     <div class="address-section">
       <div class="section-label">📍 Adresse de livraison</div>
       <div class="input-wrapper">
@@ -3073,12 +3969,37 @@ function renderCart() {
         <div class="suggestions" id="suggestions" style="display:none"></div>
       </div>
     </div>
-    
+
+    ${userCreditBalance > 0 ? `
+    <div class="credit-section" style="background:var(--card-bg);border-radius:12px;padding:16px;margin-top:16px;border:1px solid var(--border)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="font-size:24px">💰</div>
+          <div>
+            <div style="font-weight:700;font-size:14px">Crédit disponible</div>
+            <div style="color:var(--success);font-size:18px;font-weight:700">${fmt(userCreditBalance)}</div>
+          </div>
+        </div>
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:12px;background:var(--bg);border-radius:8px;border:2px solid ${useCreditEnabled ? 'var(--success)' : 'var(--border)'}">
+        <input type="checkbox" id="useCreditCheckbox" ${useCreditEnabled ? 'checked' : ''} style="width:20px;height:20px;cursor:pointer">
+        <span style="font-size:14px;font-weight:600">Utiliser mon crédit pour cette commande</span>
+      </label>
+      ${useCreditEnabled && creditToApply > 0 ? `
+        <div style="margin-top:12px;padding:12px;background:var(--success-bg,rgba(34,197,94,0.1));border-radius:8px;color:var(--success)">
+          <div style="font-size:13px">✅ <strong>${fmt(creditToApply)}</strong> seront déduits de votre total</div>
+          ${creditToApply < userCreditBalance ? `<div style="font-size:12px;margin-top:4px;opacity:0.8">Solde restant: ${fmt(userCreditBalance - creditToApply)}</div>` : ''}
+        </div>
+      ` : ''}
+    </div>
+    ` : ''}
+
     <div class="cart-total">
       <div>
         <div style="color:var(--text-muted);font-size:14px;margin-bottom:4px">Sous-total : ${fmt(subtotal)}</div>
         ${deliveryFee > 0 ? `<div style="color:var(--text-muted);font-size:14px">Livraison : ${fmt(deliveryFee)}</div>` : ''}
         ${discount > 0 ? `<div style="color:var(--success);font-size:14px">Réduction : -${fmt(discount)}</div>` : ''}
+        ${creditToApply > 0 ? `<div style="color:var(--success);font-size:14px;font-weight:700">💰 Crédit : -${fmt(creditToApply)}</div>` : ''}
       </div>
       <span class="total-amount">${fmt(total)}</span>
     </div>
@@ -3129,7 +4050,64 @@ function renderCart() {
       renderCart();
     };
   }
-  
+
+  const useCreditCheckbox = content.querySelector('#useCreditCheckbox');
+  if (useCreditCheckbox) {
+    useCreditCheckbox.onchange = () => {
+      useCreditEnabled = useCreditCheckbox.checked;
+      renderCart();
+      if (useCreditEnabled) {
+        showToast('💰 Crédit activé pour cette commande');
+      }
+    };
+  }
+
+  const phoneInput = content.querySelector('#phoneInput');
+  if (phoneInput) {
+    let phoneTimer = null;
+    phoneInput.addEventListener('input', () => {
+      clearTimeout(phoneTimer);
+      phoneTimer = setTimeout(async () => {
+        const phone = phoneInput.value.trim();
+        if (phone.length >= 8) {
+          await fetchUserCredit(phone);
+          renderCart();
+        }
+      }, 800);
+    });
+  }
+
+  const applyReferralBtn = content.querySelector('#applyReferral');
+  if (applyReferralBtn) {
+    applyReferralBtn.onclick = async () => {
+      const input = content.querySelector('#referralInput');
+      const code = input.value.trim().toUpperCase();
+      const statusDiv = content.querySelector('#referralStatus');
+
+      if (!code) {
+        statusDiv.innerHTML = '<span style="color:var(--error)">❌ Entrez un code</span>';
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/validate-referral?code=${encodeURIComponent(code)}`);
+        const data = await response.json();
+
+        if (data.ok && data.valid) {
+          statusDiv.innerHTML = '<span style="color:var(--success)">✅ Code valide ! Vous recevrez 300 DA après votre commande</span>';
+          input.disabled = true;
+          applyReferralBtn.disabled = true;
+          applyReferralBtn.textContent = 'Validé';
+          applyReferralBtn.style.background = 'var(--success)';
+        } else {
+          statusDiv.innerHTML = '<span style="color:var(--error)">❌ Code invalide</span>';
+        }
+      } catch (error) {
+        statusDiv.innerHTML = '<span style="color:var(--error)">❌ Erreur de vérification</span>';
+      }
+    };
+  }
+
   const addressInput = content.querySelector('#addressInput');
   if (addressInput) {
     let timer = null;
@@ -3227,10 +4205,19 @@ async function validateOrder() {
     showToast('⚠️ Votre panier est vide');
     return;
   }
-  
+
+  const phoneInput = document.getElementById('phoneInput');
+  const phone = phoneInput?.value.trim() || '';
+
+  if (!phone || phone.length < 8) {
+    showToast('⚠️ Entrez votre numéro de téléphone');
+    phoneInput?.focus();
+    return;
+  }
+
   const addressInput = document.getElementById('addressInput');
   const address = addressInput?.value.trim() || '';
-  
+
   if (!address || address.length < 5) {
     showToast('⚠️ Entrez une adresse de livraison');
     addressInput?.focus({ preventScroll: true });
@@ -3289,13 +4276,19 @@ async function validateOrder() {
     
     const totalDiscount = promoDiscount + loyaltyDiscount;
     const total = subtotalWithDelivery - totalDiscount;
-    
+
+    const referralInput = document.getElementById('referralInput');
+    const referralCode = referralInput?.value.trim().toUpperCase() || '';
+
     const orderData = {
-      customer: clientId,
+      customer: phone,
+      phone: phone,
       type: deliveryType,
       address: address,
       items: items,
-      total: total
+      total: total,
+      referralCode: referralCode,
+      useCredit: useCreditEnabled
     };
     
     // Créer la commande via SyncManager
@@ -3387,7 +4380,167 @@ function showOrderSummary(orderData, orderId, discount = 0, notificationSent = f
       <h3 style="font-size:24px;font-weight:700;margin-bottom:8px;color:var(--success)">Commande confirmée !</h3>
       <p style="color:var(--text-secondary);font-size:16px">Numéro de commande : <strong style="color:var(--accent)">#${orderId}</strong></p>
     </div>
-    
+
+    <!-- 🎰 ROUE DE LA FORTUNE & PROGRAMME VIRAL -->
+    <div id="viralSection" style="margin:30px 0;position:relative">
+
+      <!-- Animation Confettis -->
+      <canvas id="confettiCanvas" style="position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;display:none"></canvas>
+
+      <!-- Roue de la Fortune -->
+      <div style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);border-radius:20px;padding:24px;margin-bottom:20px;box-shadow:0 10px 30px rgba(102,126,234,0.3);position:relative;overflow:hidden">
+        <div style="position:absolute;top:0;right:0;font-size:100px;opacity:0.1">🎰</div>
+
+        <div style="text-align:center;position:relative;z-index:1">
+          <h3 style="font-size:26px;font-weight:800;color:#fff;margin-bottom:8px;text-shadow:2px 2px 4px rgba(0,0,0,0.2)">
+            🎰 TENTEZ VOTRE CHANCE ! 🎰
+          </h3>
+          <p style="color:rgba(255,255,255,0.9);font-size:16px;margin-bottom:20px">
+            Tournez la roue et <strong>PEUT-ÊTRE</strong> gagnez des réductions ! 🍀
+          </p>
+
+          <div id="wheelContainer" style="margin:20px auto;position:relative;width:280px;height:280px">
+            <canvas id="wheelCanvas" width="280" height="280" style="border-radius:50%;box-shadow:0 10px 30px rgba(0,0,0,0.3)"></canvas>
+            <div id="wheelPointer" style="position:absolute;top:-15px;left:50%;transform:translateX(-50%);font-size:40px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.3))">
+              🔻
+            </div>
+            <button id="spinButton" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:80px;height:80px;border-radius:50%;background:#fff;border:4px solid #ffd700;font-weight:800;font-size:14px;cursor:pointer;box-shadow:0 4px 15px rgba(0,0,0,0.3);transition:all 0.3s;z-index:10">
+              TOURNER !
+            </button>
+          </div>
+
+          <div id="prizeDisplay" style="display:none;background:rgba(255,255,255,0.2);border:2px solid #ffd700;border-radius:16px;padding:20px;margin-top:20px;backdrop-filter:blur(10px)">
+            <div style="font-size:50px;margin-bottom:10px">🎉</div>
+            <div style="font-size:20px;font-weight:700;color:#ffd700;margin-bottom:8px">VOUS AVEZ GAGNÉ !</div>
+            <div id="prizeText" style="font-size:24px;font-weight:800;color:#fff"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Programme de Parrainage -->
+      <div style="background:linear-gradient(135deg,#f093fb 0%,#f5576c 100%);border-radius:20px;padding:24px;margin-bottom:20px;box-shadow:0 10px 30px rgba(240,147,251,0.3);position:relative;overflow:hidden">
+        <div style="position:absolute;top:0;right:0;font-size:100px;opacity:0.1">💰</div>
+
+        <div style="position:relative;z-index:1">
+          <div style="text-align:center;margin-bottom:20px">
+            <h3 style="font-size:24px;font-weight:800;color:#fff;margin-bottom:8px;text-shadow:2px 2px 4px rgba(0,0,0,0.2)">
+              💰 GAGNEZ 500 DA PAR AMI ! 💰
+            </h3>
+            <p style="color:rgba(255,255,255,0.9);font-size:15px">
+              Partagez votre code et gagnez de l'argent à chaque parrainage
+            </p>
+          </div>
+
+          <div style="background:rgba(255,255,255,0.2);border:2px dashed #fff;border-radius:12px;padding:16px;text-align:center;margin-bottom:16px;backdrop-filter:blur(10px)">
+            <div style="color:rgba(255,255,255,0.8);font-size:13px;margin-bottom:8px">Votre code personnel</div>
+            <div id="referralCode" style="font-size:32px;font-weight:800;color:#fff;letter-spacing:2px;text-shadow:2px 2px 4px rgba(0,0,0,0.2)">${orderData.customer.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 6)}${orderId}</div>
+            <button onclick="copyReferralCode('${orderData.customer.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 6)}${orderId}')" style="margin-top:12px;padding:10px 20px;background:#fff;border:none;border-radius:8px;font-weight:600;color:#f5576c;cursor:pointer;transition:all 0.2s">
+              📋 Copier le code
+            </button>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+            <div style="background:rgba(255,255,255,0.2);border-radius:12px;padding:12px;text-align:center;backdrop-filter:blur(10px)">
+              <div style="font-size:24px;font-weight:800;color:#ffd700">500 DA</div>
+              <div style="font-size:12px;color:rgba(255,255,255,0.9)">Vous gagnez</div>
+            </div>
+            <div style="background:rgba(255,255,255,0.2);border-radius:12px;padding:12px;text-align:center;backdrop-filter:blur(10px)">
+              <div style="font-size:24px;font-weight:800;color:#ffd700">300 DA</div>
+              <div style="font-size:12px;color:rgba(255,255,255,0.9)">Votre ami reçoit</div>
+            </div>
+          </div>
+
+          <!-- VIP Tier System -->
+          <div id="vipTierDisplay" style="background:rgba(255,255,255,0.15);border:2px solid rgba(255,215,0,0.5);border-radius:12px;padding:16px;text-align:center;backdrop-filter:blur(10px)">
+            <div style="font-size:14px;color:rgba(255,255,255,0.8);margin-bottom:8px">👑 PALIER VIP</div>
+            <div id="vipTierName" style="font-size:28px;font-weight:800;color:#ffd700;margin-bottom:8px">Bronze 🥉</div>
+            <div id="vipTierProgress" style="font-size:13px;color:rgba(255,255,255,0.9);margin-bottom:8px">0/3 parrainages pour Argent 🥈</div>
+            <div style="font-size:12px;color:rgba(255,255,255,0.7)">
+              <strong>Bonus actuel:</strong> <span id="vipBonusText">0%</span>
+              <br>
+              <span style="font-size:11px">Plus de parrainages = Plus de bonus !</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Partage Social -->
+      <div style="background:linear-gradient(135deg,#4facfe 0%,#00f2fe 100%);border-radius:20px;padding:24px;margin-bottom:20px;box-shadow:0 10px 30px rgba(79,172,254,0.3)">
+        <div style="text-align:center;margin-bottom:20px">
+          <h3 style="font-size:22px;font-weight:800;color:#fff;margin-bottom:8px;text-shadow:2px 2px 4px rgba(0,0,0,0.2)">
+            📱 PARTAGEZ ET GAGNEZ PLUS ! 📱
+          </h3>
+          <p style="color:rgba(255,255,255,0.9);font-size:14px">
+            <strong>BONUS :</strong> Partagez maintenant et doublez vos gains ! ⚡
+          </p>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <button onclick="shareToWhatsApp('${orderData.customer.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 6)}${orderId}')" style="background:#25D366;border:none;border-radius:12px;padding:14px;color:#fff;font-weight:700;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;box-shadow:0 4px 12px rgba(37,211,102,0.3)">
+            <span style="font-size:20px">📱</span>
+            WhatsApp
+          </button>
+
+          <button onclick="shareToTelegram('${orderData.customer.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 6)}${orderId}')" style="background:#0088cc;border:none;border-radius:12px;padding:14px;color:#fff;font-weight:700;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;box-shadow:0 4px 12px rgba(0,136,204,0.3)">
+            <span style="font-size:20px">✈️</span>
+            Telegram
+          </button>
+
+          <button onclick="shareToSnapchat()" style="background:#FFFC00;border:none;border-radius:12px;padding:14px;color:#000;font-weight:700;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;box-shadow:0 4px 12px rgba(255,252,0,0.3)">
+            <span style="font-size:20px">👻</span>
+            Snapchat
+          </button>
+
+          <button onclick="copyShareLink('${orderData.customer.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 6)}${orderId}')" style="background:#667eea;border:none;border-radius:12px;padding:14px;color:#fff;font-weight:700;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;box-shadow:0 4px 12px rgba(102,126,234,0.3)">
+            <span style="font-size:20px">🔗</span>
+            Copier lien
+          </button>
+        </div>
+      </div>
+
+      <!-- Système VIP -->
+      <div style="background:linear-gradient(135deg,#ffd89b 0%,#19547b 100%);border-radius:20px;padding:24px;box-shadow:0 10px 30px rgba(255,216,155,0.3);position:relative;overflow:hidden">
+        <div style="position:absolute;top:0;right:0;font-size:100px;opacity:0.1">👑</div>
+
+        <div style="position:relative;z-index:1">
+          <div style="text-align:center;margin-bottom:16px">
+            <h3 style="font-size:22px;font-weight:800;color:#fff;margin-bottom:8px;text-shadow:2px 2px 4px rgba(0,0,0,0.2)">
+              👑 VOTRE STATUT VIP 👑
+            </h3>
+            <div style="font-size:40px;margin:12px 0">🥉</div>
+            <div style="font-size:20px;font-weight:700;color:#ffd700">BRONZE</div>
+            <p style="color:rgba(255,255,255,0.9);font-size:13px;margin-top:8px">
+              Plus que 2 commandes pour devenir <strong>ARGENT 🥈</strong>
+            </p>
+          </div>
+
+          <div style="background:rgba(255,255,255,0.2);border-radius:12px;padding:4px;margin-bottom:16px;backdrop-filter:blur(10px)">
+            <div style="background:#ffd700;height:12px;border-radius:8px;width:33%;transition:all 0.5s"></div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;text-align:center">
+            <div>
+              <div style="font-size:24px;opacity:1">🥉</div>
+              <div style="font-size:10px;color:rgba(255,255,255,0.8)">Bronze</div>
+            </div>
+            <div>
+              <div style="font-size:24px;opacity:0.4">🥈</div>
+              <div style="font-size:10px;color:rgba(255,255,255,0.8)">Argent</div>
+            </div>
+            <div>
+              <div style="font-size:24px;opacity:0.4">🥇</div>
+              <div style="font-size:10px;color:rgba(255,255,255,0.8)">Or</div>
+            </div>
+            <div>
+              <div style="font-size:24px;opacity:0.4">💎</div>
+              <div style="font-size:10px;color:rgba(255,255,255,0.8)">Diamant</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
     ${notificationSent ? `
     <div style="background:rgba(0,212,255,0.1);border:2px solid var(--accent);border-radius:16px;padding:16px;margin:20px 0;display:flex;align-items:center;gap:12px">
       <div style="width:40px;height:40px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0">
@@ -3573,6 +4726,61 @@ function showOrderSummary(orderData, orderId, discount = 0, notificationSent = f
       const orderData = JSON.parse(this.dataset.orderData);
       showPartialCancellationDialog(orderId, orderData);
     };
+  }
+
+  // Fetch and display VIP tier info
+  if (orderData.phone) {
+    fetchAndDisplayVIPTier(orderData.phone);
+  }
+
+  // Initialiser la roue de la fortune
+  setTimeout(() => {
+    initializeWheel();
+  }, 500);
+}
+
+// Fetch and display VIP tier information
+async function fetchAndDisplayVIPTier(customerContact) {
+  try {
+    const response = await fetch(`/api/referral-stats?customer=${encodeURIComponent(customerContact)}`);
+    const data = await response.json();
+
+    if (data.ok && data.stats) {
+      const totalReferrals = data.stats.totalReferrals || 0;
+      let vipTier = 'Bronze 🥉';
+      let vipBonus = 0;
+      let nextTier = 'Argent 🥈';
+      let nextTierCount = 3;
+
+      if (totalReferrals >= 10) {
+        vipTier = 'Diamant 💎';
+        vipBonus = 50;
+        nextTier = 'Maximum';
+        nextTierCount = totalReferrals;
+      } else if (totalReferrals >= 6) {
+        vipTier = 'Or 🥇';
+        vipBonus = 20;
+        nextTier = 'Diamant 💎';
+        nextTierCount = 10;
+      } else if (totalReferrals >= 3) {
+        vipTier = 'Argent 🥈';
+        vipBonus = 10;
+        nextTier = 'Or 🥇';
+        nextTierCount = 6;
+      }
+
+      // Update VIP display
+      document.getElementById('vipTierName').textContent = vipTier;
+      document.getElementById('vipBonusText').textContent = `${vipBonus}%`;
+
+      if (nextTier !== 'Maximum') {
+        document.getElementById('vipTierProgress').textContent = `${totalReferrals}/${nextTierCount} parrainages pour ${nextTier}`;
+      } else {
+        document.getElementById('vipTierProgress').textContent = `🏆 Palier maximum atteint !`;
+      }
+    }
+  } catch (error) {
+    console.error('Error fetching VIP tier:', error);
   }
 }
 
@@ -3839,6 +5047,243 @@ function showPartialCancellationDialog(orderId, orderData) {
       confirmBtn.textContent = 'Confirmer l\'annulation';
     }
   };
+}
+
+// ==================== FONCTIONS VIRALES ====================
+
+// Roue de la Fortune
+function initializeWheel() {
+  const canvas = document.getElementById('wheelCanvas');
+  if (!canvas) return;
+
+  const ctx = canvas.getContext('2d');
+  const centerX = 140;
+  const centerY = 140;
+  const radius = 130;
+
+  const prizes = [
+    { text: 'PERDU !', color: '#95a5a6', emoji: '❌', isLoss: true },
+    { text: 'RÉESSAYEZ !', color: '#7f8c8d', emoji: '😢', isLoss: true },
+    { text: 'PAS CETTE FOIS', color: '#95a5a6', emoji: '🔄', isLoss: true },
+    { text: 'DOMMAGE...', color: '#7f8c8d', emoji: '💔', isLoss: true },
+    { text: 'RATÉ !', color: '#95a5a6', emoji: '🎯', isLoss: true },
+    { text: 'PRESQUE !', color: '#7f8c8d', emoji: '😔', isLoss: true },
+    { text: 'OUI PRESQUE !', color: '#95a5a6', emoji: '🤷', isLoss: true },
+    { text: 'MALCHANCE...', color: '#7f8c8d', emoji: '😕', isLoss: true },
+    { text: 'OUPS RATÉ', color: '#95a5a6', emoji: '💨', isLoss: true },
+    { text: '5% RÉDUCTION', color: '#27ae60', emoji: '🎉', isLoss: false }
+  ];
+
+  function drawWheel(rotation = 0) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const anglePerSlice = (2 * Math.PI) / prizes.length;
+
+    prizes.forEach((prize, index) => {
+      const startAngle = rotation + index * anglePerSlice;
+      const endAngle = startAngle + anglePerSlice;
+
+      // Dessiner la part
+      ctx.beginPath();
+      ctx.moveTo(centerX, centerY);
+      ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+      ctx.closePath();
+      ctx.fillStyle = prize.color;
+      ctx.fill();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+
+      // Ajouter le texte
+      ctx.save();
+      ctx.translate(centerX, centerY);
+      ctx.rotate(startAngle + anglePerSlice / 2);
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 12px Arial';
+      ctx.fillText(prize.emoji, radius / 2, -5);
+      ctx.font = 'bold 10px Arial';
+      ctx.fillText(prize.text, radius / 2, 10);
+      ctx.restore();
+    });
+
+    // Centre de la roue
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, 25, 0, 2 * Math.PI);
+    ctx.fillStyle = '#FFD700';
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+  }
+
+  drawWheel();
+
+  const spinButton = document.getElementById('spinButton');
+  let isSpinning = false;
+
+  spinButton.addEventListener('click', function() {
+    if (isSpinning) return;
+
+    isSpinning = true;
+    spinButton.disabled = true;
+    spinButton.textContent = '...';
+
+    const spins = 5 + Math.random() * 3;
+    const randomAngle = Math.random() * 2 * Math.PI;
+    const totalRotation = spins * 2 * Math.PI + randomAngle;
+    const duration = 4000;
+    const startTime = Date.now();
+
+    function animate() {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const easeOut = 1 - Math.pow(1 - progress, 3);
+      const currentRotation = totalRotation * easeOut;
+
+      drawWheel(currentRotation);
+
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      } else {
+        const normalizedAngle = (currentRotation % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+        const anglePerSlice = (2 * Math.PI) / prizes.length;
+        const winningIndex = Math.floor((2 * Math.PI - normalizedAngle) / anglePerSlice) % prizes.length;
+        const prize = prizes[winningIndex];
+
+        // Afficher le prix
+        setTimeout(() => {
+          document.getElementById('prizeText').textContent = prize.text;
+          const prizeDisplay = document.getElementById('prizeDisplay');
+          prizeDisplay.style.display = 'block';
+
+          // Masquer le bouton spin
+          spinButton.style.display = 'none';
+
+          if (prize.isLoss) {
+            // Perdu - pas de confettis, message triste
+            prizeDisplay.querySelector('div:first-child').textContent = '😔';
+            prizeDisplay.querySelector('div:nth-child(2)').textContent = 'PAS CETTE FOIS...';
+            prizeDisplay.querySelector('div:nth-child(2)').style.color = '#95a5a6';
+            prizeDisplay.querySelector('div:nth-child(3)').style.color = '#7f8c8d';
+            showToast('😢 ' + prize.text + ' - Tentez votre chance la prochaine fois !');
+          } else {
+            // Gagné - confettis et message de victoire
+            prizeDisplay.querySelector('div:first-child').textContent = '🎉';
+            prizeDisplay.querySelector('div:nth-child(2)').textContent = 'VOUS AVEZ GAGNÉ !';
+            prizeDisplay.querySelector('div:nth-child(2)').style.color = '#ffd700';
+            prizeDisplay.querySelector('div:nth-child(3)').style.color = '#fff';
+            launchConfetti();
+            showToast('🎉 Félicitations ! Vous avez gagné : ' + prize.text);
+          }
+        }, 500);
+      }
+    }
+
+    animate();
+  });
+}
+
+// Animation Confettis
+function launchConfetti() {
+  const canvas = document.getElementById('confettiCanvas');
+  if (!canvas) return;
+
+  canvas.style.display = 'block';
+  const ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+
+  const confetti = [];
+  const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F'];
+
+  for (let i = 0; i < 150; i++) {
+    confetti.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height - canvas.height,
+      size: Math.random() * 8 + 4,
+      speedY: Math.random() * 3 + 2,
+      speedX: Math.random() * 2 - 1,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      rotation: Math.random() * 360,
+      rotationSpeed: Math.random() * 10 - 5
+    });
+  }
+
+  function animateConfetti() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    confetti.forEach((piece, index) => {
+      piece.y += piece.speedY;
+      piece.x += piece.speedX;
+      piece.rotation += piece.rotationSpeed;
+
+      ctx.save();
+      ctx.translate(piece.x, piece.y);
+      ctx.rotate((piece.rotation * Math.PI) / 180);
+      ctx.fillStyle = piece.color;
+      ctx.fillRect(-piece.size / 2, -piece.size / 2, piece.size, piece.size);
+      ctx.restore();
+
+      if (piece.y > canvas.height) {
+        confetti.splice(index, 1);
+      }
+    });
+
+    if (confetti.length > 0) {
+      requestAnimationFrame(animateConfetti);
+    } else {
+      canvas.style.display = 'none';
+    }
+  }
+
+  animateConfetti();
+}
+
+// Copier le code de parrainage
+function copyReferralCode(code) {
+  navigator.clipboard.writeText(code).then(() => {
+    showToast('✅ Code copié : ' + code);
+  }).catch(() => {
+    showToast('❌ Erreur lors de la copie');
+  });
+}
+
+// Partage WhatsApp
+function shareToWhatsApp(code) {
+  const text = encodeURIComponent(`🎉 J'ai commandé sur ce site INCROYABLE et j'ai gagné des cadeaux ! 💰\n\n🎰 Tournez la roue de la fortune et gagnez :\n• Réductions jusqu'à 50%\n• Livraison gratuite\n• Produits offerts\n• Crédit 1000 DA\n\n🎁 Utilisez mon code ${code} et recevez 300 DA de bienvenue !\n\nJe gagne 500 DA par parrainage 💵\n\n👉 ${window.location.origin}`);
+
+  window.open(`https://wa.me/?text=${text}`, '_blank');
+  showToast('📱 Partage WhatsApp ouvert !');
+}
+
+// Partage Telegram
+function shareToTelegram(code) {
+  const text = encodeURIComponent(`🎉 J'ai commandé sur ce site INCROYABLE et j'ai gagné des cadeaux ! 💰\n\n🎰 Tournez la roue de la fortune et gagnez :\n• Réductions jusqu'à 50%\n• Livraison gratuite\n• Produits offerts\n• Crédit 1000 DA\n\n🎁 Utilisez mon code ${code} et recevez 300 DA de bienvenue !\n\nJe gagne 500 DA par parrainage 💵\n\n👉 ${window.location.origin}`);
+
+  window.open(`https://t.me/share/url?url=${encodeURIComponent(window.location.origin)}&text=${text}`, '_blank');
+  showToast('✈️ Partage Telegram ouvert !');
+}
+
+// Partage Snapchat
+function shareToSnapchat() {
+  const url = encodeURIComponent(window.location.origin);
+
+  // Snapchat ne supporte pas le partage web direct, donc on copie le lien
+  navigator.clipboard.writeText(window.location.origin).then(() => {
+    showToast('👻 Lien copié ! Ouvrez Snapchat et partagez-le dans vos stories ou messages');
+  }).catch(() => {
+    showToast('❌ Erreur lors de la copie du lien');
+  });
+}
+
+// Copier lien de partage
+function copyShareLink(code) {
+  const link = `${window.location.origin}?ref=${code}`;
+  navigator.clipboard.writeText(link).then(() => {
+    showToast('🔗 Lien copié ! Partagez-le pour gagner 500 DA par ami');
+  }).catch(() => {
+    showToast('❌ Erreur lors de la copie du lien');
+  });
 }
 
 function cancelOrder(orderId, customerName) {
@@ -4205,7 +5650,18 @@ function initEventListeners() {
     document.getElementById('sideMenu').classList.remove('open');
     document.getElementById('menuOverlay').classList.remove('open');
   };
-  
+
+  // Event listeners pour les boutons de parrainage
+  document.getElementById('menuReferralBtn')?.addEventListener('click', () => {
+    document.getElementById('sideMenu').classList.remove('open');
+    document.getElementById('menuOverlay').classList.remove('open');
+    openReferralSheet();
+  });
+
+  document.getElementById('navReferralBtn')?.addEventListener('click', () => {
+    openReferralSheet();
+  });
+
   document.querySelectorAll('.menu-item').forEach(item => {
     item.onclick = () => {
       const page = item.dataset.page;
