@@ -1774,9 +1774,7 @@ function init() {
   loadData();
   console.log('📦 État initial - Produits:', state.data.products.length);
 
-  // Synchroniser les commandes de la boutique
-  syncOrders(false);
-  console.log('🔄 Commandes synchronisées');
+  // La synchronisation des commandes se fera après le login (quand on aura le token)
 
   checkAuth();
   generateDemoData();
@@ -1943,6 +1941,10 @@ function login() {
       if (data.ok && data.token) {
         state.apiToken = data.token;
         console.log('✅ Token API obtenu');
+
+        // 🔥 Synchroniser les commandes maintenant qu'on a le token
+        syncOrders(false);
+        console.log('🔄 Synchronisation des commandes depuis le serveur...');
       }
     })
     .catch(err => console.warn('⚠️ Impossible d\'obtenir le token API:', err));
