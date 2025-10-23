@@ -1250,19 +1250,21 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
     const sanitizedCustomer = sanitizeString(customer, 100);
     const sanitizedType = sanitizeString(type, 50);
     const sanitizedAddress = sanitizeString(address, 200);
-    
-    // ✅ VÉRIFIER LE STOCK DISPONIBLE
+
+    // ✅ VÉRIFICATION DE STOCK TEMPORAIREMENT DÉSACTIVÉE
+    // TODO: Initialiser le stock en base de données
+    /*
     for (const item of items) {
       const stock = await db.get(
         'SELECT qty FROM stock WHERE product_id = ? AND variant = ?',
         [item.product_id, item.variant]
       );
-      
+
       const available = stock?.qty || 0;
-      
+
       if (available < item.qty) {
-        return res.status(400).json({ 
-          ok: false, 
+        return res.status(400).json({
+          ok: false,
           error: `Stock insuffisant pour ${item.name} ${item.variant} (${available} disponible${available > 1 ? 's' : ''})`,
           stockError: true,
           product: item.name,
@@ -1272,6 +1274,7 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
         });
       }
     }
+    */
     
     const blockedCustomer = await isCustomerBlocked(sanitizedCustomer);
     if (blockedCustomer) {
