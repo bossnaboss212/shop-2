@@ -1591,9 +1591,23 @@ function extractGrams(variantLabel) {
   return match ? parseFloat(match[1]) : 1;
 }
 
+// Fonction de sécurité: échappe les caractères HTML pour prévenir les XSS
+function sanitizeHTML(str) {
+  if (!str) return '';
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// Fonction de sécurité: limite la longueur d'une chaîne
+function truncate(str, maxLen = 100) {
+  if (!str) return '';
+  return str.length > maxLen ? str.substring(0, maxLen) + '...' : str;
+}
+
 const state = {
-  currentPassword: 'admin',
-  passwordHash: CryptoJS.SHA256('admin').toString(),
+  currentPassword: null,
+  passwordHash: null,
   apiToken: null,
   loginAttempts: 0,
   lockoutUntil: null,
@@ -1819,10 +1833,14 @@ function loadData() {
     } catch (e) {}
   }
   
-  const pass = localStorage.getItem('admin_password');
-  if (pass) {
-    state.currentPassword = pass;
-    state.passwordHash = CryptoJS.SHA256(pass).toString();
+  // Charger le hash du mot de passe (ne jamais stocker en clair)
+  const savedHash = localStorage.getItem('admin_password_hash');
+  if (savedHash) {
+    state.passwordHash = savedHash;
+  } else {
+    // Premier lancement: utiliser le mot de passe par défaut "admin"
+    state.passwordHash = CryptoJS.SHA256('admin').toString();
+    localStorage.setItem('admin_password_hash', state.passwordHash);
   }
   
   const savedAnalytics = localStorage.getItem('admin_analytics');
@@ -1907,7 +1925,8 @@ function login() {
     state.loginAttempts = 0;
     state.lockoutUntil = null;
 
-    const expiry = Date.now() + (24 * 60 * 60 * 1000);
+    // Session de 2 heures pour la sécurité
+    const expiry = Date.now() + (2 * 60 * 60 * 1000);
     localStorage.setItem('admin_auth', 'true');
     localStorage.setItem('session_expiry', expiry.toString());
 
@@ -2160,8 +2179,8 @@ function updateActivityFeed() {
     <div class="activity-item">
       <div class="activity-icon">📦</div>
       <div class="activity-content">
-        <div class="activity-title">Commande #${o.id} - ${o.customer}</div>
-        <div class="activity-time">${o.date}</div>
+        <div class="activity-title">Commande #${sanitizeHTML(o.id)} - ${sanitizeHTML(o.customer)}</div>
+        <div class="activity-time">${sanitizeHTML(o.date)}</div>
       </div>
     </div>
   `).join('');
@@ -2209,17 +2228,17 @@ function loadOrders() {
   
   tbody.innerHTML = state.data.orders.map(o => `
     <tr>
-      <td><strong>#${o.id}</strong></td>
-      <td>${o.date}</td>
-      <td>${o.customer}</td>
-      <td>${o.products}</td>
+      <td><strong>#${sanitizeHTML(o.id)}</strong></td>
+      <td>${sanitizeHTML(o.date)}</td>
+      <td>${sanitizeHTML(o.customer)}</td>
+      <td>${sanitizeHTML(truncate(o.products, 50))}</td>
       <td><strong>${fc(o.total)}</strong></td>
       <td>${getStatusBadge(o.status)}</td>
-      <td><span class="badge">${o.payment || 'Espèces'}</span></td>
+      <td><span class="badge">${sanitizeHTML(o.payment || 'Espèces')}</span></td>
       <td>
-        <button class="btn-sm btn-primary" onclick="viewOrder(${o.id})">👁️</button>
-        <button class="btn-sm btn-warning" onclick="editOrder(${o.id})">✏️</button>
-        <button class="btn-sm btn-danger" onclick="deleteOrder(${o.id})">🗑️</button>
+        <button class="btn-sm btn-primary" onclick="viewOrder('${sanitizeHTML(o.id)}')">👁️</button>
+        <button class="btn-sm btn-warning" onclick="editOrder('${sanitizeHTML(o.id)}')">✏️</button>
+        <button class="btn-sm btn-danger" onclick="deleteOrder('${sanitizeHTML(o.id)}')">🗑️</button>
       </td>
     </tr>
   `).join('');
@@ -2273,13 +2292,13 @@ function loadProducts() {
     
     return `
       <tr style="${isArchived ? 'opacity:0.6;background:var(--bg-secondary)' : ''}">
-        <td><strong>#${p.id}</strong></td>
+        <td><strong>#${sanitizeHTML(p.id)}</strong></td>
         <td>
-          <strong>${p.name}</strong>
+          <strong>${sanitizeHTML(p.name)}</strong>
           ${hasVideo ? '<span style="color:var(--success);margin-left:8px" title="Vidéo disponible">🎥</span>' : ''}
           ${isArchived ? '<span style="color:var(--muted);font-size:11px;margin-left:8px">(Archivé)</span>' : ''}
         </td>
-        <td><span class="badge">${p.category}</span></td>
+        <td><span class="badge">${sanitizeHTML(p.category)}</span></td>
         <td>${variants}</td>
         <td>${fc(minPrice)}</td>
         <td><strong style="color:${totalStock < 10 ? 'var(--warning)' : 'var(--success)'}">
@@ -2366,15 +2385,15 @@ function loadCustomers() {
   
   tbody.innerHTML = state.data.customers.map(c => `
     <tr>
-      <td><strong>#${c.id}</strong></td>
-      <td>${c.name}</td>
-      <td>${c.email}</td>
-      <td>${c.phone}</td>
+      <td><strong>#${sanitizeHTML(c.id)}</strong></td>
+      <td>${sanitizeHTML(c.name)}</td>
+      <td>${sanitizeHTML(c.email)}</td>
+      <td>${sanitizeHTML(c.phone)}</td>
       <td>${c.orders}</td>
       <td><strong>${fc(c.total)}</strong></td>
       <td>
-        <button class="btn-sm btn-primary" onclick="viewCustomer(${c.id})">👁️</button>
-        <button class="btn-sm btn-danger" onclick="deleteCustomer(${c.id})">🗑️</button>
+        <button class="btn-sm btn-primary" onclick="viewCustomer('${sanitizeHTML(c.id)}')">👁️</button>
+        <button class="btn-sm btn-danger" onclick="deleteCustomer('${sanitizeHTML(c.id)}')">🗑️</button>
       </td>
     </tr>
   `).join('');
@@ -3652,11 +3671,19 @@ function changePassword() {
     showToast('Mots de passe différents', 'error');
     return;
   }
-  
-  state.currentPassword = newPass;
+
+  if (newPass.length < 6) {
+    showToast('Minimum 6 caractères', 'error');
+    return;
+  }
+
+  // Stocker SEULEMENT le hash, jamais le mot de passe en clair
   state.passwordHash = CryptoJS.SHA256(newPass).toString();
-  localStorage.setItem('admin_password', newPass);
-  
+  localStorage.setItem('admin_password_hash', state.passwordHash);
+
+  // Supprimer l'ancien stockage en clair si il existe
+  localStorage.removeItem('admin_password');
+
   showToast('Mot de passe modifié', 'success');
   document.getElementById('newPassword').value = '';
   document.getElementById('confirmPassword').value = '';
@@ -3680,20 +3707,63 @@ function importAll() {
 function handleImport(event) {
   const file = event.target.files[0];
   if (!file) return;
-  
+
+  // Vérifier la taille du fichier (max 10MB)
+  if (file.size > 10 * 1024 * 1024) {
+    showToast('⚠️ Fichier trop volumineux (max 10MB)', 'error');
+    return;
+  }
+
+  if (!confirm('⚠️ ATTENTION: Cela va écraser toutes vos données actuelles. Continuer?')) {
+    return;
+  }
+
   const reader = new FileReader();
   reader.onload = (e) => {
     try {
       const imported = JSON.parse(e.target.result);
-      if (imported.products) state.data.products = imported.products;
-      if (imported.orders) state.data.orders = imported.orders;
-      if (imported.customers) state.data.customers = imported.customers;
+
+      // Validation de base de la structure
+      if (typeof imported !== 'object') {
+        throw new Error('Format invalide');
+      }
+
+      // Valider les produits
+      if (imported.products && Array.isArray(imported.products)) {
+        state.data.products = imported.products.map(p => ({
+          ...p,
+          name: sanitizeHTML(p.name || ''),
+          category: sanitizeHTML(p.category || '')
+        }));
+      }
+
+      // Valider les commandes
+      if (imported.orders && Array.isArray(imported.orders)) {
+        state.data.orders = imported.orders.map(o => ({
+          ...o,
+          customer: sanitizeHTML(o.customer || ''),
+          products: sanitizeHTML(o.products || '')
+        }));
+      }
+
+      // Valider les clients
+      if (imported.customers && Array.isArray(imported.customers)) {
+        state.data.customers = imported.customers.map(c => ({
+          ...c,
+          name: sanitizeHTML(c.name || ''),
+          email: sanitizeHTML(c.email || ''),
+          phone: sanitizeHTML(c.phone || '')
+        }));
+      }
+
       if (imported.cash) state.cash = imported.cash;
-      
+
       saveData();
-      location.reload();
+      showToast('✅ Import réussi', 'success');
+      setTimeout(() => location.reload(), 1000);
     } catch (err) {
-      showToast('Erreur import', 'error');
+      console.error('Import error:', err);
+      showToast('❌ Erreur: Fichier invalide', 'error');
     }
   };
   reader.readAsText(file);
@@ -3820,10 +3890,11 @@ function requestNotificationPermission() {
 
 function startAutoSync() {
   if (state.syncInterval) return;
-  
+
+  // Sync toutes les 30 secondes pour réduire la charge serveur
   state.syncInterval = setInterval(() => {
     syncOrders(false);
-  }, 5000);
+  }, 30000);
 }
 
 function showModal(title, body) {
