@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nettoyage du cache...</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+      text-align: center;
+    }
+    .container {
+      background: rgba(255,255,255,0.1);
+      padding: 40px;
+      border-radius: 20px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    }
+    h1 {
+      font-size: 2.5em;
+      margin-bottom: 20px;
+    }
+    .spinner {
+      border: 4px solid rgba(255,255,255,0.3);
+      border-top: 4px solid white;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 1s linear infinite;
+      margin: 20px auto;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .success {
+      font-size: 1.2em;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>✨ Nettoyage du cache</h1>
+    <div class="spinner"></div>
+    <p id="message">Effacement des données en cours...</p>
+    <div class="success" id="success" style="display:none;">
+      ✅ Cache nettoyé avec succès !<br>
+      <small>Redirection dans 2 secondes...</small>
+    </div>
+  </div>
+
+  <script>
+    // Vider TOUT le localStorage
+    localStorage.clear();
+
+    // Vider aussi le sessionStorage
+    sessionStorage.clear();
+
+    // Afficher le succès
+    setTimeout(() => {
+      document.getElementById('message').style.display = 'none';
+      document.querySelector('.spinner').style.display = 'none';
+      document.getElementById('success').style.display = 'block';
+
+      // Rediriger vers la boutique
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 2000);
+    }, 1000);
+  </script>
+</body>
+</html>
