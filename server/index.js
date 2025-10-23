@@ -1096,6 +1096,47 @@ async function getReferralStats(customer) {
 }
 
 // ==================== NOTIFICATION SYSTEM ====================
+async function notifyReferralSuccess(referrerContact, newCustomerContact, creditAmount, orderId) {
+  // Essayer de trouver l'ID Telegram du parrain
+  const referrerTelegramId = await getClientTelegramId(referrerContact);
+
+  if (referrerTelegramId && config.telegram.botToken) {
+    const message = `🎉 <b>FÉLICITATIONS ! PARRAINAGE RÉUSSI !</b>
+
+💰 <b>+${creditAmount} DA ajoutés à votre crédit !</b>
+
+👤 <b>Nouveau client parrainé:</b> ${newCustomerContact}
+📦 <b>Commande:</b> #${orderId}
+
+💳 <b>Votre crédit est disponible immédiatement</b>
+Utilisez-le lors de votre prochaine commande !
+
+🚀 Continuez à partager votre code et gagnez encore plus !`;
+
+    try {
+      await telegram.sendMessage(referrerTelegramId, message);
+      console.log(`✅ Referral notification sent to ${referrerContact}`);
+    } catch (error) {
+      console.error(`❌ Failed to send referral notification to ${referrerContact}:`, error.message);
+    }
+  }
+
+  // Notification admin optionnelle
+  if (config.telegram.adminChatId) {
+    const adminMessage = `💰 <b>PARRAINAGE RÉUSSI</b>
+
+👤 Parrain: ${referrerContact} → +${creditAmount} DA
+🆕 Filleul: ${newCustomerContact}
+📦 Commande: #${orderId}`;
+
+    try {
+      await telegram.sendMessage(config.telegram.adminChatId, adminMessage);
+    } catch (error) {
+      console.error('Failed to send admin referral notification:', error.message);
+    }
+  }
+}
+
 async function notifyNewCustomerOrder(order, items, customerRecord) {
   if (config.telegram.adminChatId) {
     const message = `🆕 <b>NOUVEAU CLIENT - VALIDATION REQUISE</b>
@@ -1580,7 +1621,7 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
 
     validateOrderInput(req.body);
 
-    const { customer, type, address, items, total, referralCode } = req.body;
+    const { customer, type, address, items, total, referralCode, useCredit } = req.body;
     
     const sanitizedCustomer = sanitizeString(customer, 100);
     const sanitizedType = sanitizeString(type, 50);
@@ -1632,14 +1673,43 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
     
     const isNewCustomer = customerRecord.status === 'pending';
     const isApproved = customerRecord.status === 'approved';
-    
+
     let discount = 0;
     if (isApproved) {
       const loyaltyResult = await calculateLoyaltyDiscount(sanitizedCustomer, total);
       discount = loyaltyResult.discount;
     }
-    
-    const finalTotal = total - discount;
+
+    // ==================== UTILISATION DU CRÉDIT ====================
+    let creditUsed = 0;
+    let remainingCredit = 0;
+
+    if (useCredit === true || useCredit === 'true') {
+      // Récupérer le crédit disponible du client
+      const customerReferralCheck = await db.get(
+        'SELECT credit_balance FROM referrals WHERE customer_contact = ?',
+        [sanitizedCustomer]
+      );
+
+      if (customerReferralCheck && customerReferralCheck.credit_balance > 0) {
+        const availableCredit = customerReferralCheck.credit_balance;
+        const totalAfterDiscount = total - discount;
+
+        // Utiliser le crédit (ne peut pas dépasser le total de la commande)
+        creditUsed = Math.min(availableCredit, totalAfterDiscount);
+        remainingCredit = availableCredit - creditUsed;
+
+        // Déduire le crédit utilisé
+        await db.run(
+          'UPDATE referrals SET credit_balance = ? WHERE customer_contact = ?',
+          [remainingCredit, sanitizedCustomer]
+        );
+
+        console.log(`💳 Credit used: ${creditUsed} DA (remaining: ${remainingCredit} DA)`);
+      }
+    }
+
+    const finalTotal = total - discount - creditUsed;
     const orderStatus = isNewCustomer ? 'pending_approval' : 'pending';
     
     // Récupérer l'ID Telegram du client s'il existe
@@ -1680,6 +1750,16 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
       referralResult = await applyReferralCredits(referralCode.trim(), sanitizedCustomer, orderId);
     }
 
+    // Notification Telegram pour le parrain si un code a été utilisé
+    if (referralResult && referralResult.referrerContact) {
+      await notifyReferralSuccess(
+        referralResult.referrerContact,
+        sanitizedCustomer,
+        referralResult.referrerCredit,
+        orderId
+      ).catch(err => console.error('Referral notification error:', err.message));
+    }
+
     if (isNewCustomer) {
       await notifyNewCustomerOrder(order, items, customerRecord).catch(err =>
         console.error('Notification error:', err.message)
@@ -1689,6 +1769,8 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
         ok: true,
         orderId,
         discount,
+        creditUsed,
+        remainingCredit,
         requiresApproval: true,
         message: 'Votre commande est en attente de validation. Vous serez notifié sous peu.',
         referralCode: customerReferral.referral_code,
@@ -1703,6 +1785,8 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
         ok: true,
         orderId,
         discount,
+        creditUsed,
+        remainingCredit,
         referralCode: customerReferral.referral_code,
         referralCredit: referralResult?.referredCredit || 0
       });
@@ -1802,6 +1886,29 @@ app.get('/api/referral-stats', apiLimiter, async (req, res) => {
     });
   } catch (error) {
     console.error('Referral stats error:', error);
+    res.status(500).json({ ok: false, error: 'Erreur serveur' });
+  }
+});
+
+app.get('/api/credit-balance', apiLimiter, async (req, res) => {
+  try {
+    const { customer } = req.query;
+
+    if (!customer) {
+      return res.status(400).json({ ok: false, error: 'Contact client manquant' });
+    }
+
+    const referral = await db.get(
+      'SELECT credit_balance FROM referrals WHERE customer_contact = ?',
+      [customer]
+    );
+
+    res.json({
+      ok: true,
+      creditBalance: referral?.credit_balance || 0
+    });
+  } catch (error) {
+    console.error('Credit balance error:', error);
     res.status(500).json({ ok: false, error: 'Erreur serveur' });
   }
 });
