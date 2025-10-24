@@ -2739,7 +2739,7 @@ const SyncManager = {
   loadProducts() {
     try {
       // Version des données pour forcer le refresh (changer ce numéro pour forcer un reload)
-      const DATA_VERSION = 3; // Incrémenté pour forcer le rechargement avec vidéos compressées
+      const DATA_VERSION = 4; // Incrémenté pour charger les nouveaux produits FF MANDARINA et FF FRUITS
       const savedVersion = parseInt(localStorage.getItem('data_version') || '0');
 
       const data = localStorage.getItem('shop_products');
@@ -2762,7 +2762,7 @@ const SyncManager = {
         console.log('🎯 Premier démarrage - Chargement des produits par défaut...');
         localStorage.setItem('data_version', DATA_VERSION.toString());
         this.saveProducts(DEFAULT_PRODUCTS);
-        console.log('✅ 8 produits par défaut chargés !');
+        console.log('✅ 10 produits par défaut chargés !');
         return DEFAULT_PRODUCTS;
       }
     } catch (e) {
@@ -6532,9 +6532,9 @@ function init() {
     // Démarrer la synchronisation automatique
     startAutoSync();
     
-    console.log('✅ DROGUA CENTER v3.1 chargé - VERSION COMPLÈTE');
+    console.log('✅ DROGUA CENTER v3.2 chargé - VERSION COMPLÈTE');
     console.log('🔄 Synchronisation automatique active (toutes les 5s)');
-    console.log('📦 8 produits préchargés : AMNESIA, DEMBELE, STRAWBERRY 120U, VVS TANGER, FRESH FROZEN, CHAMPAGNE, NEEDLES KETA, EL JEFE');
+    console.log('📦 10 produits préchargés : AMNESIA, DEMBELE, STRAWBERRY 120U, VVS TANGER, FRESH FROZEN, CHAMPAGNE, NEEDLES KETA, EL JEFE, FF MANDARINA, FF FRUITS');
     console.log('🏷️ Catégories : Weed, Mousseux, Blanche, Keta, Frozen, Filtré');
     console.log('💾 Toutes les données sont sauvegardées localement');
   } catch (error) {
