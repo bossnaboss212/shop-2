@@ -2761,16 +2761,19 @@ const SyncManager = {
       }
 
       // Fallback sur localStorage avec gestion de version
-      const DATA_VERSION = 5; // Incrémenté pour forcer le chargement des produits FF MANDARINA et FF FRUITS
+      const DATA_VERSION = 10; // Version augmentée pour forcer le chargement des 10 produits
       const savedVersion = parseInt(localStorage.getItem('data_version') || '0');
       const data = localStorage.getItem('shop_products');
 
+      console.log(`📊 Version actuelle: ${savedVersion}, Version requise: ${DATA_VERSION}`);
+
       // Si la version a changé, on force le rechargement des produits par défaut
       if (savedVersion < DATA_VERSION) {
-        console.log('🔄 Nouvelle version détectée, rechargement des produits...');
+        console.log('🔄 Ancienne version détectée! Rechargement forcé des 10 produits...');
+        localStorage.clear(); // Vider complètement le cache
         localStorage.setItem('data_version', DATA_VERSION.toString());
         this.saveProducts(DEFAULT_PRODUCTS);
-        console.log('✅ Produits mis à jour vers version', DATA_VERSION);
+        console.log(`✅ ${DEFAULT_PRODUCTS.length} produits chargés: ${DEFAULT_PRODUCTS.map(p => p.name).join(', ')}`);
         return DEFAULT_PRODUCTS;
       }
 
