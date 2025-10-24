@@ -2,17 +2,19 @@
 <!--
   DROGUA CENTER v3.2 - VERSION FINALE AVEC PRODUITS INTÉGRÉS
   
-  ✅ 8 PRODUITS PRÉCHARGÉS :
+  ✅ 10 PRODUITS PRÉCHARGÉS :
      1. AMNESIA (Weed)
      2. DEMBELE (Résines)
      3. STRAWBERRY 120U (Filtré)
-     4. VVS TANGER FROZEN (Frozen)
-     5. FRESH FROZEN (Frozen)
-     6. CHAMPAGNE (Mdmda & Exta)
+     4. VVS TANGER FROZEN (DRY SIFT)
+     5. FRESH FROZEN (DRY SIFT)
+     6. CHAMPAGNE (Mdma)
      7. NEEDLES KETA (Keta)
      8. EL JEFE (Blanche)
+     9. FF FRUITS (DRY SIFT)
+     10. FF MANDARINA (DRY SIFT)
   
-  ✅ 6 CATÉGORIES COMPLÈTES : Weed, Résines, Blanche, Keta, Frozen, Filtré, Mdma & Exta
+  ✅ 7 CATÉGORIES COMPLÈTES : Weed, Mousseux, Blanche, Keta, DRY SIFT, Filtré, Mdma
   ✅ 40 VARIANTS TOTAUX avec prix et stocks
   ✅ Synchronisation en temps réel avec l'admin
   ✅ Stocks mis à jour automatiquement
@@ -1968,12 +1970,13 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
     <section class="categories">
       <div class="categories-scroll" id="categoriesScroll">
         <button class="category-chip active" data-cat="all">Tout</button>
-        <button class="category-chip" data-cat="Weed">🌿 Weed</button>
+        <button class="category-chip" data-cat="Weed">🌳 Weed</button>
         <button class="category-chip" data-cat="Mousseux">🧽 Mousseux</button>
-        <button class="category-chip" data-cat="blanche">⚪ Blanche</button>
+        <button class="category-chip" data-cat="blanche">❄️ Blanche</button>
+        <button class="category-chip" data-cat="Mdma">💊 Mdma</button>
         <button class="category-chip" data-cat="keta">☁️ Keta</button>
-        <button class="category-chip" data-cat="frozen">❄️ Frozen</button>
-        <button class="category-chip" data-cat="filtre">🔬 Filtré</button>
+        <button class="category-chip" data-cat="DRY SIFT">🍯 DRY SIFT</button>
+        <button class="category-chip" data-cat="filtre">🤯 Filtré</button>
       </div>
     </section>
 
@@ -2698,17 +2701,18 @@ function sanitizeInput(input) {
 
 function getCategoryEmoji(category) {
   const emojis = {
-    'Weed': '🌿',
+    'Weed': '🌳',
     'Mousseux': '🧽',
-    'blanche': '⚪',
-    'Blanche': '⚪',
+    'blanche': '❄️',
+    'Blanche': '❄️',
+    'Mdma': '💊',
     'keta': '☁️',
     'Keta': '☁️',
-    'frozen': '❄️',
-    'Frozen': '❄️',
-    'filtre': '🔬',
-    'Filtré': '🔬',
-    'Filtré': '🔬'
+    'DRY SIFT': '🍯',
+    'DRY SIFT': '🍯',
+    'filtre': '🤯',
+    'Filtré': '🤯',
+    'Filtré': '🤯'
   };
   return emojis[category] || '📦';
 }
@@ -3331,7 +3335,7 @@ const DEFAULT_PRODUCTS = [
     category: 'Weed',
     video: '/videos/amnesia.MP4',
     variants: {
-      '3.33G': { price: 20, grams: 3.33, stock: 30 },
+      '3G': { price: 20, grams: 3, stock: 30 },
       '5G': { price: 30, grams: 5, stock: 25 },
       '10G': { price: 60, grams: 10, stock: 20 },
       '50G': { price: 250, grams: 50, stock: 10 },
@@ -3339,10 +3343,10 @@ const DEFAULT_PRODUCTS = [
     }
   },
 
-  // 2. DEMBELE - MOUSSEUX
+  // 2. CINCO FLORES - MOUSSEUX
   {
     id: 2,
-    name: 'DEMBELE',
+    name: 'CINCO FLORES',
     category: 'Mousseux',
     video: '',
     variants: {
@@ -3355,7 +3359,7 @@ const DEFAULT_PRODUCTS = [
     }
   },
 
-  // 3. STRAWBERRY 120U - HASH (FILTRÉ)
+  // 3. STRAWBERRY 120U - FILTRÉ
   {
     id: 3,
     name: 'STRAWBERRY 120U',
@@ -3370,14 +3374,14 @@ const DEFAULT_PRODUCTS = [
     }
   },
 
-  // 4. VVS TANGER FROZEN - FROZEN
+  // 4. VVS TANGER FROZEN - DRY SIFT
   {
     id: 4,
     name: 'VVS TANGER FROZEN',
-    category: 'Frozen',
+    category: 'DRY SIFT',
     video: '',
     variants: {
-      '1.1G': { price: 20, grams: 1.1, stock: 40 },
+      '1.5G': { price: 20, grams: 1.5, stock: 40 },
       '2.5G': { price: 40, grams: 2.5, stock: 40 },
       '5G': { price: 70, grams: 5, stock: 30 },
       '10G': { price: 140, grams: 10, stock: 30 },
@@ -3385,11 +3389,11 @@ const DEFAULT_PRODUCTS = [
     }
   },
 
-  // 5. FRESH FROZEN - FROZEN
+  // 5. FRESH FROZEN - DRY SIFT
   {
     id: 5,
     name: 'FRESH FROZEN',
-    category: 'Frozen',
+    category: 'DRY SIFT',
     video: '',
     variants: {
       '1.1G': { price: 20, grams: 1.1, stock: 40 },
@@ -3400,17 +3404,16 @@ const DEFAULT_PRODUCTS = [
     }
   },
 
-  // 6. CHAMPAGNE - FROZEN
+  // 6. CHAMPAGNE - MDMA
   {
     id: 6,
     name: 'CHAMPAGNE',
-    category: 'Mdma & Exta',
+    category: 'Mdma',
     video: '/videos/champagne.MP4',
     variants: {
       '1G': { price: 30, grams: 1, stock: 50 },
       '2G': { price: 60, grams: 2, stock: 50 },
-      '3G': { price: 70, grams: 3, stock: 50 },
-      '5G': { price: 100, grams: 5, stock: 45 },
+      '5G': { price: 180, grams: 5, stock: 45 },
       '10G': { price: 180, grams: 10, stock: 40 }
     }
   },
@@ -3447,11 +3450,11 @@ const DEFAULT_PRODUCTS = [
     }
   },
 
-  // 9. FF MANDARINA - FROZEN
+  // 9. FF MANDARINA - DRY SIFT
   {
     id: 9,
-    name: 'FF MANDARINA🍊',
-    category: 'Frozen',
+    name: 'FF MANDARINA',
+    category: 'DRY SIFT',
     video: '/videos/ff_mandarina.MP4',
     variants: {
       '1.25G': { price: 20, grams: 1.25, stock: 30 },
@@ -3462,11 +3465,11 @@ const DEFAULT_PRODUCTS = [
     }
   },
 
-  // 10. FF FRUITS - FROZEN
+  // 10. FF FRUITS - DRY SIFT
   {
     id: 10,
-    name: 'FF FRUITS 🍓🍒',
-    category: 'Frozen',
+    name: 'FF FRUITS',
+    category: 'DRY SIFT',
     video: '/videos/ff_fruits.MP4',
     variants: {
       '1.25G': { price: 20, grams: 1.25, stock: 30 },
@@ -6580,7 +6583,7 @@ function init() {
     console.log('✅ DROGUA CENTER v3.2 chargé - VERSION COMPLÈTE');
     console.log('🔄 Synchronisation automatique active (toutes les 5s)');
     console.log('📦 10 produits préchargés : AMNESIA, DEMBELE, STRAWBERRY 120U, VVS TANGER, FRESH FROZEN, CHAMPAGNE, NEEDLES KETA, EL JEFE, FF MANDARINA, FF FRUITS');
-    console.log('🏷️ Catégories : Weed, Mousseux, Blanche, Keta, Frozen, Filtré');
+    console.log('🏷️ Catégories : Weed, Mousseux, Blanche, Keta, DRY SIFT, Filtré, mdma');
     console.log('💾 Toutes les données sont sauvegardées localement');
   } catch (error) {
     console.error('❌ Erreur initialisation:', error);
