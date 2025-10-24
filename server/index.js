@@ -1735,7 +1735,7 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
 
     validateOrderInput(req.body);
 
-    const { customer, type, address, items, total, referralCode, useCredit } = req.body;
+    const { customer, type, address, items, total, referralCode, useCredit, telegramId } = req.body;
     
     const sanitizedCustomer = sanitizeString(customer, 100);
     const sanitizedType = sanitizeString(type, 50);
@@ -1825,9 +1825,22 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
 
     const finalTotal = total - discount - creditUsed;
     const orderStatus = isNewCustomer ? 'pending_approval' : 'pending';
-    
+
+    // Si un telegram_id a été fourni, lier ce telegram_id au contact du client
+    if (telegramId) {
+      try {
+        await db.run(`
+          INSERT OR REPLACE INTO telegram_clients (telegram_id, contact, first_started_at)
+          VALUES (?, ?, COALESCE((SELECT first_started_at FROM telegram_clients WHERE telegram_id = ?), datetime('now')))
+        `, [telegramId, sanitizedCustomer, telegramId]);
+        console.log(`🔗 Linked Telegram ID ${telegramId} to contact ${sanitizedCustomer}`);
+      } catch (error) {
+        console.error('Error linking telegram_id to contact:', error);
+      }
+    }
+
     // Récupérer l'ID Telegram du client s'il existe
-    const clientTelegramId = await getClientTelegramId(sanitizedCustomer);
+    const clientTelegramId = telegramId || await getClientTelegramId(sanitizedCustomer);
     
     const result = await db.run(
       `INSERT INTO orders (customer, type, address, items, total, discount, status, client_telegram_id) 
