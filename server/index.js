@@ -2771,24 +2771,31 @@ app.get('/api/admin/referrals/export', requireAdmin, async (req, res) => {
 if (config.telegram.token) {
   console.log('🤖 Configuring Telegram bot...');
 
-  app.post(`/bot${config.telegram.token}`, async (req, res) => {
-    try {
-      const { message, callback_query } = req.body;
-      
-      if (message) {
-        await handleTelegramMessage(message);
+  try {
+    app.post(`/bot${config.telegram.token}`, async (req, res) => {
+      try {
+        const { message, callback_query } = req.body;
+
+        if (message) {
+          await handleTelegramMessage(message);
+        }
+
+        if (callback_query) {
+          await handleTelegramCallback(callback_query);
+        }
+
+        res.sendStatus(200);
+      } catch (error) {
+        console.error('❌ Bot error:', error.message);
+        res.sendStatus(500);
       }
-      
-      if (callback_query) {
-        await handleTelegramCallback(callback_query);
-      }
-      
-      res.sendStatus(200);
-    } catch (error) {
-      console.error('❌ Bot error:', error.message);
-      res.sendStatus(500);
-    }
-  });
+    });
+
+    console.log('✅ Telegram bot webhook configured successfully');
+  } catch (error) {
+    console.error('❌ Failed to configure Telegram bot:', error.message);
+    console.error(error.stack);
+  }
 }
 
 // ==================== CLAVIER PERMANENT POUR CHAQUE UTILISATEUR ====================
@@ -4219,6 +4226,17 @@ async function start() {
     process.exit(1);
   }
 }
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+  console.error('❌ Uncaught Exception:', error.message);
+  console.error(error.stack);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Rejection at:', promise);
+  console.error('❌ Reason:', reason);
+});
 
 process.on('SIGTERM', async () => {
   console.log('📛 SIGTERM received, closing server...');
