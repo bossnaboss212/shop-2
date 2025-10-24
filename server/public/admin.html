@@ -924,7 +924,7 @@
         <button onclick="openArchivedStats()" style="background:var(--info)">📊 Stats Archivés</button>
         <button onclick="exportArchivedProducts()" style="background:var(--warning)">📥 Export Archivés</button>
         <button onclick="syncProductsFromDatabase()" style="background:var(--accent);color:white">🔄 Synchroniser DB</button>
-        <button onclick="resetProducts()" style="background:#a855f7;color:white">🔄 Restaurer les 8 produits</button>
+        <button onclick="resetProducts()" style="background:#a855f7;color:white">🔄 Restaurer les 10 produits</button>
       </div>
 
       <div class="table-container">
@@ -1744,20 +1744,52 @@ const state = {
           '25G': { price: 250, stock: 30, grams: 25 }
         }
       },
-      { 
-        id: 8, 
-        name: 'CHAMPAGNE', 
-        category: 'mdma', 
-        buyPrice: 3.0, 
+      {
+        id: 8,
+        name: 'CHAMPAGNE',
+        category: 'mdma',
+        buyPrice: 3.0,
         video: '/videos/champagne.MP4',
-        videoType: 'video/mp4', 
-        archived: false, 
+        videoType: 'video/mp4',
+        archived: false,
         variants: {
           '1G': { price: 30, stock: 40, grams: 1 },
           '2G': { price: 60, stock: 55, grams: 2 },
           '3G': { price: 70, stock: 55, grams: 3 },
           '5G': { price: 100, stock: 30, grams: 5 },
           '10G': { price: 180, stock: 55, grams: 10 }
+        }
+      },
+      {
+        id: 9,
+        name: 'FF MANDARINA🍊',
+        category: 'frozen',
+        buyPrice: 4.0,
+        video: '/videos/ff_mandarina.MP4',
+        videoType: 'video/mp4',
+        archived: false,
+        variants: {
+          '1.25G': { price: 20, stock: 30, grams: 1.25 },
+          '1.9G': { price: 30, stock: 30, grams: 1.9 },
+          '2.5G': { price: 40, stock: 30, grams: 2.5 },
+          '5G': { price: 80, stock: 25, grams: 5 },
+          '10G': { price: 140, stock: 20, grams: 10 }
+        }
+      },
+      {
+        id: 10,
+        name: 'FF FRUITS 🍓🍒',
+        category: 'frozen',
+        buyPrice: 4.0,
+        video: '/videos/ff_fruits.MP4',
+        videoType: 'video/mp4',
+        archived: false,
+        variants: {
+          '1.25G': { price: 20, stock: 30, grams: 1.25 },
+          '1.9G': { price: 30, stock: 30, grams: 1.9 },
+          '2.5G': { price: 40, stock: 30, grams: 2.5 },
+          '5G': { price: 80, stock: 25, grams: 5 },
+          '10G': { price: 140, stock: 20, grams: 10 }
         }
       }
     ],
@@ -1815,7 +1847,7 @@ function loadData() {
       console.error('Error loading data:', e);
     }
   } else {
-    console.log('ℹ️ Aucune donnée sauvegardée - utilisation des 8 produits par défaut');
+    console.log('ℹ️ Aucune donnée sauvegardée - utilisation des 10 produits par défaut');
   }
   
   const savedCash = localStorage.getItem('admin_cash_ultra');
