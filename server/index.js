@@ -1363,15 +1363,21 @@ ${order.discount > 0 ? `🎁 Remise fidélité: -${order.discount}€\n` : ''}�
     await telegram.sendMessage(config.telegram.adminChatId, adminMessage);
   }
   
+  // ==================== NOTIFICATIONS LIVREUR DÉSACTIVÉES ====================
+  // Le livreur doit recevoir les commandes UNIQUEMENT via le bot (bot.js)
+  // Les notifications directes sont désactivées ci-dessous
+
   if (driverInfo.driverId) {
+    // ⚠️ NOTIFICATION DIRECTE DÉSACTIVÉE - Le livreur reçoit via bot.js uniquement
+    /*
     const allPendingOrders = await db.all(
       "SELECT * FROM orders WHERE status = 'pending' AND assigned_driver_zone = ? ORDER BY created_at ASC",
       [driverInfo.zone]
     );
-    
+
     const orderPosition = allPendingOrders.findIndex(o => o.id === order.id) + 1;
     const totalPending = allPendingOrders.length;
-    
+
     let driverMessage = `🚚 <b>NOUVELLE COMMANDE #${order.id}</b>
 
 🔢 <b>Position: ${orderPosition}/${totalPending}</b> ${orderPosition === 1 ? '⚡ PRIORITÉ' : ''}
@@ -1391,14 +1397,14 @@ ${items.map(item => `• ${item.name} - ${item.variant} ×${item.qty}`).join('\n
     if (totalPending > 1) {
       driverMessage += `\n\n━━━━━━━━━━━━━━━━━━━
 📋 <b>TOUTES VOS COMMANDES (${totalPending})</b>\n`;
-      
+
       allPendingOrders.forEach((o, index) => {
         const emoji = index === 0 ? '⚡' : (index + 1).toString() + '️⃣';
         const highlight = o.id === order.id ? ' 🆕' : '';
         driverMessage += `\n${emoji} #${o.id} - ${o.total}€${highlight}`;
       });
     }
-    
+
     const keyboard = {
       inline_keyboard: [
         [{ text: '🚀 START - DÉMARRER', callback_data: `start_delivery_${order.id}` }],
@@ -1407,19 +1413,24 @@ ${items.map(item => `• ${item.name} - ${item.variant} ×${item.qty}`).join('\n
         [{ text: '❌ Refuser', callback_data: `refuse_delivery_${order.id}` }]
       ]
     };
-    
+
     await telegram.sendMessage(driverInfo.driverId, driverMessage, { reply_markup: keyboard });
-    
+
     // Créer la conversation (sans l'activer encore)
     const clientTelegramId = order.client_telegram_id || await getClientTelegramId(order.customer);
     if (clientTelegramId) {
       chatManager.createConversation(order.id, driverInfo.driverId, clientTelegramId);
     }
-    
+    */
+
+    // Mise à jour de la zone du livreur (conservée)
     await db.run(
       'UPDATE orders SET assigned_driver_zone = ? WHERE id = ?',
       [driverInfo.zone, order.id]
     );
+
+    console.log(`📦 Commande #${order.id} assignée à ${driverInfo.driverName} (${driverInfo.zone})`);
+    console.log(`ℹ️  Le livreur recevra la notification via le bot uniquement`);
   }
 }
 
