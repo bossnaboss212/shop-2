@@ -1788,14 +1788,33 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
     }
     
     const customerRecord = await getOrCreateCustomer(sanitizedCustomer);
-    
+
     if (!customerRecord) {
-      return res.status(500).json({ 
-        ok: false, 
-        error: 'Erreur lors de la création du profil client' 
+      return res.status(500).json({
+        ok: false,
+        error: 'Erreur lors de la création du profil client'
       });
     }
-    
+
+    // ==================== AUTO-APPROBATION DES CLIENTS EXISTANTS ====================
+    // Si le client a déjà des commandes livrées, l'approuver automatiquement
+    if (customerRecord.status === 'pending') {
+      const previousOrders = await db.get(
+        'SELECT COUNT(*) as count FROM orders WHERE customer = ? AND status = "delivered"',
+        [sanitizedCustomer]
+      );
+
+      if (previousOrders && previousOrders.count > 0) {
+        // Client avec historique de commandes livrées → auto-approuver
+        await db.run(
+          'UPDATE customers SET status = ?, approved_date = CURRENT_TIMESTAMP, approved_by = ? WHERE contact = ?',
+          ['approved', 'Auto (commandes existantes)', sanitizedCustomer]
+        );
+        customerRecord.status = 'approved';
+        console.log(`✅ Auto-approved existing customer: ${sanitizedCustomer} (${previousOrders.count} delivered orders)`);
+      }
+    }
+
     const isNewCustomer = customerRecord.status === 'pending';
     const isApproved = customerRecord.status === 'approved';
 
