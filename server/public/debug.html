@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Debug - Produits</title>
+  <style>
+    body {
+      font-family: monospace;
+      padding: 20px;
+      background: #0a0e14;
+      color: #e8edf2;
+    }
+    h1 { color: #5ba3f5; }
+    .product {
+      background: #151b23;
+      padding: 15px;
+      margin: 10px 0;
+      border-radius: 8px;
+      border-left: 4px solid #5ba3f5;
+    }
+    .count {
+      font-size: 24px;
+      padding: 20px;
+      background: #1a212b;
+      border-radius: 10px;
+      margin: 20px 0;
+    }
+    button {
+      padding: 10px 20px;
+      background: #5ba3f5;
+      border: none;
+      border-radius: 8px;
+      color: white;
+      cursor: pointer;
+      font-size: 16px;
+      margin: 10px 5px;
+    }
+    button:hover {
+      background: #4a92e4;
+    }
+    .info {
+      background: #2a3441;
+      padding: 15px;
+      border-radius: 8px;
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>🔍 Diagnostic des Produits</h1>
+
+  <div class="info">
+    <strong>Cache Status:</strong>
+    <div id="cacheInfo"></div>
+  </div>
+
+  <div class="count">
+    <strong>Nombre de produits chargés:</strong> <span id="productCount">Chargement...</span>
+  </div>
+
+  <button onclick="clearCache()">🗑️ Vider le cache</button>
+  <button onclick="location.reload()">🔄 Recharger</button>
+  <button onclick="location.href='/'">🏠 Retour boutique</button>
+
+  <div id="productList"></div>
+
+  <script>
+    // Charger le même code que la boutique
+    const DEFAULT_PRODUCTS = [
+      { id: 1, name: 'AMNESIA', category: 'Weed' },
+      { id: 2, name: 'DEMBELE', category: 'Mousseux' },
+      { id: 3, name: 'STRAWBERRY 120U', category: 'Filtre' },
+      { id: 4, name: 'VVS TANGER FROZEN', category: 'Frozen' },
+      { id: 5, name: 'FRESH FROZEN', category: 'Frozen' },
+      { id: 6, name: 'CHAMPAGNE', category: 'Mdma & Exta' },
+      { id: 7, name: 'NEEDLES KETA', category: 'Keta' },
+      { id: 8, name: 'EL JEFE', category: 'blanche' },
+      { id: 9, name: 'FF MANDARINA🍊', category: 'Frozen' },
+      { id: 10, name: 'FF FRUITS 🍓🍒', category: 'Frozen' }
+    ];
+
+    // Vérifier le cache
+    const dataVersion = localStorage.getItem('data_version');
+    const shopProducts = localStorage.getItem('shop_products');
+
+    document.getElementById('cacheInfo').innerHTML = `
+      <div>Data Version: ${dataVersion || 'Non définie'}</div>
+      <div>Produits en cache: ${shopProducts ? JSON.parse(shopProducts).length : 0}</div>
+    `;
+
+    // Charger les produits
+    let products = [];
+    if (shopProducts) {
+      products = JSON.parse(shopProducts);
+    } else {
+      products = DEFAULT_PRODUCTS;
+    }
+
+    document.getElementById('productCount').textContent = products.length;
+    document.getElementById('productCount').style.color = products.length >= 10 ? '#10b981' : '#ef4444';
+
+    const productList = document.getElementById('productList');
+    products.forEach(p => {
+      const div = document.createElement('div');
+      div.className = 'product';
+      div.innerHTML = `
+        <strong>ID ${p.id}:</strong> ${p.name}
+        <span style="color: #7a8594">(${p.category})</span>
+      `;
+      productList.appendChild(div);
+    });
+
+    function clearCache() {
+      localStorage.clear();
+      sessionStorage.clear();
+      alert('Cache vidé ! Rechargement...');
+      location.reload();
+    }
+  </script>
+</body>
+</html>
