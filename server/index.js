@@ -555,139 +555,96 @@ async function saveMessage(orderId, senderType, senderId, message) {
 }
 
 async function relayDriverMessage(driverChatId, text, conv) {
-  console.log(`📤 Driver → Client (order #${conv.orderId}): "${text}"`);
-  
+  console.log(`📤 Driver → Support (order #${conv.orderId}): "${text}"`);
+
   await saveMessage(conv.orderId, 'driver', driverChatId.toString(), text);
-  
-  const clientMsg = `🚚 <b>Votre livreur</b> (Commande #${conv.orderId})
 
-💬 ${text}
+  // ⚠️ DÉSACTIVER CHAT DIRECT - Passer par le support uniquement
+  const order = await db.get('SELECT customer FROM orders WHERE id = ?', [conv.orderId]);
 
-<i>Répondez directement pour lui parler</i>`;
-  
-  const clientKeyboard = {
-    inline_keyboard: [
-      [{ text: '✍️ Répondre (tapez votre message)', callback_data: 'noop' }],
-      [{ text: '❌ Fermer conversation', callback_data: `end_conv_${conv.orderId}` }]
-    ]
-  };
-  
-  try {
-    await telegram.sendMessage(conv.clientTelegramId, clientMsg, { 
-      reply_markup: clientKeyboard 
-    });
-    
-    chatManager.activateClient(conv.orderId);
-    
-    await telegram.sendMessage(driverChatId, `✅ Message envoyé
+  if (config.telegram.supportChatId) {
+    await telegram.sendMessage(config.telegram.supportChatId,
+      `📨 <b>MESSAGE LIVREUR → CLIENT</b>
+
+📦 Commande #${conv.orderId}
+👤 Client: ${order?.customer}
+
+💬 <b>Message du livreur:</b>
+"${text}"
+
+<b>⚠️ ACTION REQUISE:</b>
+👉 Transmettez ce message au client manuellement`
+    );
+  }
+
+  await telegram.sendMessage(driverChatId, `✅ Message transmis au support
 
 "${text}"
 
-⏳ <i>En attente de réponse du client...</i>`);
-    
-    if (config.telegram.supportChatId) {
-      await telegram.sendMessage(config.telegram.supportChatId, 
-        `📨 Driver → Client (#${conv.orderId})\n💬 "${text}"`
-      );
-    }
-  } catch (error) {
-    console.error('Error relaying driver message:', error);
-    
-    await telegram.sendMessage(driverChatId, 
-      '⚠️ Erreur temporaire. Le support va transmettre votre message.'
-    );
-    
-    if (config.telegram.supportChatId) {
-      const order = await db.get('SELECT customer FROM orders WHERE id = ?', [conv.orderId]);
-      await telegram.sendMessage(config.telegram.supportChatId, 
-        `🚨 URGENT - Erreur de transmission
-        
-Commande #${conv.orderId}
-Client: ${order?.customer}
-Message du livreur: "${text}"
-
-Transmettez manuellement au client.`
-      );
-    }
-  }
+📱 <i>Le support va transmettre au client...</i>`);
 }
 
 async function relayClientMessage(clientChatId, text, conv) {
-  console.log(`📤 Client → Driver (order #${conv.orderId}): "${text}"`);
-  
+  console.log(`📤 Client → Support (order #${conv.orderId}): "${text}"`);
+
   await saveMessage(conv.orderId, 'client', clientChatId.toString(), text);
-  
-  const driverMsg = `👤 <b>Message du client</b> (Commande #${conv.orderId})
 
-💬 ${text}
+  // ⚠️ DÉSACTIVER CHAT DIRECT - Passer par le support uniquement
+  if (config.telegram.supportChatId) {
+    await telegram.sendMessage(config.telegram.supportChatId,
+      `📨 <b>MESSAGE CLIENT → LIVREUR</b>
 
-<i>Tapez votre réponse ci-dessous</i>`;
-  
-  try {
-    await telegram.sendMessage(conv.driverId, driverMsg);
-    
-    await telegram.sendMessage(clientChatId, `✅ Message envoyé au livreur
+📦 Commande #${conv.orderId}
+👤 De: Client
+
+💬 <b>Message du client:</b>
+"${text}"
+
+<b>⚠️ ACTION REQUISE:</b>
+👉 Transmettez ce message au livreur manuellement`
+    );
+  }
+
+  await telegram.sendMessage(clientChatId, `✅ Message transmis au support
 
 "${text}"
 
-🚚 <i>Le livreur va vous répondre...</i>`);
-    
-    if (config.telegram.supportChatId) {
-      await telegram.sendMessage(config.telegram.supportChatId, 
-        `📨 Client → Driver (#${conv.orderId})\n💬 "${text}"`
-      );
-    }
-  } catch (error) {
-    console.error('Error relaying client message:', error);
-    
-    await telegram.sendMessage(clientChatId, 
-      '⚠️ Erreur temporaire. Nous allons transmettre votre message.'
-    );
-    
-    if (config.telegram.supportChatId) {
-      await telegram.sendMessage(config.telegram.supportChatId, 
-        `🚨 URGENT - Erreur transmission client
-        
-Commande #${conv.orderId}
-Message: "${text}"
-
-Transmettez au livreur.`
-      );
-    }
-  }
+<i>Le support va transmettre au livreur...</i>`);
 }
 
 async function stopConversationForOrder(chatId, orderId) {
   const conv = chatManager.getConversation(orderId);
-  
+
   if (!conv) {
     await telegram.sendMessage(chatId, 'ℹ️ Conversation déjà fermée');
     return;
   }
-  
+
   const isDriver = conv.driverId === chatId.toString();
   const isClient = conv.clientTelegramId === chatId.toString();
-  
+
   if (isDriver) {
     chatManager.deactivateDriver(orderId);
     await telegram.sendMessage(chatId, '✅ Conversation fermée');
-    
-    try {
-      await telegram.sendMessage(conv.clientTelegramId, 
-        `⚠️ Le livreur a fermé la conversation (Commande #${orderId})`
+
+    // ⚠️ NE PAS NOTIFIER LE CLIENT - Notifier le support
+    if (config.telegram.supportChatId) {
+      await telegram.sendMessage(config.telegram.supportChatId,
+        `ℹ️ Livreur a fermé la conversation (Commande #${orderId})`
       );
-    } catch (e) {}
+    }
   }
-  
+
   if (isClient) {
     chatManager.deactivateClient(orderId);
     await telegram.sendMessage(chatId, '✅ Conversation fermée');
-    
-    try {
-      await telegram.sendMessage(conv.driverId, 
-        `⚠️ Le client a fermé la conversation (Commande #${orderId})`
+
+    // ⚠️ NE PAS NOTIFIER LE LIVREUR - Notifier le support
+    if (config.telegram.supportChatId) {
+      await telegram.sendMessage(config.telegram.supportChatId,
+        `ℹ️ Client a fermé la conversation (Commande #${orderId})`
       );
-    } catch (e) {}
+    }
   }
 }
 
@@ -725,37 +682,39 @@ async function showChatHistory(chatId, orderId) {
 
 async function stopUserConversations(chatId) {
   let closed = 0;
-  
+
   for (const [orderId, conv] of chatManager.activeConversations.entries()) {
     if (conv.driverId === chatId.toString()) {
       chatManager.deactivateDriver(orderId);
       closed++;
-      
-      try {
-        await telegram.sendMessage(conv.clientTelegramId, 
-          `⚠️ Le livreur a fermé la conversation pour la commande #${orderId}`
+
+      // ⚠️ NE PAS NOTIFIER LE CLIENT - Notifier le support
+      if (config.telegram.supportChatId) {
+        await telegram.sendMessage(config.telegram.supportChatId,
+          `ℹ️ Livreur a fermé la conversation (Commande #${orderId})`
         );
-      } catch (e) {}
+      }
     }
-    
+
     if (conv.clientTelegramId === chatId.toString()) {
       chatManager.deactivateClient(orderId);
       closed++;
-      
-      try {
-        await telegram.sendMessage(conv.driverId, 
-          `⚠️ Le client a fermé la conversation pour la commande #${orderId}`
+
+      // ⚠️ NE PAS NOTIFIER LE LIVREUR - Notifier le support
+      if (config.telegram.supportChatId) {
+        await telegram.sendMessage(config.telegram.supportChatId,
+          `ℹ️ Client a fermé la conversation (Commande #${orderId})`
         );
-      } catch (e) {}
+      }
     }
   }
-  
+
   if (closed > 0) {
-    await telegram.sendMessage(chatId, 
+    await telegram.sendMessage(chatId,
       `✅ ${closed} conversation(s) fermée(s)`
     );
   } else {
-    await telegram.sendMessage(chatId, 
+    await telegram.sendMessage(chatId,
       'ℹ️ Aucune conversation active'
     );
   }
@@ -3793,35 +3752,32 @@ Pour fermer : /stop ou utilisez le bouton ci-dessous`;
   
   await telegram.sendMessage(chatId, driverMessage, { reply_markup: keyboard });
   
-  const clientMessage = `📱 <b>Votre livreur souhaite vous contacter</b>
+  // ⚠️ NE PAS NOTIFIER DIRECTEMENT LE CLIENT
+  // Le livreur doit passer par le support comme intermédiaire
+
+  await telegram.sendMessage(chatId, `💬 <b>Chat via support activé</b>
 
 📦 Commande #${orderId}
-🚚 Livraison en cours
 
-💬 <b>Chat direct activé !</b>
+Pour contacter le client, <b>tapez simplement votre message</b> ci-dessous.
 
-Votre livreur peut maintenant vous envoyer des messages pour faciliter la livraison.
+📱 <i>Le support transmettra vos messages au client</i>
 
-✅ <b>Vous pouvez lui répondre directement</b> en tapant votre message.
+⚠️ Tous les messages passent par le support pour votre sécurité`);
 
-<i>⏳ En attente du premier message...</i>`;
+  chatManager.activateDriver(parseInt(orderId));
 
-  const clientKeyboard = {
-    inline_keyboard: [
-      [{ text: '✍️ Prêt à discuter', callback_data: 'noop' }]
-    ]
-  };
-  
-  try {
-    await telegram.sendMessage(clientTelegramId, clientMessage, { 
-      reply_markup: clientKeyboard 
-    });
-    
-    chatManager.activateClient(parseInt(orderId));
-  } catch (error) {
-    console.error('Cannot notify client:', error);
-    await telegram.sendMessage(chatId, 
-      '⚠️ Impossible de notifier le client. Le support va le contacter.'
+  // Notifier le support qu'un chat a été ouvert
+  if (config.telegram.supportChatId) {
+    const order = await db.get('SELECT * FROM orders WHERE id = ?', [orderId]);
+    await telegram.sendMessage(config.telegram.supportChatId,
+      `💬 <b>CHAT OUVERT</b>
+
+📦 Commande #${orderId}
+👤 Client: ${order?.customer}
+🚚 Livreur souhaite communiquer
+
+<i>Attendez les messages du livreur pour les transmettre...</i>`
     );
   }
 }
@@ -3835,23 +3791,24 @@ async function completeDelivery(chatId, orderId) {
   }
   
   await db.run('UPDATE orders SET status = ? WHERE id = ?', ['delivered', orderId]);
-  
+
   const conv = chatManager.getConversation(parseInt(orderId));
   if (conv) {
-    try {
-      await telegram.sendMessage(conv.clientTelegramId, 
-        `✅ <b>Livraison terminée !</b>
-
-📦 Commande #${orderId} livrée avec succès
-
-💚 Merci pour votre confiance !
-La conversation est maintenant fermée.
-
-N'hésitez pas à recommander ! 🛒`
-      );
-    } catch (e) {}
-    
     chatManager.closeConversation(parseInt(orderId));
+
+    // ⚠️ NE PAS NOTIFIER DIRECTEMENT LE CLIENT
+    // Le support notifiera manuellement la livraison
+    if (config.telegram.supportChatId) {
+      await telegram.sendMessage(config.telegram.supportChatId,
+        `✅ <b>LIVRAISON TERMINÉE #${orderId}</b>
+
+<b>⚠️ ACTION REQUISE:</b>
+👉 Notifiez le client que sa commande a été livrée avec succès
+
+<i>Suggestion de message:</i>
+"✅ Votre commande #${orderId} a été livrée avec succès! Merci pour votre confiance! 💚"`
+      );
+    }
   }
   
   const nextOrder = await db.get(
