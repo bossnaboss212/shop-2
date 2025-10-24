@@ -2,36 +2,29 @@
 const API = "/api"; // Sur Netlify: remplace par l'URL complète de ton backend Railway (ex: https://XXX.up.railway.app/api)
 const fmt = n => new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR'}).format(n);
 
-// 11 produits (noms neutres) – remplace librement name/farm/category pic/video
-const PRODUCTS = [
-  { id:1,  name:"AMNESIA",  farm:"coffee shop", category:"weed",    pic:"img/amnesia.JPG",      video:"video/amnesia.MP4",
-    variants:[{label:"3,33G",grams:3.33,price:20},{label:"5G",grams:5,price:30},{label:"10G",grams:10,price:60},{label:"50G",grams:50,price:250},{label:"100G",grams:100,price:450}] },
-  { id:2,  name:"NEEDLES KETA",  farm:"holland",   category:"kéta",    pic:"img/needles.JPG",      video:"video/needles.MP4",
-    variants:[{label:"1G",grams:1,price:20},{label:"2G",grams:2,price:40},{label:"3G",grams:3,price:50},{label:"5G",grams:5,price:80},{label:"10G",grams:10,price:150}] },
-  { id:3,  name:"CHAMPAGNE",  farm:"hollande",   category:"🌈 mdma",                               video:"video/champagne.MP4",
-    variants:[{label:"1G",grams:1,price:20},{label:"2G",grams:2,price:40},{label:"3G",grams:3,price:50},{label:"5G",grams:5,price:80},{label:"10G",grams:10,price:150}] },
-  { id:4,  name:"el jefe",  farm:"colombie",    category:"❄️ blanche neige",                     video:"video/el_jefe.MP4",
-    variants:[{label:"0,5G",grams:0.5,price:30},{label:"1G",grams:1,price:50},{label:"2G",grams:2,price:100},{label:"5G",grams:5,price:250},{label:"10G",grams:10,price:430}] },
-  { id:5,  name:"SKITTLEZ CAKE 120u",  farm:"hash montaine", category:"🤯 filtré", pic:"img/skittlez_cake.JPG", video:"video/skittlez_cake.MP4",
-    variants:[{label:"2,5G",grams:2.5,price:20},{label:"5G",grams:5,price:40},{label:"10G",grams:10,price:70},{label:"50G",grams:50,price:290}] },
-  { id:6,  name:"PISTACCHIO 73u",  farm:"hash montaine", category:"🤯 filtré", pic:"img/pistacchio.JPG",   video:"video/pistacchio.MP4",
-    variants:[{label:"3G",grams:3,price:20},{label:"5G",grams:5,price:50},{label:"10G",grams:10,price:90},{label:"50G",grams:50,price:250}] },
-  { id:7,  name:"DEMBELE",  farm:"morroco",     category:"🧽super mousseux",                          video:"video/dembele.MP4",
-    variants:[{label:"3,5G",grams:3.5,price:20},{label:"5G",grams:5,price:30},{label:"10G",grams:10,price:50},{label:"50G",grams:50,price:190},{label:"100G",grams:100,price:370}] },
-  { id:8,  name:"LEMON X GELATO",  farm:"top shelf",   category:"🇺🇸 cali us",                           video:"video/lemonxgelato.MP4",
-    variants:[{label:"1,66G",grams:1.66,price:20},{label:"3,5G",grams:3.5,price:40},{label:"5G",grams:5,price:60},{label:"10G",grams:10,price:110}] },
-  { id:9,  name:"GEORGIA PIE",  farm:"top shelf",   category:"🇺🇸 cali us",                           video:"video/georgia_pie.MP4",
-    variants:[{label:"1,66G",grams:1.66,price:20},{label:"3,5G",grams:3.5,price:40},{label:"5G",grams:5,price:60},{label:"10G",grams:10,price:110}] },
-  { id:10, name:"DOMINO 280mg", farm:"Selection",   category:"💊 bonbon",                             video:"video/domino.MP4",
-    variants:[{label:"3 unités",grams:0,price:20},{label:"10 unités",grams:0,price:60},{label:"50 unités",grams:0,price:150}] },
-  { id:11, name:"FRESHH FROZEN", farm:"FRESH",       category:"🤯 filtré",                             video:"video/fresh_frozen.MP4",
-    variants:[{label:"1,1G",grams:1.1,price:20},{label:"2,3G",grams:2.3,price:40},{label:"3,5G",grams:3.5,price:50},{label:"5G",grams:5,price:80},{label:"10G",grams:10,price:160}] },
-  { id:12, name:"FF MANDARINA🍊", farm:"DRY SIFT",   category:"FROZEN",                                video:"video/ff_mandarina.MP4",
-    variants:[{label:"1,25G",grams:1.25,price:20},{label:"1,9G",grams:1.9,price:30},{label:"2,5G",grams:2.5,price:40},{label:"5G",grams:5,price:80},{label:"10G",grams:10,price:140}] },
-  { id:13, name:"FF FRUITS 🍓🍒", farm:"DRY SIFT",   category:"FROZEN",                                video:"video/ff_fruits.MP4",
-    variants:[{label:"1,25G",grams:1.25,price:20},{label:"1,9G",grams:1.9,price:30},{label:"2,5G",grams:2.5,price:40},{label:"5G",grams:5,price:80},{label:"10G",grams:10,price:140}] }
-];
+// Products will be loaded from API
+let PRODUCTS = [];
 
+// ---- Load products from API ----
+async function loadProducts() {
+  try {
+    const response = await fetch(`${API}/products`);
+    const data = await response.json();
+    if (data.ok && data.products) {
+      PRODUCTS = data.products;
+      console.log(`✅ Loaded ${PRODUCTS.length} products from API`);
+      renderFilters();
+      renderGrid();
+    } else {
+      console.error('Failed to load products:', data);
+    }
+  } catch (error) {
+    console.error('Error loading products:', error);
+  }
+}
+
+// Load products on page load
+loadProducts();
 
 // ---- UI de base ----
 const pages = ['home','infos','avis','support'];
@@ -47,15 +40,14 @@ document.querySelectorAll('.bottom .tab').forEach(b=>{
 
 // Filtres par catégorie
 const filtersBox = document.getElementById('filters');
-const CATS = Array.from(new Set(PRODUCTS.map(p=>p.category)));
 function renderFilters(){
-  filtersBox.innerHTML = `<span class="chip" data-cat="__all">Tout</span>` + 
+  const CATS = Array.from(new Set(PRODUCTS.map(p=>p.category)));
+  filtersBox.innerHTML = `<span class="chip" data-cat="__all">Tout</span>` +
     CATS.map(c=>`<span class="chip" data-cat="${c}">${c}</span>`).join('');
   filtersBox.querySelectorAll('.chip').forEach(ch=>{
     ch.onclick = ()=> renderGrid(ch.dataset.cat);
   });
 }
-renderFilters();
 
 const grid = document.getElementById('grid');
 function media(p){
@@ -73,7 +65,6 @@ function renderGrid(cat="__all"){
   }
   grid.querySelectorAll('button[data-id]').forEach(b=> b.onclick = ()=> openProduct(Number(b.dataset.id)));
 }
-renderGrid();
 
 // ---- Fiche produit + panier ----
 const badge = document.getElementById('badge'); let CART = {};
