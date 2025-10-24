@@ -906,14 +906,14 @@
         <input type="text" id="searchProducts" placeholder="🔍 Rechercher..." oninput="searchProducts()">
         <select id="filterCategory" onchange="filterProducts()">
           <option value="all">Toutes</option>
-          <option value="weed">🌿 Weed</option>
-          <option value="hash">🟫 Hash</option>
-          <option value="filtré">🔹 Filtré</option>
-          <option value="frozen">❄️ Frozen</option>
-          <option value="blanche">⚪ Blanche</option>
-          <option value="mdma">💊 MDMA</option>
-          <option value="cali">🌟 Cali</option>
-          <option value="keta">💎 Keta</option>
+          <option value="weed">🌳 Weed</option>
+          <option value="Mousseux">🧽 Mousseux</option>
+          <option value="Filtré">🤯 Filtré</option>
+          <option value="DRY SIFT">🍯 DRY SIFT</option>
+          <option value="Blanche">❄️ Blanche</option>
+          <option value="Mdma">💊 MDMA</option>
+          <option value="Cali">🇺🇸 Cali</option>
+          <option value="Keta">☁️ Keta</option>
         </select>
         <select id="filterArchived" onchange="filterProducts()">
           <option value="active">Actifs uniquement</option>
@@ -1715,7 +1715,7 @@ const state = {
       { 
         id: 6, 
         name: 'VVS TANGER FROZEN', 
-        category: 'frozen', 
+        category: 'DRY SIFT', 
         buyPrice: 4.8, 
         video: '',
         videoType: 'video/mp4', 
@@ -1731,7 +1731,7 @@ const state = {
       { 
         id: 7, 
         name: 'FRESH FROZEN', 
-        category: 'frozen', 
+        category: 'DRY SIFT', 
         buyPrice: 7.0, 
         video: '',
         videoType: 'video/mp4', 
@@ -1760,7 +1760,7 @@ const state = {
       {
         id: 9,
         name: 'FF MANDARINA',
-        category: 'frozen',
+        category: 'DRY SIFT',
         buyPrice: 5.5,
         video: '/videos/ff_mandarina.MP4',
         videoType: 'video/mp4',
@@ -1776,7 +1776,7 @@ const state = {
       {
         id: 10,
         name: 'FF FRUITS',
-        category: 'frozen',
+        category: 'DRY SIFT',
         buyPrice: 5.5,
         video: '/videos/ff_fruits.MP4',
         videoType: 'video/mp4',
@@ -2269,7 +2269,7 @@ function initCharts() {
     state.charts.category = new Chart(catCtx, {
       type: 'doughnut',
       data: {
-        labels: ['Weed', 'Hash', 'Blanche', 'Autres'],
+        labels: ['Weed', 'Mousseux', 'Blanche', 'Autres'],
         datasets: [{
           data: [40, 30, 20, 10],
           backgroundColor: ['#667eea', '#764ba2', '#f59e0b', '#10b981']
@@ -2848,13 +2848,13 @@ function addProduct() {
     <div class="form-group">
       <label>Catégorie</label>
       <select id="productCategory">
-        <option value="weed">🌿 Weed</option>
-        <option value="hash">🟫 Hash</option>
-        <option value="filtré">🔹 Filtré</option>
-        <option value="frozen">❄️ Frozen</option>
+        <option value="weed">🌳 Weed</option>
+        <option value="Mousseux">🧽 Mousseux</option>
+        <option value="filtré">🤯 Filtré</option>
+        <option value="DRY SIFT">🍯 DRY SIFT</option>
         <option value="blanche">⚪ Blanche</option>
         <option value="mdma">💊 MDMA</option>
-        <option value="cali">🌟 Cali</option>
+        <option value="cali">🇺🇸 Cali</option>
         <option value="keta">💎 Keta</option>
       </select>
     </div>
@@ -3071,14 +3071,14 @@ function editProduct(id) {
     <div class="form-group">
       <label>Catégorie</label>
       <select id="editProductCategory">
-        <option value="weed" ${p.category === 'weed' ? 'selected' : ''}>🌿 Weed</option>
-        <option value="hash" ${p.category === 'hash' ? 'selected' : ''}>🟫 Hash</option>
-        <option value="filtré" ${p.category === 'filtré' ? 'selected' : ''}>🔹 Filtré</option>
-        <option value="frozen" ${p.category === 'frozen' ? 'selected' : ''}>❄️ Frozen</option>
+        <option value="weed" ${p.category === 'weed' ? 'selected' : ''}>🌳 Weed</option>
+        <option value="mousseux" ${p.category === 'mousseux' ? 'selected' : ''}>🧽 Mousseux</option>
+        <option value="filtré" ${p.category === 'filtré' ? 'selected' : ''}>🤯 Filtré</option>
+        <option value="DRY SIFT" ${p.category === 'DRY SIFT' ? 'selected' : ''}>🍯 DRY SIFT</option>
         <option value="blanche" ${p.category === 'blanche' ? 'selected' : ''}>⚪ Blanche</option>
         <option value="mdma" ${p.category === 'mdma' ? 'selected' : ''}>💊 MDMA</option>
-        <option value="cali" ${p.category === 'cali' ? 'selected' : ''}>🌟 Cali</option>
-        <option value="keta" ${p.category === 'keta' ? 'selected' : ''}>💎 Keta</option>
+        <option value="cali" ${p.category === 'cali' ? 'selected' : ''}>🇺🇸 Cali</option>
+        <option value="keta" ${p.category === 'keta' ? 'selected' : ''}>☁️ Keta</option>
       </select>
     </div>
     <div class="form-group">
@@ -3375,14 +3375,14 @@ function resetProducts() {
       '50G': { price: 450, stock: 30, grams: 50 },
       '100G': { price: 870, stock: 30, grams: 100 }
     }},
-    { id: 6, name: 'VVS TANGER FROZEN', category: 'frozen', buyPrice: 4.8, video: '', archived: false, variants: {
+    { id: 6, name: 'VVS TANGER FROZEN', category: 'DRY SIFT', buyPrice: 4.8, video: '', archived: false, variants: {
       '1.1G': { price: 20, stock: 40, grams: 1.1 },
       '2.5G': { price: 40, stock: 35, grams: 2.5 },
       '5G': { price: 70, stock: 25, grams: 5 },
       '10G': { price: 140, stock: 30, grams: 10 },
       '25G': { price: 250, stock: 30, grams: 25 }
     }},
-    { id: 7, name: 'FRESH FROZEN', category: 'frozen', buyPrice: 7.0, video: '', archived: false, variants: {
+    { id: 7, name: 'FRESH FROZEN', category: 'DRY SIFT', buyPrice: 7.0, video: '', archived: false, variants: {
       '5G': { price: 80, stock: 25, grams: 5 },
       '10G': { price: 150, stock: 30, grams: 10 },
       '25G': { price: 250, stock: 30, grams: 25 }
@@ -3393,14 +3393,14 @@ function resetProducts() {
       '5G': { price: 130, stock: 30, grams: 5 },
       '10G': { price: 180, stock: 55, grams: 10 }
     }},
-    { id: 9, name: 'FF MANDARINA', category: 'frozen', buyPrice: 5.5, video: '/videos/ff_mandarina.MP4', archived: false, variants: {
+    { id: 9, name: 'FF MANDARINA', category: 'DRY SIFT', buyPrice: 5.5, video: '/videos/ff_mandarina.MP4', archived: false, variants: {
       '1.25G': { price: 20, stock: 30, grams: 1.25 },
       '1.9G': { price: 30, stock: 30, grams: 1.9 },
       '2.5G': { price: 40, stock: 30, grams: 2.5 },
       '5G': { price: 80, stock: 25, grams: 5 },
       '10G': { price: 140, stock: 20, grams: 10 }
     }},
-    { id: 10, name: 'FF FRUITS ', category: 'frozen', buyPrice: 5.5, video: '/videos/ff_fruits.MP4', archived: false, variants: {
+    { id: 10, name: 'FF FRUITS ', category: 'DRY SIFT', buyPrice: 5.5, video: '/videos/ff_fruits.MP4', archived: false, variants: {
       '1.25G': { price: 20, stock: 30, grams: 1.25 },
       '1.9G': { price: 30, stock: 30, grams: 1.9 },
       '2.5G': { price: 40, stock: 30, grams: 2.5 },
@@ -4267,7 +4267,7 @@ function updateProfitabilityTable() {
   const tbody = document.getElementById('profitabilityTable');
   if (!tbody) return;
   
-  const categories = ['weed', 'hash', 'blanche', 'mdma', 'keta', 'frozen', 'filtré'];
+  const categories = ['weed', 'mousseux', 'blanche', 'mdma', 'keta', 'DRY SIFT', 'filtré'];
   const categoryData = {};
   
   categories.forEach(cat => {
