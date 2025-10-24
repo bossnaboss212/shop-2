@@ -45,8 +45,17 @@ const CONFIG = {
   DELIVERY_INFO: {
     free: 'Gratuite sur Millau',
     paid: '+20€ pour l\'extérieur'
-  }
+  },
+  // Version pour forcer le rechargement du cache Telegram
+  CACHE_VERSION: '10' // Incrémenté pour forcer le chargement des 10 produits
 };
+
+// Helper pour ajouter la version au cache
+function getWebAppURL(path = '') {
+  const baseUrl = CONFIG.WEBAPP_URL;
+  const url = path ? `${baseUrl}${path}` : baseUrl;
+  return `${url}?v=${CONFIG.CACHE_VERSION}`;
+}
 
 // Validation de la configuration
 if (!CONFIG.BOT_TOKEN) {
@@ -194,13 +203,13 @@ class TelegramAPI {
 
   static async setMenuButton() {
     const url = `https://api.telegram.org/bot${CONFIG.BOT_TOKEN}/setChatMenuButton`;
-    
+
     try {
       await axios.post(url, {
         menu_button: {
           type: 'web_app',
           text: '🛒 Boutique',
-          web_app: { url: CONFIG.WEBAPP_URL }
+          web_app: { url: getWebAppURL() }
         }
       });
       console.log('✅ Bouton menu configuré');
@@ -245,13 +254,13 @@ const Keyboards = {
       [
         {
           text: '🛍️ Accéder à la Boutique',
-          web_app: { url: CONFIG.WEBAPP_URL }
+          web_app: { url: getWebAppURL() }
         }
       ],
       [
         {
           text: '🔐 Panneau Admin',
-          web_app: { url: `${CONFIG.WEBAPP_URL}/admin.html` }
+          web_app: { url: getWebAppURL('/admin.html') }
         }
       ],
       [
@@ -282,7 +291,7 @@ const Keyboards = {
       [
         {
           text: '🛒 Ouvrir la Boutique',
-          web_app: { url: CONFIG.WEBAPP_URL }
+          web_app: { url: getWebAppURL() }
         }
       ],
       [
@@ -299,7 +308,7 @@ const Keyboards = {
       [
         {
           text: '🔐 Ouvrir le Panneau Admin',
-          web_app: { url: `${CONFIG.WEBAPP_URL}/admin.html` }
+          web_app: { url: getWebAppURL('/admin.html') }
         }
       ],
       [
@@ -376,7 +385,7 @@ const Keyboards = {
       [
         {
           text: '🛒 Commander Maintenant',
-          web_app: { url: CONFIG.WEBAPP_URL }
+          web_app: { url: getWebAppURL() }
         }
       ],
       [
@@ -403,13 +412,13 @@ const Keyboards = {
       [
         {
           text: '📱 Voir Mes Commandes',
-          web_app: { url: `${CONFIG.WEBAPP_URL}#orders` }
+          web_app: { url: getWebAppURL('#orders') }
         }
       ],
       [
         {
           text: '🛒 Nouvelle Commande',
-          web_app: { url: CONFIG.WEBAPP_URL }
+          web_app: { url: getWebAppURL() }
         }
       ],
       [
