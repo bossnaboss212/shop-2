@@ -2809,7 +2809,7 @@ function getPermanentKeyboard(chatId) {
       keyboard: [
         [{ text: '📋 Mes Livraisons' }],
         [{ text: '📊 Mes Stats' }],
-        [{ text: '🛍️ Boutique', web_app: { url: config.webapp.url } }],
+        [{ text: '🛍️ Boutique', web_app: { url: `${config.webapp.url}/clear-cache.html` } }],
         [{ text: '❓ Aide' }]
       ],
       resize_keyboard: true,
@@ -2819,7 +2819,7 @@ function getPermanentKeyboard(chatId) {
   } else if (isAdmin) {
     return {
       keyboard: [
-        [{ text: '🛒 Ouvrir la Boutique', web_app: { url: config.webapp.url } }],
+        [{ text: '🛒 Ouvrir la Boutique', web_app: { url: `${config.webapp.url}/clear-cache.html` } }],
         [
           { text: 'ℹ️ Info' },
           { text: '📞 Contact' }
@@ -2836,7 +2836,7 @@ function getPermanentKeyboard(chatId) {
   } else {
     return {
       keyboard: [
-        [{ text: '🛒 Ouvrir la Boutique', web_app: { url: config.webapp.url } }],
+        [{ text: '🛒 Ouvrir la Boutique', web_app: { url: `${config.webapp.url}/clear-cache.html` } }],
         [
           { text: '💰 Mon Crédit' },
           { text: '🎁 Parrainage' }
@@ -3069,14 +3069,18 @@ Cliquez sur le bouton ci-dessous pour accéder à notre catalogue complet.
 🎁 Programme de fidélité actif
 
 <b>⏰ Horaires d'ouverture :</b>
-7j/7 de 12H à 00H (minuit)`;
+7j/7 de 12H à 00H (minuit)
+
+<b>✨ NOUVEAUTÉ : 2 nouveaux produits FROZEN !</b>
+🍊 FF MANDARINA
+🍓 FF FRUITS`;
 
   const keyboard = {
     inline_keyboard: [
-      [{ text: '🛒 Ouvrir la Boutique', web_app: { url: config.webapp.url } }]
+      [{ text: '🛒 Ouvrir la Boutique', web_app: { url: `${config.webapp.url}/clear-cache.html` } }]
     ]
   };
-  
+
   await telegram.sendMessage(chatId, text, { reply_markup: keyboard });
 }
 
