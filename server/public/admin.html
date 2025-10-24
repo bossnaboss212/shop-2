@@ -923,6 +923,7 @@
         <button onclick="addProduct()" style="background:var(--success)">➕ Nouveau</button>
         <button onclick="openArchivedStats()" style="background:var(--info)">📊 Stats Archivés</button>
         <button onclick="exportArchivedProducts()" style="background:var(--warning)">📥 Export Archivés</button>
+        <button onclick="syncProductsFromDatabase()" style="background:var(--accent);color:white">🔄 Synchroniser DB</button>
         <button onclick="resetProducts()" style="background:#a855f7;color:white">🔄 Restaurer les 8 produits</button>
       </div>
 
@@ -1770,6 +1771,11 @@ function init() {
   loadData();
   console.log('📦 État initial - Produits:', state.data.products.length);
 
+  // Synchroniser les produits depuis la base de données
+  setTimeout(() => {
+    syncProductsFromDatabase();
+  }, 1000);
+
   // La synchronisation des commandes se fera après le login (quand on aura le token)
 
   checkAuth();
@@ -1866,16 +1872,114 @@ function saveData() {
     localStorage.setItem('admin_analytics', JSON.stringify(state.analytics));
     
     console.log('💾 Données sauvegardées:', state.data.products.length, 'produits');
-    
+
     // Mettre à jour la taille du stockage
     if (document.getElementById('storageSize')) {
       calculateStorageSize();
     }
+
+    // Sauvegarder aussi dans la base de données
+    saveProductsToDatabase();
   } catch (e) {
     console.error('Error saving:', e);
     if (e.name === 'QuotaExceededError') {
       showToast('⚠️ Espace de stockage insuffisant ! Réduisez la taille des vidéos.', 'error');
     }
+  }
+}
+
+async function syncProductsFromDatabase() {
+  try {
+    console.log('🔄 Synchronisation des produits depuis la base de données...');
+
+    const response = await fetch('/api/products');
+    const data = await response.json();
+
+    if (data.ok && data.products && data.products.length > 0) {
+      // Fusionner les produits de la base de données avec les produits locaux
+      const dbProducts = data.products;
+      const localProducts = state.data.products;
+
+      // Créer une map des produits locaux par ID
+      const localProductsMap = new Map(localProducts.map(p => [p.id, p]));
+
+      // Fusionner: priorité aux produits de la base de données
+      const mergedProducts = [];
+      const seenIds = new Set();
+
+      // D'abord, ajouter tous les produits de la base de données
+      dbProducts.forEach(p => {
+        mergedProducts.push({
+          ...p,
+          video: p.video || '',
+          archived: p.archived || false,
+          variants: Object.fromEntries(
+            Object.entries(p.variants).map(([label, vdata]) => [
+              label,
+              {
+                ...vdata,
+                grams: vdata.grams || extractGrams(label)
+              }
+            ])
+          )
+        });
+        seenIds.add(p.id);
+      });
+
+      // Ensuite, ajouter les produits locaux qui n'existent pas dans la base de données
+      localProducts.forEach(p => {
+        if (!seenIds.has(p.id)) {
+          mergedProducts.push(p);
+        }
+      });
+
+      state.data.products = mergedProducts;
+      saveData();
+      loadProducts();
+      updateAllStats();
+
+      console.log('✅ Synchronisation réussie:', mergedProducts.length, 'produits');
+      showToast(`✅ ${dbProducts.length} produits synchronisés depuis la base de données`, 'success');
+    } else {
+      console.log('ℹ️ Aucun produit dans la base de données');
+      showToast('ℹ️ Aucun produit trouvé dans la base de données', 'info');
+    }
+  } catch (error) {
+    console.error('❌ Erreur de synchronisation:', error);
+    showToast('❌ Erreur lors de la synchronisation avec la base de données', 'error');
+  }
+}
+
+async function saveProductsToDatabase() {
+  try {
+    const token = localStorage.getItem('admin_token');
+    if (!token) {
+      console.warn('⚠️ Pas de token admin - impossible de sauvegarder dans la base de données');
+      return;
+    }
+
+    const response = await fetch('/api/admin/settings', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        settings: {
+          products: JSON.stringify(state.data.products)
+        }
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.ok) {
+      console.log('✅ Produits sauvegardés dans la base de données');
+    } else {
+      console.error('❌ Erreur lors de la sauvegarde dans la base de données');
+    }
+  } catch (error) {
+    console.error('❌ Erreur de sauvegarde dans la base de données:', error);
   }
 }
 
