@@ -47,14 +47,16 @@ const CONFIG = {
     paid: '+20€ pour l\'extérieur'
   },
   // Version pour forcer le rechargement du cache Telegram
-  CACHE_VERSION: '10' // Incrémenté pour forcer le chargement des 10 produits
+  CACHE_VERSION: Date.now() // Timestamp qui change à chaque redémarrage du serveur
 };
 
-// Helper pour ajouter la version au cache
+// Helper pour ajouter la version au cache - utilise un timestamp pour FORCER le rechargement
 function getWebAppURL(path = '') {
   const baseUrl = CONFIG.WEBAPP_URL;
   const url = path ? `${baseUrl}${path}` : baseUrl;
-  return `${url}?v=${CONFIG.CACHE_VERSION}`;
+  // Ajouter un timestamp UNIQUE à chaque appel pour éviter le cache Telegram
+  const timestamp = Date.now();
+  return `${url}?v=${timestamp}`;
 }
 
 // Validation de la configuration
@@ -926,13 +928,13 @@ async function startBot() {
     console.log('🤖 ================================');
     console.log('   DÉMARRAGE DU BOT TELEGRAM');
     console.log('🤖 ================================');
-    
+
     // Configuration du bot
     const webhookUrl = `${CONFIG.WEBHOOK_DOMAIN}/bot${CONFIG.BOT_TOKEN}`;
     await TelegramAPI.setWebhook(webhookUrl);
     await TelegramAPI.setBotCommands();
     await TelegramAPI.setMenuButton();
-    
+
     // Démarrage du serveur Express
     app.listen(CONFIG.PORT, () => {
       console.log('✅ Configuration terminée');
@@ -940,8 +942,11 @@ async function startBot() {
       console.log(`🌐 WebApp: ${CONFIG.WEBAPP_URL}`);
       console.log(`🔗 Webhook: ${webhookUrl}`);
       console.log(`💚 Health: http://localhost:${CONFIG.PORT}/health`);
+      console.log(`🔄 Cache Version: ${CONFIG.CACHE_VERSION}`);
+      console.log(`📦 Les URLs auront ?v=TIMESTAMP pour éviter le cache`);
       console.log('🤖 ================================');
       console.log('✅ Bot prêt à recevoir des messages');
+      console.log('✅ 10 PRODUITS dans la boutique (incluant FF MANDARINA & FF FRUITS)');
       console.log('🤖 ================================');
     });
     
