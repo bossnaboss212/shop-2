@@ -48,11 +48,12 @@
 </head>
 <body>
   <div class="container">
-    <h1>✨ Nettoyage du cache</h1>
+    <h1>✨ Mise à jour des produits</h1>
     <div class="spinner"></div>
-    <p id="message">Effacement des données en cours...</p>
+    <p id="message">Chargement des nouveaux produits...<br><small>FF MANDARINA 🍊 + FF FRUITS 🍓🍒</small></p>
     <div class="success" id="success" style="display:none;">
       ✅ Cache nettoyé avec succès !<br>
+      📦 Chargement de 10 produits...<br>
       <small>Redirection dans 2 secondes...</small>
     </div>
   </div>
@@ -64,15 +65,25 @@
     // Vider aussi le sessionStorage
     sessionStorage.clear();
 
+    // Forcer le reload complet
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(registrations) {
+        for(let registration of registrations) {
+          registration.unregister();
+        }
+      });
+    }
+
     // Afficher le succès
     setTimeout(() => {
       document.getElementById('message').style.display = 'none';
       document.querySelector('.spinner').style.display = 'none';
       document.getElementById('success').style.display = 'block';
 
-      // Rediriger vers la boutique
+      // Rediriger vers la boutique avec force reload
       setTimeout(() => {
-        window.location.href = '/';
+        // Ajouter un timestamp pour forcer le rechargement
+        window.location.href = '/?v=' + Date.now();
       }, 2000);
     }, 1000);
   </script>
