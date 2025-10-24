@@ -25,7 +25,11 @@ const PRODUCTS = [
   { id:10, name:"DOMINO 280mg", farm:"Selection",   category:"💊 bonbon",                             video:"video/domino.MP4",
     variants:[{label:"3 unités",grams:0,price:20},{label:"10 unités",grams:0,price:60},{label:"50 unités",grams:0,price:150}] },
   { id:11, name:"FRESHH FROZEN", farm:"FRESH",       category:"🤯 filtré",                             video:"video/fresh_frozen.MP4",
-    variants:[{label:"1,1G",grams:1.1,price:20},{label:"2,3G",grams:2.3,price:40},{label:"3,5G",grams:3.5,price:50},{label:"5G",grams:5,price:80},{label:"10G",grams:10,price:160}] }
+    variants:[{label:"1,1G",grams:1.1,price:20},{label:"2,3G",grams:2.3,price:40},{label:"3,5G",grams:3.5,price:50},{label:"5G",grams:5,price:80},{label:"10G",grams:10,price:160}] },
+  { id:12, name:"FF MANDARINA🍊", farm:"DRY SIFT",   category:"FROZEN",                                video:"video/ff_mandarina.MP4",
+    variants:[{label:"1,25G",grams:1.25,price:20},{label:"1,9G",grams:1.9,price:30},{label:"2,5G",grams:2.5,price:40},{label:"5G",grams:5,price:80},{label:"10G",grams:10,price:140}] },
+  { id:13, name:"FF FRUITS 🍓🍒", farm:"DRY SIFT",   category:"FROZEN",                                video:"video/ff_fruits.MP4",
+    variants:[{label:"1,25G",grams:1.25,price:20},{label:"1,9G",grams:1.9,price:30},{label:"2,5G",grams:2.5,price:40},{label:"5G",grams:5,price:80},{label:"10G",grams:10,price:140}] }
 ];
 
 
