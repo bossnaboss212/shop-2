@@ -401,6 +401,13 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
   font-size:11px;
   font-weight:600;
   color:var(--success);
+  cursor:pointer;
+  transition:all 0.2s;
+}
+
+.sync-indicator:hover{
+  background:rgba(16,185,129,0.2);
+  transform:scale(1.05);
 }
 
 .sync-dot{
@@ -2736,12 +2743,26 @@ function showToast(msg) {
 
 const SyncManager = {
   // Charger les produits depuis l'admin
-  loadProducts() {
+  async loadProducts() {
     try {
-      // Version des données pour forcer le refresh (changer ce numéro pour forcer un reload)
-      const DATA_VERSION = 4; // Incrémenté pour charger les nouveaux produits FF MANDARINA et FF FRUITS
-      const savedVersion = parseInt(localStorage.getItem('data_version') || '0');
+      // Essayer de charger depuis l'API en premier
+      try {
+        const response = await fetch('/api/products');
+        if (response.ok) {
+          const apiData = await response.json();
+          if (apiData.ok && apiData.products && apiData.products.length > 0) {
+            console.log('✅ Produits chargés depuis l\'API:', apiData.products.length);
+            this.saveProducts(apiData.products);
+            return apiData.products;
+          }
+        }
+      } catch (apiError) {
+        console.log('⚠️ API non disponible, utilisation du cache local');
+      }
 
+      // Fallback sur localStorage avec gestion de version
+      const DATA_VERSION = 5; // Incrémenté pour forcer le chargement des produits FF MANDARINA et FF FRUITS
+      const savedVersion = parseInt(localStorage.getItem('data_version') || '0');
       const data = localStorage.getItem('shop_products');
 
       // Si la version a changé, on force le rechargement des produits par défaut
@@ -2755,7 +2776,7 @@ const SyncManager = {
 
       if (data) {
         const products = JSON.parse(data);
-        console.log('✅ Produits chargés:', products.length);
+        console.log('✅ Produits chargés depuis cache:', products.length);
         return products;
       } else {
         // Premier démarrage : charger les produits par défaut
@@ -6323,14 +6344,14 @@ function renderReviews() {
 // CHARGEMENT DES PRODUITS DEPUIS L'ADMIN
 // ═══════════════════════════════════════════════════════════════════════════
 
-function loadProducts() {
-  const newProducts = SyncManager.loadProducts();
-  
+async function loadProducts() {
+  const newProducts = await SyncManager.loadProducts();
+
   // Ne re-render QUE si les produits ont vraiment changé
   const productsChanged = JSON.stringify(PRODUCTS) !== JSON.stringify(newProducts);
-  
+
   PRODUCTS = newProducts;
-  
+
   if (PRODUCTS.length === 0) {
     document.getElementById('resultsCount').textContent = 'Aucun produit';
     document.getElementById('productGrid').innerHTML = `
@@ -6369,7 +6390,28 @@ function startAutoSync() {
 
 function initEventListeners() {
   document.getElementById('themeToggle').onclick = toggleTheme;
-  
+
+  // Bouton de synchronisation manuelle
+  document.getElementById('syncIndicator').onclick = async () => {
+    const syncStatus = document.getElementById('syncStatus');
+    const originalText = syncStatus.textContent;
+    syncStatus.textContent = 'Sync...';
+    try {
+      await loadProducts();
+      syncStatus.textContent = 'Sync ✓';
+      showToast('✅ Produits synchronisés !');
+      setTimeout(() => {
+        syncStatus.textContent = originalText;
+      }, 2000);
+    } catch (error) {
+      syncStatus.textContent = 'Erreur';
+      showToast('❌ Erreur de synchronisation');
+      setTimeout(() => {
+        syncStatus.textContent = originalText;
+      }, 2000);
+    }
+  };
+
   document.getElementById('menuBtn').onclick = () => {
     document.getElementById('sideMenu').classList.add('open');
     document.getElementById('menuOverlay').classList.add('open');
