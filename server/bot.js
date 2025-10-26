@@ -37,8 +37,8 @@ const axios = require('axios');
 // ============================================================
 const CONFIG = {
   BOT_TOKEN: process.env.TELEGRAM_TOKEN,
-  WEBAPP_URL: process.env.WEBAPP_URL || 'https://shop-2-production.up.railway.app',
-  WEBHOOK_DOMAIN: process.env.RAILWAY_PUBLIC_DOMAIN || 'https://shop-2-production.up.railway.app',
+  WEBAPP_URL: process.env.WEBAPP_URL || 'https://shop-2-production-6505.up.railway.app',
+  WEBHOOK_DOMAIN: process.env.RAILWAY_PUBLIC_DOMAIN || 'https://shop-2-production-6505.up.railway.app',
   PORT: process.env.BOT_PORT || 3001,
   SUPPORT_USERNAME: '@assistancenter',
   BUSINESS_HOURS: '7j/7 de 12H à 00H (minuit)',

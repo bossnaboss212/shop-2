@@ -32,7 +32,7 @@ const config = {
     tokenExpiry: 24 * 60 * 60 * 1000,
   },
   webapp: {
-    url: process.env.WEBAPP_URL || 'https://shop-2-production.up.railway.app',
+    url: process.env.WEBAPP_URL || 'https://shop-2-production-6505.up.railway.app',
   },
   loyalty: {
     defaultThreshold: 10,
