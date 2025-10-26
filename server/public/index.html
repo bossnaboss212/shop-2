@@ -2805,10 +2805,10 @@ const SyncManager = {
   },
 
   // Mettre à jour le stock d'un produit
-  updateStock(productId, variantLabel, quantity) {
-    const products = this.loadProducts();
+  async updateStock(productId, variantLabel, quantity) {
+    const products = await this.loadProducts();
     const product = products.find(p => p.id === productId);
-    
+
     if (product && product.variants[variantLabel]) {
       product.variants[variantLabel].stock -= quantity;
       if (product.variants[variantLabel].stock < 0) {
@@ -2822,10 +2822,10 @@ const SyncManager = {
   },
 
   // Restaurer le stock d'un produit (lors d'une annulation)
-  restoreStock(productId, variantLabel, quantity) {
-    const products = this.loadProducts();
+  async restoreStock(productId, variantLabel, quantity) {
+    const products = await this.loadProducts();
     const product = products.find(p => p.id === productId);
-    
+
     if (product && product.variants[variantLabel]) {
       product.variants[variantLabel].stock += quantity;
       this.saveProducts(products);
@@ -6616,7 +6616,7 @@ const searchInput = document.getElementById('searchInput');
 const searchClear = document.getElementById('searchClear');
 
 if (searchInput) {
-  searchInput.addEventListener('input', (e) => {
+  searchInput.addEventListener('input', async (e) => {
     const query = e.target.value.trim().toLowerCase();
 
     // Afficher/masquer le bouton clear
@@ -6628,7 +6628,7 @@ if (searchInput) {
     }
 
     // Filtrer les produits
-    const allProducts = DataManager.loadProducts();
+    const allProducts = await SyncManager.loadProducts();
     const filtered = allProducts.filter(p =>
       p.name.toLowerCase().includes(query) ||
       p.category.toLowerCase().includes(query) ||
@@ -7508,8 +7508,9 @@ document.getElementById('clearHistory')?.addEventListener('click', () => {
 
 // Ajouter le produit à l'historique quand on l'ouvre
 const originalOpenProductDetails = window.openProductDetails;
-window.openProductDetails = function(productId) {
-  const product = DataManager.loadProducts().find(p => p.id === productId);
+window.openProductDetails = async function(productId) {
+  const products = await SyncManager.loadProducts();
+  const product = products.find(p => p.id === productId);
   if (product) {
     BrowseHistoryManager.addProduct(product);
   }
