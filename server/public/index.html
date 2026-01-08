@@ -110,7 +110,7 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
   transition:all 0.3s;
 }
 
-.logo-container{position:absolute;left:50%;transform:translateX(-50%)}
+.logo-container{position:absolute;left:50%;transform:translateX(-50%);z-index:10}
 
 .logo{
   width:52px;
@@ -135,9 +135,9 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
 
 .search-bar{
   flex:1;
-  max-width:400px;
+  max-width:300px;
   position:relative;
-  margin:0 16px;
+  margin:0 16px 0 80px;
   display:none;
 }
 
@@ -1843,11 +1843,6 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
       <div class="logo">
         <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='45' fill='%2300d4ff'/%3E%3Ctext x='50' y='65' font-size='40' font-weight='bold' text-anchor='middle' fill='%230a0e14'%3EDC%3C/text%3E%3C/svg%3E" alt="DROGUA CENTER">
       </div>
-    </div>
-    <div class="search-bar">
-      <svg class="search-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.35-4.35"></path></svg>
-      <input type="text" id="searchInput" placeholder="Rechercher un produit..." autocomplete="off">
-      <button class="search-clear" id="searchClear" style="display:none">✕</button>
     </div>
     <div class="header-actions">
       <button class="notif-bell" id="notifBell">
