@@ -1812,14 +1812,6 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
         <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
         <span>👤 Mon Profil</span>
       </button>
-      <button class="menu-item" data-page="wheel" style="background:linear-gradient(135deg,rgba(255,215,0,0.05) 0%,rgba(255,140,0,0.05) 100%)">
-        <svg viewBox="0 0 24 24" style="stroke:#ffd700"><circle cx="12" cy="12" r="10"></circle><path d="M12 2v10M12 12l7.07 7.07M12 12l-7.07 7.07M12 12L4.93 4.93M12 12l7.07-7.07"></path></svg>
-        <span style="color:#ffd700">🎡 Roue Fortune</span>
-      </button>
-      <button class="menu-item" data-page="tracking">
-        <svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-        <span>🗺️ Suivi GPS</span>
-      </button>
       <button class="menu-item" data-page="history">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
         <span>📜 Historique</span>
@@ -2287,147 +2279,6 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
       <button id="logoutBtn" style="width:100%;background:transparent;border:2px solid var(--danger);color:var(--danger);padding:16px;border-radius:12px;font-weight:700;cursor:pointer;transition:all 0.2s">
         🚪 Déconnexion
       </button>
-    </div>
-  </main>
-
-  <main class="page" id="page-wheel">
-    <div class="info-section">
-      <h2 class="section-title">
-        <span style="font-size:32px">🎡</span>
-        <span style="background:linear-gradient(135deg,#ffd700,#ff8c00);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-weight:900">Roue de Fortune</span>
-      </h2>
-
-      <!-- Compteur de spins -->
-      <div style="text-align:center;margin-bottom:24px">
-        <div style="background:var(--bg-secondary);border:2px solid var(--border);border-radius:16px;padding:20px;display:inline-block">
-          <div style="color:var(--text-muted);font-size:14px;margin-bottom:4px">Spins disponibles</div>
-          <div style="font-size:48px;font-weight:900;background:linear-gradient(135deg,#ffd700,#ff8c00);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text" id="availableSpins">1</div>
-          <div style="color:var(--text-muted);font-size:12px;margin-top:4px">Prochain spin : <span id="nextSpinTime">23:59:59</span></div>
-        </div>
-      </div>
-
-      <!-- Roue -->
-      <div style="position:relative;width:100%;max-width:400px;margin:0 auto 32px">
-        <div id="wheelCanvas" style="width:100%;aspect-ratio:1;border-radius:50%;background:conic-gradient(from 0deg, #ff6b6b 0deg 45deg, #ffd700 45deg 90deg, #4ade80 90deg 135deg, #00d4ff 135deg 180deg, #a78bfa 180deg 225deg, #ff8c00 225deg 270deg, #ec4899 270deg 315deg, #10b981 315deg 360deg);box-shadow:0 20px 60px rgba(0,0,0,0.3),inset 0 0 30px rgba(255,255,255,0.2);border:8px solid var(--bg-secondary);position:relative;transition:transform 3s cubic-bezier(0.17,0.67,0.12,0.99)">
-          <!-- Segments -->
-          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none">
-            <div style="width:90%;height:90%;border-radius:50%;background:var(--bg-secondary);display:flex;align-items:center;justify-content:center;flex-direction:column;box-shadow:0 10px 30px rgba(0,0,0,0.5)">
-              <div style="font-size:64px;margin-bottom:8px">🎁</div>
-              <div style="font-size:14px;font-weight:700;color:var(--accent)">TOURNEZ!</div>
-            </div>
-          </div>
-        </div>
-        <!-- Flèche indicatrice -->
-        <div style="position:absolute;top:-20px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:20px solid transparent;border-right:20px solid transparent;border-top:40px solid var(--danger);filter:drop-shadow(0 4px 10px rgba(0,0,0,0.3));z-index:10"></div>
-      </div>
-
-      <!-- Bouton spin -->
-      <button id="spinButton" style="width:100%;max-width:400px;margin:0 auto;display:block;background:linear-gradient(135deg,#ffd700,#ff8c00);border:none;padding:20px;border-radius:16px;font-size:20px;font-weight:900;color:#000;cursor:pointer;box-shadow:0 10px 30px rgba(255,215,0,0.4);transition:all 0.2s">
-        🎰 TOURNER LA ROUE
-      </button>
-
-      <!-- Gains possibles -->
-      <div style="background:var(--bg-secondary);border:2px solid var(--border);border-radius:16px;padding:20px;margin-top:32px">
-        <h3 style="font-size:18px;font-weight:700;margin-bottom:16px">🎁 Gains possibles</h3>
-        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px">
-          <div style="background:var(--bg-tertiary);border-radius:12px;padding:12px;text-align:center">
-            <div style="font-size:24px;margin-bottom:4px">💰</div>
-            <div style="font-size:14px;font-weight:600">5€ - 20€</div>
-          </div>
-          <div style="background:var(--bg-tertiary);border-radius:12px;padding:12px;text-align:center">
-            <div style="font-size:24px;margin-bottom:4px">🎟️</div>
-            <div style="font-size:14px;font-weight:600">Crédits VIP</div>
-          </div>
-          <div style="background:var(--bg-tertiary);border-radius:12px;padding:12px;text-align:center">
-            <div style="font-size:24px;margin-bottom:4px">📦</div>
-            <div style="font-size:14px;font-weight:600">Livraison gratuite</div>
-          </div>
-          <div style="background:var(--bg-tertiary);border-radius:12px;padding:12px;text-align:center">
-            <div style="font-size:24px;margin-bottom:4px">🎁</div>
-            <div style="font-size:14px;font-weight:600">Produit gratuit</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Historique -->
-      <div style="background:var(--bg-secondary);border:2px solid var(--border);border-radius:16px;padding:20px;margin-top:16px">
-        <h3 style="font-size:18px;font-weight:700;margin-bottom:16px">📜 Mes gains</h3>
-        <div id="wheelHistory"></div>
-      </div>
-    </div>
-  </main>
-
-  <!-- PAGE GPS TRACKING -->
-  <main class="page" id="page-tracking">
-    <div class="info-section">
-      <h2 class="section-title">
-        <span style="font-size:32px">🗺️</span>
-        <span style="background:linear-gradient(135deg,#00d4ff,#0066ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-weight:900">Suivi Livraison</span>
-      </h2>
-
-      <!-- Sélection de commande -->
-      <div style="background:var(--bg-secondary);border:2px solid var(--border);border-radius:16px;padding:20px;margin-bottom:16px">
-        <label style="display:block;margin-bottom:8px;font-weight:600">Commande à suivre:</label>
-        <select id="trackingOrderSelect" style="width:100%;padding:12px;background:var(--bg-tertiary);border:2px solid var(--border);border-radius:12px;color:var(--text);font-size:15px">
-          <option value="">Sélectionner une commande...</option>
-        </select>
-      </div>
-
-      <!-- Carte GPS -->
-      <div id="mapContainer" style="background:var(--bg-secondary);border:2px solid var(--border);border-radius:16px;padding:20px;margin-bottom:16px;position:relative;height:400px;overflow:hidden">
-        <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;color:var(--text-muted)">
-          <div style="font-size:64px;margin-bottom:16px;opacity:0.3">🗺️</div>
-          <p style="font-size:16px">Sélectionnez une commande pour voir le suivi</p>
-        </div>
-        <!-- Carte simulée avec livreur -->
-        <div id="deliveryMap" style="display:none;width:100%;height:100%;background:linear-gradient(135deg,#e8f5e9,#c8e6c9);border-radius:12px;position:relative">
-          <!-- Marker client -->
-          <div id="clientMarker" style="position:absolute;top:20%;right:20%;width:40px;height:40px;background:#2196f3;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;box-shadow:0 4px 12px rgba(0,0,0,0.2);animation:pulse 2s infinite">
-            🏠
-          </div>
-          <!-- Marker livreur -->
-          <div id="driverMarker" style="position:absolute;bottom:30%;left:25%;width:50px;height:50px;background:#ff5722;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:28px;box-shadow:0 4px 12px rgba(0,0,0,0.3);transition:all 1s ease">
-            🚴
-          </div>
-          <!-- Ligne de trajet -->
-          <svg style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none">
-            <line id="routeLine" x1="25%" y1="70%" x2="80%" y2="20%" stroke="#2196f3" stroke-width="3" stroke-dasharray="10,5" opacity="0.5"/>
-          </svg>
-        </div>
-      </div>
-
-      <!-- Infos livraison -->
-      <div id="deliveryInfo" style="display:none">
-        <!-- Statut -->
-        <div style="background:var(--bg-secondary);border:2px solid var(--border);border-radius:16px;padding:20px;margin-bottom:16px;text-align:center">
-          <div style="font-size:48px;margin-bottom:12px" id="deliveryStatusIcon">📦</div>
-          <h3 style="font-size:20px;font-weight:700;margin-bottom:8px" id="deliveryStatusText">En cours de livraison</h3>
-          <p style="color:var(--text-muted);font-size:14px" id="deliveryETA">Arrivée estimée : 15 min</p>
-        </div>
-
-        <!-- Infos livreur -->
-        <div style="background:var(--bg-secondary);border:2px solid var(--border);border-radius:16px;padding:20px;margin-bottom:16px">
-          <h3 style="font-size:18px;font-weight:700;margin-bottom:16px">👤 Votre livreur</h3>
-          <div style="display:flex;align-items:center;gap:16px">
-            <div style="width:60px;height:60px;background:linear-gradient(135deg,#667eea,#764ba2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;color:white">
-              M
-            </div>
-            <div style="flex:1">
-              <div style="font-weight:700;font-size:16px;margin-bottom:4px" id="driverName">Mohammed</div>
-              <div style="color:var(--text-muted);font-size:14px">⭐ 4.9/5.0 (127 livraisons)</div>
-            </div>
-            <button onclick="alert('Appel simulé au livreur')" style="width:48px;height:48px;background:var(--success);border:none;border-radius:50%;color:white;font-size:20px;cursor:pointer">
-              📞
-            </button>
-          </div>
-        </div>
-
-        <!-- Timeline -->
-        <div style="background:var(--bg-secondary);border:2px solid var(--border);border-radius:16px;padding:20px">
-          <h3 style="font-size:18px;font-weight:700;margin-bottom:16px">📍 Étapes</h3>
-          <div id="deliveryTimeline"></div>
-        </div>
-      </div>
     </div>
   </main>
 
@@ -4020,7 +3871,7 @@ async function openReferralSheet() {
       ? '🏆 Palier maximum atteint !'
       : `${totalReferrals}/${nextTierCount} pour ${nextTier}`;
 
-    const shareText = encodeURIComponent(`🎉 Commande sur DROGUA CENTER et reçois 300 DA de crédit !\n\n🎁 Utilise mon code : ${stats.code}\n\n💰 Profite de réductions et de la roue de la fortune !\n\n👉 ${window.location.origin}`);
+    const shareText = encodeURIComponent(`🎉 Commande sur DROGUA CENTER et reçois 300 DA de crédit !\n\n🎁 Utilise mon code : ${stats.code}\n\n💰 Profite de réductions exclusives !\n\n👉 ${window.location.origin}`);
 
     content.innerHTML = `
       <div style="padding:20px">
@@ -4368,7 +4219,7 @@ async function shareProduct(productId) {
 🔥 ${product.name}
 📦 Catégorie: ${product.category}
 
-💰 Profite de réductions et de la roue de la fortune !
+💰 Profite de réductions exclusives !
 
 👉 Commande maintenant: ${window.location.origin}`;
   }
@@ -5136,41 +4987,11 @@ function showOrderSummary(orderData, orderId, discount = 0, notificationSent = f
       <p style="color:var(--text-secondary);font-size:16px">Numéro de commande : <strong style="color:var(--accent)">#${orderId}</strong></p>
     </div>
 
-    <!-- 🎰 ROUE DE LA FORTUNE & PROGRAMME VIRAL -->
+    <!-- PROGRAMME VIRAL -->
     <div id="viralSection" style="margin:30px 0;position:relative">
 
       <!-- Animation Confettis -->
       <canvas id="confettiCanvas" style="position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;display:none"></canvas>
-
-      <!-- Roue de la Fortune -->
-      <div style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);border-radius:20px;padding:24px;margin-bottom:20px;box-shadow:0 10px 30px rgba(102,126,234,0.3);position:relative;overflow:hidden">
-        <div style="position:absolute;top:0;right:0;font-size:100px;opacity:0.1">🎰</div>
-
-        <div style="text-align:center;position:relative;z-index:1">
-          <h3 style="font-size:26px;font-weight:800;color:#fff;margin-bottom:8px;text-shadow:2px 2px 4px rgba(0,0,0,0.2)">
-            🎰 TENTEZ VOTRE CHANCE ! 🎰
-          </h3>
-          <p style="color:rgba(255,255,255,0.9);font-size:16px;margin-bottom:20px">
-            Tournez la roue et <strong>PEUT-ÊTRE</strong> gagnez des réductions ! 🍀
-          </p>
-
-          <div id="wheelContainer" style="margin:20px auto;position:relative;width:280px;height:280px">
-            <canvas id="wheelCanvas" width="280" height="280" style="border-radius:50%;box-shadow:0 10px 30px rgba(0,0,0,0.3)"></canvas>
-            <div id="wheelPointer" style="position:absolute;top:-15px;left:50%;transform:translateX(-50%);font-size:40px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.3))">
-              🔻
-            </div>
-            <button id="spinButton" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:80px;height:80px;border-radius:50%;background:#fff;border:4px solid #ffd700;font-weight:800;font-size:14px;cursor:pointer;box-shadow:0 4px 15px rgba(0,0,0,0.3);transition:all 0.3s;z-index:10">
-              TOURNER !
-            </button>
-          </div>
-
-          <div id="prizeDisplay" style="display:none;background:rgba(255,255,255,0.2);border:2px solid #ffd700;border-radius:16px;padding:20px;margin-top:20px;backdrop-filter:blur(10px)">
-            <div style="font-size:50px;margin-bottom:10px">🎉</div>
-            <div style="font-size:20px;font-weight:700;color:#ffd700;margin-bottom:8px">VOUS AVEZ GAGNÉ !</div>
-            <div id="prizeText" style="font-size:24px;font-weight:800;color:#fff"></div>
-          </div>
-        </div>
-      </div>
 
       <!-- Programme de Parrainage -->
       <div style="background:linear-gradient(135deg,#f093fb 0%,#f5576c 100%);border-radius:20px;padding:24px;margin-bottom:20px;box-shadow:0 10px 30px rgba(240,147,251,0.3);position:relative;overflow:hidden">
@@ -5488,10 +5309,6 @@ function showOrderSummary(orderData, orderId, discount = 0, notificationSent = f
     fetchAndDisplayVIPTier(orderData.phone);
   }
 
-  // Initialiser la roue de la fortune
-  setTimeout(() => {
-    initializeWheel();
-  }, 500);
 }
 
 // Fetch and display VIP tier information
@@ -5806,194 +5623,6 @@ function showPartialCancellationDialog(orderId, orderData) {
 
 // ==================== FONCTIONS VIRALES ====================
 
-// Roue de la Fortune
-function initializeWheel() {
-  const canvas = document.getElementById('wheelCanvas');
-  if (!canvas) return;
-
-  const ctx = canvas.getContext('2d');
-  const centerX = 140;
-  const centerY = 140;
-  const radius = 130;
-
-  const prizes = [
-    { text: 'PERDU !', color: '#95a5a6', emoji: '❌', isLoss: true },
-    { text: 'RÉESSAYEZ !', color: '#7f8c8d', emoji: '😢', isLoss: true },
-    { text: 'PAS CETTE FOIS', color: '#95a5a6', emoji: '🔄', isLoss: true },
-    { text: 'DOMMAGE...', color: '#7f8c8d', emoji: '💔', isLoss: true },
-    { text: 'RATÉ !', color: '#95a5a6', emoji: '🎯', isLoss: true },
-    { text: 'PRESQUE !', color: '#7f8c8d', emoji: '😔', isLoss: true },
-    { text: 'OUI PRESQUE !', color: '#95a5a6', emoji: '🤷', isLoss: true },
-    { text: 'MALCHANCE...', color: '#7f8c8d', emoji: '😕', isLoss: true },
-    { text: 'OUPS RATÉ', color: '#95a5a6', emoji: '💨', isLoss: true },
-    { text: '5% RÉDUCTION', color: '#27ae60', emoji: '🎉', isLoss: false }
-  ];
-
-  function drawWheel(rotation = 0) {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const anglePerSlice = (2 * Math.PI) / prizes.length;
-
-    prizes.forEach((prize, index) => {
-      const startAngle = rotation + index * anglePerSlice;
-      const endAngle = startAngle + anglePerSlice;
-
-      // Dessiner la part
-      ctx.beginPath();
-      ctx.moveTo(centerX, centerY);
-      ctx.arc(centerX, centerY, radius, startAngle, endAngle);
-      ctx.closePath();
-      ctx.fillStyle = prize.color;
-      ctx.fill();
-      ctx.strokeStyle = '#fff';
-      ctx.lineWidth = 3;
-      ctx.stroke();
-
-      // Ajouter le texte
-      ctx.save();
-      ctx.translate(centerX, centerY);
-      ctx.rotate(startAngle + anglePerSlice / 2);
-      ctx.textAlign = 'center';
-      ctx.fillStyle = '#fff';
-      ctx.font = 'bold 12px Arial';
-      ctx.fillText(prize.emoji, radius / 2, -5);
-      ctx.font = 'bold 10px Arial';
-      ctx.fillText(prize.text, radius / 2, 10);
-      ctx.restore();
-    });
-
-    // Centre de la roue
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, 25, 0, 2 * Math.PI);
-    ctx.fillStyle = '#FFD700';
-    ctx.fill();
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 3;
-    ctx.stroke();
-  }
-
-  drawWheel();
-
-  const spinButton = document.getElementById('spinButton');
-  let isSpinning = false;
-
-  spinButton.addEventListener('click', function() {
-    if (isSpinning) return;
-
-    isSpinning = true;
-    spinButton.disabled = true;
-    spinButton.textContent = '...';
-
-    const spins = 5 + Math.random() * 3;
-    const randomAngle = Math.random() * 2 * Math.PI;
-    const totalRotation = spins * 2 * Math.PI + randomAngle;
-    const duration = 4000;
-    const startTime = Date.now();
-
-    function animate() {
-      const elapsed = Date.now() - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-      const easeOut = 1 - Math.pow(1 - progress, 3);
-      const currentRotation = totalRotation * easeOut;
-
-      drawWheel(currentRotation);
-
-      if (progress < 1) {
-        requestAnimationFrame(animate);
-      } else {
-        const normalizedAngle = (currentRotation % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
-        const anglePerSlice = (2 * Math.PI) / prizes.length;
-        const winningIndex = Math.floor((2 * Math.PI - normalizedAngle) / anglePerSlice) % prizes.length;
-        const prize = prizes[winningIndex];
-
-        // Afficher le prix
-        setTimeout(() => {
-          document.getElementById('prizeText').textContent = prize.text;
-          const prizeDisplay = document.getElementById('prizeDisplay');
-          prizeDisplay.style.display = 'block';
-
-          // Masquer le bouton spin
-          spinButton.style.display = 'none';
-
-          if (prize.isLoss) {
-            // Perdu - pas de confettis, message triste
-            prizeDisplay.querySelector('div:first-child').textContent = '😔';
-            prizeDisplay.querySelector('div:nth-child(2)').textContent = 'PAS CETTE FOIS...';
-            prizeDisplay.querySelector('div:nth-child(2)').style.color = '#95a5a6';
-            prizeDisplay.querySelector('div:nth-child(3)').style.color = '#7f8c8d';
-            showToast('😢 ' + prize.text + ' - Tentez votre chance la prochaine fois !');
-          } else {
-            // Gagné - confettis et message de victoire
-            prizeDisplay.querySelector('div:first-child').textContent = '🎉';
-            prizeDisplay.querySelector('div:nth-child(2)').textContent = 'VOUS AVEZ GAGNÉ !';
-            prizeDisplay.querySelector('div:nth-child(2)').style.color = '#ffd700';
-            prizeDisplay.querySelector('div:nth-child(3)').style.color = '#fff';
-            launchConfetti();
-            showToast('🎉 Félicitations ! Vous avez gagné : ' + prize.text);
-          }
-        }, 500);
-      }
-    }
-
-    animate();
-  });
-}
-
-// Animation Confettis
-function launchConfetti() {
-  const canvas = document.getElementById('confettiCanvas');
-  if (!canvas) return;
-
-  canvas.style.display = 'block';
-  const ctx = canvas.getContext('2d');
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-
-  const confetti = [];
-  const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F'];
-
-  for (let i = 0; i < 150; i++) {
-    confetti.push({
-      x: Math.random() * canvas.width,
-      y: Math.random() * canvas.height - canvas.height,
-      size: Math.random() * 8 + 4,
-      speedY: Math.random() * 3 + 2,
-      speedX: Math.random() * 2 - 1,
-      color: colors[Math.floor(Math.random() * colors.length)],
-      rotation: Math.random() * 360,
-      rotationSpeed: Math.random() * 10 - 5
-    });
-  }
-
-  function animateConfetti() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    confetti.forEach((piece, index) => {
-      piece.y += piece.speedY;
-      piece.x += piece.speedX;
-      piece.rotation += piece.rotationSpeed;
-
-      ctx.save();
-      ctx.translate(piece.x, piece.y);
-      ctx.rotate((piece.rotation * Math.PI) / 180);
-      ctx.fillStyle = piece.color;
-      ctx.fillRect(-piece.size / 2, -piece.size / 2, piece.size, piece.size);
-      ctx.restore();
-
-      if (piece.y > canvas.height) {
-        confetti.splice(index, 1);
-      }
-    });
-
-    if (confetti.length > 0) {
-      requestAnimationFrame(animateConfetti);
-    } else {
-      canvas.style.display = 'none';
-    }
-  }
-
-  animateConfetti();
-}
-
 // Copier le code de parrainage
 function copyReferralCode(code) {
   navigator.clipboard.writeText(code).then(() => {
@@ -6005,7 +5634,7 @@ function copyReferralCode(code) {
 
 // Partage WhatsApp
 function shareToWhatsApp(code) {
-  const text = encodeURIComponent(`🎉 J'ai commandé sur ce site INCROYABLE et j'ai gagné des cadeaux ! 💰\n\n🎰 Tournez la roue de la fortune et gagnez :\n• Réductions jusqu'à 50%\n• Livraison gratuite\n• Produits offerts\n• Crédit 1000 DA\n\n🎁 Utilisez mon code ${code} et recevez 300 DA de bienvenue !\n\nJe gagne 500 DA par parrainage 💵\n\n👉 ${window.location.origin}`);
+  const text = encodeURIComponent(`🎉 J'ai commandé sur ce site INCROYABLE ! 💰\n\n🎁 Profitez de :\n• Réductions jusqu'à 50%\n• Livraison rapide\n• Produits de qualité\n\n🎁 Utilisez mon code ${code} et recevez 300 DA de bienvenue !\n\nJe gagne 500 DA par parrainage 💵\n\n👉 ${window.location.origin}`);
 
   window.open(`https://wa.me/?text=${text}`, '_blank');
   showToast('📱 Partage WhatsApp ouvert !');
@@ -6013,7 +5642,7 @@ function shareToWhatsApp(code) {
 
 // Partage Telegram
 function shareToTelegram(code) {
-  const text = encodeURIComponent(`🎉 J'ai commandé sur ce site INCROYABLE et j'ai gagné des cadeaux ! 💰\n\n🎰 Tournez la roue de la fortune et gagnez :\n• Réductions jusqu'à 50%\n• Livraison gratuite\n• Produits offerts\n• Crédit 1000 DA\n\n🎁 Utilisez mon code ${code} et recevez 300 DA de bienvenue !\n\nJe gagne 500 DA par parrainage 💵\n\n👉 ${window.location.origin}`);
+  const text = encodeURIComponent(`🎉 J'ai commandé sur ce site INCROYABLE ! 💰\n\n🎁 Profitez de :\n• Réductions jusqu'à 50%\n• Livraison rapide\n• Produits de qualité\n\n🎁 Utilisez mon code ${code} et recevez 300 DA de bienvenue !\n\nJe gagne 500 DA par parrainage 💵\n\n👉 ${window.location.origin}`);
 
   window.open(`https://t.me/share/url?url=${encodeURIComponent(window.location.origin)}&text=${text}`, '_blank');
   showToast('✈️ Partage Telegram ouvert !');
@@ -6911,182 +6540,6 @@ document.querySelector('.menu-item[data-page="profil"]')?.addEventListener('clic
   setTimeout(() => loadProfilePage(), 200);
 });
 
-// ================================================
-// ROUE DE LA FORTUNE
-// ================================================
-const wheelPrizes = [
-  { label: '5€ de réduction', color: '#ff6b6b', credits: 5 },
-  { label: 'Livraison gratuite', color: '#4ecdc4', credits: 0, special: 'free_delivery' },
-  { label: '10€ de réduction', color: '#ffe66d', credits: 10 },
-  { label: '+1 spin gratuit', color: '#95e1d3', credits: 0, special: 'extra_spin' },
-  { label: '15€ de réduction', color: '#ff6b9d', credits: 15 },
-  { label: 'Produit mystère gratuit', color: '#c7b8ea', credits: 0, special: 'free_product' },
-  { label: '20€ de réduction', color: '#ffd93d', credits: 20 },
-  { label: 'Réessayez', color: '#a8dadc', credits: 0 }
-];
-
-let isSpinning = false;
-let currentRotation = 0;
-
-function initWheel() {
-  const wheelData = JSON.parse(localStorage.getItem('wheel_data') || '{"spins":1,"lastSpin":0,"history":[]}');
-
-  // Vérifier si l'utilisateur peut tourner (1 spin par jour)
-  const now = Date.now();
-  const lastSpin = wheelData.lastSpin || 0;
-  const oneDayMs = 24 * 60 * 60 * 1000;
-
-  if (now - lastSpin >= oneDayMs) {
-    wheelData.spins = 1; // Reset daily spin
-    localStorage.setItem('wheel_data', JSON.stringify(wheelData));
-  }
-
-  document.getElementById('availableSpins').textContent = wheelData.spins || 0;
-
-  // Afficher le temps avant prochain spin
-  if (wheelData.spins === 0) {
-    updateNextSpinTime(lastSpin + oneDayMs);
-  } else {
-    document.getElementById('nextSpinTime').textContent = 'Disponible maintenant !';
-  }
-
-  // Charger l'historique
-  loadWheelHistory(wheelData.history);
-}
-
-function updateNextSpinTime(nextSpinTimestamp) {
-  const interval = setInterval(() => {
-    const now = Date.now();
-    const diff = nextSpinTimestamp - now;
-
-    if (diff <= 0) {
-      document.getElementById('nextSpinTime').textContent = 'Disponible maintenant !';
-      clearInterval(interval);
-      initWheel(); // Reload pour activer le spin
-      return;
-    }
-
-    const hours = Math.floor(diff / (60 * 60 * 1000));
-    const minutes = Math.floor((diff % (60 * 60 * 1000)) / (60 * 1000));
-    const seconds = Math.floor((diff % (60 * 1000)) / 1000);
-
-    document.getElementById('nextSpinTime').textContent = `${hours}h ${minutes}m ${seconds}s`;
-  }, 1000);
-}
-
-function loadWheelHistory(history) {
-  const container = document.getElementById('wheelHistory');
-
-  if (!history || history.length === 0) {
-    container.innerHTML = `
-      <div style="padding:20px;text-align:center;color:var(--text-muted)">
-        <div style="font-size:32px;margin-bottom:8px;opacity:0.3">🎡</div>
-        <p>Aucun gain pour le moment</p>
-        <p style="font-size:14px;margin-top:4px">Tournez la roue pour gagner !</p>
-      </div>
-    `;
-    return;
-  }
-
-  container.innerHTML = history.slice(0, 10).map(h => `
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:var(--bg-tertiary);border-radius:10px;margin-bottom:6px">
-      <div>
-        <div style="font-weight:600">${sanitizeInput(h.prize)}</div>
-        <div style="color:var(--text-muted);font-size:12px">${new Date(h.date).toLocaleDateString('fr-FR')}</div>
-      </div>
-      <div style="font-size:20px">${h.emoji || '🎁'}</div>
-    </div>
-  `).join('');
-}
-
-document.getElementById('spinBtn')?.addEventListener('click', () => {
-  if (isSpinning) return;
-
-  const wheelData = JSON.parse(localStorage.getItem('wheel_data') || '{"spins":0,"lastSpin":0,"history":[]}');
-
-  if (wheelData.spins <= 0) {
-    showToast('❌ Vous n\'avez plus de spins disponibles !');
-    return;
-  }
-
-  // Démarrer la rotation
-  isSpinning = true;
-  const spinBtn = document.getElementById('spinBtn');
-  spinBtn.disabled = true;
-  spinBtn.style.opacity = '0.5';
-
-  // Choisir un prix aléatoire (avec pondération)
-  const randomIndex = Math.floor(Math.random() * wheelPrizes.length);
-  const selectedPrize = wheelPrizes[randomIndex];
-
-  // Calculer la rotation (plusieurs tours + position finale)
-  const degreesPerSlice = 360 / wheelPrizes.length;
-  const extraRotations = 5; // 5 tours complets
-  const targetRotation = (extraRotations * 360) + (randomIndex * degreesPerSlice) + (degreesPerSlice / 2);
-
-  const wheel = document.getElementById('wheelCanvas');
-  currentRotation += targetRotation;
-
-  wheel.style.transition = 'transform 4s cubic-bezier(0.17, 0.67, 0.12, 0.99)';
-  wheel.style.transform = `rotate(${currentRotation}deg)`;
-
-  // Afficher le résultat après l'animation
-  setTimeout(() => {
-    isSpinning = false;
-    spinBtn.disabled = false;
-    spinBtn.style.opacity = '1';
-
-    // Décrémenter les spins
-    wheelData.spins--;
-    wheelData.lastSpin = Date.now();
-
-    // Ajouter le gain à l'historique
-    const emoji = selectedPrize.credits > 0 ? '💰' : selectedPrize.special === 'free_delivery' ? '🚚' : selectedPrize.special === 'extra_spin' ? '🎡' : selectedPrize.special === 'free_product' ? '🎁' : '😢';
-    wheelData.history.unshift({
-      prize: selectedPrize.label,
-      credits: selectedPrize.credits,
-      special: selectedPrize.special,
-      emoji: emoji,
-      date: Date.now()
-    });
-
-    localStorage.setItem('wheel_data', JSON.stringify(wheelData));
-
-    // Appliquer le gain
-    if (selectedPrize.credits > 0) {
-      // Ajouter des crédits au compte fidélité
-      const loyalty = JSON.parse(localStorage.getItem('loyalty') || '{"points":0,"tier":"Bronze","discount":0}');
-      loyalty.points = (loyalty.points || 0) + selectedPrize.credits;
-      localStorage.setItem('loyalty', JSON.stringify(loyalty));
-      showToast(`🎉 Vous avez gagné ${selectedPrize.credits}€ de crédits !`);
-    } else if (selectedPrize.special === 'extra_spin') {
-      wheelData.spins++;
-      localStorage.setItem('wheel_data', JSON.stringify(wheelData));
-      showToast('🎡 Vous avez gagné un spin supplémentaire !');
-    } else if (selectedPrize.special === 'free_delivery') {
-      localStorage.setItem('free_delivery_voucher', 'true');
-      showToast('🚚 Livraison gratuite sur votre prochaine commande !');
-    } else if (selectedPrize.special === 'free_product') {
-      showToast('🎁 Produit mystère offert ! Contactez le support.');
-    } else {
-      showToast('😢 Réessayez demain !');
-    }
-
-    // Recharger l'interface
-    initWheel();
-  }, 4000);
-});
-
-// Charger la roue quand on ouvre la page
-document.querySelector('.menu-item[data-page="wheel"]')?.addEventListener('click', () => {
-  setTimeout(() => initWheel(), 200);
-});
-
-// Charger le suivi GPS quand on ouvre la page
-document.querySelector('.menu-item[data-page="tracking"]')?.addEventListener('click', () => {
-  setTimeout(() => TrackingManager.init(), 200);
-});
-
 // Charger l'historique quand on ouvre la page
 document.querySelector('.menu-item[data-page="history"]')?.addEventListener('click', () => {
   setTimeout(() => BrowseHistoryManager.render(), 200);
@@ -7254,135 +6707,6 @@ if (!localStorage.getItem('notifications_initialized')) {
   NotificationManager.add('Nouveauté', 'Nouveau produit disponible : STRAWBERRY 120U', 'info');
   localStorage.setItem('notifications_initialized', 'true');
 }
-
-// ================================================
-// GPS TRACKING - SUIVI LIVRAISON
-// ================================================
-const TrackingManager = {
-  currentTrackingInterval: null,
-
-  init() {
-    this.loadTrackingOrders();
-  },
-
-  loadTrackingOrders() {
-    const orders = OrdersManager.getOrders();
-    const activeOrders = orders.filter(o => ['confirmed', 'preparing', 'delivering'].includes(o.status));
-
-    const select = document.getElementById('trackingOrderSelect');
-    if (!select) return;
-
-    select.innerHTML = '<option value="">Sélectionner une commande...</option>';
-    activeOrders.forEach(order => {
-      const option = document.createElement('option');
-      option.value = order.id;
-      option.textContent = `Commande #${order.id} - ${order.items?.length || 0} article(s)`;
-      select.appendChild(option);
-    });
-  },
-
-  startTracking(orderId) {
-    const order = OrdersManager.getOrders().find(o => o.id === orderId);
-    if (!order) return;
-
-    // Afficher la carte et les infos
-    document.getElementById('deliveryMap').style.display = 'block';
-    document.getElementById('deliveryInfo').style.display = 'block';
-    document.querySelector('#mapContainer > div:first-child').style.display = 'none';
-
-    // Simuler le mouvement du livreur
-    this.simulateDelivery(order);
-
-    // Afficher la timeline
-    this.renderTimeline(order);
-  },
-
-  simulateDelivery(order) {
-    // Positions simulées du livreur
-    const positions = [
-      { bottom: '30%', left: '25%', eta: '15 min', status: 'En cours de livraison' },
-      { bottom: '35%', left: '35%', eta: '12 min', status: 'En approche' },
-      { bottom: '40%', left: '45%', eta: '8 min', status: 'Presque arrivé' },
-      { bottom: '25%', left: '60%', eta: '5 min', status: 'À proximité' },
-      { top: '22%', right: '22%', left: 'auto', bottom: 'auto', eta: '2 min', status: 'Arrivé !' }
-    ];
-
-    let currentPos = 0;
-
-    // Arrêter l'intervalle précédent
-    if (this.currentTrackingInterval) {
-      clearInterval(this.currentTrackingInterval);
-    }
-
-    this.currentTrackingInterval = setInterval(() => {
-      if (currentPos >= positions.length) {
-        clearInterval(this.currentTrackingInterval);
-        showToast('🎉 Le livreur est arrivé !');
-        document.getElementById('deliveryStatusIcon').textContent = '✅';
-        document.getElementById('deliveryStatusText').textContent = 'Livré !';
-        return;
-      }
-
-      const pos = positions[currentPos];
-      const marker = document.getElementById('driverMarker');
-
-      Object.keys(pos).forEach(key => {
-        if (key !== 'eta' && key !== 'status') {
-          marker.style[key] = pos[key];
-        }
-      });
-
-      document.getElementById('deliveryETA').textContent = `Arrivée estimée : ${pos.eta}`;
-      document.getElementById('deliveryStatusText').textContent = pos.status;
-
-      currentPos++;
-    }, 3000); // Déplace toutes les 3 secondes
-  },
-
-  renderTimeline(order) {
-    const steps = [
-      { icon: '✅', label: 'Commande confirmée', time: '14:30', completed: true },
-      { icon: '👨‍🍳', label: 'En préparation', time: '14:35', completed: true },
-      { icon: '📦', label: 'Prête pour livraison', time: '14:50', completed: true },
-      { icon: '🚴', label: 'En cours de livraison', time: '15:00', completed: true },
-      { icon: '🏠', label: 'Livrée', time: 'Bientôt', completed: false }
-    ];
-
-    const container = document.getElementById('deliveryTimeline');
-    container.innerHTML = steps.map((step, index) => `
-      <div style="display:flex;gap:12px;margin-bottom:${index < steps.length - 1 ? '20px' : '0'}">
-        <div style="display:flex;flex-direction:column;align-items:center">
-          <div style="width:40px;height:40px;border-radius:50%;background:${step.completed ? 'var(--success)' : 'var(--bg-tertiary)'};color:white;display:flex;align-items:center;justify-content:center;font-size:18px;border:2px solid ${step.completed ? 'var(--success)' : 'var(--border)'}">
-            ${step.icon}
-          </div>
-          ${index < steps.length - 1 ? `<div style="width:2px;height:20px;background:${step.completed ? 'var(--success)' : 'var(--border)'}"></div>` : ''}
-        </div>
-        <div style="flex:1;padding-top:8px">
-          <div style="font-weight:${step.completed ? '700' : '600'};color:${step.completed ? 'var(--text)' : 'var(--text-muted)'}">${step.label}</div>
-          <div style="color:var(--text-muted);font-size:13px;margin-top:2px">${step.time}</div>
-        </div>
-      </div>
-    `).join('');
-  },
-
-  stopTracking() {
-    if (this.currentTrackingInterval) {
-      clearInterval(this.currentTrackingInterval);
-      this.currentTrackingInterval = null;
-    }
-  }
-};
-
-document.getElementById('trackingOrderSelect')?.addEventListener('change', (e) => {
-  if (e.target.value) {
-    TrackingManager.startTracking(parseInt(e.target.value));
-  } else {
-    TrackingManager.stopTracking();
-    document.getElementById('deliveryMap').style.display = 'none';
-    document.getElementById('deliveryInfo').style.display = 'none';
-    document.querySelector('#mapContainer > div:first-child').style.display = 'block';
-  }
-});
 
 // ================================================
 // HISTORIQUE DE NAVIGATION
@@ -7816,12 +7140,11 @@ document.querySelectorAll('.quick-reply').forEach(btn => {
 });
 
 // Initialiser tous les nouveaux managers
-TrackingManager.init();
 BrowseHistoryManager.init();
 ComparisonManager.init();
 ChatManager.init();
 
-console.log('✅ PHASE 3 chargée : GPS Tracking, Historique Navigation, Comparaison, Chat Support');
+console.log('✅ PHASE 3 chargée : Historique Navigation, Comparaison, Chat Support');
   </script>
 </body>
 </html>
