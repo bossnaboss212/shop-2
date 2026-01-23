@@ -6126,11 +6126,39 @@ const BrowseHistoryManager = {
   },
 
   clear() {
-    if (!confirm('Effacer tout l\'historique de navigation ?')) return;
-    this.history = [];
-    localStorage.setItem('browse_history', JSON.stringify(this.history));
-    this.render();
-    showToast('✅ Historique effacé');
+    // Créer une confirmation personnalisée (compatible Telegram Mini App)
+    const confirmDialog = document.createElement('div');
+    confirmDialog.className = 'confirm-dialog';
+    confirmDialog.style.zIndex = '2001';
+    confirmDialog.innerHTML = `
+      <div class="confirm-content" style="max-width:400px">
+        <h3 style="font-size:20px;font-weight:700;margin-bottom:16px;text-align:center">🗑️ Effacer l'historique</h3>
+        <p style="font-size:15px;margin-bottom:20px;text-align:center;color:var(--text-secondary)">
+          Voulez-vous vraiment effacer tout l'historique de navigation ?
+        </p>
+        <div style="display:flex;gap:12px">
+          <button id="confirmClearHistory" style="flex:1;padding:12px 24px;border:none;border-radius:12px;font-weight:600;font-size:15px;cursor:pointer;background:var(--danger);color:#fff">
+            Effacer
+          </button>
+          <button id="cancelClearHistory" style="flex:1;padding:12px 24px;border:none;border-radius:12px;font-weight:600;font-size:15px;cursor:pointer;background:var(--bg-tertiary);color:var(--text-primary);border:1px solid var(--border)">
+            Annuler
+          </button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(confirmDialog);
+
+    document.getElementById('cancelClearHistory').onclick = () => {
+      confirmDialog.remove();
+    };
+
+    document.getElementById('confirmClearHistory').onclick = () => {
+      this.history = [];
+      localStorage.setItem('browse_history', JSON.stringify(this.history));
+      this.render();
+      confirmDialog.remove();
+      showToast('✅ Historique effacé');
+    };
   }
 };
 
