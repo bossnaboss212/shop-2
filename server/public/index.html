@@ -2167,16 +2167,16 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
 
       <!-- Filtres -->
       <div style="display:flex;gap:8px;margin-bottom:16px;overflow-x:auto;padding-bottom:8px">
-        <button class="history-filter active" data-period="all" style="padding:10px 20px;background:var(--accent);color:var(--bg-primary);border:none;border-radius:12px;font-weight:600;white-space:nowrap;cursor:pointer">
+        <button class="history-filter active" data-period="all" onclick="filterHistory('all', this)" style="padding:10px 20px;background:var(--accent);color:var(--bg-primary);border:none;border-radius:12px;font-weight:600;white-space:nowrap;cursor:pointer">
           Tout
         </button>
-        <button class="history-filter" data-period="today" style="padding:10px 20px;background:var(--bg-secondary);color:var(--text);border:2px solid var(--border);border-radius:12px;font-weight:600;white-space:nowrap;cursor:pointer">
+        <button class="history-filter" data-period="today" onclick="filterHistory('today', this)" style="padding:10px 20px;background:var(--bg-secondary);color:var(--text);border:2px solid var(--border);border-radius:12px;font-weight:600;white-space:nowrap;cursor:pointer">
           Aujourd'hui
         </button>
-        <button class="history-filter" data-period="week" style="padding:10px 20px;background:var(--bg-secondary);color:var(--text);border:2px solid var(--border);border-radius:12px;font-weight:600;white-space:nowrap;cursor:pointer">
+        <button class="history-filter" data-period="week" onclick="filterHistory('week', this)" style="padding:10px 20px;background:var(--bg-secondary);color:var(--text);border:2px solid var(--border);border-radius:12px;font-weight:600;white-space:nowrap;cursor:pointer">
           Cette semaine
         </button>
-        <button class="history-filter" data-period="month" style="padding:10px 20px;background:var(--bg-secondary);color:var(--text);border:2px solid var(--border);border-radius:12px;font-weight:600;white-space:nowrap;cursor:pointer">
+        <button class="history-filter" data-period="month" onclick="filterHistory('month', this)" style="padding:10px 20px;background:var(--bg-secondary);color:var(--text);border:2px solid var(--border);border-radius:12px;font-weight:600;white-space:nowrap;cursor:pointer">
           Ce mois
         </button>
       </div>
@@ -6175,18 +6175,25 @@ function formatTimeAgo(timestamp) {
   return `Il y a ${days}j`;
 }
 
-// Filtres historique
-document.querySelectorAll('.history-filter').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.history-filter').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    BrowseHistoryManager.render(btn.dataset.period);
+// Fonction de filtrage historique (appelée par onclick)
+function filterHistory(period, btn) {
+  document.querySelectorAll('.history-filter').forEach(b => {
+    b.classList.remove('active');
+    b.style.background = 'var(--bg-secondary)';
+    b.style.color = 'var(--text)';
+    b.style.border = '2px solid var(--border)';
   });
-});
+  btn.classList.add('active');
+  btn.style.background = 'var(--accent)';
+  btn.style.color = 'var(--bg-primary)';
+  btn.style.border = 'none';
+  BrowseHistoryManager.render(period);
+}
 
-document.getElementById('clearHistory')?.addEventListener('click', () => {
+// Bouton effacer historique
+document.getElementById('clearHistory').onclick = function() {
   BrowseHistoryManager.clear();
-});
+};
 
 // Ajouter le produit à l'historique quand on l'ouvre
 const originalOpenProductDetails = window.openProductDetails;
