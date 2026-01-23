@@ -2299,13 +2299,6 @@ const TELEGRAM_CONFIG = {
   SUPPORT_USERNAME: 'newassistance4'
 };
 
-// Codes promo
-const PROMO_CODES = {
-  'WELCOME10': { type: 'percent', value: 10, label: '10% de réduction' },
-  'FIRST20': { type: 'fixed', value: 20, label: '20€ de réduction' },
-  'VIP15': { type: 'percent', value: 15, label: '15% de réduction VIP' }
-};
-
 // Fonctions utilitaires
 const fmt = n => n.toFixed(2) + ' €';
 
@@ -3098,7 +3091,6 @@ let quantity = 1;
 let selectedDelivery = 'millau';
 let currentSort = 'default';
 let currentCategory = 'all';
-let appliedPromo = null;
 let syncInterval = null;
 let userCreditBalance = 0;
 let useCreditEnabled = false;
@@ -3521,12 +3513,7 @@ async function openReferralSheet() {
 
   const content = document.getElementById('referralContent');
 
-  // Récupérer le numéro de téléphone s'il existe
-  const phoneInput = document.getElementById('phoneInput');
-  const phone = phoneInput?.value.trim() || '';
-
-  if (!phone || phone.length < 8) {
-    content.innerHTML = `
+  content.innerHTML = `
       <div style="text-align:center;padding:40px 20px">
         <div style="font-size:64px;margin-bottom:20px">🎁</div>
         <h3 style="font-size:22px;font-weight:700;margin-bottom:12px">Programme de Parrainage</h3>
@@ -3586,180 +3573,6 @@ async function openReferralSheet() {
         </button>
       </div>
     `;
-    return;
-  }
-
-  // Récupérer les stats de parrainage
-  try {
-    const response = await fetch(`/api/referral-stats?customer=${encodeURIComponent(phone)}`);
-    const data = await response.json();
-
-    if (!data.ok || !data.stats) {
-      content.innerHTML = `
-        <div style="text-align:center;padding:40px 20px;color:var(--text-muted)">
-          <div style="font-size:48px;margin-bottom:16px">😔</div>
-          <p>Aucune donnée de parrainage disponible</p>
-        </div>
-      `;
-      return;
-    }
-
-    const stats = data.stats;
-    const totalReferrals = stats.totalReferrals || 0;
-
-    // Calculer VIP
-    let vipTier = 'Bronze 🥉';
-    let vipBonus = 0;
-    let nextTier = 'Argent 🥈';
-    let nextTierCount = 3;
-    let vipColor = '#cd7f32';
-
-    if (totalReferrals >= 10) {
-      vipTier = 'Diamant 💎';
-      vipBonus = 50;
-      nextTier = 'Maximum';
-      nextTierCount = totalReferrals;
-      vipColor = '#b9f2ff';
-    } else if (totalReferrals >= 6) {
-      vipTier = 'Or 🥇';
-      vipBonus = 20;
-      nextTier = 'Diamant 💎';
-      nextTierCount = 10;
-      vipColor = '#ffd700';
-    } else if (totalReferrals >= 3) {
-      vipTier = 'Argent 🥈';
-      vipBonus = 10;
-      nextTier = 'Or 🥇';
-      nextTierCount = 6;
-      vipColor = '#c0c0c0';
-    }
-
-    const progress = nextTier === 'Maximum' ? 100 : (totalReferrals / nextTierCount) * 100;
-    const progressText = nextTier === 'Maximum'
-      ? '🏆 Palier maximum atteint !'
-      : `${totalReferrals}/${nextTierCount} pour ${nextTier}`;
-
-    const shareText = encodeURIComponent(`🎉 Commande sur DROGUA CENTER et reçois 300 DA de crédit !\n\n🎁 Utilise mon code : ${stats.code}\n\n💰 Profite de réductions exclusives !\n\n👉 ${window.location.origin}`);
-
-    content.innerHTML = `
-      <div style="padding:20px">
-        <!-- Code de parrainage -->
-        <div style="background:linear-gradient(135deg,#f093fb 0%,#f5576c 100%);border-radius:20px;padding:24px;margin-bottom:20px;box-shadow:0 10px 30px rgba(240,147,251,0.3);text-align:center">
-          <div style="color:rgba(255,255,255,0.9);font-size:14px;margin-bottom:8px">Votre code personnel</div>
-          <div style="font-size:32px;font-weight:800;color:#fff;letter-spacing:2px;text-shadow:2px 2px 4px rgba(0,0,0,0.2);margin-bottom:16px;font-family:monospace">${stats.code}</div>
-          <button onclick="navigator.clipboard.writeText('${stats.code}');showToast('✅ Code copié !')" style="padding:12px 24px;background:#fff;border:none;border-radius:12px;font-weight:700;color:#f5576c;cursor:pointer;margin-bottom:12px">
-            📋 Copier le code
-          </button>
-          <div style="display:flex;gap:8px;justify-content:center;margin-top:12px">
-            <a href="https://wa.me/?text=${shareText}" target="_blank" style="flex:1;padding:10px;background:rgba(255,255,255,0.2);border-radius:8px;text-decoration:none;color:#fff;font-weight:600;font-size:14px">📱 WhatsApp</a>
-            <a href="https://t.me/share/url?url=${encodeURIComponent(window.location.origin)}&text=${shareText}" target="_blank" style="flex:1;padding:10px;background:rgba(255,255,255,0.2);border-radius:8px;text-decoration:none;color:#fff;font-weight:600;font-size:14px">✈️ Telegram</a>
-          </div>
-        </div>
-
-        <!-- Palier VIP -->
-        <div style="background:linear-gradient(135deg,${vipColor}40 0%,${vipColor}20 100%);border:2px solid ${vipColor};border-radius:16px;padding:20px;margin-bottom:20px">
-          <div style="text-align:center;margin-bottom:16px">
-            <div style="font-size:14px;color:var(--text-muted);margin-bottom:8px">👑 Palier VIP</div>
-            <div style="font-size:28px;font-weight:800;color:var(--text-primary);margin-bottom:4px">${vipTier}</div>
-            <div style="font-size:16px;font-weight:700;color:var(--accent)">⚡ +${vipBonus}% de bonus</div>
-          </div>
-          <div style="margin-bottom:8px">
-            <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;color:var(--text-secondary)">
-              <span>Progression</span>
-              <span>${progressText}</span>
-            </div>
-            <div style="height:8px;background:var(--bg-tertiary);border-radius:4px;overflow:hidden">
-              <div style="height:100%;background:${vipColor};width:${progress}%;transition:width 0.3s"></div>
-            </div>
-          </div>
-          <div style="text-align:center;font-size:13px;color:var(--text-muted);margin-top:12px">
-            Vous gagnez <strong style="color:var(--accent)">${Math.floor(500 * (1 + vipBonus/100))} DA</strong> par parrainage
-          </div>
-        </div>
-
-        <!-- Statistiques -->
-        <div style="background:var(--card-bg);border-radius:16px;padding:20px;margin-bottom:20px">
-          <div style="font-weight:700;font-size:16px;margin-bottom:16px;color:var(--accent)">📊 Mes Statistiques</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-            <div style="text-align:center;padding:16px;background:var(--bg-tertiary);border-radius:12px">
-              <div style="font-size:24px;font-weight:800;color:var(--accent);margin-bottom:4px">${totalReferrals}</div>
-              <div style="font-size:13px;color:var(--text-muted)">Parrainages</div>
-            </div>
-            <div style="text-align:center;padding:16px;background:var(--bg-tertiary);border-radius:12px">
-              <div style="font-size:24px;font-weight:800;color:var(--success);margin-bottom:4px">${Math.floor(stats.totalEarned)}</div>
-              <div style="font-size:13px;color:var(--text-muted)">Total gagné (DA)</div>
-            </div>
-            <div style="text-align:center;padding:16px;background:var(--bg-tertiary);border-radius:12px">
-              <div style="font-size:24px;font-weight:800;color:#ffd700;margin-bottom:4px">${Math.floor(stats.creditBalance)}</div>
-              <div style="font-size:13px;color:var(--text-muted)">Crédit disponible (DA)</div>
-            </div>
-            <div style="text-align:center;padding:16px;background:var(--bg-tertiary);border-radius:12px">
-              <div style="font-size:24px;font-weight:800;color:var(--accent);margin-bottom:4px">${vipBonus}%</div>
-              <div style="font-size:13px;color:var(--text-muted)">Bonus actuel</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Historique des parrainages -->
-        ${stats.history && stats.history.length > 0 ? `
-        <div style="background:var(--card-bg);border-radius:16px;padding:20px;margin-bottom:20px">
-          <div style="font-weight:700;font-size:16px;margin-bottom:16px;color:var(--accent)">📜 Historique des Parrainages</div>
-          <div style="display:flex;flex-direction:column;gap:12px;max-height:300px;overflow-y:auto">
-            ${stats.history.map(h => {
-              const date = new Date(h.created_at);
-              const dateStr = date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
-              return `
-                <div style="padding:12px;background:var(--bg-tertiary);border-radius:12px;border-left:3px solid var(--success)">
-                  <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:6px">
-                    <div style="flex:1">
-                      <div style="font-weight:600;font-size:14px;color:var(--text-primary);margin-bottom:4px">
-                        👤 ${h.referred_contact}
-                      </div>
-                      <div style="font-size:12px;color:var(--text-muted)">
-                        📅 ${dateStr}
-                        ${h.order_id ? `• 📦 Commande #${h.order_id}` : ''}
-                      </div>
-                    </div>
-                    <div style="text-align:right">
-                      <div style="font-size:16px;font-weight:700;color:var(--success)">+${h.referrer_credit} DA</div>
-                      <div style="font-size:11px;color:var(--text-muted)">${h.status === 'completed' ? '✅ Validé' : '⏳ En attente'}</div>
-                    </div>
-                  </div>
-                </div>
-              `;
-            }).join('')}
-          </div>
-        </div>
-        ` : `
-        <div style="background:var(--card-bg);border-radius:16px;padding:20px;margin-bottom:20px;text-align:center">
-          <div style="font-size:48px;margin-bottom:12px;opacity:0.5">📜</div>
-          <div style="font-size:14px;color:var(--text-muted)">
-            Aucun parrainage pour le moment
-          </div>
-          <div style="font-size:13px;color:var(--text-muted);margin-top:8px">
-            Partagez votre code pour commencer à gagner ! 🚀
-          </div>
-        </div>
-        `}
-
-        <!-- CTA -->
-        <div style="text-align:center;padding:16px;background:var(--success-bg,rgba(34,197,94,0.1));border-radius:12px;border:2px solid var(--success)">
-          <div style="font-size:14px;font-weight:600;color:var(--success);margin-bottom:4px">💡 Astuce</div>
-          <div style="font-size:13px;color:var(--text-secondary)">
-            Plus vous parrainez, plus vos bonus augmentent ! Partagez votre code dès maintenant 🚀
-          </div>
-        </div>
-      </div>
-    `;
-  } catch (error) {
-    console.error('Error loading referral stats:', error);
-    content.innerHTML = `
-      <div style="text-align:center;padding:40px 20px;color:var(--text-muted)">
-        <div style="font-size:48px;margin-bottom:16px">❌</div>
-        <p>Erreur lors du chargement des statistiques</p>
-      </div>
-    `;
-  }
 }
 
 // Event listeners pour la sheet de parrainage
@@ -3802,10 +3615,6 @@ async function showLeaderboard() {
       `;
       return;
     }
-
-    // Récupérer le numéro de téléphone pour savoir si l'utilisateur est dans le classement
-    const phoneInput = document.getElementById('phoneInput');
-    const phone = phoneInput?.value.trim() || '';
 
     content.innerHTML = `
       <div style="padding:20px">
@@ -3949,40 +3758,7 @@ async function shareProduct(productId) {
     return;
   }
 
-  // Récupérer le numéro de téléphone pour le code de parrainage
-  const phoneInput = document.getElementById('phoneInput');
-  const phone = phoneInput?.value.trim() || '';
-
-  let referralCode = '';
-  let shareMessage = '';
-
-  if (phone && phone.length >= 8) {
-    // Essayer de récupérer le code de parrainage
-    try {
-      const response = await fetch(`/api/referral-stats?customer=${encodeURIComponent(phone)}`);
-      const data = await response.json();
-
-      if (data.ok && data.stats && data.stats.code) {
-        referralCode = data.stats.code;
-      }
-    } catch (error) {
-      console.error('Error fetching referral code:', error);
-    }
-  }
-
-  // Construire le message de partage
-  if (referralCode) {
-    shareMessage = `🌟 Découvre ce produit incroyable sur DROGUA CENTER !
-
-🔥 ${product.name}
-📦 Catégorie: ${product.category}
-
-🎁 Utilise mon code de parrainage: ${referralCode}
-💰 Tu reçois 300 DA de crédit de bienvenue !
-
-👉 Commande maintenant: ${window.location.origin}`;
-  } else {
-    shareMessage = `🌟 Découvre ce produit incroyable sur DROGUA CENTER !
+  const shareMessage = `🌟 Découvre ce produit incroyable sur DROGUA CENTER !
 
 🔥 ${product.name}
 📦 Catégorie: ${product.category}
@@ -3990,7 +3766,6 @@ async function shareProduct(productId) {
 💰 Profite de réductions exclusives !
 
 👉 Commande maintenant: ${window.location.origin}`;
-  }
 
   const encodedMessage = encodeURIComponent(shareMessage);
 
@@ -4234,17 +4009,8 @@ function renderCart() {
   
   const subtotal = CartManager.getTotal();
   const deliveryFee = selectedDelivery === 'exterieur' ? 20 : 0;
-  let discount = 0;
 
-  if (appliedPromo) {
-    if (appliedPromo.type === 'percent') {
-      discount = subtotal * (appliedPromo.value / 100);
-    } else {
-      discount = appliedPromo.value;
-    }
-  }
-
-  const totalBeforeCredit = subtotal + deliveryFee - discount;
+  const totalBeforeCredit = subtotal + deliveryFee;
   const creditToApply = useCreditEnabled ? Math.min(userCreditBalance, totalBeforeCredit) : 0;
   const total = totalBeforeCredit - creditToApply;
   
@@ -4266,27 +4032,7 @@ function renderCart() {
         </div>
       </div>
     `).join('')}
-    
-    <div class="promo-section">
-      <div class="section-label">Code promo</div>
-      ${appliedPromo ? `
-        <div class="promo-applied">
-          <span class="promo-applied-text">
-            <svg style="width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2" viewBox="0 0 24 24">
-              <polyline points="20 6 9 17 4 12"></polyline>
-            </svg>
-            ${appliedPromo.label}
-          </span>
-          <button class="promo-remove" id="removePromo">✕</button>
-        </div>
-      ` : `
-        <div class="promo-input-wrapper">
-          <input type="text" class="promo-input" id="promoInput" placeholder="Entrez votre code" maxlength="20">
-          <button class="promo-btn" id="applyPromo">Appliquer</button>
-        </div>
-      `}
-    </div>
-    
+
     <div class="delivery-section">
       <div class="section-label">Mode de livraison</div>
       <div class="delivery-options">
@@ -4314,16 +4060,6 @@ function renderCart() {
           • Communication via notre bot sécurisé<br>
           • Paiement en espèces à la livraison
         </div>
-      </div>
-    </div>
-
-    <div class="contact-section" style="margin-top:16px">
-      <div class="section-label">📱 Numéro de téléphone</div>
-      <div class="input-wrapper">
-        <input type="tel" class="input-field" id="phoneInput" placeholder="Ex: 0612345678" maxlength="20">
-      </div>
-      <div style="font-size:12px;color:var(--text-muted);margin-top:8px">
-        💡 Nécessaire pour utiliser votre crédit et les codes de parrainage
       </div>
     </div>
 
@@ -4398,33 +4134,6 @@ function renderCart() {
     };
   });
   
-  const applyBtn = content.querySelector('#applyPromo');
-  if (applyBtn) {
-    applyBtn.onclick = () => {
-      const input = content.querySelector('#promoInput');
-      const code = input.value.trim().toUpperCase();
-      
-      if (PROMO_CODES[code]) {
-        appliedPromo = PROMO_CODES[code];
-        showToast(`🎉 Code "${code}" appliqué !`);
-        renderCart();
-      } else {
-        input.classList.add('invalid');
-        showToast('❌ Code promo invalide');
-        setTimeout(() => input.classList.remove('invalid'), 2000);
-      }
-    };
-  }
-  
-  const removeBtn = content.querySelector('#removePromo');
-  if (removeBtn) {
-    removeBtn.onclick = () => {
-      appliedPromo = null;
-      showToast('Code promo retiré');
-      renderCart();
-    };
-  }
-
   const useCreditCheckbox = content.querySelector('#useCreditCheckbox');
   if (useCreditCheckbox) {
     useCreditCheckbox.onchange = () => {
@@ -4434,21 +4143,6 @@ function renderCart() {
         showToast('💰 Crédit activé pour cette commande');
       }
     };
-  }
-
-  const phoneInput = content.querySelector('#phoneInput');
-  if (phoneInput) {
-    let phoneTimer = null;
-    phoneInput.addEventListener('input', () => {
-      clearTimeout(phoneTimer);
-      phoneTimer = setTimeout(async () => {
-        const phone = phoneInput.value.trim();
-        if (phone.length >= 8) {
-          await fetchUserCredit(phone);
-          renderCart();
-        }
-      }, 800);
-    });
   }
 
   const applyReferralBtn = content.querySelector('#applyReferral');
@@ -4580,15 +4274,6 @@ async function validateOrder() {
     return;
   }
 
-  const phoneInput = document.getElementById('phoneInput');
-  const phone = phoneInput?.value.trim() || '';
-
-  if (!phone || phone.length < 8) {
-    showToast('⚠️ Entrez votre numéro de téléphone');
-    phoneInput?.focus();
-    return;
-  }
-
   const addressInput = document.getElementById('addressInput');
   const address = addressInput?.value.trim() || '';
 
@@ -4628,35 +4313,24 @@ async function validateOrder() {
     
     const subtotal = CartManager.getTotal();
     const deliveryFee = selectedDelivery === 'exterieur' ? 20 : 0;
-    
-    let promoDiscount = 0;
-    if (appliedPromo) {
-      if (appliedPromo.type === 'percent') {
-        promoDiscount = subtotal * (appliedPromo.value / 100);
-      } else {
-        promoDiscount = appliedPromo.value;
-      }
-    }
-    
+
     const subtotalWithDelivery = subtotal + deliveryFee;
     const nextOrderNumber = LoyaltyManager.totalOrders + 1;
     const willGetReward = nextOrderNumber % 10 === 0;
     let loyaltyDiscount = 0;
-    
+
     if (willGetReward) {
       loyaltyDiscount = Math.min(subtotalWithDelivery * 0.1, 20);
       showToast('🎁 Félicitations ! Remise fidélité appliquée !');
     }
-    
-    const totalDiscount = promoDiscount + loyaltyDiscount;
-    const total = subtotalWithDelivery - totalDiscount;
+
+    const total = subtotalWithDelivery - loyaltyDiscount;
 
     const referralInput = document.getElementById('referralInput');
     const referralCode = referralInput?.value.trim().toUpperCase() || '';
 
     const orderData = {
-      customer: phone,
-      phone: phone,
+      customer: 'Client Web',
       type: deliveryType,
       address: address,
       items: items,
@@ -4671,19 +4345,18 @@ async function validateOrder() {
     if (order) {
       OrdersManager.add(order);
       LoyaltyManager.addOrder(order.id, total);
-      
+
       CartManager.clear();
-      appliedPromo = null;
-      
+
       document.getElementById('cartSheet').classList.add('hidden');
-      
+
       // Ouvrir Telegram
       const message = createOrderMessage(orderData, order.id, total);
       const encodedMessage = encodeURIComponent(message);
       const telegramUrl = `https://t.me/${TELEGRAM_CONFIG.SUPPORT_USERNAME}?text=${encodedMessage}`;
       window.open(telegramUrl, '_blank');
-      
-      showOrderSummary(orderData, order.id, totalDiscount, true);
+
+      showOrderSummary(orderData, order.id, loyaltyDiscount, true);
       
       // Recharger les produits pour afficher les nouveaux stocks
       loadProducts();
