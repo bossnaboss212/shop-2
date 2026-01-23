@@ -2755,7 +2755,21 @@ const OrdersManager = {
   getAll() {
     return this.orders.slice().reverse();
   },
-  
+
+  updateStatus(orderId, status, cancelReason = null) {
+    const orderIndex = this.orders.findIndex(o => o.id === orderId);
+    if (orderIndex >= 0) {
+      this.orders[orderIndex].status = status;
+      if (cancelReason) {
+        this.orders[orderIndex].cancelReason = cancelReason;
+        this.orders[orderIndex].cancelledAt = new Date().toISOString();
+      }
+      this.save();
+      return true;
+    }
+    return false;
+  },
+
   save() {
     localStorage.setItem('shop_customer_orders', JSON.stringify(this.orders));
   }
@@ -5219,12 +5233,15 @@ function cancelOrder(orderId, customerName) {
     
     // Annuler la commande et restaurer les stocks
     const success = SyncManager.cancelOrder(orderId, reason);
-    
+
     if (!success) {
       showToast('❌ Erreur lors de l\'annulation');
       return;
     }
-    
+
+    // Mettre à jour aussi dans OrdersManager pour l'affichage historique
+    OrdersManager.updateStatus(orderId, 'cancelled', reason);
+
     // Créer le message d'annulation avec le motif
     const cancelMessage = `🚫 ANNULATION DE COMMANDE
 
@@ -5282,9 +5299,7 @@ function renderFavorites() {
     return `
       <div class="info-card" style="cursor:pointer" data-product-id="${p.id}">
         <div style="width:60px;height:60px;border-radius:12px;overflow:hidden;flex-shrink:0;background:var(--bg-tertiary)">
-          <video style="width:100%;height:100%;object-fit:cover" autoplay muted loop playsinline>
-            <source src="${p.video || ''}" type="video/MP4">
-          </video>
+          <img src="${p.pic || 'https://picsum.photos/seed/' + p.id + '/60/60'}" alt="${sanitizeInput(p.name)}" style="width:100%;height:100%;object-fit:cover">
         </div>
         <div style="flex:1">
           <div style="font-weight:700;margin-bottom:4px">${sanitizeInput(p.name)}</div>
