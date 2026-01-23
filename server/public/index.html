@@ -1587,7 +1587,7 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
   background:var(--bg-secondary);
 }
 
-.cart-item-video{width:100%;height:100%;object-fit:cover}
+.cart-item-img{width:100%;height:100%;object-fit:cover;border-radius:8px}
 
 .cart-item-info{flex:1;min-width:0}
 
@@ -3432,7 +3432,7 @@ function openProduct(id) {
           variant: selectedVariant.label,
           price: selectedVariant.price,
           qty: quantity,
-          video: currentProduct.video
+          image: currentProduct.pic
         };
         
         CartManager.add(cartItem);
@@ -4018,9 +4018,7 @@ function renderCart() {
     ${CartManager.items.map((item, idx) => `
       <div class="cart-item">
         <div class="cart-item-image">
-          <video class="cart-item-video" autoplay muted loop playsinline>
-            <source src="${item.video || ''}" type="video/MP4">
-          </video>
+          <img class="cart-item-img" src="${item.image || 'https://picsum.photos/seed/' + item.productId + '/80/80'}" alt="${sanitizeInput(item.name)}">
         </div>
         <div class="cart-item-info">
           <div class="cart-item-name">${sanitizeInput(item.name)}</div>
