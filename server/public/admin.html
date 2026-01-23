@@ -1962,7 +1962,7 @@ async function saveProductsToDatabase() {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
+        'x-admin-token': token
       },
       body: JSON.stringify({
         settings: {
@@ -1986,14 +1986,31 @@ async function saveProductsToDatabase() {
 function checkAuth() {
   const auth = localStorage.getItem('admin_auth');
   const expiry = localStorage.getItem('session_expiry');
-  
+  const token = localStorage.getItem('admin_token');
+
   if (auth === 'true' && expiry && Date.now() < parseInt(expiry)) {
+    // Restaurer le token dans state
+    if (token) {
+      state.apiToken = token;
+      console.log('✅ Token restauré depuis localStorage');
+    }
+
     showDashboard();
+
+    // Synchroniser les commandes après affichage
+    if (state.apiToken) {
+      setTimeout(() => {
+        syncOrders(false);
+        console.log('🔄 Synchronisation des commandes...');
+      }, 500);
+    }
+
     return true;
   }
-  
+
   localStorage.removeItem('admin_auth');
   localStorage.removeItem('session_expiry');
+  localStorage.removeItem('admin_token');
   return false;
 }
 
@@ -2832,7 +2849,7 @@ function saveOrderEdit(id) {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'x-admin-token': token
         },
         body: JSON.stringify({ status: newStatus, customer: o.customer, total: o.total })
       }).catch(err => console.warn('Sync error:', err));
@@ -2862,7 +2879,7 @@ function updateOrderStatus(id, status) {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'x-admin-token': token
         },
         body: JSON.stringify({ status: status })
       })
