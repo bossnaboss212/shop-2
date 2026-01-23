@@ -2,33 +2,33 @@
 const API = "/api"; // Sur Netlify: remplace par l'URL complète de ton backend Railway (ex: https://XXX.up.railway.app/api)
 const fmt = n => new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR'}).format(n);
 
-// 11 produits (noms neutres) – remplace librement name/farm/category pic/video
+// 11 produits (noms neutres) – remplace librement name/farm/category pic
 const PRODUCTS = [
-  { id:1,  name:"AMNESIA",  farm:"coffee shop", category:"weed",    pic:"img/amnesia.JPG",      video:"video/amnesia.MP4",
+  { id:1,  name:"AMNESIA",  farm:"coffee shop", category:"weed",    pic:"img/amnesia.JPG",
     variants:[{label:"3,33G",grams:3.33,price:20},{label:"5G",grams:5,price:30},{label:"10G",grams:10,price:60},{label:"50G",grams:50,price:250},{label:"100G",grams:100,price:450}] },
-  { id:2,  name:"NEEDLES KETA",  farm:"holland",   category:"kéta",    pic:"img/needles.JPG",      video:"video/needles.MP4",
+  { id:2,  name:"NEEDLES KETA",  farm:"holland",   category:"kéta",    pic:"img/needles.JPG",
     variants:[{label:"1G",grams:1,price:20},{label:"2G",grams:2,price:40},{label:"3G",grams:3,price:50},{label:"5G",grams:5,price:80},{label:"10G",grams:10,price:150}] },
-  { id:3,  name:"CHAMPAGNE",  farm:"hollande",   category:"🌈 mdma",                               video:"video/champagne.MP4",
+  { id:3,  name:"CHAMPAGNE",  farm:"hollande",   category:"🌈 mdma",    pic:"img/champagne.JPG",
     variants:[{label:"1G",grams:1,price:20},{label:"2G",grams:2,price:40},{label:"3G",grams:3,price:50},{label:"5G",grams:5,price:80},{label:"10G",grams:10,price:150}] },
-  { id:4,  name:"el jefe",  farm:"colombie",    category:"❄️ blanche neige",                     video:"video/el_jefe.MP4",
+  { id:4,  name:"el jefe",  farm:"colombie",    category:"❄️ blanche neige",    pic:"img/el_jefe.JPG",
     variants:[{label:"0,5G",grams:0.5,price:30},{label:"1G",grams:1,price:50},{label:"2G",grams:2,price:100},{label:"5G",grams:5,price:250},{label:"10G",grams:10,price:430}] },
-  { id:5,  name:"SKITTLEZ CAKE 120u",  farm:"hash montaine", category:"🤯 filtré", pic:"img/skittlez_cake.JPG", video:"video/skittlez_cake.MP4",
+  { id:5,  name:"SKITTLEZ CAKE 120u",  farm:"hash montaine", category:"🤯 filtré", pic:"img/skittlez_cake.JPG",
     variants:[{label:"2,5G",grams:2.5,price:20},{label:"5G",grams:5,price:40},{label:"10G",grams:10,price:70},{label:"50G",grams:50,price:290}] },
-  { id:6,  name:"PISTACCHIO 73u",  farm:"hash montaine", category:"🤯 filtré", pic:"img/pistacchio.JPG",   video:"video/pistacchio.MP4",
+  { id:6,  name:"PISTACCHIO 73u",  farm:"hash montaine", category:"🤯 filtré", pic:"img/pistacchio.JPG",
     variants:[{label:"3G",grams:3,price:20},{label:"5G",grams:5,price:50},{label:"10G",grams:10,price:90},{label:"50G",grams:50,price:250}] },
-  { id:7,  name:"DEMBELE",  farm:"morroco",     category:"🧽super mousseux",                          video:"video/dembele.MP4",
+  { id:7,  name:"DEMBELE",  farm:"morroco",     category:"🧽super mousseux",    pic:"img/dembele.JPG",
     variants:[{label:"3,5G",grams:3.5,price:20},{label:"5G",grams:5,price:30},{label:"10G",grams:10,price:50},{label:"50G",grams:50,price:190},{label:"100G",grams:100,price:370}] },
-  { id:8,  name:"LEMON X GELATO",  farm:"top shelf",   category:"🇺🇸 cali us",                           video:"video/lemonxgelato.MP4",
+  { id:8,  name:"LEMON X GELATO",  farm:"top shelf",   category:"🇺🇸 cali us",    pic:"img/lemonxgelato.JPG",
     variants:[{label:"1,66G",grams:1.66,price:20},{label:"3,5G",grams:3.5,price:40},{label:"5G",grams:5,price:60},{label:"10G",grams:10,price:110}] },
-  { id:9,  name:"GEORGIA PIE",  farm:"top shelf",   category:"🇺🇸 cali us",                           video:"video/georgia_pie.MP4",
+  { id:9,  name:"GEORGIA PIE",  farm:"top shelf",   category:"🇺🇸 cali us",    pic:"img/georgia_pie.JPG",
     variants:[{label:"1,66G",grams:1.66,price:20},{label:"3,5G",grams:3.5,price:40},{label:"5G",grams:5,price:60},{label:"10G",grams:10,price:110}] },
-  { id:10, name:"DOMINO 280mg", farm:"Selection",   category:"💊 bonbon",                             video:"video/domino.MP4",
+  { id:10, name:"DOMINO 280mg", farm:"Selection",   category:"💊 bonbon",    pic:"img/domino.JPG",
     variants:[{label:"3 unités",grams:0,price:20},{label:"10 unités",grams:0,price:60},{label:"50 unités",grams:0,price:150}] },
-  { id:11, name:"FRESHH FROZEN", farm:"FRESH",       category:"🤯 filtré",                             video:"video/fresh_frozen.MP4",
+  { id:11, name:"FRESHH FROZEN", farm:"FRESH",       category:"🤯 filtré",    pic:"img/fresh_frozen.JPG",
     variants:[{label:"1,1G",grams:1.1,price:20},{label:"2,3G",grams:2.3,price:40},{label:"3,5G",grams:3.5,price:50},{label:"5G",grams:5,price:80},{label:"10G",grams:10,price:160}] },
-  { id:12, name:"FF MANDARINA🍊", farm:"DRY SIFT",   category:"FROZEN",                                video:"video/ff_mandarina.MP4",
+  { id:12, name:"FF MANDARINA🍊", farm:"DRY SIFT",   category:"FROZEN",    pic:"img/ff_mandarina.JPG",
     variants:[{label:"1,25G",grams:1.25,price:20},{label:"1,9G",grams:1.9,price:30},{label:"2,5G",grams:2.5,price:40},{label:"5G",grams:5,price:80},{label:"10G",grams:10,price:140}] },
-  { id:13, name:"FF FRUITS 🍓🍒", farm:"DRY SIFT",   category:"FROZEN",                                video:"video/ff_fruits.MP4",
+  { id:13, name:"FF FRUITS 🍓🍒", farm:"DRY SIFT",   category:"FROZEN",    pic:"img/ff_fruits.JPG",
     variants:[{label:"1,25G",grams:1.25,price:20},{label:"1,9G",grams:1.9,price:30},{label:"2,5G",grams:2.5,price:40},{label:"5G",grams:5,price:80},{label:"10G",grams:10,price:140}] }
 ];
 
