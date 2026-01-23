@@ -2321,9 +2321,10 @@ function loadOrders() {
       <td>${getStatusBadge(o.status)}</td>
       <td><span class="badge">${o.payment || 'Espèces'}</span></td>
       <td>
-        <button class="btn-sm btn-primary" onclick="viewOrder(${o.id})">👁️</button>
-        <button class="btn-sm btn-warning" onclick="editOrder(${o.id})">✏️</button>
-        <button class="btn-sm btn-danger" onclick="deleteOrder(${o.id})">🗑️</button>
+        ${o.status === 'pending' ? `<button class="btn-sm btn-success" onclick="validateOrder('${o.id}')" title="Valider">✅</button>` : ''}
+        <button class="btn-sm btn-primary" onclick="viewOrder('${o.id}')">👁️</button>
+        <button class="btn-sm btn-warning" onclick="editOrder('${o.id}')">✏️</button>
+        <button class="btn-sm btn-danger" onclick="deleteOrder('${o.id}')">🗑️</button>
       </td>
     </tr>
   `).join('');
@@ -2743,24 +2744,31 @@ function saveOrder() {
 }
 
 function viewOrder(id) {
-  const o = state.data.orders.find(x => x.id === id);
+  const o = state.data.orders.find(x => x.id == id);
   if (!o) return;
-  
+
   showModal(`Commande #${id}`, `
     <p><strong>Client:</strong> ${o.customer}</p>
+    <p><strong>Date:</strong> ${o.date}</p>
+    <p><strong>Produits:</strong> ${o.products}</p>
     <p><strong>Total:</strong> ${fc(o.total)}</p>
     <p><strong>Statut:</strong> ${getStatusBadge(o.status)}</p>
+    <p><strong>Adresse:</strong> ${o.address || 'Non spécifiée'}</p>
     <div style="margin-top:20px;display:grid;gap:12px">
-      <button onclick="updateOrderStatus(${id}, 'delivered')" style="background:var(--success)">✅ Marquer livré</button>
-      <button onclick="updateOrderStatus(${id}, 'cancelled')" style="background:var(--danger)">❌ Annuler</button>
+      ${o.status === 'pending' ? `
+        <button onclick="updateOrderStatus('${id}', 'delivered')" style="background:var(--success)">✅ Valider (Marquer livré)</button>
+        <button onclick="updateOrderStatus('${id}', 'cancelled')" style="background:var(--danger)">❌ Annuler</button>
+      ` : `
+        <p style="text-align:center;color:var(--muted)">Cette commande est déjà ${o.status === 'delivered' ? 'livrée' : 'annulée'}</p>
+      `}
     </div>
   `);
 }
 
 function editOrder(id) {
-  const o = state.data.orders.find(x => x.id === id);
+  const o = state.data.orders.find(x => x.id == id);
   if (!o) return;
-  
+
   showModal(`Éditer #${id}`, `
     <div class="form-group">
       <label>Client</label>
@@ -2770,17 +2778,43 @@ function editOrder(id) {
       <label>Total</label>
       <input type="number" id="editOrderTotal" value="${o.total}" step="0.01">
     </div>
-    <button onclick="saveOrderEdit(${id})">💾 Sauvegarder</button>
+    <div class="form-group">
+      <label>Statut</label>
+      <select id="editOrderStatus">
+        <option value="pending" ${o.status === 'pending' ? 'selected' : ''}>⏳ En attente</option>
+        <option value="delivered" ${o.status === 'delivered' ? 'selected' : ''}>✅ Livré</option>
+        <option value="cancelled" ${o.status === 'cancelled' ? 'selected' : ''}>❌ Annulé</option>
+      </select>
+    </div>
+    <button onclick="saveOrderEdit('${id}')">💾 Sauvegarder</button>
   `);
 }
 
 function saveOrderEdit(id) {
-  const o = state.data.orders.find(x => x.id === id);
+  const o = state.data.orders.find(x => x.id == id);
   if (!o) return;
-  
+
+  const newStatus = document.getElementById('editOrderStatus').value;
   o.customer = document.getElementById('editOrderCustomer').value;
   o.total = parseFloat(document.getElementById('editOrderTotal').value);
-  
+
+  // Si le statut a changé, utiliser updateOrderStatus pour sync serveur
+  if (o.status !== newStatus) {
+    o.status = newStatus;
+    // Sync avec serveur
+    const token = localStorage.getItem('admin_token');
+    if (token) {
+      fetch(`/api/admin/orders/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ status: newStatus, customer: o.customer, total: o.total })
+      }).catch(err => console.warn('Sync error:', err));
+    }
+  }
+
   saveData();
   loadOrders();
   updateAllStats();
@@ -2789,14 +2823,68 @@ function saveOrderEdit(id) {
 }
 
 function updateOrderStatus(id, status) {
-  const o = state.data.orders.find(x => x.id === id);
+  const o = state.data.orders.find(x => x.id == id);
   if (o) {
     o.status = status;
     saveData();
     loadOrders();
+    updateAllStats();
     closeModal();
+
+    // Synchroniser avec le serveur
+    const token = localStorage.getItem('admin_token');
+    if (token) {
+      fetch(`/api/admin/orders/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ status: status })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.ok) {
+          console.log('✅ Statut synchronisé avec le serveur');
+        } else {
+          console.warn('⚠️ Erreur sync serveur:', data.error);
+        }
+      })
+      .catch(err => console.warn('⚠️ Erreur sync:', err));
+    }
+
     showToast('Statut mis à jour', 'success');
   }
+}
+
+function validateOrder(id) {
+  const o = state.data.orders.find(x => x.id == id);
+  if (!o) return;
+
+  if (o.status !== 'pending') {
+    showToast('Cette commande ne peut pas être validée', 'warning');
+    return;
+  }
+
+  // Confirmation
+  showModal('Valider la commande', `
+    <div style="text-align:center;padding:20px">
+      <div style="font-size:64px;margin-bottom:16px">✅</div>
+      <h3 style="margin-bottom:12px">Commande #${id}</h3>
+      <p style="color:var(--text-secondary);margin-bottom:8px"><strong>Client:</strong> ${o.customer}</p>
+      <p style="color:var(--text-secondary);margin-bottom:20px"><strong>Total:</strong> ${fc(o.total)}</p>
+      <p style="margin-bottom:24px">Confirmer que cette commande a été livrée ?</p>
+      <div style="display:flex;gap:12px;justify-content:center">
+        <button onclick="confirmValidateOrder('${id}')" style="background:var(--success);padding:12px 32px">✅ Confirmer</button>
+        <button onclick="closeModal()" style="background:var(--muted);padding:12px 32px">Annuler</button>
+      </div>
+    </div>
+  `);
+}
+
+function confirmValidateOrder(id) {
+  updateOrderStatus(id, 'delivered');
+  showToast('✅ Commande validée !', 'success');
 }
 
 function deleteOrder(id) {
