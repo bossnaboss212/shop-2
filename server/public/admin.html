@@ -3979,8 +3979,13 @@ function syncOrders(manual = false) {
   // Si pas de token, on ne peut pas sync
   if (!state.apiToken) {
     console.warn('⚠️ Pas de token API - impossible de synchroniser');
+    if (manual) {
+      showToast('⚠️ Non connecté - reconnectez-vous', 'warning');
+    }
     return;
   }
+
+  console.log('🔄 Synchronisation des commandes...');
 
   // Récupérer les commandes depuis le serveur (base de données)
   fetch('/api/admin/orders?limit=100', {
@@ -3990,39 +3995,41 @@ function syncOrders(manual = false) {
       'x-admin-token': state.apiToken
     }
   })
-  .then(res => res.json())
+  .then(res => {
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
+    return res.json();
+  })
   .then(data => {
+    console.log('📦 Réponse serveur:', data);
+
     if (data.ok && data.orders) {
       // Convertir format API vers format admin
       const serverOrders = data.orders.map(order => ({
         id: order.id,
         date: new Date(order.created_at).toLocaleString('fr-FR'),
         customer: order.customer || 'Client',
-        products: order.items.map(item => `${item.qty}x ${item.name}`).join(', '),
+        products: Array.isArray(order.items) ? order.items.map(item => `${item.qty}x ${item.name}`).join(', ') : '',
         total: order.total,
         status: order.status || 'pending',
         payment: order.payment_method || 'Espèces',
-        delivery: order.delivery_type || '',
-        address: order.delivery_address || '',
+        delivery: order.type || '',
+        address: order.address || '',
         timestamp: order.created_at,
         items: order.items
       }));
 
-      // Fusionner avec les commandes existantes (éviter les doublons)
-      const existingIds = new Set(state.data.orders.map(o => o.id));
-      const newOrders = serverOrders.filter(o => !existingIds.has(o.id));
+      console.log(`✅ ${serverOrders.length} commande(s) reçue(s) du serveur`);
 
-      if (newOrders.length > 0) {
-        state.data.orders = [...state.data.orders, ...newOrders];
-        saveData();
-        loadOrders();
-        console.log(`✅ ${newOrders.length} nouvelle(s) commande(s) depuis le serveur`);
+      // REMPLACER toutes les commandes par celles du serveur
+      state.data.orders = serverOrders;
+      saveData();
+      loadOrders();
+      updateAllStats();
 
-        if (manual) {
-          showToast(`✅ ${newOrders.length} nouvelle(s) commande(s) importée(s)`, 'success');
-        }
-      } else if (manual) {
-        showToast('✅ Aucune nouvelle commande', 'info');
+      if (manual) {
+        showToast(`✅ ${serverOrders.length} commande(s) synchronisée(s)`, 'success');
       }
 
       const lastSyncEl = document.getElementById('lastSyncTime');
@@ -4032,14 +4039,14 @@ function syncOrders(manual = false) {
     } else {
       console.warn('⚠️ Erreur API:', data.error || 'Erreur inconnue');
       if (manual) {
-        showToast('⚠️ Erreur de synchronisation', 'warning');
+        showToast('⚠️ ' + (data.error || 'Erreur de synchronisation'), 'warning');
       }
     }
   })
   .catch(error => {
     console.error('❌ Erreur sync serveur:', error);
     if (manual) {
-      showToast('❌ Impossible de contacter le serveur', 'error');
+      showToast('❌ Erreur: ' + error.message, 'error');
     }
   });
 }
