@@ -1997,16 +1997,57 @@ function checkAuth() {
   return false;
 }
 
-function login() {
+async function login() {
   if (state.lockoutUntil && Date.now() < state.lockoutUntil) {
     const mins = Math.ceil((state.lockoutUntil - Date.now()) / 60000);
     showLoginMessage(`🔒 Verrouillé ${mins} min`, 'error');
     return;
   }
-  
+
   const pass = document.getElementById('pass').value;
+  if (!pass) {
+    showLoginMessage('❌ Entrez un mot de passe', 'error');
+    return;
+  }
+
+  showLoginMessage('⏳ Vérification...', 'success');
+
+  try {
+    // Authentification via le serveur (mot de passe .env)
+    const response = await fetch('/api/admin/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pass })
+    });
+
+    const data = await response.json();
+
+    if (data.ok && data.token) {
+      // Authentification réussie
+      state.loginAttempts = 0;
+      state.lockoutUntil = null;
+      state.apiToken = data.token;
+      localStorage.setItem('admin_token', data.token);
+
+      const expiry = Date.now() + (24 * 60 * 60 * 1000);
+      localStorage.setItem('admin_auth', 'true');
+      localStorage.setItem('session_expiry', expiry.toString());
+
+      console.log('✅ Connexion réussie, token obtenu');
+
+      // Synchroniser les commandes
+      syncOrders(false);
+
+      showDashboard();
+      showToast('✅ Connexion réussie !', 'success');
+      return;
+    }
+  } catch (err) {
+    console.warn('⚠️ Erreur serveur:', err);
+  }
+
+  // Si échec serveur, essayer le hash local (fallback)
   const hash = CryptoJS.SHA256(pass).toString();
-  
   if (hash === state.passwordHash) {
     state.loginAttempts = 0;
     state.lockoutUntil = null;
@@ -2015,40 +2056,23 @@ function login() {
     localStorage.setItem('admin_auth', 'true');
     localStorage.setItem('session_expiry', expiry.toString());
 
-    // Obtenir le token API pour la synchronisation
-    fetch('/api/admin/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: pass })
-    })
-    .then(res => res.json())
-    .then(data => {
-      if (data.ok && data.token) {
-        state.apiToken = data.token;
-        console.log('✅ Token API obtenu');
-
-        // 🔥 Synchroniser les commandes maintenant qu'on a le token
-        syncOrders(false);
-        console.log('🔄 Synchronisation des commandes depuis le serveur...');
-      }
-    })
-    .catch(err => console.warn('⚠️ Impossible d\'obtenir le token API:', err));
-
     showDashboard();
-    showToast('✅ Connexion réussie !', 'success');
-  } else {
-    state.loginAttempts++;
-    const remaining = 5 - state.loginAttempts;
-    
-    if (state.loginAttempts >= 5) {
-      state.lockoutUntil = Date.now() + (5 * 60 * 1000);
-      showLoginMessage('🔒 Verrouillé 5 min', 'error');
-    } else {
-      showLoginMessage(`❌ Incorrect. ${remaining} essai(s)`, 'error');
-    }
-    
-    document.getElementById('pass').value = '';
+    showToast('✅ Connexion locale réussie !', 'success');
+    return;
   }
+
+  // Échec total
+  state.loginAttempts++;
+  const remaining = 5 - state.loginAttempts;
+
+  if (state.loginAttempts >= 5) {
+    state.lockoutUntil = Date.now() + (5 * 60 * 1000);
+    showLoginMessage('🔒 Verrouillé 5 min', 'error');
+  } else {
+    showLoginMessage(`❌ Mot de passe incorrect. ${remaining} essai(s)`, 'error');
+  }
+
+  document.getElementById('pass').value = '';
 }
 
 function showLoginMessage(msg, type) {
