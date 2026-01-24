@@ -93,27 +93,6 @@ const authLimiter = rateLimit({
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
-// Protection du panneau admin - nécessite une clé secrète
-const ADMIN_SECRET_KEY = process.env.ADMIN_SECRET || 'drogua2025secret';
-app.get('/admin.html', (req, res, next) => {
-  const key = req.query.key;
-  if (key !== ADMIN_SECRET_KEY) {
-    return res.status(403).send(`
-      <!DOCTYPE html>
-      <html>
-      <head><title>Accès Refusé</title></head>
-      <body style="background:#0a0e14;color:#fff;display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif">
-        <div style="text-align:center">
-          <h1 style="font-size:72px;margin:0">🔒</h1>
-          <h2>Accès Refusé</h2>
-          <p style="color:#888">Vous n'êtes pas autorisé à accéder à cette page.</p>
-        </div>
-      </body>
-      </html>
-    `);
-  }
-  next();
-});
 
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.static(path.join(__dirname, '..', 'public')));
@@ -2849,7 +2828,7 @@ function getPermanentKeyboard(chatId) {
         ],
         [
           { text: '📖 Comment Commander' },
-          { text: '🔐 Admin', web_app: { url: `${config.webapp.url}/admin.html?key=${ADMIN_SECRET_KEY}` } }
+          { text: '🔐 Admin', web_app: { url: `${config.webapp.url}/admin.html` } }
         ]
       ],
       resize_keyboard: true,
@@ -2925,7 +2904,11 @@ async function handleTelegramMessage(message) {
     await sendShopMessage(chatId);
     return;
   } else if (text === '/admin') {
-    await sendAdminMessage(chatId);
+    // Seulement pour les admins autorisés
+    if (chatId.toString() === config.telegram.adminChatId) {
+      await sendAdminMessage(chatId);
+    }
+    // Sinon, ne rien répondre
     return;
   } else if (text === '/help' || text === '/aide') {
     await sendHelpMessage(chatId);
@@ -3123,7 +3106,7 @@ Accédez au tableau de bord pour gérer :
 
   const keyboard = {
     inline_keyboard: [
-      [{ text: '🔐 Ouvrir le Panneau Admin', web_app: { url: `${config.webapp.url}/admin.html?key=${ADMIN_SECRET_KEY}` } }]
+      [{ text: '🔐 Ouvrir le Panneau Admin', web_app: { url: `${config.webapp.url}/admin.html` } }]
     ]
   };
   
@@ -4229,7 +4212,7 @@ async function start() {
       console.log(`   Server running on port ${PORT}`);
       console.log('🚀 ================================');
       console.log(`📱 Frontend: http://localhost:${PORT}`);
-      console.log(`🔐 Admin: http://localhost:${PORT}/admin.html?key=${ADMIN_SECRET_KEY}`);
+      console.log(`🔐 Admin: http://localhost:${PORT}/admin.html`);
       
       if (!config.telegram.token) {
         console.log('⚠️  TELEGRAM_TOKEN not set - bot disabled');
