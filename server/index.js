@@ -19,7 +19,7 @@ const PORT = process.env.PORT || 3000;
 const config = {
   telegram: {
     token: process.env.TELEGRAM_TOKEN,
-    adminChatId: process.env.ADMIN_CHAT_ID || '',
+    adminChatIds: (process.env.ADMIN_CHAT_ID || '').split(',').map(id => id.trim()).filter(id => id),
     supportChatId: process.env.SUPPORT_CHAT_ID || '',
     driverMillauId: process.env.DRIVER_MILLAU_ID || '',
     driverExterieurId: process.env.DRIVER_EXTERIEUR_ID || '',
@@ -131,6 +131,22 @@ class TokenStore {
 }
 
 const adminTokens = new TokenStore(config.admin.tokenExpiry);
+
+// Helper pour vérifier si un utilisateur est admin
+function isAdmin(chatId) {
+  return config.telegram.adminChatIds.includes(chatId.toString());
+}
+
+// Helper pour envoyer un message à tous les admins
+async function notifyAdmins(message, options = {}) {
+  for (const adminId of config.telegram.adminChatIds) {
+    try {
+      await telegram.sendMessage(adminId, message, options);
+    } catch (error) {
+      console.error(`Failed to notify admin ${adminId}:`, error.message);
+    }
+  }
+}
 
 // ==================== CHAT SYSTEM ====================
 class ChatManager {
@@ -1181,18 +1197,14 @@ Utilisez-le lors de votre prochaine commande !
   }
 
   // Notification admin optionnelle
-  if (config.telegram.adminChatId) {
+  if (config.telegram.adminChatIds.length > 0) {
     const adminMessage = `💰 <b>PARRAINAGE RÉUSSI</b>
 
 👤 Parrain: ${referrerContact} → +${creditAmount} DA
 🆕 Filleul: ${newCustomerContact}
 📦 Commande: #${orderId}`;
 
-    try {
-      await telegram.sendMessage(config.telegram.adminChatId, adminMessage);
-    } catch (error) {
-      console.error('Failed to send admin referral notification:', error.message);
-    }
+    await notifyAdmins(adminMessage);
   }
 }
 
@@ -1238,23 +1250,19 @@ Tapez /parrainage pour voir votre progression complète 📈`;
   }
 
   // Notification admin
-  if (config.telegram.adminChatId) {
+  if (config.telegram.adminChatIds.length > 0) {
     const adminMessage = `👑 <b>MONTÉE DE PALIER VIP</b>
 
 👤 Client: ${referrerContact}
 🎯 Nouveau palier: ${newTier}
 📊 Total parrainages: ${totalReferrals}`;
 
-    try {
-      await telegram.sendMessage(config.telegram.adminChatId, adminMessage);
-    } catch (error) {
-      console.error('Failed to send admin VIP tier notification:', error.message);
-    }
+    await notifyAdmins(adminMessage);
   }
 }
 
 async function notifyNewCustomerOrder(order, items, customerRecord) {
-  if (config.telegram.adminChatId) {
+  if (config.telegram.adminChatIds.length > 0) {
     const message = `🆕 <b>NOUVEAU CLIENT - VALIDATION REQUISE</b>
 
 📦 <b>Commande #${order.id}</b>
@@ -1285,7 +1293,7 @@ ${items.map(item => `• ${item.name} - ${item.variant} ×${item.qty} = ${item.l
       ]
     };
 
-    await telegram.sendMessage(config.telegram.adminChatId, message, { reply_markup: keyboard });
+    await notifyAdmins(message, { reply_markup: keyboard });
   }
   
   if (config.telegram.supportChatId) {
@@ -1318,11 +1326,11 @@ async function notifyNewOrder(order, items) {
     await telegram.sendMessage(config.telegram.supportChatId, supportMessage);
   }
   
-  if (config.telegram.adminChatId) {
+  if (config.telegram.adminChatIds.length > 0) {
     // Récupérer les infos client complètes
     const customerInfo = await db.get('SELECT * FROM customers WHERE contact = ?', [order.customer]);
     const telegramInfo = await db.get('SELECT * FROM telegram_clients WHERE contact = ?', [order.customer]);
-    
+
     let adminMessage = `📦 <b>COMMANDE #${order.id}</b>
 
 👤 <b>Client: ${order.customer}</b>`;
@@ -1341,7 +1349,7 @@ async function notifyNewOrder(order, items) {
         'blocked': '🚫'
       };
       adminMessage += `\n${statusEmoji[customerInfo.status] || '❓'} Statut: ${customerInfo.status.toUpperCase()}`;
-      
+
       const totalOrders = await db.get(
         'SELECT COUNT(*) as count FROM orders WHERE customer = ? AND status = "delivered"',
         [order.customer]
@@ -1361,8 +1369,8 @@ ${order.discount > 0 ? `🎁 Remise fidélité: -${order.discount}€\n` : ''}�
 🌍 <b>Zone:</b> ${driverInfo.zone.toUpperCase()}
 
 ⏰ ${new Date(order.created_at).toLocaleString('fr-FR')}`;
-    
-    await telegram.sendMessage(config.telegram.adminChatId, adminMessage);
+
+    await notifyAdmins(adminMessage);
   }
   
   // ==================== NOTIFICATIONS LIVREUR DÉSACTIVÉES ====================
@@ -2804,7 +2812,7 @@ if (config.telegram.token) {
 function getPermanentKeyboard(chatId) {
   const isDriver = chatId.toString() === config.telegram.driverMillauId || 
                    chatId.toString() === config.telegram.driverExterieurId;
-  const isAdmin = chatId.toString() === config.telegram.adminChatId;
+  const userIsAdmin = isAdmin(chatId);
   
   if (isDriver) {
     return {
@@ -2818,7 +2826,7 @@ function getPermanentKeyboard(chatId) {
       persistent: true,
       one_time_keyboard: false
     };
-  } else if (isAdmin) {
+  } else if (userIsAdmin) {
     return {
       keyboard: [
         [{ text: '🛒 Ouvrir la Boutique', web_app: { url: `${config.webapp.url}/clear-cache.html` } }],
@@ -2905,7 +2913,7 @@ async function handleTelegramMessage(message) {
     return;
   } else if (text === '/admin') {
     // Seulement pour les admins autorisés
-    if (chatId.toString() === config.telegram.adminChatId) {
+    if (isAdmin(chatId)) {
       await sendAdminMessage(chatId);
     }
     // Sinon, ne rien répondre
@@ -2922,7 +2930,7 @@ async function handleTelegramMessage(message) {
   } else if (text === '/stop') {
     await stopUserConversations(chatId);
     return;
-  } else if (text === '/zones' && chatId.toString() === config.telegram.adminChatId) {
+  } else if (text === '/zones' && isAdmin(chatId)) {
     await sendZoneStats(chatId);
     return;
   } else if (text === '/credit' || text === '/solde') {
@@ -3950,7 +3958,7 @@ N'hésitez pas à recommander ! 🛒`
     await telegram.sendMessage(chatId, message, { reply_markup: keyboard });
   }
   
-  if (config.telegram.adminChatId) {
+  if (config.telegram.adminChatIds.length > 0) {
     const adminMsg = `✅ <b>LIVRAISON TERMINÉE #${orderId}</b>
 
 👤 Client: ${order.customer}
@@ -3959,8 +3967,8 @@ N'hésitez pas à recommander ! 🛒`
 
 🚚 Livreur: ${order.assigned_driver_zone}
 ⏰ Terminée: ${new Date().toLocaleString('fr-FR')}`;
-    
-    await telegram.sendMessage(config.telegram.adminChatId, adminMsg);
+
+    await notifyAdmins(adminMsg);
   }
   
   await notifyClientViaSupport(order.customer, orderId, 'delivered');
@@ -3970,15 +3978,15 @@ async function refuseDelivery(chatId, orderId) {
   await db.run('UPDATE orders SET status = ? WHERE id = ?', ['cancelled', orderId]);
   chatManager.closeConversation(parseInt(orderId));
   
-  if (config.telegram.adminChatId) {
-    await telegram.sendMessage(config.telegram.adminChatId, `❌ Livraison #${orderId} refusée par le livreur`);
+  if (config.telegram.adminChatIds.length > 0) {
+    await notifyAdmins(`❌ Livraison #${orderId} refusée par le livreur`);
   }
   
   await telegram.sendMessage(chatId, '❌ Livraison refusée');
 }
 
 async function approveCustomerFromTelegram(chatId, orderId) {
-  if (chatId.toString() !== config.telegram.adminChatId) {
+  if (!isAdmin(chatId)) {
     await telegram.sendMessage(chatId, '❌ Action non autorisée');
     return;
   }
@@ -4059,7 +4067,7 @@ Le client peut maintenant commander librement.`;
 }
 
 async function blockCustomerFromTelegram(chatId, orderId) {
-  if (chatId.toString() !== config.telegram.adminChatId) {
+  if (!isAdmin(chatId)) {
     await telegram.sendMessage(chatId, '❌ Action non autorisée');
     return;
   }
@@ -4120,7 +4128,7 @@ Le client ne peut plus commander.`;
 }
 
 async function sendOrderCustomerDetails(chatId, orderId) {
-  if (chatId.toString() !== config.telegram.adminChatId) {
+  if (!isAdmin(chatId)) {
     await telegram.sendMessage(chatId, '❌ Action non autorisée');
     return;
   }
@@ -4224,7 +4232,7 @@ async function start() {
       console.log('');
       console.log('📍 Configuration status:');
       console.log(`   Support: ${config.telegram.supportChatId ? '✅' : '❌'}`);
-      console.log(`   Admin: ${config.telegram.adminChatId ? '✅' : '❌'}`);
+      console.log(`   Admin(s): ${config.telegram.adminChatIds.length > 0 ? '✅ (' + config.telegram.adminChatIds.length + ')' : '❌'}`);
       console.log(`   Driver Millau: ${config.telegram.driverMillauId ? '✅' : '❌'}`);
       console.log(`   Driver Extérieur: ${config.telegram.driverExterieurId ? '✅' : '❌'}`);
       console.log(`   Mapbox: ${config.mapbox.key ? '✅' : '❌'}`);
