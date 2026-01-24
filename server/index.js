@@ -92,6 +92,8 @@ const authLimiter = rateLimit({
 // ==================== MIDDLEWARE ====================
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
+
+
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
@@ -2902,7 +2904,11 @@ async function handleTelegramMessage(message) {
     await sendShopMessage(chatId);
     return;
   } else if (text === '/admin') {
-    await sendAdminMessage(chatId);
+    // Seulement pour les admins autorisés
+    if (chatId.toString() === config.telegram.adminChatId) {
+      await sendAdminMessage(chatId);
+    }
+    // Sinon, ne rien répondre
     return;
   } else if (text === '/help' || text === '/aide') {
     await sendHelpMessage(chatId);
