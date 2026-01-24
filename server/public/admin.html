@@ -1983,16 +1983,32 @@ async function saveProductsToDatabase() {
   }
 }
 
-function checkAuth() {
+async function checkAuth() {
   const auth = localStorage.getItem('admin_auth');
   const expiry = localStorage.getItem('session_expiry');
-  const token = localStorage.getItem('admin_token');
+  const savedPassword = localStorage.getItem('admin_password');
 
   if (auth === 'true' && expiry && Date.now() < parseInt(expiry)) {
-    // Restaurer le token dans state
-    if (token) {
-      state.apiToken = token;
-      console.log('✅ Token restauré depuis localStorage');
+    // Session valide, obtenir un nouveau token du serveur
+    if (savedPassword) {
+      try {
+        const response = await fetch('/api/admin/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: savedPassword })
+        });
+        const data = await response.json();
+
+        if (data.ok && data.token) {
+          state.apiToken = data.token;
+          localStorage.setItem('admin_token', data.token);
+          console.log('✅ Nouveau token obtenu');
+        } else {
+          console.warn('⚠️ Impossible de rafraîchir le token');
+        }
+      } catch (err) {
+        console.warn('⚠️ Erreur connexion serveur:', err);
+      }
     }
 
     showDashboard();
@@ -2045,6 +2061,7 @@ async function login() {
       state.lockoutUntil = null;
       state.apiToken = data.token;
       localStorage.setItem('admin_token', data.token);
+      localStorage.setItem('admin_password', pass); // Sauvegarder pour refresh token
 
       const expiry = Date.now() + (24 * 60 * 60 * 1000);
       localStorage.setItem('admin_auth', 'true');
