@@ -824,6 +824,40 @@ class TelegramService {
       console.error('❌ Answer callback error:', error.message);
     }
   }
+
+  async setWebhook(url) {
+    if (!this.token) return null;
+
+    try {
+      const response = await axios.post(`${this.baseUrl}/setWebhook`, {
+        url,
+        allowed_updates: ['message', 'callback_query']
+      }, { timeout: 10000 });
+
+      if (response.data?.ok) {
+        console.log(`✅ Webhook enregistré: ${url}`);
+        return true;
+      } else {
+        console.error('❌ Webhook registration failed:', response.data);
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ Set webhook error:', error.message);
+      return false;
+    }
+  }
+
+  async getWebhookInfo() {
+    if (!this.token) return null;
+
+    try {
+      const response = await axios.get(`${this.baseUrl}/getWebhookInfo`, { timeout: 5000 });
+      return response.data?.result;
+    } catch (error) {
+      console.error('❌ Get webhook info error:', error.message);
+      return null;
+    }
+  }
 }
 
 const telegram = new TelegramService(config.telegram.token);
@@ -2868,10 +2902,15 @@ async function handleTelegramMessage(message) {
   const chatId = message.chat.id;
   const text = message.text;
   const firstName = message.from.first_name || 'Client';
-  
+
   await registerTelegramClient(message);
-  
-  console.log(`💬 Message from ${firstName} (${chatId}): ${text}`);
+
+  console.log(`💬 Message from ${chatId} (${firstName}): ${text}`);
+
+  // Ignorer les messages sans texte (photos, stickers, etc.)
+  if (!text) {
+    return;
+  }
   
   if (text === '🛒 Ouvrir la Boutique' || text === '🛍️ Boutique' || text === '📱 Mini-App') {
     await sendShopMessage(chatId);
@@ -4215,20 +4254,30 @@ async function start() {
   try {
     await initDB();
     
-    app.listen(PORT, () => {
+    app.listen(PORT, async () => {
       console.log('🚀 ================================');
       console.log(`   Server running on port ${PORT}`);
       console.log('🚀 ================================');
       console.log(`📱 Frontend: http://localhost:${PORT}`);
       console.log(`🔐 Admin: http://localhost:${PORT}/admin.html`);
-      
+
       if (!config.telegram.token) {
         console.log('⚠️  TELEGRAM_TOKEN not set - bot disabled');
       } else {
         console.log('✅ Telegram bot enabled');
-        console.log(`🔗 Webhook: ${config.webapp.url}/bot${config.telegram.token}`);
+        const webhookUrl = `${config.webapp.url}/bot${config.telegram.token}`;
+        console.log(`🔗 Webhook: ${webhookUrl}`);
+
+        // Enregistrer le webhook auprès de Telegram
+        const webhookInfo = await telegram.getWebhookInfo();
+        if (webhookInfo?.url !== webhookUrl) {
+          console.log('📡 Enregistrement du webhook...');
+          await telegram.setWebhook(webhookUrl);
+        } else {
+          console.log('✅ Webhook déjà configuré');
+        }
       }
-      
+
       console.log('');
       console.log('📍 Configuration status:');
       console.log(`   Support: ${config.telegram.supportChatId ? '✅' : '❌'}`);
