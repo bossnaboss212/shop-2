@@ -2944,7 +2944,7 @@ async function handleTelegramMessage(message) {
     return;
   }
 
-  if (text === '/start') {
+  if (text === '/start' || text.startsWith('/start ')) {
     await sendWelcomeMessage(chatId, firstName);
     return;
   } else if (text === '/shop' || text === '/boutique') {
