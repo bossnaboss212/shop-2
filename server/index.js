@@ -2816,7 +2816,7 @@ if (config.telegram.token) {
   console.log('🤖 Configuring Telegram bot...');
 
   try {
-    app.post(`/bot${config.telegram.token}`, async (req, res) => {
+    app.post('/telegram-webhook', async (req, res) => {
       console.log('📥 Webhook reçu:', JSON.stringify(req.body).substring(0, 200));
 
       try {
@@ -4268,7 +4268,7 @@ async function start() {
         console.log('⚠️  TELEGRAM_TOKEN not set - bot disabled');
       } else {
         console.log('✅ Telegram bot enabled');
-        const webhookUrl = `${config.webapp.url}/bot${config.telegram.token}`;
+        const webhookUrl = `${config.webapp.url}/telegram-webhook`;
         console.log(`🔗 Webhook: ${webhookUrl}`);
 
         // Enregistrer le webhook auprès de Telegram
