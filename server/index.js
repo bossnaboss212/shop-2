@@ -2817,6 +2817,8 @@ if (config.telegram.token) {
 
   try {
     app.post(`/bot${config.telegram.token}`, async (req, res) => {
+      console.log('📥 Webhook reçu:', JSON.stringify(req.body).substring(0, 200));
+
       try {
         const { message, callback_query } = req.body;
 
@@ -2831,6 +2833,7 @@ if (config.telegram.token) {
         res.sendStatus(200);
       } catch (error) {
         console.error('❌ Bot error:', error.message);
+        console.error(error.stack);
         res.sendStatus(500);
       }
     });
