@@ -93,6 +93,13 @@ const authLimiter = rateLimit({
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
+// Debug: Logger toutes les requêtes POST
+app.use((req, res, next) => {
+  if (req.method === 'POST') {
+    console.log(`📨 POST ${req.path} - Body: ${JSON.stringify(req.body).substring(0, 100)}`);
+  }
+  next();
+});
 
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.static(path.join(__dirname, '..', 'public')));
@@ -2816,6 +2823,11 @@ if (config.telegram.token) {
   console.log('🤖 Configuring Telegram bot...');
 
   try {
+    // Test endpoint pour vérifier que la route fonctionne
+    app.get('/telegram-webhook', (req, res) => {
+      res.json({ ok: true, message: 'Webhook endpoint is working' });
+    });
+
     app.post('/telegram-webhook', async (req, res) => {
       console.log('📥 Webhook reçu:', JSON.stringify(req.body).substring(0, 200));
 
