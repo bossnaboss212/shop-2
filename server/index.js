@@ -3036,11 +3036,17 @@ async function handleTelegramMessage(message) {
 }
 
 async function handleTelegramCallback(callback_query) {
+  if (!callback_query.message || !callback_query.data) {
+    console.warn('⚠️ Callback query sans message ou data, ignoré');
+    if (callback_query.id) await telegram.answerCallback(callback_query.id);
+    return;
+  }
+
   const chatId = callback_query.message.chat.id;
   const data = callback_query.data;
-  
+
   console.log(`🔘 Callback: ${data} from ${chatId}`);
-  
+
   await telegram.answerCallback(callback_query.id);
   
   if (data === 'noop') {
@@ -4343,14 +4349,10 @@ async function start() {
         const webhookUrl = `${config.webapp.url}/telegram-webhook`;
         console.log(`🔗 Webhook: ${webhookUrl}`);
 
-        // Enregistrer le webhook auprès de Telegram
-        const webhookInfo = await telegram.getWebhookInfo();
-        if (webhookInfo?.url !== webhookUrl) {
-          console.log('📡 Enregistrement du webhook...');
-          await telegram.setWebhook(webhookUrl);
-        } else {
-          console.log('✅ Webhook déjà configuré');
-        }
+        // Toujours enregistrer le webhook au démarrage
+        console.log('📡 Enregistrement du webhook...');
+        await telegram.setWebhook(webhookUrl);
+        console.log('✅ Webhook enregistré');
 
         // Configurer les commandes du bot (bouton Menu dans Telegram)
         await telegram.setMyCommands([
