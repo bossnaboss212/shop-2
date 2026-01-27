@@ -522,8 +522,12 @@ async function registerTelegramClient(message) {
   
   try {
     await db.run(`
-      INSERT OR REPLACE INTO telegram_clients (telegram_id, first_name, username, last_seen)
+      INSERT INTO telegram_clients (telegram_id, first_name, username, last_seen)
       VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(telegram_id) DO UPDATE SET
+        first_name = excluded.first_name,
+        username = excluded.username,
+        last_seen = CURRENT_TIMESTAMP
     `, [telegramId, firstName, username]);
     
     console.log(`✅ Telegram client registered: ${telegramId} (${firstName})`);
@@ -1924,9 +1928,11 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
     if (telegramId) {
       try {
         await db.run(`
-          INSERT OR REPLACE INTO telegram_clients (telegram_id, contact, first_started_at)
-          VALUES (?, ?, COALESCE((SELECT first_started_at FROM telegram_clients WHERE telegram_id = ?), datetime('now')))
-        `, [telegramId, sanitizedCustomer, telegramId]);
+          INSERT INTO telegram_clients (telegram_id, contact)
+          VALUES (?, ?)
+          ON CONFLICT(telegram_id) DO UPDATE SET
+            contact = excluded.contact
+        `, [telegramId, sanitizedCustomer]);
         console.log(`🔗 Linked Telegram ID ${telegramId} to contact ${sanitizedCustomer}`);
       } catch (error) {
         console.error('Error linking telegram_id to contact:', error);
@@ -2985,6 +2991,9 @@ async function handleTelegramMessage(message) {
     }
     // Sinon, ne rien répondre
     return;
+  } else if (text === '/orders' || text === '/commandes') {
+    await sendUserOrders(chatId);
+    return;
   } else if (text === '/help' || text === '/aide') {
     await sendHelpMessage(chatId);
     return;
@@ -3027,11 +3036,17 @@ async function handleTelegramMessage(message) {
 }
 
 async function handleTelegramCallback(callback_query) {
+  if (!callback_query.message || !callback_query.data) {
+    console.warn('⚠️ Callback query sans message ou data, ignoré');
+    if (callback_query.id) await telegram.answerCallback(callback_query.id);
+    return;
+  }
+
   const chatId = callback_query.message.chat.id;
   const data = callback_query.data;
-  
+
   console.log(`🔘 Callback: ${data} from ${chatId}`);
-  
+
   await telegram.answerCallback(callback_query.id);
   
   if (data === 'noop') {
@@ -3137,6 +3152,44 @@ Tapez sur les boutons ci-dessous pour commencer ! 👇`;
 
   const keyboard = getPermanentKeyboard(chatId);
   await telegram.sendMessage(chatId, text, { reply_markup: keyboard });
+}
+
+async function sendUserOrders(chatId) {
+  try {
+    const contact = await getClientContact(chatId.toString());
+    if (!contact) {
+      await telegram.sendMessage(chatId, '📦 Vous n\'avez pas encore de commandes.\n\nPassez votre première commande via la boutique !');
+      return;
+    }
+
+    const orders = await db.all(
+      'SELECT * FROM orders WHERE customer = ? ORDER BY created_at DESC LIMIT 5',
+      [contact]
+    );
+
+    if (!orders || orders.length === 0) {
+      await telegram.sendMessage(chatId, '📦 Vous n\'avez pas encore de commandes.\n\nPassez votre première commande via la boutique !');
+      return;
+    }
+
+    const statusEmoji = {
+      pending: '⏳', pending_approval: '🔍', confirmed: '✅',
+      preparing: '🔧', delivering: '🚗', delivered: '✅', cancelled: '❌'
+    };
+
+    let text = '📦 <b>MES DERNIÈRES COMMANDES</b>\n\n';
+    for (const order of orders) {
+      const emoji = statusEmoji[order.status] || '📦';
+      const date = new Date(order.created_at).toLocaleDateString('fr-FR');
+      text += `${emoji} <b>#${order.id}</b> - ${date}\n`;
+      text += `   Status: ${order.status} | Total: ${order.total} DA\n\n`;
+    }
+
+    await telegram.sendMessage(chatId, text);
+  } catch (error) {
+    console.error('Error sending user orders:', error);
+    await telegram.sendMessage(chatId, '❌ Erreur lors de la récupération de vos commandes.');
+  }
 }
 
 async function sendShopMessage(chatId) {
@@ -4296,14 +4349,10 @@ async function start() {
         const webhookUrl = `${config.webapp.url}/telegram-webhook`;
         console.log(`🔗 Webhook: ${webhookUrl}`);
 
-        // Enregistrer le webhook auprès de Telegram
-        const webhookInfo = await telegram.getWebhookInfo();
-        if (webhookInfo?.url !== webhookUrl) {
-          console.log('📡 Enregistrement du webhook...');
-          await telegram.setWebhook(webhookUrl);
-        } else {
-          console.log('✅ Webhook déjà configuré');
-        }
+        // Toujours enregistrer le webhook au démarrage
+        console.log('📡 Enregistrement du webhook...');
+        await telegram.setWebhook(webhookUrl);
+        console.log('✅ Webhook enregistré');
 
         // Configurer les commandes du bot (bouton Menu dans Telegram)
         await telegram.setMyCommands([
