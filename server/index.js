@@ -854,6 +854,19 @@ class TelegramService {
     }
   }
 
+  async setMyCommands(commands) {
+    if (!this.token) return null;
+    try {
+      const response = await axios.post(`${this.baseUrl}/setMyCommands`, {
+        commands
+      }, { timeout: 5000 });
+      return response.data?.ok;
+    } catch (error) {
+      console.error('❌ Set commands error:', error.message);
+      return false;
+    }
+  }
+
   async getWebhookInfo() {
     if (!this.token) return null;
 
@@ -4291,6 +4304,15 @@ async function start() {
         } else {
           console.log('✅ Webhook déjà configuré');
         }
+
+        // Configurer les commandes du bot (bouton Menu dans Telegram)
+        await telegram.setMyCommands([
+          { command: 'start', description: 'Démarrer / Accueil' },
+          { command: 'shop', description: 'Voir la boutique' },
+          { command: 'orders', description: 'Mes commandes' },
+          { command: 'help', description: 'Aide' }
+        ]);
+        console.log('✅ Bot commands configured (Menu button)');
       }
 
       console.log('');
