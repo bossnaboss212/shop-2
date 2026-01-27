@@ -93,6 +93,13 @@ const authLimiter = rateLimit({
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
+// Debug: Logger toutes les requêtes POST
+app.use((req, res, next) => {
+  if (req.method === 'POST') {
+    console.log(`📨 POST ${req.path} - Body: ${JSON.stringify(req.body).substring(0, 100)}`);
+  }
+  next();
+});
 
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.static(path.join(__dirname, '..', 'public')));
@@ -843,6 +850,19 @@ class TelegramService {
       }
     } catch (error) {
       console.error('❌ Set webhook error:', error.message);
+      return false;
+    }
+  }
+
+  async setMyCommands(commands) {
+    if (!this.token) return null;
+    try {
+      const response = await axios.post(`${this.baseUrl}/setMyCommands`, {
+        commands
+      }, { timeout: 5000 });
+      return response.data?.ok;
+    } catch (error) {
+      console.error('❌ Set commands error:', error.message);
       return false;
     }
   }
@@ -2816,6 +2836,11 @@ if (config.telegram.token) {
   console.log('🤖 Configuring Telegram bot...');
 
   try {
+    // Test endpoint pour vérifier que la route fonctionne
+    app.get('/telegram-webhook', (req, res) => {
+      res.json({ ok: true, message: 'Webhook endpoint is working' });
+    });
+
     app.post('/telegram-webhook', async (req, res) => {
       console.log('📥 Webhook reçu:', JSON.stringify(req.body).substring(0, 200));
 
@@ -4279,6 +4304,15 @@ async function start() {
         } else {
           console.log('✅ Webhook déjà configuré');
         }
+
+        // Configurer les commandes du bot (bouton Menu dans Telegram)
+        await telegram.setMyCommands([
+          { command: 'start', description: 'Démarrer / Accueil' },
+          { command: 'shop', description: 'Voir la boutique' },
+          { command: 'orders', description: 'Mes commandes' },
+          { command: 'help', description: 'Aide' }
+        ]);
+        console.log('✅ Bot commands configured (Menu button)');
       }
 
       console.log('');
