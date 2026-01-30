@@ -4142,9 +4142,15 @@ async function handleTelegramMessage(message) {
   const adminCommands = ['/annonce', '/annoncepin', '/programmer', '/supprprog', '/annulprog', '/stopquotidien', '/annonces', '/supprannonce', '/zones'];
   const usedAdminCmd = adminCommands.find(cmd => text === cmd || text.startsWith(cmd + ' '));
   if (usedAdminCmd && !isAdmin(chatId)) {
-    console.log(`⚠️ Non-admin ${chatId} tried admin command: ${usedAdminCmd}`);
+    const rawEnv = process.env.ADMIN_CHAT_ID || '(non défini)';
+    const parsedIds = getAdminChatIds();
+    console.log(`⚠️ Non-admin ${chatId} tried admin command: ${usedAdminCmd} | ADMIN_CHAT_ID="${rawEnv}" | parsed=[${parsedIds}]`);
     await telegram.sendMessage(chatId,
-      `⛔ Commande réservée aux administrateurs.\n\nVotre ID: <code>${chatId}</code>\n\nAjoutez cet ID dans la variable ADMIN_CHAT_ID pour autoriser l'accès.`,
+      `⛔ Commande réservée aux administrateurs.\n\n` +
+      `Votre ID: <code>${chatId}</code> (type: ${typeof chatId})\n` +
+      `ENV ADMIN_CHAT_ID: <code>${rawEnv}</code>\n` +
+      `IDs reconnus: <code>[${parsedIds.join(', ')}]</code>\n\n` +
+      `Si votre ID est dans la liste mais ça ne marche pas, redéployez le service sur Railway.`,
       { parse_mode: 'HTML' }
     );
     return;
