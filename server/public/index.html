@@ -1936,8 +1936,8 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
     <section class="categories">
       <div class="categories-scroll" id="categoriesScroll">
         <button class="category-chip active" data-cat="all">Tout</button>
-        <button class="category-chip" data-cat="Weed">🌿 Weed</button>
-        <button class="category-chip" data-cat="Mousseux">🧽 Mousseux</button>
+        <button class="category-chip" data-cat="weed">🌿 Weed</button>
+        <button class="category-chip" data-cat="mousseux">🧽 Mousseux</button>
         <button class="category-chip" data-cat="blanche">⚪ Blanche</button>
         <button class="category-chip" data-cat="keta">☁️ Keta</button>
         <button class="category-chip" data-cat="frozen">❄️ Frozen</button>
@@ -2363,6 +2363,8 @@ const SyncManager = {
         if (response.ok) {
           const apiData = await response.json();
           if (apiData.ok && apiData.products && apiData.products.length > 0) {
+            // Normaliser les catégories en minuscules
+            apiData.products.forEach(p => { if (p.category) p.category = p.category.toLowerCase(); });
             console.log('✅ Produits chargés depuis l\'API:', apiData.products.length);
             this.saveProducts(apiData.products);
             return apiData.products;
@@ -2373,7 +2375,7 @@ const SyncManager = {
       }
 
       // Fallback sur localStorage avec gestion de version
-      const DATA_VERSION = 8; // Vidéos compressées liées à tous les produits
+      const DATA_VERSION = 10; // Toutes catégories en minuscules + normalisation API
       const savedVersion = parseInt(localStorage.getItem('data_version') || '0');
       const data = localStorage.getItem('shop_products');
 
@@ -2951,7 +2953,7 @@ const DEFAULT_PRODUCTS = [
   {
     id: 1,
     name: 'AMNESIA',
-    category: 'Weed',
+    category: 'weed',
     video: '/videos/amnesia.MP4',
     variants: {
       '3.33G': { price: 20, grams: 3.33, stock: 0 },
@@ -2966,7 +2968,7 @@ const DEFAULT_PRODUCTS = [
   {
     id: 2,
     name: 'NEEDLES KETA',
-    category: 'Keta',
+    category: 'keta',
     video: '/videos/needles.MP4',
     variants: {
       '1G': { price: 20, grams: 1, stock: 0 },
@@ -2983,7 +2985,7 @@ const DEFAULT_PRODUCTS = [
   {
     id: 3,
     name: 'CANADIENNE',
-    category: 'Weed',
+    category: 'weed',
     video: '/videos/canadienne.MP4',
     variants: {
       '1.6G': { price: 20, grams: 1.6, stock: 0 },
@@ -2997,7 +2999,7 @@ const DEFAULT_PRODUCTS = [
   {
     id: 4,
     name: 'BLACK PURPLE',
-    category: 'Weed',
+    category: 'weed',
     video: '/videos/black_purple.MP4',
     variants: {
       '2.2G': { price: 20, grams: 2.2, stock: 0 },
@@ -3011,7 +3013,7 @@ const DEFAULT_PRODUCTS = [
   {
     id: 5,
     name: 'MIMOSA PIE',
-    category: 'Weed',
+    category: 'weed',
     video: '/videos/mimosa_pie.MP4',
     variants: {
       '1.8G': { price: 20, grams: 1.8, stock: 0 },
@@ -3025,7 +3027,7 @@ const DEFAULT_PRODUCTS = [
   {
     id: 6,
     name: 'GEORGIA PIE',
-    category: 'Weed',
+    category: 'weed',
     video: '/videos/gorgia_pie.MP4',
     variants: {
       '1.8G': { price: 20, grams: 1.8, stock: 0 },
@@ -3039,7 +3041,7 @@ const DEFAULT_PRODUCTS = [
   {
     id: 7,
     name: 'BLACK CHEESE',
-    category: 'Weed',
+    category: 'weed',
     video: '/videos/black_cheese.MP4',
     variants: {
       '1.8G': { price: 20, grams: 1.8, stock: 0 },
@@ -3053,7 +3055,7 @@ const DEFAULT_PRODUCTS = [
   {
     id: 8,
     name: "ZOUR'S 120u",
-    category: 'Filtre',
+    category: 'filtre',
     video: "/videos/zour's.MP4",
     variants: {
       '2G': { price: 20, grams: 2, stock: 0 },
@@ -3068,7 +3070,7 @@ const DEFAULT_PRODUCTS = [
   {
     id: 9,
     name: 'COURCHEVEL',
-    category: 'Blanche',
+    category: 'blanche',
     video: '/videos/courchevel.MP4',
     variants: {
       '0.5G': { price: 30, grams: 0.5, stock: 0 },
@@ -3142,7 +3144,7 @@ function renderProducts(filter = 'all', sort = 'default') {
   currentSort = sort;
   
   const grid = document.getElementById('productGrid');
-  let filtered = filter === 'all' ? PRODUCTS : PRODUCTS.filter(p => p.category === filter);
+  let filtered = filter === 'all' ? PRODUCTS : PRODUCTS.filter(p => (p.category || '').toLowerCase() === filter.toLowerCase());
   const sorted = sortProducts(filtered, sort);
   
   document.getElementById('resultsCount').textContent = `${sorted.length} articles`;
