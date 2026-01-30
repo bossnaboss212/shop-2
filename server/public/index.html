@@ -2373,7 +2373,7 @@ const SyncManager = {
       }
 
       // Fallback sur localStorage avec gestion de version
-      const DATA_VERSION = 7; // 9 produits: AMNESIA, NEEDLES KETA + 7 nouveaux, tous stock à 0
+      const DATA_VERSION = 8; // Vidéos compressées liées à tous les produits
       const savedVersion = parseInt(localStorage.getItem('data_version') || '0');
       const data = localStorage.getItem('shop_products');
 
@@ -2984,7 +2984,7 @@ const DEFAULT_PRODUCTS = [
     id: 3,
     name: 'CANADIENNE',
     category: 'Weed',
-    video: '',
+    video: '/videos/canadienne.MP4',
     variants: {
       '1.6G': { price: 20, grams: 1.6, stock: 0 },
       '3.2G': { price: 40, grams: 3.2, stock: 0 },
@@ -2998,7 +2998,7 @@ const DEFAULT_PRODUCTS = [
     id: 4,
     name: 'BLACK PURPLE',
     category: 'Weed',
-    video: '',
+    video: '/videos/black_purple.MP4',
     variants: {
       '2.2G': { price: 20, grams: 2.2, stock: 0 },
       '5G': { price: 40, grams: 5, stock: 0 },
@@ -3012,7 +3012,7 @@ const DEFAULT_PRODUCTS = [
     id: 5,
     name: 'MIMOSA PIE',
     category: 'Weed',
-    video: '',
+    video: '/videos/mimosa_pie.MP4',
     variants: {
       '1.8G': { price: 20, grams: 1.8, stock: 0 },
       '3.6G': { price: 40, grams: 3.6, stock: 0 },
@@ -3026,7 +3026,7 @@ const DEFAULT_PRODUCTS = [
     id: 6,
     name: 'GEORGIA PIE',
     category: 'Weed',
-    video: '',
+    video: '/videos/gorgia_pie.MP4',
     variants: {
       '1.8G': { price: 20, grams: 1.8, stock: 0 },
       '3.6G': { price: 40, grams: 3.6, stock: 0 },
@@ -3040,7 +3040,7 @@ const DEFAULT_PRODUCTS = [
     id: 7,
     name: 'BLACK CHEESE',
     category: 'Weed',
-    video: '',
+    video: '/videos/black_cheese.MP4',
     variants: {
       '1.8G': { price: 20, grams: 1.8, stock: 0 },
       '3.6G': { price: 40, grams: 3.6, stock: 0 },
@@ -3054,7 +3054,7 @@ const DEFAULT_PRODUCTS = [
     id: 8,
     name: "ZOUR'S 120u",
     category: 'Filtre',
-    video: '',
+    video: "/videos/zour's.MP4",
     variants: {
       '2G': { price: 20, grams: 2, stock: 0 },
       '5G': { price: 40, grams: 5, stock: 0 },
@@ -3069,7 +3069,7 @@ const DEFAULT_PRODUCTS = [
     id: 9,
     name: 'COURCHEVEL',
     category: 'Blanche',
-    video: '',
+    video: '/videos/courchevel.MP4',
     variants: {
       '0.5G': { price: 30, grams: 0.5, stock: 0 },
       '1G': { price: 50, grams: 1, stock: 0 },
