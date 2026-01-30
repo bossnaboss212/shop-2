@@ -3021,9 +3021,9 @@ app.get('/api/admin/referrals/export', requireAdmin, async (req, res) => {
 // ==================== CHANNEL ANNOUNCEMENTS ====================
 
 function resolveChannelId(channel) {
-  if (channel === 'photo') return config.telegram.photoChannelId;
-  if (channel === 'secours') return config.telegram.secoursChannelId;
-  return config.telegram.channelId; // principal par défaut
+  if (channel === 'photo') return process.env.TELEGRAM_PHOTO_CHANNEL_ID || config.telegram.photoChannelId;
+  if (channel === 'secours') return process.env.TELEGRAM_SECOURS_CHANNEL_ID || config.telegram.secoursChannelId;
+  return process.env.TELEGRAM_CHANNEL_ID || config.telegram.channelId; // principal par défaut
 }
 
 // Poster une annonce texte (immédiat ou programmé)
