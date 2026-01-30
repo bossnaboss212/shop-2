@@ -25,6 +25,7 @@ const config = {
     driverExterieurId: process.env.DRIVER_EXTERIEUR_ID || '',
     channelId: process.env.TELEGRAM_CHANNEL_ID || '',
     photoChannelId: process.env.TELEGRAM_PHOTO_CHANNEL_ID || '',
+    secoursChannelId: process.env.TELEGRAM_SECOURS_CHANNEL_ID || '',
   },
   mapbox: {
     key: process.env.MAPBOX_KEY || '',
@@ -3002,6 +3003,12 @@ app.get('/api/admin/referrals/export', requireAdmin, async (req, res) => {
 
 // ==================== CHANNEL ANNOUNCEMENTS ====================
 
+function resolveChannelId(channel) {
+  if (channel === 'photo') return config.telegram.photoChannelId;
+  if (channel === 'secours') return config.telegram.secoursChannelId;
+  return config.telegram.channelId; // principal par défaut
+}
+
 // Poster une annonce texte (immédiat ou programmé)
 // Body: { text, channel?, pin?, post_at?, delete_at?, pin_times?: ["HH:MM", ...] }
 app.post('/api/admin/announcements', requireAdmin, async (req, res) => {
@@ -3011,9 +3018,7 @@ app.post('/api/admin/announcements', requireAdmin, async (req, res) => {
       return res.status(400).json({ ok: false, error: 'Le texte est requis' });
     }
 
-    const channelId = channel === 'photo'
-      ? config.telegram.photoChannelId
-      : config.telegram.channelId;
+    const channelId = resolveChannelId(channel);
 
     if (!channelId) {
       return res.status(400).json({ ok: false, error: 'Channel ID non configuré' });
@@ -3100,9 +3105,7 @@ app.post('/api/admin/announcements/photo', requireAdmin, async (req, res) => {
       return res.status(400).json({ ok: false, error: 'L\'URL de la photo est requise' });
     }
 
-    const channelId = channel === 'photo'
-      ? config.telegram.photoChannelId
-      : config.telegram.channelId;
+    const channelId = resolveChannelId(channel);
 
     if (!channelId) {
       return res.status(400).json({ ok: false, error: 'Channel ID non configuré' });
@@ -3337,21 +3340,32 @@ function renderTemplate(template, date) {
 }
 
 // Poster une annonce immédiatement
+// Parse le préfixe #canal optionnel : #photo, #secours, ou rien (= principal)
+function parseChannelPrefix(text) {
+  const match = text.match(/^#(photo|secours)\s+/i);
+  if (match) {
+    return { channel: match[1].toLowerCase(), text: text.substring(match[0].length) };
+  }
+  return { channel: 'principal', text };
+}
+
 async function handlePostAnnouncement(chatId, text) {
-  const channelId = config.telegram.channelId;
-  if (!channelId) {
-    await telegram.sendMessage(chatId, '❌ TELEGRAM_CHANNEL_ID non configuré.');
-    return;
-  }
-
   if (!text || text.length === 0) {
-    await telegram.sendMessage(chatId, '❌ Usage: /annonce <texte de l\'annonce>');
+    await telegram.sendMessage(chatId, '❌ Usage: /annonce [#photo|#secours] <texte>');
     return;
   }
 
-  const result = await telegram.sendMessage(channelId, text);
+  const parsed = parseChannelPrefix(text);
+  const channelId = resolveChannelId(parsed.channel === 'principal' ? null : parsed.channel);
+
+  if (!channelId) {
+    await telegram.sendMessage(chatId, `❌ Canal "${parsed.channel}" non configuré.`);
+    return;
+  }
+
+  const result = await telegram.sendMessage(channelId, parsed.text);
   if (!result || !result.result) {
-    await telegram.sendMessage(chatId, '❌ Échec de l\'envoi sur le canal. Vérifiez que le bot est admin du canal.');
+    await telegram.sendMessage(chatId, '❌ Échec de l\'envoi. Vérifiez que le bot est admin du canal.');
     return;
   }
 
@@ -3359,26 +3373,29 @@ async function handlePostAnnouncement(chatId, text) {
   await db.run(
     `INSERT INTO announcements (channel_id, message_id, type, content, posted_by, status)
      VALUES (?, ?, 'text', ?, ?, 'posted')`,
-    [channelId, messageId, text, chatId.toString()]
+    [channelId, messageId, parsed.text, chatId.toString()]
   );
 
-  await telegram.sendMessage(chatId, `✅ Annonce publiée !\n📝 Message ID: ${messageId}\n\n/supprannonce ${messageId}`);
+  const label = parsed.channel === 'principal' ? '' : ` (${parsed.channel})`;
+  await telegram.sendMessage(chatId, `✅ Annonce publiée${label} !\n📝 Message ID: ${messageId}\n\n/supprannonce ${messageId}`);
 }
 
 // Poster + épingler immédiatement
 async function handlePostAndPinAnnouncement(chatId, text) {
-  const channelId = config.telegram.channelId;
-  if (!channelId) {
-    await telegram.sendMessage(chatId, '❌ TELEGRAM_CHANNEL_ID non configuré.');
-    return;
-  }
-
   if (!text || text.length === 0) {
-    await telegram.sendMessage(chatId, '❌ Usage: /annoncepin <texte>');
+    await telegram.sendMessage(chatId, '❌ Usage: /annoncepin [#photo|#secours] <texte>');
     return;
   }
 
-  const result = await telegram.sendMessage(channelId, text);
+  const parsed = parseChannelPrefix(text);
+  const channelId = resolveChannelId(parsed.channel === 'principal' ? null : parsed.channel);
+
+  if (!channelId) {
+    await telegram.sendMessage(chatId, `❌ Canal "${parsed.channel}" non configuré.`);
+    return;
+  }
+
+  const result = await telegram.sendMessage(channelId, parsed.text);
   if (!result || !result.result) {
     await telegram.sendMessage(chatId, '❌ Échec de l\'envoi.');
     return;
@@ -3390,37 +3407,47 @@ async function handlePostAndPinAnnouncement(chatId, text) {
   await db.run(
     `INSERT INTO announcements (channel_id, message_id, type, content, pin, posted_by, status)
      VALUES (?, ?, 'text', ?, 1, ?, 'posted')`,
-    [channelId, messageId, text, chatId.toString()]
+    [channelId, messageId, parsed.text, chatId.toString()]
   );
 
-  await telegram.sendMessage(chatId, `✅ Annonce publiée et épinglée !\n📌 Message ID: ${messageId}\n\n/supprannonce ${messageId}`);
+  const label = parsed.channel === 'principal' ? '' : ` (${parsed.channel})`;
+  await telegram.sendMessage(chatId, `✅ Annonce publiée et épinglée${label} !\n📌 Message ID: ${messageId}\n\n/supprannonce ${messageId}`);
 }
 
 // Programmer une annonce : /programmer HH:MM [suppr HH:MM] [pin] texte
 async function handleScheduleAnnouncement(chatId, args) {
-  const channelId = config.telegram.channelId;
-  if (!channelId) {
-    await telegram.sendMessage(chatId, '❌ TELEGRAM_CHANNEL_ID non configuré.');
-    return;
-  }
-
   if (!args || args.length === 0) {
     await telegram.sendMessage(chatId,
       '❌ <b>Usage:</b>\n\n' +
       '<code>/programmer HH:MM texte</code>\n' +
       '<code>/programmer HH:MM pin HH:MM,HH:MM suppr HH:MM texte</code>\n' +
-      '<code>/programmer HH:MM quotidien texte avec {jour} {mois}</code>\n\n' +
+      '<code>/programmer HH:MM quotidien texte avec {jour} {mois}</code>\n' +
+      '<code>/programmer #secours HH:MM texte</code>\n\n' +
+      '<b>Canaux:</b> #photo #secours (par défaut = principal)\n' +
       '<b>Mot-clé quotidien</b> = répète chaque jour\n' +
       '<b>Placeholders:</b> {jour} {mois} {date} {joursemaine} {DATE}\n\n' +
       '<b>Exemples:</b>\n' +
       '<code>/programmer 12:00 pin 15:00,17:00 suppr 00:00 Boutique ouverte !</code>\n' +
-      '<code>/programmer 12:00 quotidien pin 15:00,20:00 suppr 00:00 Ouvert le {jour} {mois} !</code>'
+      '<code>/programmer #secours 12:00 quotidien suppr 00:00 Backup le {jour} {mois}</code>'
     );
     return;
   }
 
   const parts = args.split(' ');
   let idx = 0;
+
+  // Optionnel : #canal en premier
+  let targetChannel = null;
+  if (parts[idx] && parts[idx].match(/^#(photo|secours)$/i)) {
+    targetChannel = parts[idx].substring(1).toLowerCase();
+    idx++;
+  }
+
+  const channelId = resolveChannelId(targetChannel);
+  if (!channelId) {
+    await telegram.sendMessage(chatId, `❌ Canal "${targetChannel || 'principal'}" non configuré.`);
+    return;
+  }
 
   const postTime = parseTime(parts[idx]);
   if (!postTime) {
@@ -5432,8 +5459,9 @@ async function start() {
       console.log(`   Driver Millau: ${config.telegram.driverMillauId ? '✅' : '❌'}`);
       console.log(`   Driver Extérieur: ${config.telegram.driverExterieurId ? '✅' : '❌'}`);
       console.log(`   Mapbox: ${config.mapbox.key ? '✅' : '❌'}`);
-      console.log(`   Canal: ${config.telegram.channelId ? '✅' : '❌'}`);
+      console.log(`   Canal Principal: ${config.telegram.channelId ? '✅' : '❌'}`);
       console.log(`   Canal Photo: ${config.telegram.photoChannelId ? '✅' : '❌'}`);
+      console.log(`   Canal Secours: ${config.telegram.secoursChannelId ? '✅' : '❌'}`);
       console.log('💬 Chat System: ✅ Enabled');
 
       // Démarrer le scheduler d'annonces
