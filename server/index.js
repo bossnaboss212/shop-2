@@ -464,6 +464,17 @@ async function initDB() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
+    CREATE TABLE IF NOT EXISTS scheduled_actions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      announcement_id INTEGER NOT NULL,
+      action TEXT NOT NULL,
+      execute_at DATETIME NOT NULL,
+      status TEXT DEFAULT 'pending',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (announcement_id) REFERENCES announcements(id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_scheduled_actions_status ON scheduled_actions(status, execute_at);
     CREATE INDEX IF NOT EXISTS idx_announcements_channel ON announcements(channel_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_announcements_status ON announcements(status);
     CREATE INDEX IF NOT EXISTS idx_announcements_post_at ON announcements(post_at);
@@ -2990,9 +3001,10 @@ app.get('/api/admin/referrals/export', requireAdmin, async (req, res) => {
 // ==================== CHANNEL ANNOUNCEMENTS ====================
 
 // Poster une annonce texte (immédiat ou programmé)
+// Body: { text, channel?, pin?, post_at?, delete_at?, pin_times?: ["HH:MM", ...] }
 app.post('/api/admin/announcements', requireAdmin, async (req, res) => {
   try {
-    const { text, channel, pin, post_at, delete_at } = req.body;
+    const { text, channel, pin, post_at, delete_at, pin_times } = req.body;
     if (!text || text.trim().length === 0) {
       return res.status(400).json({ ok: false, error: 'Le texte est requis' });
     }
@@ -3005,35 +3017,72 @@ app.post('/api/admin/announcements', requireAdmin, async (req, res) => {
       return res.status(400).json({ ok: false, error: 'Channel ID non configuré' });
     }
 
+    const hasPins = (pin_times && pin_times.length > 0) || pin;
+
     // Annonce programmée
     if (post_at) {
-      await db.run(
+      const result = await db.run(
         `INSERT INTO announcements (channel_id, message_id, type, content, pin, status, post_at, delete_at, posted_by)
          VALUES (?, NULL, 'text', ?, ?, 'scheduled', ?, ?, 'admin')`,
-        [channelId, text.trim(), pin ? 1 : 0, post_at, delete_at || null]
+        [channelId, text.trim(), hasPins ? 1 : 0, post_at, delete_at || null]
       );
-      return res.json({ ok: true, scheduled: true, post_at, delete_at });
+      const annId = result.lastID;
+
+      // Ajouter les actions de pin programmées
+      if (pin_times && pin_times.length > 0) {
+        for (const pt of pin_times) {
+          await db.run(
+            `INSERT INTO scheduled_actions (announcement_id, action, execute_at, status) VALUES (?, 'pin', ?, 'pending')`,
+            [annId, pt]
+          );
+        }
+      }
+      if (delete_at) {
+        await db.run(
+          `INSERT INTO scheduled_actions (announcement_id, action, execute_at, status) VALUES (?, 'delete', ?, 'pending')`,
+          [annId, delete_at]
+        );
+      }
+
+      return res.json({ ok: true, scheduled: true, id: annId, post_at, delete_at, pin_times });
     }
 
     // Envoi immédiat
-    const result = await telegram.sendMessage(channelId, text.trim());
-    if (!result || !result.result) {
+    const sendResult = await telegram.sendMessage(channelId, text.trim());
+    if (!sendResult || !sendResult.result) {
       return res.status(500).json({ ok: false, error: 'Échec de l\'envoi sur le canal' });
     }
 
-    const messageId = result.result.message_id;
+    const messageId = sendResult.result.message_id;
 
     if (pin) {
       await telegram.pinChatMessage(channelId, messageId, true);
     }
 
-    await db.run(
+    const dbResult = await db.run(
       `INSERT INTO announcements (channel_id, message_id, type, content, pin, status, delete_at, posted_by)
        VALUES (?, ?, 'text', ?, ?, 'posted', ?, 'admin')`,
-      [channelId, messageId, text.trim(), pin ? 1 : 0, delete_at || null]
+      [channelId, messageId, text.trim(), hasPins ? 1 : 0, delete_at || null]
     );
+    const annId = dbResult.lastID;
 
-    res.json({ ok: true, messageId, channelId, pinned: !!pin });
+    // Actions programmées sur un message déjà posté
+    if (pin_times && pin_times.length > 0) {
+      for (const pt of pin_times) {
+        await db.run(
+          `INSERT INTO scheduled_actions (announcement_id, action, execute_at, status) VALUES (?, 'pin', ?, 'pending')`,
+          [annId, pt]
+        );
+      }
+    }
+    if (delete_at) {
+      await db.run(
+        `INSERT INTO scheduled_actions (announcement_id, action, execute_at, status) VALUES (?, 'delete', ?, 'pending')`,
+        [annId, delete_at]
+      );
+    }
+
+    res.json({ ok: true, messageId, channelId, id: annId, pinned: !!pin });
   } catch (error) {
     console.error('Post announcement error:', error);
     res.status(500).json({ ok: false, error: 'Erreur serveur' });
@@ -3118,6 +3167,7 @@ app.delete('/api/admin/announcements/:id', requireAdmin, async (req, res) => {
 
     // Annonce programmée non encore postée → juste la supprimer
     if (announcement.status === 'scheduled') {
+      await db.run('DELETE FROM scheduled_actions WHERE announcement_id = ?', [id]);
       await db.run('DELETE FROM announcements WHERE id = ?', [id]);
       return res.json({ ok: true, message: 'Annonce programmée annulée' });
     }
@@ -3134,6 +3184,7 @@ app.delete('/api/admin/announcements/:id', requireAdmin, async (req, res) => {
       }
     }
 
+    await db.run('DELETE FROM scheduled_actions WHERE announcement_id = ?', [id]);
     await db.run('UPDATE announcements SET status = ? WHERE id = ?', ['deleted', id]);
     res.json({ ok: true, message: 'Annonce supprimée' });
   } catch (error) {
@@ -3330,20 +3381,18 @@ async function handleScheduleAnnouncement(chatId, args) {
     return;
   }
 
-  // Parse: /programmer 14:00 suppr 18:00 pin Mon texte ici
-  // ou:    /programmer 14:00 pin Mon texte ici
-  // ou:    /programmer 14:00 suppr 18:00 Mon texte ici
-  // ou:    /programmer 14:00 Mon texte ici
   if (!args || args.length === 0) {
     await telegram.sendMessage(chatId,
       '❌ <b>Usage:</b>\n\n' +
       '<code>/programmer HH:MM texte</code>\n' +
-      '<code>/programmer HH:MM pin texte</code>\n' +
+      '<code>/programmer HH:MM pin HH:MM texte</code>\n' +
+      '<code>/programmer HH:MM pin HH:MM,HH:MM,HH:MM texte</code>\n' +
       '<code>/programmer HH:MM suppr HH:MM texte</code>\n' +
-      '<code>/programmer HH:MM suppr HH:MM pin texte</code>\n\n' +
+      '<code>/programmer HH:MM pin HH:MM,HH:MM suppr HH:MM texte</code>\n\n' +
       '<b>Exemples:</b>\n' +
-      '<code>/programmer 14:00 Boutique ouverte !</code>\n' +
-      '<code>/programmer 14:00 suppr 22:00 pin Ouvert de 14h à 22h</code>'
+      '<code>/programmer 12:00 Boutique ouverte !</code>\n' +
+      '<code>/programmer 12:00 pin 15:00,17:00,20:00 suppr 00:00 Ouverture !</code>\n' +
+      '<code>/programmer 12:00 pin 12:00 suppr 22:00 On est open</code>'
     );
     return;
   }
@@ -3359,9 +3408,9 @@ async function handleScheduleAnnouncement(chatId, args) {
   }
   idx++;
 
-  // Options optionnelles
+  // Options
   let deleteTime = null;
-  let pin = false;
+  let pinTimes = []; // Liste d'heures de (re-)pin
 
   while (idx < parts.length) {
     if (parts[idx].toLowerCase() === 'suppr' && idx + 1 < parts.length) {
@@ -3371,13 +3420,27 @@ async function handleScheduleAnnouncement(chatId, args) {
         await telegram.sendMessage(chatId, `❌ Heure de suppression invalide: "${parts[idx]}"`);
         return;
       }
-      // Si l'heure de suppression est avant l'heure de publication, c'est le lendemain
       if (deleteTime <= postTime) {
         deleteTime.setDate(deleteTime.getDate() + 1);
       }
       idx++;
-    } else if (parts[idx].toLowerCase() === 'pin') {
-      pin = true;
+    } else if (parts[idx].toLowerCase() === 'pin' && idx + 1 < parts.length) {
+      idx++;
+      // pin peut être suivi de HH:MM ou HH:MM,HH:MM,HH:MM
+      const pinArg = parts[idx];
+      const pinParts = pinArg.split(',');
+      for (const p of pinParts) {
+        const t = parseTime(p.trim());
+        if (!t) {
+          await telegram.sendMessage(chatId, `❌ Heure de pin invalide: "${p.trim()}"`);
+          return;
+        }
+        // Si l'heure de pin est avant le post, c'est le jour du post ou après
+        if (t < postTime) {
+          t.setDate(t.getDate() + 1);
+        }
+        pinTimes.push(t);
+      }
       idx++;
     } else {
       break;
@@ -3390,19 +3453,47 @@ async function handleScheduleAnnouncement(chatId, args) {
     return;
   }
 
-  await db.run(
+  const hasPins = pinTimes.length > 0;
+
+  // Insérer l'annonce
+  const result = await db.run(
     `INSERT INTO announcements (channel_id, message_id, type, content, pin, status, post_at, delete_at, posted_by)
      VALUES (?, NULL, 'text', ?, ?, 'scheduled', ?, ?, ?)`,
-    [channelId, text, pin ? 1 : 0, postTime.toISOString(), deleteTime?.toISOString() || null, chatId.toString()]
+    [channelId, text, hasPins ? 1 : 0, postTime.toISOString(), deleteTime?.toISOString() || null, chatId.toString()]
   );
+  const announcementId = result.lastID;
 
-  let msg = `✅ Annonce programmée !\n\n`;
-  msg += `📅 Publication: <b>${postTime.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</b>\n`;
-  if (deleteTime) {
-    msg += `🗑 Suppression: <b>${deleteTime.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</b>\n`;
+  // Insérer les actions de pin programmées
+  for (const pinTime of pinTimes) {
+    await db.run(
+      `INSERT INTO scheduled_actions (announcement_id, action, execute_at, status)
+       VALUES (?, 'pin', ?, 'pending')`,
+      [announcementId, pinTime.toISOString()]
+    );
   }
-  if (pin) msg += `📌 Sera épinglée\n`;
+
+  // Si delete_at via actions (pour garder la cohérence)
+  if (deleteTime) {
+    await db.run(
+      `INSERT INTO scheduled_actions (announcement_id, action, execute_at, status)
+       VALUES (?, 'delete', ?, 'pending')`,
+      [announcementId, deleteTime.toISOString()]
+    );
+  }
+
+  // Message de confirmation
+  const fmtOpts = { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' };
+  let msg = `✅ Annonce programmée !\n\n`;
+  msg += `📅 Publication: <b>${postTime.toLocaleString('fr-FR', fmtOpts)}</b>\n`;
+  if (pinTimes.length > 0) {
+    const pinStrs = pinTimes.map(t => t.toLocaleString('fr-FR', { hour: '2-digit', minute: '2-digit' }));
+    msg += `📌 Épinglages: <b>${pinStrs.join(', ')}</b>\n`;
+  }
+  if (deleteTime) {
+    msg += `🗑 Suppression: <b>${deleteTime.toLocaleString('fr-FR', fmtOpts)}</b>\n`;
+  }
   msg += `\n📝 "${text.substring(0, 80)}${text.length > 80 ? '...' : ''}"`;
+  msg += `\n\n❌ Annuler: /annulprog ${announcementId}`;
 
   await telegram.sendMessage(chatId, msg);
 }
@@ -3477,6 +3568,18 @@ async function handleListAnnouncements(chatId) {
       msg += `  📅 ${formatDateTime(a.post_at)}`;
       if (a.delete_at) msg += ` → 🗑${formatDateTime(a.delete_at)}`;
       if (a.pin) msg += ' 📌';
+
+      // Afficher les actions programmées (pins)
+      const actions = await db.all(
+        `SELECT * FROM scheduled_actions WHERE announcement_id = ? AND status = 'pending' ORDER BY execute_at`,
+        [a.id]
+      );
+      const pinActions = actions.filter(ac => ac.action === 'pin');
+      if (pinActions.length > 0) {
+        const pinStrs = pinActions.map(ac => formatDateTime(ac.execute_at));
+        msg += `\n  📌 Pins: ${pinStrs.join(', ')}`;
+      }
+
       msg += `\n  📝 ${preview}${(a.content || '').length > 40 ? '...' : ''}\n  ❌ /annulprog ${a.id}\n\n`;
     }
   }
@@ -3488,6 +3591,17 @@ async function handleListAnnouncements(chatId) {
       msg += `  #${a.message_id} | ${formatDateTime(a.created_at)}`;
       if (a.delete_at) msg += ` → 🗑${formatDateTime(a.delete_at)}`;
       if (a.pin) msg += ' 📌';
+
+      // Actions restantes
+      const actions = await db.all(
+        `SELECT * FROM scheduled_actions WHERE announcement_id = ? AND status = 'pending' ORDER BY execute_at`,
+        [a.id]
+      );
+      if (actions.length > 0) {
+        const actStrs = actions.map(ac => `${ac.action === 'pin' ? '📌' : ac.action === 'delete' ? '🗑' : ac.action}${formatDateTime(ac.execute_at)}`);
+        msg += `\n  ⏰ Actions: ${actStrs.join(', ')}`;
+      }
+
       msg += `\n  📝 ${preview}${(a.content || '').length > 40 ? '...' : ''}\n  ➡️ /supprannonce ${a.message_id}\n\n`;
     }
   }
@@ -3504,17 +3618,27 @@ async function handleCancelScheduled(chatId, idStr) {
   }
 
   const announcement = await db.get(
-    'SELECT * FROM announcements WHERE id = ? AND status = ?',
-    [id, 'scheduled']
+    'SELECT * FROM announcements WHERE id = ?',
+    [id]
   );
 
   if (!announcement) {
-    await telegram.sendMessage(chatId, '❌ Annonce programmée non trouvée.');
+    await telegram.sendMessage(chatId, '❌ Annonce non trouvée.');
     return;
   }
 
+  // Si déjà postée, supprimer du canal aussi
+  if (announcement.status === 'posted' && announcement.message_id) {
+    if (announcement.pin) {
+      await telegram.unpinChatMessage(announcement.channel_id, announcement.message_id);
+    }
+    await telegram.deleteMessage(announcement.channel_id, announcement.message_id);
+  }
+
+  // Nettoyer les actions programmées
+  await db.run('DELETE FROM scheduled_actions WHERE announcement_id = ?', [id]);
   await db.run('DELETE FROM announcements WHERE id = ?', [id]);
-  await telegram.sendMessage(chatId, `✅ Annonce programmée #${id} annulée.`);
+  await telegram.sendMessage(chatId, `✅ Annonce #${id} et toutes ses actions supprimées.`);
 }
 
 // Supprimer une annonce postée
@@ -3602,7 +3726,48 @@ async function runAnnouncementScheduler() {
     }
   }
 
-  // 2. Supprimer les annonces dont l'heure de suppression est arrivée
+  // 2. Exécuter les actions programmées (pin, unpin, delete)
+  const pendingActions = await db.all(
+    `SELECT sa.*, a.channel_id, a.message_id, a.content, a.posted_by, a.status AS ann_status
+     FROM scheduled_actions sa
+     JOIN announcements a ON sa.announcement_id = a.id
+     WHERE sa.status = 'pending' AND sa.execute_at <= ?`,
+    [now]
+  );
+
+  for (const action of pendingActions) {
+    try {
+      if (action.ann_status !== 'posted' || !action.message_id) {
+        // L'annonce n'est pas encore postée ou déjà supprimée, skip
+        continue;
+      }
+
+      if (action.action === 'pin') {
+        await telegram.pinChatMessage(action.channel_id, action.message_id, true);
+        console.log(`📌 Scheduled pin: msg ${action.message_id} pinned`);
+      } else if (action.action === 'unpin') {
+        await telegram.unpinChatMessage(action.channel_id, action.message_id);
+        console.log(`📌 Scheduled unpin: msg ${action.message_id} unpinned`);
+      } else if (action.action === 'delete') {
+        await telegram.unpinChatMessage(action.channel_id, action.message_id);
+        await telegram.deleteMessage(action.channel_id, action.message_id);
+        await db.run('UPDATE announcements SET status = ? WHERE id = ?', ['deleted', action.announcement_id]);
+        console.log(`🗑 Scheduled delete: msg ${action.message_id} deleted`);
+
+        if (action.posted_by) {
+          await telegram.sendMessage(action.posted_by,
+            `🗑 Annonce auto-supprimée !\n📝 "${(action.content || '').substring(0, 60)}..."`
+          ).catch(() => {});
+        }
+      }
+
+      await db.run('UPDATE scheduled_actions SET status = ? WHERE id = ?', ['done', action.id]);
+    } catch (err) {
+      console.error(`❌ Scheduled action error #${action.id}:`, err.message);
+    }
+  }
+
+  // 3. Supprimer les annonces dont l'heure de suppression (simple) est arrivée
   const toDelete = await db.all(
     `SELECT * FROM announcements WHERE status = 'posted' AND delete_at IS NOT NULL AND delete_at <= ?`,
     [now]
@@ -3623,7 +3788,7 @@ async function runAnnouncementScheduler() {
         ['deleted', ann.id]
       );
 
-      console.log(`🗑 Scheduled deletion: announcement #${ann.id} (msg: ${ann.message_id}) deleted`);
+      console.log(`🗑 Auto-delete: announcement #${ann.id} (msg: ${ann.message_id}) deleted`);
 
       if (ann.posted_by) {
         await telegram.sendMessage(ann.posted_by,
