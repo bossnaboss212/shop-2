@@ -4105,11 +4105,17 @@ async function handleTelegramMessage(message) {
     await sendShopMessage(chatId);
     return;
   } else if (text === '/admin') {
-    // Seulement pour les admins autorisés
+    console.log(`🔐 /admin from ${chatId} | isAdmin=${isAdmin(chatId)} | sessionAdmins=[${[...sessionAdmins].join(',')}] | envAdmins=[${getAdminChatIds().join(',')}]`);
     if (isAdmin(chatId)) {
-      await sendAdminMessage(chatId);
+      try {
+        await sendAdminMessage(chatId);
+      } catch (err) {
+        console.error('❌ sendAdminMessage error:', err);
+        await telegram.sendMessage(chatId, `❌ Erreur panneau admin: ${err.message}`);
+      }
+    } else {
+      await telegram.sendMessage(chatId, `⛔ Accès refusé.\n\nTapez /adminlogin <mot_de_passe> pour vous connecter.`);
     }
-    // Sinon, ne rien répondre
     return;
   } else if (text === '/orders' || text === '/commandes') {
     await sendUserOrders(chatId);
@@ -4565,7 +4571,7 @@ async function sendAdminMessage(chatId) {
     ]
   };
 
-  await telegram.sendMessage(chatId, text, { reply_markup: keyboard });
+  await telegram.sendMessage(chatId, text, { reply_markup: JSON.stringify(keyboard) });
 }
 
 // ==================== ADMIN BOT - FLUX CONVERSATIONNEL ====================
