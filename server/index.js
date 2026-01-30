@@ -4386,23 +4386,43 @@ async function handleTelegramCallback(callback_query) {
 
   // ==================== REVIEW APPROVE/REJECT CALLBACKS ====================
   if (data.startsWith('rev_approve_')) {
-    if (!isAdmin(chatId)) return;
+    console.log(`📝 Review approve callback from ${chatId}, isAdmin: ${isAdmin(chatId)}`);
+    if (!isAdmin(chatId)) {
+      await telegram.sendMessage(chatId, '⚠️ Session expirée. Tapez /adminlogin <motdepasse> pour vous reconnecter.');
+      return;
+    }
     const reviewId = parseInt(data.replace('rev_approve_', ''));
     try {
+      const review = await db.get('SELECT * FROM reviews WHERE id = ?', [reviewId]);
+      if (!review) {
+        await telegram.sendMessage(chatId, `⚠️ Avis #${reviewId} introuvable (déjà traité ?)`);
+        return;
+      }
       await db.run('UPDATE reviews SET approved = 1 WHERE id = ?', [reviewId]);
-      await telegram.sendMessage(chatId, `✅ Avis #${reviewId} approuvé ! Il est maintenant visible par tous les clients.`);
+      await telegram.sendMessage(chatId, `✅ Avis #${reviewId} de "${review.name}" approuvé ! Visible par tous les clients.`);
     } catch (e) {
+      console.error('Review approve error:', e);
       await telegram.sendMessage(chatId, `❌ Erreur: ${e.message}`);
     }
     return;
   }
   if (data.startsWith('rev_reject_')) {
-    if (!isAdmin(chatId)) return;
+    console.log(`📝 Review reject callback from ${chatId}, isAdmin: ${isAdmin(chatId)}`);
+    if (!isAdmin(chatId)) {
+      await telegram.sendMessage(chatId, '⚠️ Session expirée. Tapez /adminlogin <motdepasse> pour vous reconnecter.');
+      return;
+    }
     const reviewId = parseInt(data.replace('rev_reject_', ''));
     try {
+      const review = await db.get('SELECT * FROM reviews WHERE id = ?', [reviewId]);
+      if (!review) {
+        await telegram.sendMessage(chatId, `⚠️ Avis #${reviewId} introuvable (déjà traité ?)`);
+        return;
+      }
       await db.run('DELETE FROM reviews WHERE id = ?', [reviewId]);
-      await telegram.sendMessage(chatId, `🗑 Avis #${reviewId} refusé et supprimé.`);
+      await telegram.sendMessage(chatId, `🗑 Avis #${reviewId} de "${review.name}" refusé et supprimé.`);
     } catch (e) {
+      console.error('Review reject error:', e);
       await telegram.sendMessage(chatId, `❌ Erreur: ${e.message}`);
     }
     return;
