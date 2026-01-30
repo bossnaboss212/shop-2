@@ -2373,7 +2373,7 @@ const SyncManager = {
       }
 
       // Fallback sur localStorage avec gestion de version
-      const DATA_VERSION = 8; // Vidéos compressées liées à tous les produits
+      const DATA_VERSION = 9; // Fix catégories: keta, filtre, blanche en minuscules
       const savedVersion = parseInt(localStorage.getItem('data_version') || '0');
       const data = localStorage.getItem('shop_products');
 
@@ -2966,7 +2966,7 @@ const DEFAULT_PRODUCTS = [
   {
     id: 2,
     name: 'NEEDLES KETA',
-    category: 'Keta',
+    category: 'keta',
     video: '/videos/needles.MP4',
     variants: {
       '1G': { price: 20, grams: 1, stock: 0 },
@@ -3053,7 +3053,7 @@ const DEFAULT_PRODUCTS = [
   {
     id: 8,
     name: "ZOUR'S 120u",
-    category: 'Filtre',
+    category: 'filtre',
     video: "/videos/zour's.MP4",
     variants: {
       '2G': { price: 20, grams: 2, stock: 0 },
@@ -3068,7 +3068,7 @@ const DEFAULT_PRODUCTS = [
   {
     id: 9,
     name: 'COURCHEVEL',
-    category: 'Blanche',
+    category: 'blanche',
     video: '/videos/courchevel.MP4',
     variants: {
       '0.5G': { price: 30, grams: 0.5, stock: 0 },
