@@ -2373,7 +2373,7 @@ const SyncManager = {
       }
 
       // Fallback sur localStorage avec gestion de version
-      const DATA_VERSION = 5; // Incrémenté pour forcer le chargement des produits FF MANDARINA et FF FRUITS
+      const DATA_VERSION = 6; // Produits supprimés - ne garder que AMNESIA et NEEDLES KETA
       const savedVersion = parseInt(localStorage.getItem('data_version') || '0');
       const data = localStorage.getItem('shop_products');
 
@@ -2962,85 +2962,9 @@ const DEFAULT_PRODUCTS = [
     }
   },
 
-  // 2. DEMBELE - MOUSSEUX
+  // 2. NEEDLES KETA - KETA
   {
     id: 2,
-    name: 'DEMBELE',
-    category: 'Mousseux',
-    video: '',
-    variants: {
-      '3.5G': { price: 20, grams: 3.5, stock: 50 },
-      '5G': { price: 30, grams: 5, stock: 60 },
-      '10G': { price: 50, grams: 10, stock: 70 },
-      '25G': { price: 120, grams: 25, stock: 50 },
-      '50G': { price: 190, grams: 50, stock: 40 },
-      '100G': { price: 370, grams: 100, stock: 40 }
-    }
-  },
-
-  // 3. STRAWBERRY 120U - HASH (FILTRÉ)
-  {
-    id: 3,
-    name: 'STRAWBERRY 120U',
-    category: 'Filtre',
-    video: '',
-    variants: {
-      '2G': { price: 20, grams: 2, stock: 60 },
-      '3G': { price: 30, grams: 3, stock: 60 },
-      '5G': { price: 50, grams: 5, stock: 50 },
-      '10G': { price: 80, grams: 10, stock: 50 },
-      '50G': { price: 250, grams: 50, stock: 40 }
-    }
-  },
-
-  // 4. VVS TANGER FROZEN - FROZEN
-  {
-    id: 4,
-    name: 'VVS TANGER FROZEN',
-    category: 'Frozen',
-    video: '',
-    variants: {
-      '1.1G': { price: 20, grams: 1.1, stock: 40 },
-      '2.5G': { price: 40, grams: 2.5, stock: 40 },
-      '5G': { price: 70, grams: 5, stock: 30 },
-      '10G': { price: 140, grams: 10, stock: 30 },
-      '25G': { price: 250, grams: 25, stock: 20 }
-    }
-  },
-
-  // 5. FRESH FROZEN - FROZEN
-  {
-    id: 5,
-    name: 'FRESH FROZEN',
-    category: 'Frozen',
-    video: '',
-    variants: {
-      '1.1G': { price: 20, grams: 1.1, stock: 40 },
-      '2.5G': { price: 40, grams: 2.5, stock: 40 },
-      '5G': { price: 80, grams: 5, stock: 30 },
-      '10G': { price: 150, grams: 10, stock: 30 },
-      '25G': { price: 250, grams: 25, stock: 20 }
-    }
-  },
-
-  // 6. CHAMPAGNE - FROZEN
-  {
-    id: 6,
-    name: 'CHAMPAGNE',
-    category: 'Mdma & Exta',
-    video: '/videos/champagne.MP4',
-    variants: {
-      '1G': { price: 30, grams: 1, stock: 50 },
-      '2G': { price: 60, grams: 2, stock: 50 },
-      '3G': { price: 70, grams: 3, stock: 50 },
-      '5G': { price: 100, grams: 5, stock: 45 },
-      '10G': { price: 180, grams: 10, stock: 40 }
-    }
-  },
-
-  // 7. NEEDLES KETA - KETA
-  {
-    id: 7,
     name: 'NEEDLES KETA',
     category: 'Keta',
     video: '/videos/needles.MP4',
@@ -3052,51 +2976,6 @@ const DEFAULT_PRODUCTS = [
       '10G': { price: 150, grams: 10, stock: 30 },
       '50G': { price: 450, grams: 50, stock: 20 },
       '100G': { price: 870, grams: 100, stock: 20 }
-    }
-  },
-
-  // 8. EL JEFE - BLANCHE
-  {
-    id: 8,
-    name: 'EL JEFE',
-    category: 'blanche',
-    video: '/videos/el_jefe.MP4',
-    variants: {
-      '0.5G': { price: 30, grams: 0.5, stock: 20 },
-      '1G': { price: 50, grams: 1, stock: 20 },
-      '2G': { price: 100, grams: 2, stock: 15 },
-      '5G': { price: 250, grams: 5, stock: 15 },
-      '10G': { price: 450, grams: 10, stock: 10 }
-    }
-  },
-
-  // 9. FF MANDARINA - FROZEN
-  {
-    id: 9,
-    name: 'FF MANDARINA🍊',
-    category: 'Frozen',
-    video: '/videos/ff_mandarina.MP4',
-    variants: {
-      '1.25G': { price: 20, grams: 1.25, stock: 30 },
-      '1.9G': { price: 30, grams: 1.9, stock: 30 },
-      '2.5G': { price: 40, grams: 2.5, stock: 30 },
-      '5G': { price: 80, grams: 5, stock: 25 },
-      '10G': { price: 140, grams: 10, stock: 20 }
-    }
-  },
-
-  // 10. FF FRUITS - FROZEN
-  {
-    id: 10,
-    name: 'FF FRUITS 🍓🍒',
-    category: 'Frozen',
-    video: '/videos/ff_fruits.MP4',
-    variants: {
-      '1.25G': { price: 20, grams: 1.25, stock: 30 },
-      '1.9G': { price: 30, grams: 1.9, stock: 30 },
-      '2.5G': { price: 40, grams: 2.5, stock: 30 },
-      '5G': { price: 80, grams: 5, stock: 25 },
-      '10G': { price: 140, grams: 10, stock: 20 }
     }
   }
 ];
