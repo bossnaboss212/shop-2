@@ -3204,12 +3204,8 @@ if (config.telegram.token) {
   console.log('🤖 Configuring Telegram bot...');
 
   try {
-    // Test endpoint pour vérifier que la route fonctionne
-    app.get('/telegram-webhook', (req, res) => {
-      res.json({ ok: true, message: 'Webhook endpoint is working' });
-    });
-
-    app.post('/telegram-webhook', async (req, res) => {
+    // Handler commun pour le webhook Telegram
+    async function handleWebhookRequest(req, res) {
       console.log('📥 Webhook reçu:', JSON.stringify(req.body).substring(0, 200));
 
       try {
@@ -3229,9 +3225,32 @@ if (config.telegram.token) {
         console.error(error.stack);
         res.sendStatus(500);
       }
+    }
+
+    // Test endpoint pour vérifier que la route fonctionne
+    app.get('/telegram-webhook', (req, res) => {
+      res.json({ ok: true, message: 'Webhook endpoint is working' });
+    });
+
+    // Endpoint principal du webhook
+    app.post('/telegram-webhook', handleWebhookRequest);
+
+    // Endpoint alternatif compatible bot.js (au cas où le webhook Telegram pointe vers /bot<TOKEN>)
+    app.post(`/bot${config.telegram.token}`, handleWebhookRequest);
+
+    // Route /setup-webhook pour reconfigurer le webhook depuis le navigateur ou curl
+    app.post('/setup-webhook', async (req, res) => {
+      try {
+        const webhookUrl = `${config.webapp.url}/telegram-webhook`;
+        await telegram.setWebhook(webhookUrl);
+        res.json({ success: true, webhook: webhookUrl });
+      } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+      }
     });
 
     console.log('✅ Telegram bot webhook configured successfully');
+    console.log(`   📡 Endpoints: /telegram-webhook + /bot<TOKEN>`);
   } catch (error) {
     console.error('❌ Failed to configure Telegram bot:', error.message);
     console.error(error.stack);
@@ -4108,13 +4127,25 @@ async function handleTelegramMessage(message) {
     return;
   }
 
+  // Détection des commandes admin utilisées par un non-admin
+  const adminCommands = ['/annonce', '/annoncepin', '/programmer', '/supprprog', '/annulprog', '/stopquotidien', '/annonces', '/supprannonce', '/zones'];
+  const usedAdminCmd = adminCommands.find(cmd => text === cmd || text.startsWith(cmd + ' '));
+  if (usedAdminCmd && !isAdmin(chatId)) {
+    console.log(`⚠️ Non-admin ${chatId} tried admin command: ${usedAdminCmd}`);
+    await telegram.sendMessage(chatId,
+      `⛔ Commande réservée aux administrateurs.\n\nVotre ID: <code>${chatId}</code>\n\nAjoutez cet ID dans la variable ADMIN_CHAT_ID pour autoriser l'accès.`,
+      { parse_mode: 'HTML' }
+    );
+    return;
+  }
+
   if (!text.startsWith('/')) {
     const driverConv = chatManager.findConversationByChatId(chatId, 'driver');
     if (driverConv) {
       await relayDriverMessage(chatId, text, driverConv);
       return;
     }
-    
+
     const clientConv = chatManager.findConversationByChatId(chatId, 'client');
     if (clientConv) {
       await relayClientMessage(chatId, text, clientConv);
