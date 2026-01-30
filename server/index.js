@@ -452,14 +452,22 @@ async function initDB() {
     CREATE TABLE IF NOT EXISTS announcements (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       channel_id TEXT NOT NULL,
-      message_id INTEGER NOT NULL,
+      message_id INTEGER,
       type TEXT DEFAULT 'text',
       content TEXT,
+      photo_url TEXT,
+      pin INTEGER DEFAULT 0,
+      status TEXT DEFAULT 'posted',
+      post_at DATETIME,
+      delete_at DATETIME,
       posted_by TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
     CREATE INDEX IF NOT EXISTS idx_announcements_channel ON announcements(channel_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_announcements_status ON announcements(status);
+    CREATE INDEX IF NOT EXISTS idx_announcements_post_at ON announcements(post_at);
+    CREATE INDEX IF NOT EXISTS idx_announcements_delete_at ON announcements(delete_at);
     CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
     CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date DESC);
@@ -977,6 +985,41 @@ class TelegramService {
     } catch (error) {
       console.error(`❌ Forward message error:`, error.message);
       return null;
+    }
+  }
+
+  async pinChatMessage(chatId, messageId, disableNotification = false) {
+    if (!this.token || !chatId || !messageId) return false;
+
+    try {
+      const response = await axios.post(`${this.baseUrl}/pinChatMessage`, {
+        chat_id: chatId,
+        message_id: messageId,
+        disable_notification: disableNotification
+      }, { timeout: 5000 });
+
+      console.log(`📌 Message ${messageId} pinned in ${chatId}`);
+      return response.data?.ok || false;
+    } catch (error) {
+      console.error(`❌ Pin message error (${chatId}/${messageId}):`, error.message);
+      return false;
+    }
+  }
+
+  async unpinChatMessage(chatId, messageId) {
+    if (!this.token || !chatId || !messageId) return false;
+
+    try {
+      const response = await axios.post(`${this.baseUrl}/unpinChatMessage`, {
+        chat_id: chatId,
+        message_id: messageId
+      }, { timeout: 5000 });
+
+      console.log(`📌 Message ${messageId} unpinned from ${chatId}`);
+      return response.data?.ok || false;
+    } catch (error) {
+      console.error(`❌ Unpin message error (${chatId}/${messageId}):`, error.message);
+      return false;
     }
   }
 }
@@ -2946,10 +2989,10 @@ app.get('/api/admin/referrals/export', requireAdmin, async (req, res) => {
 
 // ==================== CHANNEL ANNOUNCEMENTS ====================
 
-// Poster une annonce texte sur le canal
+// Poster une annonce texte (immédiat ou programmé)
 app.post('/api/admin/announcements', requireAdmin, async (req, res) => {
   try {
-    const { text, channel } = req.body;
+    const { text, channel, pin, post_at, delete_at } = req.body;
     if (!text || text.trim().length === 0) {
       return res.status(400).json({ ok: false, error: 'Le texte est requis' });
     }
@@ -2959,31 +3002,48 @@ app.post('/api/admin/announcements', requireAdmin, async (req, res) => {
       : config.telegram.channelId;
 
     if (!channelId) {
-      return res.status(400).json({ ok: false, error: 'Channel ID non configuré. Définissez TELEGRAM_CHANNEL_ID ou TELEGRAM_PHOTO_CHANNEL_ID.' });
+      return res.status(400).json({ ok: false, error: 'Channel ID non configuré' });
     }
 
+    // Annonce programmée
+    if (post_at) {
+      await db.run(
+        `INSERT INTO announcements (channel_id, message_id, type, content, pin, status, post_at, delete_at, posted_by)
+         VALUES (?, NULL, 'text', ?, ?, 'scheduled', ?, ?, 'admin')`,
+        [channelId, text.trim(), pin ? 1 : 0, post_at, delete_at || null]
+      );
+      return res.json({ ok: true, scheduled: true, post_at, delete_at });
+    }
+
+    // Envoi immédiat
     const result = await telegram.sendMessage(channelId, text.trim());
     if (!result || !result.result) {
       return res.status(500).json({ ok: false, error: 'Échec de l\'envoi sur le canal' });
     }
 
     const messageId = result.result.message_id;
+
+    if (pin) {
+      await telegram.pinChatMessage(channelId, messageId, true);
+    }
+
     await db.run(
-      'INSERT INTO announcements (channel_id, message_id, type, content, posted_by) VALUES (?, ?, ?, ?, ?)',
-      [channelId, messageId, 'text', text.trim(), 'admin']
+      `INSERT INTO announcements (channel_id, message_id, type, content, pin, status, delete_at, posted_by)
+       VALUES (?, ?, 'text', ?, ?, 'posted', ?, 'admin')`,
+      [channelId, messageId, text.trim(), pin ? 1 : 0, delete_at || null]
     );
 
-    res.json({ ok: true, messageId, channelId });
+    res.json({ ok: true, messageId, channelId, pinned: !!pin });
   } catch (error) {
     console.error('Post announcement error:', error);
     res.status(500).json({ ok: false, error: 'Erreur serveur' });
   }
 });
 
-// Poster une annonce photo sur le canal
+// Poster une annonce photo (immédiat ou programmé)
 app.post('/api/admin/announcements/photo', requireAdmin, async (req, res) => {
   try {
-    const { photo, caption, channel } = req.body;
+    const { photo, caption, channel, pin, post_at, delete_at } = req.body;
     if (!photo) {
       return res.status(400).json({ ok: false, error: 'L\'URL de la photo est requise' });
     }
@@ -2996,29 +3056,48 @@ app.post('/api/admin/announcements/photo', requireAdmin, async (req, res) => {
       return res.status(400).json({ ok: false, error: 'Channel ID non configuré' });
     }
 
+    // Programmé
+    if (post_at) {
+      await db.run(
+        `INSERT INTO announcements (channel_id, message_id, type, content, photo_url, pin, status, post_at, delete_at, posted_by)
+         VALUES (?, NULL, 'photo', ?, ?, ?, 'scheduled', ?, ?, 'admin')`,
+        [channelId, caption || '', photo, pin ? 1 : 0, post_at, delete_at || null]
+      );
+      return res.json({ ok: true, scheduled: true, post_at, delete_at });
+    }
+
+    // Immédiat
     const result = await telegram.sendPhoto(channelId, photo, caption || '');
     if (!result || !result.result) {
-      return res.status(500).json({ ok: false, error: 'Échec de l\'envoi de la photo sur le canal' });
+      return res.status(500).json({ ok: false, error: 'Échec de l\'envoi de la photo' });
     }
 
     const messageId = result.result.message_id;
+
+    if (pin) {
+      await telegram.pinChatMessage(channelId, messageId, true);
+    }
+
     await db.run(
-      'INSERT INTO announcements (channel_id, message_id, type, content, posted_by) VALUES (?, ?, ?, ?, ?)',
-      [channelId, messageId, 'photo', caption || photo, 'admin']
+      `INSERT INTO announcements (channel_id, message_id, type, content, photo_url, pin, status, delete_at, posted_by)
+       VALUES (?, ?, 'photo', ?, ?, ?, 'posted', ?, 'admin')`,
+      [channelId, messageId, caption || '', photo, pin ? 1 : 0, delete_at || null]
     );
 
-    res.json({ ok: true, messageId, channelId });
+    res.json({ ok: true, messageId, channelId, pinned: !!pin });
   } catch (error) {
     console.error('Post photo announcement error:', error);
     res.status(500).json({ ok: false, error: 'Erreur serveur' });
   }
 });
 
-// Lister les annonces postées
+// Lister les annonces
 app.get('/api/admin/announcements', requireAdmin, async (req, res) => {
   try {
     const announcements = await db.all(
-      'SELECT * FROM announcements ORDER BY created_at DESC LIMIT 50'
+      `SELECT * FROM announcements WHERE status IN ('posted', 'scheduled')
+       ORDER BY CASE WHEN status = 'scheduled' THEN 0 ELSE 1 END, created_at DESC
+       LIMIT 50`
     );
     res.json({ ok: true, announcements });
   } catch (error) {
@@ -3037,12 +3116,25 @@ app.delete('/api/admin/announcements/:id', requireAdmin, async (req, res) => {
       return res.status(404).json({ ok: false, error: 'Annonce non trouvée' });
     }
 
-    const deleted = await telegram.deleteMessage(announcement.channel_id, announcement.message_id);
-    if (!deleted) {
-      return res.status(500).json({ ok: false, error: 'Échec de la suppression sur Telegram (message peut-être déjà supprimé)' });
+    // Annonce programmée non encore postée → juste la supprimer
+    if (announcement.status === 'scheduled') {
+      await db.run('DELETE FROM announcements WHERE id = ?', [id]);
+      return res.json({ ok: true, message: 'Annonce programmée annulée' });
     }
 
-    await db.run('DELETE FROM announcements WHERE id = ?', [id]);
+    // Annonce postée → supprimer du canal
+    if (announcement.pin && announcement.message_id) {
+      await telegram.unpinChatMessage(announcement.channel_id, announcement.message_id);
+    }
+
+    if (announcement.message_id) {
+      const deleted = await telegram.deleteMessage(announcement.channel_id, announcement.message_id);
+      if (!deleted) {
+        return res.status(500).json({ ok: false, error: 'Échec de la suppression sur Telegram' });
+      }
+    }
+
+    await db.run('UPDATE announcements SET status = ? WHERE id = ?', ['deleted', id]);
     res.json({ ok: true, message: 'Annonce supprimée' });
   } catch (error) {
     console.error('Delete announcement error:', error);
@@ -3146,6 +3238,31 @@ function getPermanentKeyboard(chatId) {
 }
 
 // ==================== ANNOUNCEMENT BOT HANDLERS ====================
+
+// Parse l'heure au format HH:MM et retourne un Date pour aujourd'hui ou demain
+function parseTime(timeStr) {
+  const match = timeStr.match(/^(\d{1,2})[h:](\d{2})$/);
+  if (!match) return null;
+  const hours = parseInt(match[1]);
+  const minutes = parseInt(match[2]);
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null;
+  const now = new Date();
+  const target = new Date(now);
+  target.setHours(hours, minutes, 0, 0);
+  // Si l'heure est déjà passée aujourd'hui, programmer pour demain
+  if (target <= now) {
+    target.setDate(target.getDate() + 1);
+  }
+  return target;
+}
+
+function formatDateTime(dateStr) {
+  if (!dateStr) return '-';
+  const d = new Date(dateStr);
+  return d.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
+// Poster une annonce immédiatement
 async function handlePostAnnouncement(chatId, text) {
   const channelId = config.telegram.channelId;
   if (!channelId) {
@@ -3166,33 +3283,241 @@ async function handlePostAnnouncement(chatId, text) {
 
   const messageId = result.result.message_id;
   await db.run(
-    'INSERT INTO announcements (channel_id, message_id, type, content, posted_by) VALUES (?, ?, ?, ?, ?)',
-    [channelId, messageId, 'text', text, chatId.toString()]
+    `INSERT INTO announcements (channel_id, message_id, type, content, posted_by, status)
+     VALUES (?, ?, 'text', ?, ?, 'posted')`,
+    [channelId, messageId, text, chatId.toString()]
   );
 
-  await telegram.sendMessage(chatId, `✅ Annonce publiée sur le canal !\n📝 ID: ${messageId}\n\nPour supprimer: /supprannonce ${messageId}`);
+  await telegram.sendMessage(chatId, `✅ Annonce publiée !\n📝 Message ID: ${messageId}\n\n/supprannonce ${messageId}`);
 }
 
-async function handleListAnnouncements(chatId) {
-  const announcements = await db.all(
-    'SELECT * FROM announcements ORDER BY created_at DESC LIMIT 20'
-  );
-
-  if (!announcements || announcements.length === 0) {
-    await telegram.sendMessage(chatId, '📭 Aucune annonce enregistrée.');
+// Poster + épingler immédiatement
+async function handlePostAndPinAnnouncement(chatId, text) {
+  const channelId = config.telegram.channelId;
+  if (!channelId) {
+    await telegram.sendMessage(chatId, '❌ TELEGRAM_CHANNEL_ID non configuré.');
     return;
   }
 
-  let msg = '📢 <b>Annonces récentes</b>\n\n';
-  for (const a of announcements) {
-    const preview = (a.content || '').substring(0, 50);
-    const date = new Date(a.created_at).toLocaleDateString('fr-FR');
-    msg += `#${a.message_id} | ${a.type} | ${date}\n📝 ${preview}${(a.content || '').length > 50 ? '...' : ''}\n➡️ /supprannonce ${a.message_id}\n\n`;
+  if (!text || text.length === 0) {
+    await telegram.sendMessage(chatId, '❌ Usage: /annoncepin <texte>');
+    return;
+  }
+
+  const result = await telegram.sendMessage(channelId, text);
+  if (!result || !result.result) {
+    await telegram.sendMessage(chatId, '❌ Échec de l\'envoi.');
+    return;
+  }
+
+  const messageId = result.result.message_id;
+  await telegram.pinChatMessage(channelId, messageId, true);
+
+  await db.run(
+    `INSERT INTO announcements (channel_id, message_id, type, content, pin, posted_by, status)
+     VALUES (?, ?, 'text', ?, 1, ?, 'posted')`,
+    [channelId, messageId, text, chatId.toString()]
+  );
+
+  await telegram.sendMessage(chatId, `✅ Annonce publiée et épinglée !\n📌 Message ID: ${messageId}\n\n/supprannonce ${messageId}`);
+}
+
+// Programmer une annonce : /programmer HH:MM [suppr HH:MM] [pin] texte
+async function handleScheduleAnnouncement(chatId, args) {
+  const channelId = config.telegram.channelId;
+  if (!channelId) {
+    await telegram.sendMessage(chatId, '❌ TELEGRAM_CHANNEL_ID non configuré.');
+    return;
+  }
+
+  // Parse: /programmer 14:00 suppr 18:00 pin Mon texte ici
+  // ou:    /programmer 14:00 pin Mon texte ici
+  // ou:    /programmer 14:00 suppr 18:00 Mon texte ici
+  // ou:    /programmer 14:00 Mon texte ici
+  if (!args || args.length === 0) {
+    await telegram.sendMessage(chatId,
+      '❌ <b>Usage:</b>\n\n' +
+      '<code>/programmer HH:MM texte</code>\n' +
+      '<code>/programmer HH:MM pin texte</code>\n' +
+      '<code>/programmer HH:MM suppr HH:MM texte</code>\n' +
+      '<code>/programmer HH:MM suppr HH:MM pin texte</code>\n\n' +
+      '<b>Exemples:</b>\n' +
+      '<code>/programmer 14:00 Boutique ouverte !</code>\n' +
+      '<code>/programmer 14:00 suppr 22:00 pin Ouvert de 14h à 22h</code>'
+    );
+    return;
+  }
+
+  const parts = args.split(' ');
+  let idx = 0;
+
+  // Heure de publication
+  const postTime = parseTime(parts[idx]);
+  if (!postTime) {
+    await telegram.sendMessage(chatId, `❌ Heure invalide: "${parts[idx]}". Format: HH:MM ou HHhMM`);
+    return;
+  }
+  idx++;
+
+  // Options optionnelles
+  let deleteTime = null;
+  let pin = false;
+
+  while (idx < parts.length) {
+    if (parts[idx].toLowerCase() === 'suppr' && idx + 1 < parts.length) {
+      idx++;
+      deleteTime = parseTime(parts[idx]);
+      if (!deleteTime) {
+        await telegram.sendMessage(chatId, `❌ Heure de suppression invalide: "${parts[idx]}"`);
+        return;
+      }
+      // Si l'heure de suppression est avant l'heure de publication, c'est le lendemain
+      if (deleteTime <= postTime) {
+        deleteTime.setDate(deleteTime.getDate() + 1);
+      }
+      idx++;
+    } else if (parts[idx].toLowerCase() === 'pin') {
+      pin = true;
+      idx++;
+    } else {
+      break;
+    }
+  }
+
+  const text = parts.slice(idx).join(' ').trim();
+  if (!text) {
+    await telegram.sendMessage(chatId, '❌ Le texte de l\'annonce est requis.');
+    return;
+  }
+
+  await db.run(
+    `INSERT INTO announcements (channel_id, message_id, type, content, pin, status, post_at, delete_at, posted_by)
+     VALUES (?, NULL, 'text', ?, ?, 'scheduled', ?, ?, ?)`,
+    [channelId, text, pin ? 1 : 0, postTime.toISOString(), deleteTime?.toISOString() || null, chatId.toString()]
+  );
+
+  let msg = `✅ Annonce programmée !\n\n`;
+  msg += `📅 Publication: <b>${postTime.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</b>\n`;
+  if (deleteTime) {
+    msg += `🗑 Suppression: <b>${deleteTime.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</b>\n`;
+  }
+  if (pin) msg += `📌 Sera épinglée\n`;
+  msg += `\n📝 "${text.substring(0, 80)}${text.length > 80 ? '...' : ''}"`;
+
+  await telegram.sendMessage(chatId, msg);
+}
+
+// Programmer suppression d'une annonce existante
+async function handleScheduleDelete(chatId, args) {
+  if (!args || args.length === 0) {
+    await telegram.sendMessage(chatId, '❌ Usage: /supprprog <message_id> <HH:MM>');
+    return;
+  }
+
+  const parts = args.split(' ');
+  if (parts.length < 2) {
+    await telegram.sendMessage(chatId, '❌ Usage: /supprprog <message_id> <HH:MM>');
+    return;
+  }
+
+  const messageId = parseInt(parts[0]);
+  if (isNaN(messageId)) {
+    await telegram.sendMessage(chatId, '❌ message_id invalide.');
+    return;
+  }
+
+  const deleteTime = parseTime(parts[1]);
+  if (!deleteTime) {
+    await telegram.sendMessage(chatId, `❌ Heure invalide: "${parts[1]}"`);
+    return;
+  }
+
+  const announcement = await db.get(
+    'SELECT * FROM announcements WHERE message_id = ?',
+    [messageId]
+  );
+
+  if (!announcement) {
+    await telegram.sendMessage(chatId, '❌ Annonce non trouvée.');
+    return;
+  }
+
+  await db.run(
+    'UPDATE announcements SET delete_at = ?, status = ? WHERE message_id = ?',
+    [deleteTime.toISOString(), announcement.status === 'posted' ? 'posted' : announcement.status, messageId]
+  );
+
+  await telegram.sendMessage(chatId,
+    `✅ Suppression programmée pour le message #${messageId}\n🗑 ${deleteTime.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`
+  );
+}
+
+// Lister les annonces (postées + programmées)
+async function handleListAnnouncements(chatId) {
+  const announcements = await db.all(
+    `SELECT * FROM announcements WHERE status IN ('posted', 'scheduled')
+     ORDER BY CASE WHEN status = 'scheduled' THEN 0 ELSE 1 END, created_at DESC
+     LIMIT 20`
+  );
+
+  if (!announcements || announcements.length === 0) {
+    await telegram.sendMessage(chatId, '📭 Aucune annonce.');
+    return;
+  }
+
+  let msg = '📢 <b>Annonces</b>\n\n';
+
+  const scheduled = announcements.filter(a => a.status === 'scheduled');
+  const posted = announcements.filter(a => a.status === 'posted');
+
+  if (scheduled.length > 0) {
+    msg += '⏰ <b>Programmées:</b>\n';
+    for (const a of scheduled) {
+      const preview = (a.content || '').substring(0, 40);
+      msg += `  📅 ${formatDateTime(a.post_at)}`;
+      if (a.delete_at) msg += ` → 🗑${formatDateTime(a.delete_at)}`;
+      if (a.pin) msg += ' 📌';
+      msg += `\n  📝 ${preview}${(a.content || '').length > 40 ? '...' : ''}\n  ❌ /annulprog ${a.id}\n\n`;
+    }
+  }
+
+  if (posted.length > 0) {
+    msg += '✅ <b>Publiées:</b>\n';
+    for (const a of posted) {
+      const preview = (a.content || '').substring(0, 40);
+      msg += `  #${a.message_id} | ${formatDateTime(a.created_at)}`;
+      if (a.delete_at) msg += ` → 🗑${formatDateTime(a.delete_at)}`;
+      if (a.pin) msg += ' 📌';
+      msg += `\n  📝 ${preview}${(a.content || '').length > 40 ? '...' : ''}\n  ➡️ /supprannonce ${a.message_id}\n\n`;
+    }
   }
 
   await telegram.sendMessage(chatId, msg);
 }
 
+// Annuler une annonce programmée
+async function handleCancelScheduled(chatId, idStr) {
+  const id = parseInt(idStr);
+  if (isNaN(id)) {
+    await telegram.sendMessage(chatId, '❌ Usage: /annulprog <id>');
+    return;
+  }
+
+  const announcement = await db.get(
+    'SELECT * FROM announcements WHERE id = ? AND status = ?',
+    [id, 'scheduled']
+  );
+
+  if (!announcement) {
+    await telegram.sendMessage(chatId, '❌ Annonce programmée non trouvée.');
+    return;
+  }
+
+  await db.run('DELETE FROM announcements WHERE id = ?', [id]);
+  await telegram.sendMessage(chatId, `✅ Annonce programmée #${id} annulée.`);
+}
+
+// Supprimer une annonce postée
 async function handleDeleteAnnouncement(chatId, messageIdStr) {
   const messageId = parseInt(messageIdStr);
   if (isNaN(messageId)) {
@@ -3206,7 +3531,6 @@ async function handleDeleteAnnouncement(chatId, messageIdStr) {
   );
 
   if (!announcement) {
-    // Tenter quand même de supprimer du canal principal
     const channelId = config.telegram.channelId;
     if (channelId) {
       const deleted = await telegram.deleteMessage(channelId, messageId);
@@ -3215,17 +3539,113 @@ async function handleDeleteAnnouncement(chatId, messageIdStr) {
         return;
       }
     }
-    await telegram.sendMessage(chatId, '❌ Annonce non trouvée et impossible à supprimer.');
+    await telegram.sendMessage(chatId, '❌ Annonce non trouvée.');
     return;
   }
 
+  if (announcement.pin) {
+    await telegram.unpinChatMessage(announcement.channel_id, messageId);
+  }
   const deleted = await telegram.deleteMessage(announcement.channel_id, messageId);
   if (deleted) {
-    await db.run('DELETE FROM announcements WHERE message_id = ?', [messageId]);
+    await db.run('UPDATE announcements SET status = ? WHERE message_id = ?', ['deleted', messageId]);
     await telegram.sendMessage(chatId, `✅ Annonce #${messageId} supprimée du canal.`);
   } else {
-    await telegram.sendMessage(chatId, '❌ Échec de la suppression (message déjà supprimé ou bot pas admin du canal).');
+    await telegram.sendMessage(chatId, '❌ Échec de la suppression (déjà supprimé ou bot pas admin).');
   }
+}
+
+// ==================== ANNOUNCEMENT SCHEDULER ====================
+async function runAnnouncementScheduler() {
+  const now = new Date().toISOString();
+
+  // 1. Publier les annonces programmées dont l'heure est arrivée
+  const toPost = await db.all(
+    `SELECT * FROM announcements WHERE status = 'scheduled' AND post_at <= ?`,
+    [now]
+  );
+
+  for (const ann of toPost) {
+    try {
+      let result = null;
+      if (ann.type === 'photo' && ann.photo_url) {
+        result = await telegram.sendPhoto(ann.channel_id, ann.photo_url, ann.content || '');
+      } else {
+        result = await telegram.sendMessage(ann.channel_id, ann.content);
+      }
+
+      if (result && result.result) {
+        const messageId = result.result.message_id;
+
+        if (ann.pin) {
+          await telegram.pinChatMessage(ann.channel_id, messageId, true);
+        }
+
+        await db.run(
+          'UPDATE announcements SET status = ?, message_id = ? WHERE id = ?',
+          ['posted', messageId, ann.id]
+        );
+
+        console.log(`📢 Scheduled announcement #${ann.id} posted (msg: ${messageId})`);
+
+        // Notifier l'admin qui a programmé
+        if (ann.posted_by) {
+          await telegram.sendMessage(ann.posted_by,
+            `📢 Annonce programmée publiée !\n📝 "${(ann.content || '').substring(0, 60)}..."\n📌 ID: ${messageId}`
+          ).catch(() => {});
+        }
+      } else {
+        console.error(`❌ Failed to post scheduled announcement #${ann.id}`);
+      }
+    } catch (err) {
+      console.error(`❌ Scheduler post error for #${ann.id}:`, err.message);
+    }
+  }
+
+  // 2. Supprimer les annonces dont l'heure de suppression est arrivée
+  const toDelete = await db.all(
+    `SELECT * FROM announcements WHERE status = 'posted' AND delete_at IS NOT NULL AND delete_at <= ?`,
+    [now]
+  );
+
+  for (const ann of toDelete) {
+    try {
+      if (ann.pin && ann.message_id) {
+        await telegram.unpinChatMessage(ann.channel_id, ann.message_id);
+      }
+
+      if (ann.message_id) {
+        await telegram.deleteMessage(ann.channel_id, ann.message_id);
+      }
+
+      await db.run(
+        'UPDATE announcements SET status = ? WHERE id = ?',
+        ['deleted', ann.id]
+      );
+
+      console.log(`🗑 Scheduled deletion: announcement #${ann.id} (msg: ${ann.message_id}) deleted`);
+
+      if (ann.posted_by) {
+        await telegram.sendMessage(ann.posted_by,
+          `🗑 Annonce auto-supprimée !\n📝 "${(ann.content || '').substring(0, 60)}..."`
+        ).catch(() => {});
+      }
+    } catch (err) {
+      console.error(`❌ Scheduler delete error for #${ann.id}:`, err.message);
+    }
+  }
+}
+
+// Démarrer le scheduler (vérifie toutes les 30 secondes)
+function startAnnouncementScheduler() {
+  setInterval(async () => {
+    try {
+      await runAnnouncementScheduler();
+    } catch (err) {
+      console.error('❌ Announcement scheduler error:', err.message);
+    }
+  }, 30 * 1000);
+  console.log('⏰ Announcement scheduler started (30s interval)');
 }
 
 async function handleTelegramMessage(message) {
@@ -3307,6 +3727,18 @@ async function handleTelegramMessage(message) {
     return;
   } else if (text.startsWith('/annonce ') && isAdmin(chatId)) {
     await handlePostAnnouncement(chatId, text.substring(9).trim());
+    return;
+  } else if (text.startsWith('/annoncepin ') && isAdmin(chatId)) {
+    await handlePostAndPinAnnouncement(chatId, text.substring(12).trim());
+    return;
+  } else if (text.startsWith('/programmer ') && isAdmin(chatId)) {
+    await handleScheduleAnnouncement(chatId, text.substring(12).trim());
+    return;
+  } else if (text.startsWith('/supprprog ') && isAdmin(chatId)) {
+    await handleScheduleDelete(chatId, text.substring(11).trim());
+    return;
+  } else if (text.startsWith('/annulprog ') && isAdmin(chatId)) {
+    await handleCancelScheduled(chatId, text.substring(11).trim());
     return;
   } else if (text === '/annonces' && isAdmin(chatId)) {
     await handleListAnnouncements(chatId);
@@ -4676,7 +5108,13 @@ async function start() {
       console.log(`   Driver Millau: ${config.telegram.driverMillauId ? '✅' : '❌'}`);
       console.log(`   Driver Extérieur: ${config.telegram.driverExterieurId ? '✅' : '❌'}`);
       console.log(`   Mapbox: ${config.mapbox.key ? '✅' : '❌'}`);
+      console.log(`   Canal: ${config.telegram.channelId ? '✅' : '❌'}`);
+      console.log(`   Canal Photo: ${config.telegram.photoChannelId ? '✅' : '❌'}`);
       console.log('💬 Chat System: ✅ Enabled');
+
+      // Démarrer le scheduler d'annonces
+      startAnnouncementScheduler();
+
       console.log('🚀 ================================');
     });
   } catch (error) {
