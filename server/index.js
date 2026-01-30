@@ -142,6 +142,9 @@ class TokenStore {
 
 const adminTokens = new TokenStore(config.admin.tokenExpiry);
 
+// Admins authentifiés en session (via /adminlogin)
+const sessionAdmins = new Set();
+
 // Helper pour obtenir la liste des admin IDs (lecture dynamique de l'env)
 function getAdminChatIds() {
   return (process.env.ADMIN_CHAT_ID || '').split(',').map(id => id.trim()).filter(id => id);
@@ -149,12 +152,12 @@ function getAdminChatIds() {
 
 // Helper pour vérifier si un utilisateur est admin
 function isAdmin(chatId) {
+  const chatIdStr = chatId.toString();
+  // Vérifier d'abord les admins connectés en session
+  if (sessionAdmins.has(chatIdStr)) return true;
+  // Ensuite vérifier l'env
   const adminIds = getAdminChatIds();
-  const result = adminIds.includes(chatId.toString());
-  if (!result) {
-    console.log(`🔐 isAdmin(${chatId}) = false | ADMIN_CHAT_ID = "${process.env.ADMIN_CHAT_ID}" | parsed = [${adminIds.join(', ')}]`);
-  }
-  return result;
+  return adminIds.includes(chatIdStr);
 }
 
 // Helper pour envoyer un message à tous les admins
@@ -4072,6 +4075,20 @@ async function handleTelegramMessage(message) {
     return;
   }
 
+  // Commande /adminlogin <mot_de_passe> - authentification admin par mot de passe
+  if (text.startsWith('/adminlogin ')) {
+    const password = text.substring(12).trim();
+    if (password === config.admin.password) {
+      sessionAdmins.add(chatId.toString());
+      console.log(`✅ Admin login success for chatId ${chatId}`);
+      await telegram.sendMessage(chatId, `✅ Authentification réussie ! Vous êtes maintenant admin.\n\nCommandes disponibles:\n/annonce [texte] - Poster une annonce\n/annoncepin [texte] - Poster + épingler\n/programmer ... - Programmer une annonce\n/annonces - Lister les annonces\n/supprannonce [id] - Supprimer une annonce`);
+    } else {
+      console.log(`❌ Admin login failed for chatId ${chatId} - wrong password`);
+      await telegram.sendMessage(chatId, `❌ Mot de passe incorrect.`);
+    }
+    return;
+  }
+
   if (text === '/start' || text.startsWith('/start ')) {
     await sendWelcomeMessage(chatId, firstName);
     return;
@@ -4142,16 +4159,10 @@ async function handleTelegramMessage(message) {
   const adminCommands = ['/annonce', '/annoncepin', '/programmer', '/supprprog', '/annulprog', '/stopquotidien', '/annonces', '/supprannonce', '/zones'];
   const usedAdminCmd = adminCommands.find(cmd => text === cmd || text.startsWith(cmd + ' '));
   if (usedAdminCmd && !isAdmin(chatId)) {
-    const rawEnv = process.env.ADMIN_CHAT_ID || '(non défini)';
-    const parsedIds = getAdminChatIds();
-    console.log(`⚠️ Non-admin ${chatId} tried admin command: ${usedAdminCmd} | ADMIN_CHAT_ID="${rawEnv}" | parsed=[${parsedIds}]`);
+    console.log(`⚠️ Non-admin ${chatId} tried admin command: ${usedAdminCmd}`);
     await telegram.sendMessage(chatId,
       `⛔ Commande réservée aux administrateurs.\n\n` +
-      `Votre ID: <code>${chatId}</code> (type: ${typeof chatId})\n` +
-      `ENV ADMIN_CHAT_ID: <code>${rawEnv}</code>\n` +
-      `IDs reconnus: <code>[${parsedIds.join(', ')}]</code>\n\n` +
-      `Si votre ID est dans la liste mais ça ne marche pas, redéployez le service sur Railway.`,
-      { parse_mode: 'HTML' }
+      `Tapez /adminlogin <mot_de_passe> pour vous connecter en tant qu'admin.`
     );
     return;
   }
