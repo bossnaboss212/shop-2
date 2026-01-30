@@ -145,6 +145,9 @@ const adminTokens = new TokenStore(config.admin.tokenExpiry);
 // Admins authentifiés en session (via /adminlogin)
 const sessionAdmins = new Set();
 
+// État conversationnel pour les admins (chatId -> { action, step, data })
+const adminStates = new Map();
+
 // Helper pour obtenir la liste des admin IDs (lecture dynamique de l'env)
 function getAdminChatIds() {
   return (process.env.ADMIN_CHAT_ID || '').split(',').map(id => id.trim()).filter(id => id);
@@ -4075,6 +4078,12 @@ async function handleTelegramMessage(message) {
     return;
   }
 
+  // Vérifier si un admin a un flux conversationnel en cours (boutons du panel admin)
+  if (isAdmin(chatId) && !text.startsWith('/')) {
+    const handled = await handleAdminTextInput(chatId, text);
+    if (handled) return;
+  }
+
   // Commande /adminlogin <mot_de_passe> - authentification admin par mot de passe
   if (text.startsWith('/adminlogin ')) {
     const password = text.substring(12).trim();
@@ -4276,6 +4285,165 @@ async function handleTelegramCallback(callback_query) {
   } else if (data === 'open_admin') {
     await sendAdminMessage(chatId);
   }
+
+  // ==================== ADMIN BOT CALLBACKS ====================
+  if (!isAdmin(chatId)) return;
+
+  if (data === 'adm_back') {
+    clearAdminState(chatId);
+    await sendAdminMessage(chatId);
+    return;
+  }
+  if (data === 'adm_close') {
+    clearAdminState(chatId);
+    await telegram.sendMessage(chatId, '👋 Menu admin fermé.');
+    return;
+  }
+
+  // --- Poster ---
+  if (data === 'adm_post') {
+    await sendChannelPicker(chatId, 'post');
+    return;
+  }
+  if (data.startsWith('adm_ch_post_')) {
+    const channel = data.replace('adm_ch_post_', '');
+    setAdminState(chatId, 'post', 'text', { channel });
+    await telegram.sendMessage(chatId, `📝 <b>Canal: ${channel}</b>\n\nTapez le texte de l'annonce :`, {
+      reply_markup: { inline_keyboard: [[{ text: '🔙 Annuler', callback_data: 'adm_back' }]] }
+    });
+    return;
+  }
+
+  // --- Poster + Pin ---
+  if (data === 'adm_postpin') {
+    await sendChannelPicker(chatId, 'postpin');
+    return;
+  }
+  if (data.startsWith('adm_ch_postpin_')) {
+    const channel = data.replace('adm_ch_postpin_', '');
+    setAdminState(chatId, 'postpin', 'text', { channel });
+    await telegram.sendMessage(chatId, `📌 <b>Canal: ${channel}</b>\n\nTapez le texte de l'annonce (sera épinglée) :`, {
+      reply_markup: { inline_keyboard: [[{ text: '🔙 Annuler', callback_data: 'adm_back' }]] }
+    });
+    return;
+  }
+
+  // --- Programmer ---
+  if (data === 'adm_schedule') {
+    await sendChannelPicker(chatId, 'sched');
+    return;
+  }
+  if (data.startsWith('adm_ch_sched_')) {
+    const channel = data.replace('adm_ch_sched_', '');
+    setAdminState(chatId, 'schedule', 'time', { channel });
+    await telegram.sendMessage(chatId, `⏰ <b>Canal: ${channel}</b>\n\nHeure de publication ? (format: <b>HH:MM</b>)`, {
+      reply_markup: { inline_keyboard: [[{ text: '🔙 Annuler', callback_data: 'adm_back' }]] }
+    });
+    return;
+  }
+  if (data === 'adm_sched_pin') {
+    const state = getAdminState(chatId);
+    if (state && state.action === 'schedule') {
+      setAdminState(chatId, 'schedule', 'pintimes', state.data);
+      await telegram.sendMessage(chatId, `📌 Heures d'épinglage ? (format: <b>HH:MM,HH:MM,HH:MM</b>)`, {
+        reply_markup: { inline_keyboard: [[{ text: '🔙 Annuler', callback_data: 'adm_back' }]] }
+      });
+    }
+    return;
+  }
+  if (data === 'adm_sched_suppr') {
+    const state = getAdminState(chatId);
+    if (state && state.action === 'schedule') {
+      setAdminState(chatId, 'schedule', 'deletetime', state.data);
+      await telegram.sendMessage(chatId, `🗑 Heure de suppression ? (format: <b>HH:MM</b>)`, {
+        reply_markup: { inline_keyboard: [[{ text: '🔙 Annuler', callback_data: 'adm_back' }]] }
+      });
+    }
+    return;
+  }
+  if (data === 'adm_sched_daily') {
+    const state = getAdminState(chatId);
+    if (state && state.action === 'schedule') {
+      state.data.recurring = 'daily';
+      setAdminState(chatId, 'schedule', 'options', state.data);
+      const keyboard = {
+        inline_keyboard: [
+          [
+            { text: '📌 Ajouter pins', callback_data: 'adm_sched_pin' },
+            { text: '🗑 Heure suppression', callback_data: 'adm_sched_suppr' }
+          ],
+          [{ text: '➡️ Passer au texte', callback_data: 'adm_sched_text' }],
+          [{ text: '🔙 Annuler', callback_data: 'adm_back' }]
+        ]
+      };
+      await telegram.sendMessage(chatId, `🔄 <b>Mode quotidien activé !</b>\n\nPlaceholders disponibles: {jour} {mois} {date} {joursemaine} {DATE}\n\nAjoutez d'autres options ou passez au texte :`, { reply_markup: keyboard });
+    }
+    return;
+  }
+  if (data === 'adm_sched_text') {
+    const state = getAdminState(chatId);
+    if (state && state.action === 'schedule') {
+      setAdminState(chatId, 'schedule', 'content', state.data);
+      let recap = `📝 <b>Récapitulatif :</b>\n`;
+      recap += `📡 Canal: ${state.data.channel}\n`;
+      recap += `⏰ Publication: ${state.data.postTime.toLocaleString('fr-FR', { hour: '2-digit', minute: '2-digit' })}\n`;
+      if (state.data.pinTimes && state.data.pinTimes.length > 0) {
+        const pinStrs = state.data.pinTimes.map(t => t.toLocaleString('fr-FR', { hour: '2-digit', minute: '2-digit' }));
+        recap += `📌 Pins: ${pinStrs.join(', ')}\n`;
+      }
+      if (state.data.deleteTime) {
+        recap += `🗑 Suppression: ${state.data.deleteTime.toLocaleString('fr-FR', { hour: '2-digit', minute: '2-digit' })}\n`;
+      }
+      if (state.data.recurring) recap += `🔄 Quotidien\n`;
+      recap += `\n<b>Tapez le texte de l'annonce :</b>`;
+      await telegram.sendMessage(chatId, recap, {
+        reply_markup: { inline_keyboard: [[{ text: '🔙 Annuler', callback_data: 'adm_back' }]] }
+      });
+    }
+    return;
+  }
+
+  // --- Liste des annonces ---
+  if (data === 'adm_list') {
+    await handleListAnnouncements(chatId);
+    return;
+  }
+
+  // --- Supprimer annonce ---
+  if (data === 'adm_delete') {
+    setAdminState(chatId, 'delete', 'msgid', {});
+    await telegram.sendMessage(chatId, `🗑 <b>Supprimer une annonce</b>\n\nEntrez le <b>Message ID</b> de l'annonce à supprimer :\n\n<i>(visible dans /annonces ou après publication)</i>`, {
+      reply_markup: { inline_keyboard: [[{ text: '🔙 Annuler', callback_data: 'adm_back' }]] }
+    });
+    return;
+  }
+
+  // --- Stop quotidien ---
+  if (data === 'adm_stoprecur') {
+    setAdminState(chatId, 'stoprecur', 'id', {});
+    await telegram.sendMessage(chatId, `⏹ <b>Arrêter une récurrence</b>\n\nEntrez l'<b>ID</b> de l'annonce quotidienne à arrêter :\n\n<i>(visible dans /annonces)</i>`, {
+      reply_markup: { inline_keyboard: [[{ text: '🔙 Annuler', callback_data: 'adm_back' }]] }
+    });
+    return;
+  }
+
+  // --- Annuler programmée ---
+  if (data === 'adm_cancel') {
+    setAdminState(chatId, 'cancel', 'id', {});
+    await telegram.sendMessage(chatId, `❌ <b>Annuler une annonce programmée</b>\n\nEntrez l'<b>ID</b> de l'annonce à annuler :\n\n<i>(visible dans /annonces)</i>`, {
+      reply_markup: { inline_keyboard: [[{ text: '🔙 Annuler', callback_data: 'adm_back' }]] }
+    });
+    return;
+  }
+
+  // --- Suppr. programmée ---
+  if (data === 'adm_scheddelete') {
+    setAdminState(chatId, 'scheddelete', 'input', {});
+    await telegram.sendMessage(chatId, `🗑⏰ <b>Programmer une suppression</b>\n\nFormat: <code>MESSAGE_ID HH:MM</code>\n\nExemple: <code>123 00:00</code>`, {
+      reply_markup: { inline_keyboard: [[{ text: '🔙 Annuler', callback_data: 'adm_back' }]] }
+    });
+    return;
+  }
 }
 
 // ==================== MESSAGES AVEC CLAVIER PERMANENT ====================
@@ -4366,26 +4534,294 @@ Cliquez sur le bouton ci-dessous pour accéder à notre catalogue complet.
 }
 
 async function sendAdminMessage(chatId) {
-  const text = `🔐 <b>PANNEAU ADMINISTRATEUR</b>
+  // Annuler tout état conversationnel en cours
+  adminStates.delete(chatId.toString());
 
-Accédez au tableau de bord pour gérer :
-
-📊 Statistiques et ventes
-📦 Commandes en cours
-📋 Gestion du stock
-💰 Finances et transactions
-👥 Gestion des clients
-⚙️ Paramètres de la boutique
-
-<i>⚠️ Authentification requise</i>`;
+  const text = `🔐 <b>PANNEAU ADMINISTRATEUR</b>\n\n` +
+    `<b>📢 Annonces</b> — Gérer les annonces sur les canaux\n` +
+    `<b>📊 Dashboard</b> — Stats, commandes, stock\n\n` +
+    `Choisissez une action :`;
 
   const keyboard = {
     inline_keyboard: [
-      [{ text: '🔐 Ouvrir le Panneau Admin', web_app: { url: `${config.webapp.url}/admin.html` } }]
+      [
+        { text: '📢 Poster', callback_data: 'adm_post' },
+        { text: '📌 Poster + Pin', callback_data: 'adm_postpin' }
+      ],
+      [
+        { text: '⏰ Programmer', callback_data: 'adm_schedule' },
+        { text: '📋 Mes annonces', callback_data: 'adm_list' }
+      ],
+      [
+        { text: '🗑 Supprimer annonce', callback_data: 'adm_delete' },
+        { text: '⏹ Stop quotidien', callback_data: 'adm_stoprecur' }
+      ],
+      [
+        { text: '❌ Annuler programmée', callback_data: 'adm_cancel' },
+        { text: '🗑⏰ Suppr. programmée', callback_data: 'adm_scheddelete' }
+      ],
+      [{ text: '🔐 Dashboard Web', web_app: { url: `${config.webapp.url}/admin.html` } }],
+      [{ text: '🔙 Retour', callback_data: 'adm_close' }]
     ]
   };
-  
+
   await telegram.sendMessage(chatId, text, { reply_markup: keyboard });
+}
+
+// ==================== ADMIN BOT - FLUX CONVERSATIONNEL ====================
+
+function setAdminState(chatId, action, step, data = {}) {
+  adminStates.set(chatId.toString(), { action, step, data, ts: Date.now() });
+}
+
+function getAdminState(chatId) {
+  const state = adminStates.get(chatId.toString());
+  // Expire après 5 minutes
+  if (state && Date.now() - state.ts > 5 * 60 * 1000) {
+    adminStates.delete(chatId.toString());
+    return null;
+  }
+  return state || null;
+}
+
+function clearAdminState(chatId) {
+  adminStates.delete(chatId.toString());
+}
+
+async function sendChannelPicker(chatId, action) {
+  const keyboard = {
+    inline_keyboard: [
+      [{ text: '📢 Principal', callback_data: `adm_ch_${action}_principal` }],
+      [{ text: '📸 Photo', callback_data: `adm_ch_${action}_photo` }],
+      [{ text: '🆘 Secours', callback_data: `adm_ch_${action}_secours` }],
+      [{ text: '🔙 Retour', callback_data: 'adm_back' }]
+    ]
+  };
+  await telegram.sendMessage(chatId, '📡 <b>Sur quel canal ?</b>', { reply_markup: keyboard });
+}
+
+async function handleAdminTextInput(chatId, text) {
+  const state = getAdminState(chatId);
+  if (!state) return false;
+
+  const { action, step, data } = state;
+
+  // === POSTER UNE ANNONCE ===
+  if (action === 'post' && step === 'text') {
+    clearAdminState(chatId);
+    const channelId = resolveChannelId(data.channel === 'principal' ? null : data.channel);
+    if (!channelId) {
+      await telegram.sendMessage(chatId, `❌ Canal "${data.channel}" non configuré.`);
+      return true;
+    }
+    const result = await telegram.sendMessage(channelId, text);
+    if (!result || !result.result) {
+      await telegram.sendMessage(chatId, '❌ Échec de l\'envoi. Vérifiez que le bot est admin du canal.');
+      return true;
+    }
+    const messageId = result.result.message_id;
+    await db.run(
+      `INSERT INTO announcements (channel_id, message_id, type, content, posted_by, status) VALUES (?, ?, 'text', ?, ?, 'posted')`,
+      [channelId, messageId, text, chatId.toString()]
+    );
+    const label = data.channel === 'principal' ? '' : ` (${data.channel})`;
+    await telegram.sendMessage(chatId, `✅ Annonce publiée${label} !\n📝 Message ID: ${messageId}\n\n🗑 /supprannonce ${messageId}`, {
+      reply_markup: { inline_keyboard: [[{ text: '🔙 Menu Admin', callback_data: 'adm_back' }]] }
+    });
+    return true;
+  }
+
+  // === POSTER + ÉPINGLER ===
+  if (action === 'postpin' && step === 'text') {
+    clearAdminState(chatId);
+    const channelId = resolveChannelId(data.channel === 'principal' ? null : data.channel);
+    if (!channelId) {
+      await telegram.sendMessage(chatId, `❌ Canal "${data.channel}" non configuré.`);
+      return true;
+    }
+    const result = await telegram.sendMessage(channelId, text);
+    if (!result || !result.result) {
+      await telegram.sendMessage(chatId, '❌ Échec de l\'envoi.');
+      return true;
+    }
+    const messageId = result.result.message_id;
+    await telegram.pinChatMessage(channelId, messageId, true);
+    await db.run(
+      `INSERT INTO announcements (channel_id, message_id, type, content, pin, posted_by, status) VALUES (?, ?, 'text', ?, 1, ?, 'posted')`,
+      [channelId, messageId, text, chatId.toString()]
+    );
+    const label = data.channel === 'principal' ? '' : ` (${data.channel})`;
+    await telegram.sendMessage(chatId, `✅ Annonce publiée et épinglée${label} !\n📌 Message ID: ${messageId}\n\n🗑 /supprannonce ${messageId}`, {
+      reply_markup: { inline_keyboard: [[{ text: '🔙 Menu Admin', callback_data: 'adm_back' }]] }
+    });
+    return true;
+  }
+
+  // === PROGRAMMER - ÉTAPE HEURE ===
+  if (action === 'schedule' && step === 'time') {
+    const postTime = parseTime(text.trim());
+    if (!postTime) {
+      await telegram.sendMessage(chatId, `❌ Heure invalide: "${text}". Format: <b>HH:MM</b> ou <b>HHhMM</b>\n\nRéessayez :`);
+      return true;
+    }
+    data.postTime = postTime;
+    setAdminState(chatId, 'schedule', 'options', data);
+    const keyboard = {
+      inline_keyboard: [
+        [
+          { text: '📌 Ajouter pins', callback_data: 'adm_sched_pin' },
+          { text: '🗑 Heure suppression', callback_data: 'adm_sched_suppr' }
+        ],
+        [
+          { text: '🔄 Quotidien', callback_data: 'adm_sched_daily' },
+          { text: '➡️ Passer au texte', callback_data: 'adm_sched_text' }
+        ],
+        [{ text: '🔙 Annuler', callback_data: 'adm_back' }]
+      ]
+    };
+    const timeStr = postTime.toLocaleString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    await telegram.sendMessage(chatId, `⏰ Publication à <b>${timeStr}</b>\n\nAjoutez des options ou passez au texte :`, { reply_markup: keyboard });
+    return true;
+  }
+
+  // === PROGRAMMER - HEURES PIN ===
+  if (action === 'schedule' && step === 'pintimes') {
+    const pinParts = text.split(',');
+    const pinTimes = [];
+    const pinTimesRaw = [];
+    for (const p of pinParts) {
+      const t = parseTime(p.trim());
+      if (!t) {
+        await telegram.sendMessage(chatId, `❌ Heure invalide: "${p.trim()}". Réessayez (format: HH:MM,HH:MM) :`);
+        return true;
+      }
+      if (t < data.postTime) t.setDate(t.getDate() + 1);
+      pinTimes.push(t);
+      const match = p.trim().match(/^(\d{1,2})[h:](\d{2})$/);
+      if (match) pinTimesRaw.push(`${match[1].padStart(2, '0')}:${match[2]}`);
+    }
+    data.pinTimes = pinTimes;
+    data.pinTimesRaw = pinTimesRaw;
+    setAdminState(chatId, 'schedule', 'options', data);
+    const pinStrs = pinTimes.map(t => t.toLocaleString('fr-FR', { hour: '2-digit', minute: '2-digit' }));
+    const keyboard = {
+      inline_keyboard: [
+        [
+          { text: '📌 Modifier pins', callback_data: 'adm_sched_pin' },
+          { text: '🗑 Heure suppression', callback_data: 'adm_sched_suppr' }
+        ],
+        [
+          { text: '🔄 Quotidien', callback_data: 'adm_sched_daily' },
+          { text: '➡️ Passer au texte', callback_data: 'adm_sched_text' }
+        ],
+        [{ text: '🔙 Annuler', callback_data: 'adm_back' }]
+      ]
+    };
+    await telegram.sendMessage(chatId, `📌 Pins: <b>${pinStrs.join(', ')}</b>\n\nAjoutez d'autres options ou passez au texte :`, { reply_markup: keyboard });
+    return true;
+  }
+
+  // === PROGRAMMER - HEURE SUPPRESSION ===
+  if (action === 'schedule' && step === 'deletetime') {
+    const deleteTime = parseTime(text.trim());
+    if (!deleteTime) {
+      await telegram.sendMessage(chatId, `❌ Heure invalide: "${text}". Réessayez (format: HH:MM) :`);
+      return true;
+    }
+    if (deleteTime <= data.postTime) deleteTime.setDate(deleteTime.getDate() + 1);
+    data.deleteTime = deleteTime;
+    setAdminState(chatId, 'schedule', 'options', data);
+    const timeStr = deleteTime.toLocaleString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    const keyboard = {
+      inline_keyboard: [
+        [
+          { text: '📌 Ajouter pins', callback_data: 'adm_sched_pin' },
+          { text: '🗑 Modifier suppr.', callback_data: 'adm_sched_suppr' }
+        ],
+        [
+          { text: '🔄 Quotidien', callback_data: 'adm_sched_daily' },
+          { text: '➡️ Passer au texte', callback_data: 'adm_sched_text' }
+        ],
+        [{ text: '🔙 Annuler', callback_data: 'adm_back' }]
+      ]
+    };
+    await telegram.sendMessage(chatId, `🗑 Suppression à <b>${timeStr}</b>\n\nAjoutez d'autres options ou passez au texte :`, { reply_markup: keyboard });
+    return true;
+  }
+
+  // === PROGRAMMER - TEXTE FINAL ===
+  if (action === 'schedule' && step === 'content') {
+    clearAdminState(chatId);
+    const channelId = resolveChannelId(data.channel === 'principal' ? null : data.channel);
+    const hasPins = data.pinTimes && data.pinTimes.length > 0;
+    const pinScheduleJson = data.pinTimesRaw && data.pinTimesRaw.length > 0 ? JSON.stringify(data.pinTimesRaw) : null;
+
+    const result = await db.run(
+      `INSERT INTO announcements (channel_id, message_id, type, content, pin, status, post_at, delete_at, recurring, pin_schedule, posted_by)
+       VALUES (?, NULL, 'text', ?, ?, 'scheduled', ?, ?, ?, ?, ?)`,
+      [channelId, text, hasPins ? 1 : 0, data.postTime.toISOString(), data.deleteTime?.toISOString() || null, data.recurring || null, pinScheduleJson, chatId.toString()]
+    );
+    const announcementId = result.lastID;
+
+    if (data.pinTimes) {
+      for (const pinTime of data.pinTimes) {
+        await db.run(`INSERT INTO scheduled_actions (announcement_id, action, execute_at, status) VALUES (?, 'pin', ?, 'pending')`, [announcementId, pinTime.toISOString()]);
+      }
+    }
+    if (data.deleteTime) {
+      await db.run(`INSERT INTO scheduled_actions (announcement_id, action, execute_at, status) VALUES (?, 'delete', ?, 'pending')`, [announcementId, data.deleteTime.toISOString()]);
+    }
+
+    const fmtOpts = { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' };
+    let msg = `✅ <b>Annonce programmée !</b>\n\n`;
+    msg += `📅 Publication: <b>${data.postTime.toLocaleString('fr-FR', fmtOpts)}</b>\n`;
+    if (data.pinTimes && data.pinTimes.length > 0) {
+      const pinStrs = data.pinTimes.map(t => t.toLocaleString('fr-FR', { hour: '2-digit', minute: '2-digit' }));
+      msg += `📌 Pins: <b>${pinStrs.join(', ')}</b>\n`;
+    }
+    if (data.deleteTime) {
+      msg += `🗑 Suppression: <b>${data.deleteTime.toLocaleString('fr-FR', fmtOpts)}</b>\n`;
+    }
+    if (data.recurring) msg += `🔄 <b>Quotidien</b>\n`;
+    msg += `\n📝 "${text.substring(0, 80)}${text.length > 80 ? '...' : ''}"`;
+    if (text.includes('{')) msg += `\n🔤 Rendu: "${renderTemplate(text, new Date()).substring(0, 80)}"`;
+    msg += `\n\n❌ /annulprog ${announcementId}`;
+
+    await telegram.sendMessage(chatId, msg, {
+      reply_markup: { inline_keyboard: [[{ text: '🔙 Menu Admin', callback_data: 'adm_back' }]] }
+    });
+    return true;
+  }
+
+  // === SUPPRIMER ANNONCE ===
+  if (action === 'delete' && step === 'msgid') {
+    clearAdminState(chatId);
+    await handleDeleteAnnouncement(chatId, text.trim());
+    return true;
+  }
+
+  // === ANNULER PROGRAMMÉE ===
+  if (action === 'cancel' && step === 'id') {
+    clearAdminState(chatId);
+    await handleCancelScheduled(chatId, text.trim());
+    return true;
+  }
+
+  // === STOP QUOTIDIEN ===
+  if (action === 'stoprecur' && step === 'id') {
+    clearAdminState(chatId);
+    await handleStopRecurring(chatId, text.trim());
+    return true;
+  }
+
+  // === SUPPR PROGRAMMÉE ===
+  if (action === 'scheddelete' && step === 'input') {
+    clearAdminState(chatId);
+    await handleScheduleDelete(chatId, text.trim());
+    return true;
+  }
+
+  return false;
 }
 
 async function sendHelpMessage(chatId) {
