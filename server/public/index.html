@@ -2373,7 +2373,7 @@ const SyncManager = {
       }
 
       // Fallback sur localStorage avec gestion de version
-      const DATA_VERSION = 6; // Produits supprimés - ne garder que AMNESIA et NEEDLES KETA
+      const DATA_VERSION = 7; // 9 produits: AMNESIA, NEEDLES KETA + 7 nouveaux, tous stock à 0
       const savedVersion = parseInt(localStorage.getItem('data_version') || '0');
       const data = localStorage.getItem('shop_products');
 
@@ -2954,11 +2954,11 @@ const DEFAULT_PRODUCTS = [
     category: 'Weed',
     video: '/videos/amnesia.MP4',
     variants: {
-      '3.33G': { price: 20, grams: 3.33, stock: 30 },
-      '5G': { price: 30, grams: 5, stock: 25 },
-      '10G': { price: 60, grams: 10, stock: 20 },
-      '50G': { price: 250, grams: 50, stock: 10 },
-      '100G': { price: 450, grams: 100, stock: 5 }
+      '3.33G': { price: 20, grams: 3.33, stock: 0 },
+      '5G': { price: 30, grams: 5, stock: 0 },
+      '10G': { price: 60, grams: 10, stock: 0 },
+      '50G': { price: 250, grams: 50, stock: 0 },
+      '100G': { price: 450, grams: 100, stock: 0 }
     }
   },
 
@@ -2969,13 +2969,114 @@ const DEFAULT_PRODUCTS = [
     category: 'Keta',
     video: '/videos/needles.MP4',
     variants: {
-      '1G': { price: 20, grams: 1, stock: 40 },
-      '2G': { price: 40, grams: 2, stock: 40 },
-      '3G': { price: 50, grams: 3, stock: 30 },
-      '5G': { price: 80, grams: 5, stock: 30 },
-      '10G': { price: 150, grams: 10, stock: 30 },
-      '50G': { price: 450, grams: 50, stock: 20 },
-      '100G': { price: 870, grams: 100, stock: 20 }
+      '1G': { price: 20, grams: 1, stock: 0 },
+      '2G': { price: 40, grams: 2, stock: 0 },
+      '3G': { price: 50, grams: 3, stock: 0 },
+      '5G': { price: 80, grams: 5, stock: 0 },
+      '10G': { price: 150, grams: 10, stock: 0 },
+      '50G': { price: 450, grams: 50, stock: 0 },
+      '100G': { price: 870, grams: 100, stock: 0 }
+    }
+  },
+
+  // 3. CANADIENNE - WEED
+  {
+    id: 3,
+    name: 'CANADIENNE',
+    category: 'Weed',
+    video: '',
+    variants: {
+      '1.6G': { price: 20, grams: 1.6, stock: 0 },
+      '3.2G': { price: 40, grams: 3.2, stock: 0 },
+      '5G': { price: 60, grams: 5, stock: 0 },
+      '10G': { price: 110, grams: 10, stock: 0 }
+    }
+  },
+
+  // 4. BLACK PURPLE - WEED
+  {
+    id: 4,
+    name: 'BLACK PURPLE',
+    category: 'Weed',
+    video: '',
+    variants: {
+      '2.2G': { price: 20, grams: 2.2, stock: 0 },
+      '5G': { price: 40, grams: 5, stock: 0 },
+      '10G': { price: 80, grams: 10, stock: 0 },
+      '100G': { price: 500, grams: 100, stock: 0 }
+    }
+  },
+
+  // 5. MIMOSA PIE - WEED
+  {
+    id: 5,
+    name: 'MIMOSA PIE',
+    category: 'Weed',
+    video: '',
+    variants: {
+      '1.8G': { price: 20, grams: 1.8, stock: 0 },
+      '3.6G': { price: 40, grams: 3.6, stock: 0 },
+      '5G': { price: 50, grams: 5, stock: 0 },
+      '10G': { price: 100, grams: 10, stock: 0 }
+    }
+  },
+
+  // 6. GEORGIA PIE - WEED
+  {
+    id: 6,
+    name: 'GEORGIA PIE',
+    category: 'Weed',
+    video: '',
+    variants: {
+      '1.8G': { price: 20, grams: 1.8, stock: 0 },
+      '3.6G': { price: 40, grams: 3.6, stock: 0 },
+      '5G': { price: 50, grams: 5, stock: 0 },
+      '10G': { price: 100, grams: 10, stock: 0 }
+    }
+  },
+
+  // 7. BLACK CHEESE - WEED
+  {
+    id: 7,
+    name: 'BLACK CHEESE',
+    category: 'Weed',
+    video: '',
+    variants: {
+      '1.8G': { price: 20, grams: 1.8, stock: 0 },
+      '3.6G': { price: 40, grams: 3.6, stock: 0 },
+      '5G': { price: 50, grams: 5, stock: 0 },
+      '10G': { price: 100, grams: 10, stock: 0 }
+    }
+  },
+
+  // 8. ZOUR'S 120u - FILTRÉ
+  {
+    id: 8,
+    name: "ZOUR'S 120u",
+    category: 'Filtre',
+    video: '',
+    variants: {
+      '2G': { price: 20, grams: 2, stock: 0 },
+      '5G': { price: 40, grams: 5, stock: 0 },
+      '10G': { price: 70, grams: 10, stock: 0 },
+      '50G': { price: 260, grams: 50, stock: 0 },
+      '100G': { price: 490, grams: 100, stock: 0 }
+    }
+  },
+
+  // 9. COURCHEVEL - BLANCHE
+  {
+    id: 9,
+    name: 'COURCHEVEL',
+    category: 'Blanche',
+    video: '',
+    variants: {
+      '0.5G': { price: 30, grams: 0.5, stock: 0 },
+      '1G': { price: 50, grams: 1, stock: 0 },
+      '2G': { price: 80, grams: 2, stock: 0 },
+      '5G': { price: 190, grams: 5, stock: 0 },
+      '10G': { price: 340, grams: 10, stock: 0 },
+      '50G': { price: 1200, grams: 50, stock: 0 }
     }
   }
 ];

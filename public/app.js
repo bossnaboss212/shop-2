@@ -7,7 +7,21 @@ const PRODUCTS = [
   { id:1,  name:"AMNESIA",  farm:"coffee shop", category:"weed",    pic:"img/amnesia.JPG",
     variants:[{label:"3,33G",grams:3.33,price:20},{label:"5G",grams:5,price:30},{label:"10G",grams:10,price:60},{label:"50G",grams:50,price:250},{label:"100G",grams:100,price:450}] },
   { id:2,  name:"NEEDLES KETA",  farm:"holland",   category:"kéta",    pic:"img/needles.JPG",
-    variants:[{label:"1G",grams:1,price:20},{label:"2G",grams:2,price:40},{label:"3G",grams:3,price:50},{label:"5G",grams:5,price:80},{label:"10G",grams:10,price:150}] }
+    variants:[{label:"1G",grams:1,price:20},{label:"2G",grams:2,price:40},{label:"3G",grams:3,price:50},{label:"5G",grams:5,price:80},{label:"10G",grams:10,price:150}] },
+  { id:3,  name:"CANADIENNE",  farm:"canada", category:"weed",    pic:"img/canadienne.JPG",
+    variants:[{label:"1,6G",grams:1.6,price:20},{label:"3,2G",grams:3.2,price:40},{label:"5G",grams:5,price:60},{label:"10G",grams:10,price:110}] },
+  { id:4,  name:"BLACK PURPLE",  farm:"", category:"weed",    pic:"img/black_purple.JPG",
+    variants:[{label:"2,2G",grams:2.2,price:20},{label:"5G",grams:5,price:40},{label:"10G",grams:10,price:80},{label:"100G",grams:100,price:500}] },
+  { id:5,  name:"MIMOSA PIE",  farm:"", category:"weed",    pic:"img/mimosa_pie.JPG",
+    variants:[{label:"1,8G",grams:1.8,price:20},{label:"3,6G",grams:3.6,price:40},{label:"5G",grams:5,price:50},{label:"10G",grams:10,price:100}] },
+  { id:6,  name:"GEORGIA PIE",  farm:"", category:"weed",    pic:"img/georgia_pie.JPG",
+    variants:[{label:"1,8G",grams:1.8,price:20},{label:"3,6G",grams:3.6,price:40},{label:"5G",grams:5,price:50},{label:"10G",grams:10,price:100}] },
+  { id:7,  name:"BLACK CHEESE",  farm:"", category:"weed",    pic:"img/black_cheese.JPG",
+    variants:[{label:"1,8G",grams:1.8,price:20},{label:"3,6G",grams:3.6,price:40},{label:"5G",grams:5,price:50},{label:"10G",grams:10,price:100}] },
+  { id:8,  name:"ZOUR'S 120u",  farm:"", category:"filtré",    pic:"img/zours.JPG",
+    variants:[{label:"2G",grams:2,price:20},{label:"5G",grams:5,price:40},{label:"10G",grams:10,price:70},{label:"50G",grams:50,price:260},{label:"100G",grams:100,price:490}] },
+  { id:9,  name:"COURCHEVEL",  farm:"", category:"blanche",    pic:"img/courchevel.JPG",
+    variants:[{label:"0,5G",grams:0.5,price:30},{label:"1G",grams:1,price:50},{label:"2G",grams:2,price:80},{label:"5G",grams:5,price:190},{label:"10G",grams:10,price:340},{label:"50G",grams:50,price:1200}] }
 ];
 
 
