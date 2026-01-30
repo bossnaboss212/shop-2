@@ -2030,6 +2030,7 @@ body.modal-open{overflow:hidden;position:fixed;width:100%}
   <main class="page" id="page-avis">
     <div class="info-section">
       <h2 class="section-title">⭐ Avis clients</h2>
+      <div id="reviewsStats" style="text-align:center;padding:12px 0;margin-bottom:16px"></div>
       <div style="background:var(--bg-secondary);border:2px solid var(--border);border-radius:16px;padding:20px;margin-bottom:24px">
         <h3 style="font-size:18px;font-weight:700;margin-bottom:16px">Laisser un avis</h3>
         <div style="margin-bottom:16px">
@@ -2375,7 +2376,7 @@ const SyncManager = {
       }
 
       // Fallback sur localStorage avec gestion de version
-      const DATA_VERSION = 10; // Toutes catégories en minuscules + normalisation API
+      const DATA_VERSION = 11; // Avis synchronisés serveur + catégories minuscules
       const savedVersion = parseInt(localStorage.getItem('data_version') || '0');
       const data = localStorage.getItem('shop_products');
 
@@ -2905,35 +2906,82 @@ const LoyaltyManager = {
 
 const ReviewsManager = {
   reviews: [],
-  
-  init() {
+  stats: { count: 0, average: 0 },
+
+  async init() {
+    await this.loadFromServer();
+    await this.loadStats();
+  },
+
+  async loadFromServer() {
+    try {
+      const res = await fetch('/api/reviews');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.ok && data.reviews) {
+          this.reviews = data.reviews.map(r => ({
+            name: r.name || 'Anonyme',
+            stars: r.stars,
+            text: r.text,
+            date: r.created_at
+          }));
+          return;
+        }
+      }
+    } catch (e) {
+      console.log('API avis non dispo, fallback local');
+    }
+    // Fallback localStorage
     try {
       const loaded = localStorage.getItem('shop_reviews');
       this.reviews = loaded ? JSON.parse(loaded) : [];
     } catch (e) {
-      console.error('Error loading reviews:', e);
       this.reviews = [];
     }
   },
-  
-  add(review) {
-    review.date = new Date().toISOString();
-    this.reviews.unshift(review);
-    this.save();
+
+  async loadStats() {
+    try {
+      const res = await fetch('/api/reviews/stats');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.ok) {
+          this.stats = { count: data.count || 0, average: data.average || 0 };
+        }
+      }
+    } catch (e) {
+      console.log('Stats avis non disponibles');
+    }
   },
-  
+
+  async add(review) {
+    try {
+      const res = await fetch('/api/reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(review)
+      });
+      const data = await res.json();
+      if (data.ok) {
+        return { success: true, message: data.message };
+      }
+      return { success: false, message: data.error || 'Erreur' };
+    } catch (e) {
+      // Fallback localStorage
+      review.date = new Date().toISOString();
+      this.reviews.unshift(review);
+      localStorage.setItem('shop_reviews', JSON.stringify(this.reviews));
+      return { success: true, message: 'Avis enregistré localement' };
+    }
+  },
+
   getAll() {
-    const demoReviews = [
-      {name: 'Martin D.', stars: 5, text: 'Excellent service, produits de qualité !', date: new Date(Date.now() - 2*24*60*60*1000).toISOString()},
-      {name: 'Sophie L.', stars: 5, text: 'Livraison rapide et discrète, je recommande', date: new Date(Date.now() - 5*24*60*60*1000).toISOString()},
-      {name: 'Thomas B.', stars: 4, text: 'Très satisfait de ma commande', date: new Date(Date.now() - 7*24*60*60*1000).toISOString()}
-    ];
-    
-    return [...this.reviews, ...demoReviews];
+    return this.reviews;
   },
-  
-  save() {
-    localStorage.setItem('shop_reviews', JSON.stringify(this.reviews));
+
+  getStatsDisplay() {
+    if (this.stats.count === 0) return { average: '–', count: 0 };
+    return { average: this.stats.average.toFixed(1), count: this.stats.count };
   }
 };
 
@@ -3167,7 +3215,7 @@ function renderProducts(filter = 'all', sort = 'default') {
         <video class="product-video" muted loop playsinline preload="metadata">
           <source src="${p.video || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 100 100\'%3E%3Crect fill=\'%231a2028\' width=\'100\' height=\'100\'/%3E%3Ctext x=\'50\' y=\'50\' text-anchor=\'middle\' dy=\'.3em\' fill=\'%236b7280\' font-size=\'14\' font-family=\'system-ui\'%3EProduit%3C/text%3E%3C/svg%3E'}" type="video/MP4">
         </video>
-        <div class="product-rating"><span>⭐</span><span>4.8</span></div>
+        <div class="product-rating"><span>⭐</span><span>${ReviewsManager.stats.count > 0 ? ReviewsManager.stats.average.toFixed(1) : '–'}</span></div>
         <div class="product-actions">
           <button class="product-action-btn ${isFav ? 'active' : ''}" data-fav="${p.id}">
             <svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
@@ -3245,7 +3293,7 @@ const searchProducts = debounce((query) => {
         <video class="product-video" muted loop playsinline preload="none">
           <source src="${p.video || ''}" type="video/MP4">
         </video>
-        <div class="product-rating"><span>⭐</span><span>4.8</span></div>
+        <div class="product-rating"><span>⭐</span><span>${ReviewsManager.stats.count > 0 ? ReviewsManager.stats.average.toFixed(1) : '–'}</span></div>
         <div class="product-actions">
           <button class="product-action-btn ${isFav ? 'active' : ''}" data-fav="${p.id}">
             <svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
@@ -3316,8 +3364,8 @@ function openProduct(id) {
       <h2 class="product-detail-name">${sanitizeInput(currentProduct.name)}</h2>
       <div class="product-detail-rating">
         <span style="color:#facc15;font-size:20px">⭐</span>
-        <span style="font-size:18px;font-weight:700">4.8</span>
-        <span style="color:var(--text-muted)">(127 avis)</span>
+        <span style="font-size:18px;font-weight:700">${ReviewsManager.stats.count > 0 ? ReviewsManager.stats.average.toFixed(1) : '–'}</span>
+        <span style="color:var(--text-muted)">(${ReviewsManager.stats.count} avis)</span>
       </div>
     </div>
     <!-- Bouton de partage -->
@@ -5372,28 +5420,42 @@ function renderOrders() {
   });
 }
 
-function renderReviews() {
+async function renderReviews() {
+  await ReviewsManager.loadFromServer();
+  await ReviewsManager.loadStats();
+
   const allReviews = ReviewsManager.getAll();
   const reviewsList = document.getElementById('reviewsList');
-  
+  const stats = ReviewsManager.getStatsDisplay();
+
+  // Update stats header
+  const statsEl = document.getElementById('reviewsStats');
+  if (statsEl) {
+    if (stats.count > 0) {
+      statsEl.innerHTML = `<span style="font-size:18px;font-weight:700">${stats.average}</span> <span>⭐</span> <span style="color:var(--text-muted)">(${stats.count} avis)</span>`;
+    } else {
+      statsEl.innerHTML = `<span style="color:var(--text-muted)">Aucun avis pour le moment</span>`;
+    }
+  }
+
   if (allReviews.length === 0) {
-    reviewsList.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:40px">Aucun avis pour le moment</div>';
+    reviewsList.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:40px">Soyez le premier a laisser un avis !</div>';
     return;
   }
-  
+
   reviewsList.innerHTML = allReviews.map(r => {
     const date = new Date(r.date);
     const now = new Date();
     const diffTime = Math.abs(now - date);
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
+
     let timeStr = '';
     if (diffDays === 0) timeStr = "Aujourd'hui";
     else if (diffDays === 1) timeStr = 'Hier';
     else if (diffDays < 7) timeStr = `Il y a ${diffDays} jours`;
     else if (diffDays < 30) timeStr = `Il y a ${Math.floor(diffDays / 7)} semaine${Math.floor(diffDays / 7) > 1 ? 's' : ''}`;
     else timeStr = `Il y a ${Math.floor(diffDays / 30)} mois`;
-    
+
     return `
     <div class="info-card" style="flex-direction:column;align-items:flex-start">
       <div style="display:flex;justify-content:space-between;width:100%;margin-bottom:8px">
@@ -5580,35 +5642,40 @@ function initEventListeners() {
     searchProducts(e.target.value.toLowerCase());
   });
   
-  document.getElementById('submitReview')?.addEventListener('click', () => {
+  document.getElementById('submitReview')?.addEventListener('click', async () => {
     const name = document.getElementById('reviewName').value.trim();
     const stars = parseInt(document.getElementById('reviewStars').value);
     const text = document.getElementById('reviewText').value.trim();
-    
+
     if (!text) {
-      showToast('⚠️ Veuillez écrire votre avis');
+      showToast('Veuillez écrire votre avis');
       return;
     }
-    
+
     if (text.length < 10) {
-      showToast('⚠️ Votre avis doit contenir au moins 10 caractères');
+      showToast('Votre avis doit contenir au moins 10 caractères');
       return;
     }
-    
-    const review = {
-      name: name || 'Anonyme',
-      stars: stars,
-      text: text
-    };
-    
-    ReviewsManager.add(review);
-    
-    document.getElementById('reviewName').value = '';
-    document.getElementById('reviewStars').value = '5';
-    document.getElementById('reviewText').value = '';
-    
-    renderReviews();
-    showToast('✅ Merci pour votre avis !');
+
+    const review = { name: name || 'Anonyme', stars, text };
+
+    const btn = document.getElementById('submitReview');
+    btn.disabled = true;
+    btn.textContent = 'Envoi...';
+
+    const result = await ReviewsManager.add(review);
+
+    btn.disabled = false;
+    btn.textContent = 'Publier mon avis';
+
+    if (result.success) {
+      document.getElementById('reviewName').value = '';
+      document.getElementById('reviewStars').value = '5';
+      document.getElementById('reviewText').value = '';
+      showToast('Merci ! Votre avis sera visible après validation.');
+    } else {
+      showToast('Erreur: ' + result.message);
+    }
   });
   
   document.getElementById('loyaltyBanner').onclick = () => {
@@ -5622,13 +5689,13 @@ function initEventListeners() {
 // INITIALISATION
 // ═══════════════════════════════════════════════════════════════════════════
 
-function init() {
+async function init() {
   try {
     CartManager.init();
     FavoritesManager.init();
     OrdersManager.init();
     LoyaltyManager.init();
-    ReviewsManager.init();
+    await ReviewsManager.init();
     initTheme();
     initEventListeners();
     renderFavorites();
@@ -5636,15 +5703,12 @@ function init() {
     renderReviews();
     CartManager.updateUI();
     FavoritesManager.updateUI();
-    
+
     // Démarrer la synchronisation automatique
     startAutoSync();
-    
-    console.log('✅ DROGUA CENTER v3.2 chargé - VERSION COMPLÈTE');
-    console.log('🔄 Synchronisation automatique active (toutes les 5s)');
-    console.log('📦 10 produits préchargés : AMNESIA, DEMBELE, STRAWBERRY 120U, VVS TANGER, FRESH FROZEN, CHAMPAGNE, NEEDLES KETA, EL JEFE, FF MANDARINA, FF FRUITS');
-    console.log('🏷️ Catégories : Weed, Mousseux, Blanche, Keta, Frozen, Filtré');
-    console.log('💾 Toutes les données sont sauvegardées localement');
+
+    console.log('DROGUA CENTER v3.3 chargé');
+    console.log('9 produits, avis synchronisés avec le serveur');
   } catch (error) {
     console.error('❌ Erreur initialisation:', error);
     showToast('⚠️ Erreur de chargement. Actualisez la page (F5)');

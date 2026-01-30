@@ -2675,6 +2675,96 @@ app.get('/api/admin/reviews', requireAdmin, async (req, res) => {
   }
 });
 
+// ==================== PUBLIC: GET APPROVED REVIEWS ====================
+app.get('/api/reviews', apiLimiter, async (req, res) => {
+  try {
+    const reviews = await db.all(
+      'SELECT id, name, stars, text, created_at FROM reviews WHERE approved = 1 ORDER BY created_at DESC LIMIT 50'
+    );
+    res.json({ ok: true, reviews });
+  } catch (error) {
+    console.error('Public reviews error:', error);
+    res.status(500).json({ ok: false, error: 'Erreur serveur' });
+  }
+});
+
+// ==================== PUBLIC: SUBMIT A REVIEW ====================
+app.post('/api/reviews', apiLimiter, async (req, res) => {
+  try {
+    const { name, stars, text } = req.body;
+
+    if (!text || typeof text !== 'string' || text.trim().length < 10) {
+      return res.status(400).json({ ok: false, error: 'Avis trop court (min 10 caractères)' });
+    }
+    if (!stars || stars < 1 || stars > 5) {
+      return res.status(400).json({ ok: false, error: 'Note invalide (1-5)' });
+    }
+
+    const safeName = (name && typeof name === 'string') ? name.trim().substring(0, 50) : 'Anonyme';
+    const safeText = text.trim().substring(0, 500);
+
+    const result = await db.run(
+      'INSERT INTO reviews (product_id, name, stars, text, approved) VALUES (0, ?, ?, ?, 0)',
+      [safeName, parseInt(stars), safeText]
+    );
+
+    // Notify admins via Telegram
+    const reviewId = result.lastID;
+    const starsStr = '⭐'.repeat(parseInt(stars));
+    const adminMsg = `📝 <b>NOUVEL AVIS</b>\n\n` +
+      `👤 <b>${safeName}</b>\n` +
+      `${starsStr} (${stars}/5)\n\n` +
+      `💬 "${safeText}"\n\n` +
+      `⏳ En attente d'approbation`;
+
+    const adminKeyboard = {
+      inline_keyboard: [
+        [
+          { text: '✅ Approuver', callback_data: `rev_approve_${reviewId}` },
+          { text: '❌ Refuser', callback_data: `rev_reject_${reviewId}` }
+        ]
+      ]
+    };
+
+    const adminIds = getAdminChatIds();
+    for (const adminId of adminIds) {
+      try {
+        await telegram.sendMessage(adminId, adminMsg, { reply_markup: JSON.stringify(adminKeyboard) });
+      } catch (e) {
+        console.error(`Failed to notify admin ${adminId}:`, e.message);
+      }
+    }
+    // Also notify session admins
+    for (const adminId of sessionAdmins) {
+      if (!adminIds.includes(adminId)) {
+        try {
+          await telegram.sendMessage(adminId, adminMsg, { reply_markup: JSON.stringify(adminKeyboard) });
+        } catch (e) {
+          console.error(`Failed to notify session admin ${adminId}:`, e.message);
+        }
+      }
+    }
+
+    res.json({ ok: true, message: 'Avis soumis, en attente de validation' });
+  } catch (error) {
+    console.error('Submit review error:', error);
+    res.status(500).json({ ok: false, error: 'Erreur serveur' });
+  }
+});
+
+// ==================== PUBLIC: GET REVIEW STATS ====================
+app.get('/api/reviews/stats', apiLimiter, async (req, res) => {
+  try {
+    const stats = await db.get(
+      'SELECT COUNT(*) as count, ROUND(AVG(stars), 1) as average FROM reviews WHERE approved = 1'
+    );
+    res.json({ ok: true, count: stats?.count || 0, average: stats?.average || 0 });
+  } catch (error) {
+    console.error('Review stats error:', error);
+    res.status(500).json({ ok: false, error: 'Erreur serveur' });
+  }
+});
+
 app.put('/api/admin/reviews/:id', requireAdmin, async (req, res) => {
   try {
     const { approved } = req.body;
@@ -4292,6 +4382,30 @@ async function handleTelegramCallback(callback_query) {
     await sendShopMessage(chatId);
   } else if (data === 'open_admin') {
     await sendAdminMessage(chatId);
+  }
+
+  // ==================== REVIEW APPROVE/REJECT CALLBACKS ====================
+  if (data.startsWith('rev_approve_')) {
+    if (!isAdmin(chatId)) return;
+    const reviewId = parseInt(data.replace('rev_approve_', ''));
+    try {
+      await db.run('UPDATE reviews SET approved = 1 WHERE id = ?', [reviewId]);
+      await telegram.sendMessage(chatId, `✅ Avis #${reviewId} approuvé ! Il est maintenant visible par tous les clients.`);
+    } catch (e) {
+      await telegram.sendMessage(chatId, `❌ Erreur: ${e.message}`);
+    }
+    return;
+  }
+  if (data.startsWith('rev_reject_')) {
+    if (!isAdmin(chatId)) return;
+    const reviewId = parseInt(data.replace('rev_reject_', ''));
+    try {
+      await db.run('DELETE FROM reviews WHERE id = ?', [reviewId]);
+      await telegram.sendMessage(chatId, `🗑 Avis #${reviewId} refusé et supprimé.`);
+    } catch (e) {
+      await telegram.sendMessage(chatId, `❌ Erreur: ${e.message}`);
+    }
+    return;
   }
 
   // ==================== ADMIN BOT CALLBACKS ====================
