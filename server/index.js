@@ -159,8 +159,22 @@ async function notifyAdmins(message, options = {}) {
 class ChatManager {
   constructor() {
     this.activeConversations = new Map();
+    this._locks = new Map(); // Verrous par orderId pour éviter les modifications concurrentes
   }
-  
+
+  // Verrou async par orderId pour sérialiser les opérations sur une même conversation
+  async _withLock(orderId, fn) {
+    while (this._locks.get(orderId)) {
+      await new Promise(resolve => setTimeout(resolve, 10));
+    }
+    this._locks.set(orderId, true);
+    try {
+      return await fn();
+    } finally {
+      this._locks.delete(orderId);
+    }
+  }
+
   createConversation(orderId, driverId, clientTelegramId) {
     this.activeConversations.set(orderId, {
       orderId,
@@ -174,11 +188,11 @@ class ChatManager {
     });
     console.log(`💬 Conversation created for order #${orderId}`);
   }
-  
+
   getConversation(orderId) {
     return this.activeConversations.get(orderId);
   }
-  
+
   findConversationByChatId(chatId, role) {
     for (const [orderId, conv] of this.activeConversations.entries()) {
       if (role === 'driver' && conv.driverId === chatId.toString() && conv.driverActive) {
@@ -190,62 +204,69 @@ class ChatManager {
     }
     return null;
   }
-  
-  activateDriver(orderId) {
-    const conv = this.activeConversations.get(orderId);
-    if (conv) {
-      conv.driverActive = true;
-      conv.lastActivity = Date.now();
-      this.activeConversations.set(orderId, conv);
-    }
+
+  async activateDriver(orderId) {
+    return this._withLock(orderId, async () => {
+      const conv = this.activeConversations.get(orderId);
+      if (conv) {
+        conv.driverActive = true;
+        conv.lastActivity = Date.now();
+      }
+    });
   }
-  
-  activateClient(orderId) {
-    const conv = this.activeConversations.get(orderId);
-    if (conv) {
-      conv.clientActive = true;
-      conv.lastActivity = Date.now();
-      this.activeConversations.set(orderId, conv);
-    }
+
+  async activateClient(orderId) {
+    return this._withLock(orderId, async () => {
+      const conv = this.activeConversations.get(orderId);
+      if (conv) {
+        conv.clientActive = true;
+        conv.lastActivity = Date.now();
+      }
+    });
   }
-  
-  deactivateDriver(orderId) {
-    const conv = this.activeConversations.get(orderId);
-    if (conv) {
-      conv.driverActive = false;
-      this.activeConversations.set(orderId, conv);
-    }
+
+  async deactivateDriver(orderId) {
+    return this._withLock(orderId, async () => {
+      const conv = this.activeConversations.get(orderId);
+      if (conv) {
+        conv.driverActive = false;
+      }
+    });
   }
-  
-  deactivateClient(orderId) {
-    const conv = this.activeConversations.get(orderId);
-    if (conv) {
-      conv.clientActive = false;
-      this.activeConversations.set(orderId, conv);
-    }
+
+  async deactivateClient(orderId) {
+    return this._withLock(orderId, async () => {
+      const conv = this.activeConversations.get(orderId);
+      if (conv) {
+        conv.clientActive = false;
+      }
+    });
   }
-  
+
   closeConversation(orderId) {
     this.activeConversations.delete(orderId);
+    this._locks.delete(orderId);
     console.log(`🔒 Conversation closed for order #${orderId}`);
   }
-  
-  incrementMessageCount(orderId) {
-    const conv = this.activeConversations.get(orderId);
-    if (conv) {
-      conv.messagesCount++;
-      conv.lastActivity = Date.now();
-      this.activeConversations.set(orderId, conv);
-    }
+
+  async incrementMessageCount(orderId) {
+    return this._withLock(orderId, async () => {
+      const conv = this.activeConversations.get(orderId);
+      if (conv) {
+        conv.messagesCount++;
+        conv.lastActivity = Date.now();
+      }
+    });
   }
-  
+
   cleanupInactive() {
     const now = Date.now();
-    const timeout = 30 * 60 * 1000; // 30 minutes (optimisé)
-    
+    const timeout = 30 * 60 * 1000;
+
     for (const [orderId, conv] of this.activeConversations.entries()) {
       if (now - conv.lastActivity > timeout) {
         this.activeConversations.delete(orderId);
+        this._locks.delete(orderId);
         console.log(`🧹 Auto-closed inactive conversation #${orderId}`);
       }
     }
@@ -265,6 +286,14 @@ async function initDB() {
     filename: './boutique.db',
     driver: sqlite3.Database
   });
+
+  // Optimisation SQLite pour accès concurrent (flux de clients)
+  await db.exec(`
+    PRAGMA journal_mode = WAL;
+    PRAGMA busy_timeout = 5000;
+    PRAGMA foreign_keys = ON;
+  `);
+  console.log('✅ SQLite WAL mode + busy_timeout activés');
 
   await db.exec(`
     CREATE TABLE IF NOT EXISTS orders (
@@ -577,7 +606,7 @@ async function saveMessage(orderId, senderType, senderId, message) {
       VALUES (?, ?, ?, ?)
     `, [orderId, senderType, senderId, message]);
     
-    chatManager.incrementMessageCount(orderId);
+    await chatManager.incrementMessageCount(orderId);
   } catch (error) {
     console.error('Error saving message:', error);
   }
@@ -606,7 +635,7 @@ async function relayDriverMessage(driverChatId, text, conv) {
       reply_markup: clientKeyboard 
     });
     
-    chatManager.activateClient(conv.orderId);
+    await chatManager.activateClient(conv.orderId);
     
     await telegram.sendMessage(driverChatId, `✅ Message envoyé
 
@@ -698,7 +727,7 @@ async function stopConversationForOrder(chatId, orderId) {
   const isClient = conv.clientTelegramId === chatId.toString();
   
   if (isDriver) {
-    chatManager.deactivateDriver(orderId);
+    await chatManager.deactivateDriver(orderId);
     await telegram.sendMessage(chatId, '✅ Conversation fermée');
     
     try {
@@ -709,7 +738,7 @@ async function stopConversationForOrder(chatId, orderId) {
   }
   
   if (isClient) {
-    chatManager.deactivateClient(orderId);
+    await chatManager.deactivateClient(orderId);
     await telegram.sendMessage(chatId, '✅ Conversation fermée');
     
     try {
@@ -757,7 +786,7 @@ async function stopUserConversations(chatId) {
   
   for (const [orderId, conv] of chatManager.activeConversations.entries()) {
     if (conv.driverId === chatId.toString()) {
-      chatManager.deactivateDriver(orderId);
+      await chatManager.deactivateDriver(orderId);
       closed++;
       
       try {
@@ -768,7 +797,7 @@ async function stopUserConversations(chatId) {
     }
     
     if (conv.clientTelegramId === chatId.toString()) {
-      chatManager.deactivateClient(orderId);
+      await chatManager.deactivateClient(orderId);
       closed++;
       
       try {
@@ -909,37 +938,21 @@ function getDriverForDeliveryType(deliveryType) {
 
 // ==================== CUSTOMER VALIDATION ====================
 async function getOrCreateCustomer(contact) {
-  let customer = await db.get(
+  // INSERT OR IGNORE atomique pour éviter la race condition entre SELECT et INSERT
+  await db.run(
+    'INSERT OR IGNORE INTO customers (contact, status) VALUES (?, ?)',
+    [contact, 'pending']
+  );
+
+  const customer = await db.get(
     'SELECT * FROM customers WHERE contact = ?',
     [contact]
   );
-  
-  if (!customer) {
-    try {
-      const result = await db.run(
-        'INSERT INTO customers (contact, status) VALUES (?, ?)',
-        [contact, 'pending']
-      );
-      
-      customer = await db.get(
-        'SELECT * FROM customers WHERE id = ?',
-        [result.lastID]
-      );
-      
-      console.log(`🆕 New customer registered: ${contact} (ID: ${customer.id})`);
-    } catch (error) {
-      if (error.message && error.message.includes('UNIQUE')) {
-        customer = await db.get(
-          'SELECT * FROM customers WHERE contact = ?',
-          [contact]
-        );
-        console.log(`ℹ️ Customer already exists: ${contact}`);
-      } else {
-        throw error;
-      }
-    }
+
+  if (customer && customer.created_at === customer.first_order_date) {
+    console.log(`🆕 New customer registered: ${contact} (ID: ${customer.id})`);
   }
-  
+
   return customer;
 }
 
@@ -994,42 +1007,56 @@ async function updateLoyaltyProgram(customer) {
 
 // ==================== STOCK MANAGEMENT ====================
 async function updateStockForOrder(items, orderId) {
-  for (const item of items) {
-    await db.run(
-      'UPDATE stock SET qty = MAX(0, qty - ?) WHERE product_id = ? AND variant = ?',
-      [item.qty, item.product_id, item.variant]
-    );
-    
-    const stockAfter = await db.get(
-      'SELECT qty FROM stock WHERE product_id = ? AND variant = ?',
-      [item.product_id, item.variant]
-    );
-    
-    await db.run(
-      `INSERT INTO stock_movements (product_id, variant, type, quantity, stock_after, reason)
-       VALUES (?, ?, 'out', ?, ?, ?)`,
-      [item.product_id, item.variant, item.qty, stockAfter?.qty || 0, `Commande #${orderId}`]
-    );
+  await db.run('BEGIN IMMEDIATE');
+  try {
+    for (const item of items) {
+      await db.run(
+        'UPDATE stock SET qty = MAX(0, qty - ?) WHERE product_id = ? AND variant = ?',
+        [item.qty, item.product_id, item.variant]
+      );
+
+      const stockAfter = await db.get(
+        'SELECT qty FROM stock WHERE product_id = ? AND variant = ?',
+        [item.product_id, item.variant]
+      );
+
+      await db.run(
+        `INSERT INTO stock_movements (product_id, variant, type, quantity, stock_after, reason)
+         VALUES (?, ?, 'out', ?, ?, ?)`,
+        [item.product_id, item.variant, item.qty, stockAfter?.qty || 0, `Commande #${orderId}`]
+      );
+    }
+    await db.run('COMMIT');
+  } catch (err) {
+    await db.run('ROLLBACK');
+    throw err;
   }
 }
 
 async function restoreStockForOrder(items, orderId) {
-  for (const item of items) {
-    await db.run(
-      'UPDATE stock SET qty = qty + ? WHERE product_id = ? AND variant = ?',
-      [item.qty, item.product_id, item.variant]
-    );
-    
-    const stockAfter = await db.get(
-      'SELECT qty FROM stock WHERE product_id = ? AND variant = ?',
-      [item.product_id, item.variant]
-    );
-    
-    await db.run(
-      `INSERT INTO stock_movements (product_id, variant, type, quantity, stock_after, reason)
-       VALUES (?, ?, 'in', ?, ?, ?)`,
-      [item.product_id, item.variant, item.qty, stockAfter?.qty || 0, `Annulation commande #${orderId}`]
-    );
+  await db.run('BEGIN IMMEDIATE');
+  try {
+    for (const item of items) {
+      await db.run(
+        'UPDATE stock SET qty = qty + ? WHERE product_id = ? AND variant = ?',
+        [item.qty, item.product_id, item.variant]
+      );
+
+      const stockAfter = await db.get(
+        'SELECT qty FROM stock WHERE product_id = ? AND variant = ?',
+        [item.product_id, item.variant]
+      );
+
+      await db.run(
+        `INSERT INTO stock_movements (product_id, variant, type, quantity, stock_after, reason)
+         VALUES (?, ?, 'in', ?, ?, ?)`,
+        [item.product_id, item.variant, item.qty, stockAfter?.qty || 0, `Annulation commande #${orderId}`]
+      );
+    }
+    await db.run('COMMIT');
+  } catch (err) {
+    await db.run('ROLLBACK');
+    throw err;
   }
 }
 
@@ -1042,23 +1069,17 @@ async function generateReferralCode(customer, orderId) {
 }
 
 async function getOrCreateReferralCode(customer, orderId) {
-  // Vérifier si le client a déjà un code de parrainage
-  let referral = await db.get(
+  // INSERT OR IGNORE atomique pour éviter les doublons en cas de requêtes concurrentes
+  const code = await generateReferralCode(customer, orderId);
+  await db.run(
+    'INSERT OR IGNORE INTO referrals (referral_code, customer_contact) VALUES (?, ?)',
+    [code, customer]
+  );
+
+  const referral = await db.get(
     'SELECT * FROM referrals WHERE customer_contact = ?',
     [customer]
   );
-
-  if (!referral) {
-    const code = await generateReferralCode(customer, orderId);
-    await db.run(
-      'INSERT INTO referrals (referral_code, customer_contact) VALUES (?, ?)',
-      [code, customer]
-    );
-    referral = await db.get(
-      'SELECT * FROM referrals WHERE referral_code = ?',
-      [code]
-    );
-  }
 
   return referral;
 }
@@ -1087,113 +1108,123 @@ async function applyReferralCredits(referrerCode, newCustomer, orderId) {
     return { referrerCredit: 0, referredCredit: 0 };
   }
 
-  // Vérifier que le client ne se parraine pas lui-même
   if (referrer.customer_contact === newCustomer) {
     console.log(`⚠️ Self-referral attempt blocked: ${newCustomer}`);
     return { referrerCredit: 0, referredCredit: 0 };
   }
 
-  // Vérifier si le client a déjà été parrainé
-  const existingReferral = await db.get(
-    'SELECT * FROM referral_history WHERE referred_contact = ?',
-    [newCustomer]
-  );
+  const REFERRER_CREDIT = 500;
+  const REFERRED_CREDIT = 300;
 
-  if (existingReferral) {
-    console.log(`⚠️ Customer already referred: ${newCustomer}`);
-    return { referrerCredit: 0, referredCredit: 0 };
-  }
-
-  const REFERRER_CREDIT = 500; // 500 DA pour le parrain
-  const REFERRED_CREDIT = 300; // 300 DA pour le filleul
-
-  // ==================== SYSTÈME DE PALIERS VIP ====================
-  // Calculer le bonus selon le nombre de parrainages
-  const totalReferrals = referrer.total_referrals || 0;
-  let vipBonus = 0;
-  let vipTier = 'Bronze';
-
-  if (totalReferrals >= 10) {
-    vipBonus = 0.5; // +50% bonus
-    vipTier = 'Diamant 💎';
-  } else if (totalReferrals >= 6) {
-    vipBonus = 0.2; // +20% bonus
-    vipTier = 'Or 🥇';
-  } else if (totalReferrals >= 3) {
-    vipBonus = 0.1; // +10% bonus
-    vipTier = 'Argent 🥈';
-  } else {
-    vipBonus = 0; // Pas de bonus
-    vipTier = 'Bronze 🥉';
-  }
-
-  const bonusAmount = Math.floor(REFERRER_CREDIT * vipBonus);
-  const totalReferrerCredit = REFERRER_CREDIT + bonusAmount;
-
-  console.log(`👑 VIP Tier: ${vipTier} - Bonus: ${vipBonus * 100}% (+${bonusAmount} DA)`);
-
-  // Créditer le parrain avec bonus VIP
-  await db.run(
-    `UPDATE referrals
-     SET credit_balance = credit_balance + ?,
-         total_referrals = total_referrals + 1,
-         total_earned = total_earned + ?
-     WHERE referral_code = ?`,
-    [totalReferrerCredit, totalReferrerCredit, referrerCode]
-  );
-
-  // Créer le code de parrainage pour le nouveau client
-  await getOrCreateReferralCode(newCustomer, orderId);
-
-  // Créditer le filleul
-  await db.run(
-    `UPDATE referrals
-     SET credit_balance = credit_balance + ?
-     WHERE customer_contact = ?`,
-    [REFERRED_CREDIT, newCustomer]
-  );
-
-  // Enregistrer dans l'historique
-  await db.run(
-    `INSERT INTO referral_history
-     (referrer_code, referrer_contact, referred_contact, order_id, referrer_credit, referred_credit, status)
-     VALUES (?, ?, ?, ?, ?, ?, 'completed')`,
-    [referrerCode, referrer.customer_contact, newCustomer, orderId, REFERRER_CREDIT, REFERRED_CREDIT]
-  );
-
-  console.log(`✅ Referral applied: ${referrer.customer_contact} → ${newCustomer} (${totalReferrerCredit} DA + ${REFERRED_CREDIT} DA)`);
-
-  // ==================== NOTIFICATION CHANGEMENT DE PALIER VIP ====================
-  const newTotalReferrals = totalReferrals + 1;
-  let tierUpgrade = false;
-  let newTier = '';
-
-  if (newTotalReferrals === 3) {
-    tierUpgrade = true;
-    newTier = 'Argent 🥈';
-  } else if (newTotalReferrals === 6) {
-    tierUpgrade = true;
-    newTier = 'Or 🥇';
-  } else if (newTotalReferrals === 10) {
-    tierUpgrade = true;
-    newTier = 'Diamant 💎';
-  }
-
-  // Envoyer notification de montée de palier
-  if (tierUpgrade) {
-    await notifyVIPTierUpgrade(referrer.customer_contact, newTier, newTotalReferrals).catch(err =>
-      console.error('VIP tier notification error:', err.message)
+  // Transaction IMMEDIATE pour empêcher les doublons de parrainage en cas de requêtes concurrentes
+  await db.run('BEGIN IMMEDIATE');
+  try {
+    // Re-vérifier dans la transaction (un autre client concurrent a pu insérer entre-temps)
+    const existingReferral = await db.get(
+      'SELECT * FROM referral_history WHERE referred_contact = ?',
+      [newCustomer]
     );
-  }
 
-  return {
-    referrerCredit: totalReferrerCredit,
-    referredCredit: REFERRED_CREDIT,
-    referrerContact: referrer.customer_contact,
-    vipTier,
-    vipBonus: vipBonus * 100, // Percentage
-    bonusAmount
-  };
+    if (existingReferral) {
+      await db.run('COMMIT');
+      console.log(`⚠️ Customer already referred: ${newCustomer}`);
+      return { referrerCredit: 0, referredCredit: 0 };
+    }
+
+    const totalReferrals = referrer.total_referrals || 0;
+    let vipBonus = 0;
+    let vipTier = 'Bronze';
+
+    if (totalReferrals >= 10) {
+      vipBonus = 0.5;
+      vipTier = 'Diamant 💎';
+    } else if (totalReferrals >= 6) {
+      vipBonus = 0.2;
+      vipTier = 'Or 🥇';
+    } else if (totalReferrals >= 3) {
+      vipBonus = 0.1;
+      vipTier = 'Argent 🥈';
+    } else {
+      vipBonus = 0;
+      vipTier = 'Bronze 🥉';
+    }
+
+    const bonusAmount = Math.floor(REFERRER_CREDIT * vipBonus);
+    const totalReferrerCredit = REFERRER_CREDIT + bonusAmount;
+
+    console.log(`👑 VIP Tier: ${vipTier} - Bonus: ${vipBonus * 100}% (+${bonusAmount} DA)`);
+
+    // Créditer le parrain avec bonus VIP
+    await db.run(
+      `UPDATE referrals
+       SET credit_balance = credit_balance + ?,
+           total_referrals = total_referrals + 1,
+           total_earned = total_earned + ?
+       WHERE referral_code = ?`,
+      [totalReferrerCredit, totalReferrerCredit, referrerCode]
+    );
+
+    // Créer le code de parrainage pour le nouveau client
+    const code = await generateReferralCode(newCustomer, orderId);
+    await db.run(
+      'INSERT OR IGNORE INTO referrals (referral_code, customer_contact) VALUES (?, ?)',
+      [code, newCustomer]
+    );
+
+    // Créditer le filleul
+    await db.run(
+      `UPDATE referrals
+       SET credit_balance = credit_balance + ?
+       WHERE customer_contact = ?`,
+      [REFERRED_CREDIT, newCustomer]
+    );
+
+    // Enregistrer dans l'historique
+    await db.run(
+      `INSERT INTO referral_history
+       (referrer_code, referrer_contact, referred_contact, order_id, referrer_credit, referred_credit, status)
+       VALUES (?, ?, ?, ?, ?, ?, 'completed')`,
+      [referrerCode, referrer.customer_contact, newCustomer, orderId, REFERRER_CREDIT, REFERRED_CREDIT]
+    );
+
+    await db.run('COMMIT');
+
+    console.log(`✅ Referral applied: ${referrer.customer_contact} → ${newCustomer} (${totalReferrerCredit} DA + ${REFERRED_CREDIT} DA)`);
+
+    // Notification de montée de palier (hors transaction)
+    const newTotalReferrals = totalReferrals + 1;
+    let tierUpgrade = false;
+    let newTier = '';
+
+    if (newTotalReferrals === 3) {
+      tierUpgrade = true;
+      newTier = 'Argent 🥈';
+    } else if (newTotalReferrals === 6) {
+      tierUpgrade = true;
+      newTier = 'Or 🥇';
+    } else if (newTotalReferrals === 10) {
+      tierUpgrade = true;
+      newTier = 'Diamant 💎';
+    }
+
+    if (tierUpgrade) {
+      await notifyVIPTierUpgrade(referrer.customer_contact, newTier, newTotalReferrals).catch(err =>
+        console.error('VIP tier notification error:', err.message)
+      );
+    }
+
+    return {
+      referrerCredit: totalReferrerCredit,
+      referredCredit: REFERRED_CREDIT,
+      referrerContact: referrer.customer_contact,
+      vipTier,
+      vipBonus: vipBonus * 100,
+      bonusAmount
+    };
+  } catch (err) {
+    await db.run('ROLLBACK');
+    throw err;
+  }
 }
 
 async function getReferralStats(customer) {
@@ -1897,26 +1928,34 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
     let remainingCredit = 0;
 
     if (useCredit === true || useCredit === 'true') {
-      // Récupérer le crédit disponible du client
-      const customerReferralCheck = await db.get(
-        'SELECT credit_balance FROM referrals WHERE customer_contact = ?',
-        [sanitizedCustomer]
-      );
+      const totalAfterDiscount = total - discount;
 
-      if (customerReferralCheck && customerReferralCheck.credit_balance > 0) {
-        const availableCredit = customerReferralCheck.credit_balance;
-        const totalAfterDiscount = total - discount;
-
-        // Utiliser le crédit (ne peut pas dépasser le total de la commande)
-        creditUsed = Math.min(availableCredit, totalAfterDiscount);
-        remainingCredit = availableCredit - creditUsed;
-
-        // Déduire le crédit utilisé
-        await db.run(
-          'UPDATE referrals SET credit_balance = ? WHERE customer_contact = ?',
-          [remainingCredit, sanitizedCustomer]
+      // Transaction IMMEDIATE pour verrouiller la lecture+écriture du crédit
+      // Empêche le double-spending si 2 commandes arrivent en même temps
+      await db.run('BEGIN IMMEDIATE');
+      try {
+        const customerReferralCheck = await db.get(
+          'SELECT credit_balance FROM referrals WHERE customer_contact = ?',
+          [sanitizedCustomer]
         );
 
+        if (customerReferralCheck && customerReferralCheck.credit_balance > 0) {
+          const availableCredit = customerReferralCheck.credit_balance;
+          creditUsed = Math.min(availableCredit, totalAfterDiscount);
+          remainingCredit = availableCredit - creditUsed;
+
+          await db.run(
+            'UPDATE referrals SET credit_balance = ? WHERE customer_contact = ?',
+            [remainingCredit, sanitizedCustomer]
+          );
+        }
+        await db.run('COMMIT');
+      } catch (creditErr) {
+        await db.run('ROLLBACK');
+        throw creditErr;
+      }
+
+      if (creditUsed > 0) {
         console.log(`💳 Credit used: ${creditUsed} DA (remaining: ${remainingCredit} DA)`);
       }
     }
@@ -3939,7 +3978,7 @@ Client: ${order.customer}
     conv = chatManager.getConversation(parseInt(orderId));
   }
   
-  chatManager.activateDriver(parseInt(orderId));
+  await chatManager.activateDriver(parseInt(orderId));
   
   const driverMessage = `💬 <b>CHAT DIRECT ACTIVÉ</b>
 
@@ -3992,7 +4031,7 @@ Votre livreur peut maintenant vous envoyer des messages pour faciliter la livrai
       reply_markup: clientKeyboard 
     });
     
-    chatManager.activateClient(parseInt(orderId));
+    await chatManager.activateClient(parseInt(orderId));
   } catch (error) {
     console.error('Cannot notify client:', error);
     await telegram.sendMessage(chatId, 
