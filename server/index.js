@@ -4089,8 +4089,10 @@ async function handleTelegramMessage(message) {
     const password = text.substring(12).trim();
     if (password === config.admin.password) {
       sessionAdmins.add(chatId.toString());
-      console.log(`✅ Admin login success for chatId ${chatId}`);
-      await telegram.sendMessage(chatId, `✅ Authentification réussie ! Vous êtes maintenant admin.\n\nCommandes disponibles:\n/annonce [texte] - Poster une annonce\n/annoncepin [texte] - Poster + épingler\n/programmer ... - Programmer une annonce\n/annonces - Lister les annonces\n/supprannonce [id] - Supprimer une annonce`);
+      console.log(`✅ Admin login success for chatId ${chatId} | sessionAdmins=[${[...sessionAdmins].join(',')}]`);
+      await telegram.sendMessage(chatId, `✅ Authentification réussie !`);
+      // Afficher directement le panel admin bot
+      await sendAdminBotPanel(chatId);
     } else {
       console.log(`❌ Admin login failed for chatId ${chatId} - wrong password`);
       await telegram.sendMessage(chatId, `❌ Mot de passe incorrect.`);
@@ -4105,11 +4107,17 @@ async function handleTelegramMessage(message) {
     await sendShopMessage(chatId);
     return;
   } else if (text === '/admin') {
-    // Seulement pour les admins autorisés
+    console.log(`🔐 /admin from ${chatId} | isAdmin=${isAdmin(chatId)} | sessionAdmins=[${[...sessionAdmins].join(',')}] | envAdmins=[${getAdminChatIds().join(',')}]`);
     if (isAdmin(chatId)) {
-      await sendAdminMessage(chatId);
+      try {
+        await sendAdminMessage(chatId);
+      } catch (err) {
+        console.error('❌ sendAdminMessage error:', err);
+        await telegram.sendMessage(chatId, `❌ Erreur panneau admin: ${err.message}`);
+      }
+    } else {
+      await telegram.sendMessage(chatId, `⛔ Accès refusé.\n\nTapez /adminlogin <mot_de_passe> pour vous connecter.`);
     }
-    // Sinon, ne rien répondre
     return;
   } else if (text === '/orders' || text === '/commandes') {
     await sendUserOrders(chatId);
@@ -4289,9 +4297,18 @@ async function handleTelegramCallback(callback_query) {
   // ==================== ADMIN BOT CALLBACKS ====================
   if (!isAdmin(chatId)) return;
 
-  if (data === 'adm_back') {
+  if (data === 'adm_botpanel') {
+    await sendAdminBotPanel(chatId);
+    return;
+  }
+  if (data === 'adm_mainmenu') {
     clearAdminState(chatId);
     await sendAdminMessage(chatId);
+    return;
+  }
+  if (data === 'adm_back') {
+    clearAdminState(chatId);
+    await sendAdminBotPanel(chatId);
     return;
   }
   if (data === 'adm_close') {
@@ -4534,12 +4551,22 @@ Cliquez sur le bouton ci-dessous pour accéder à notre catalogue complet.
 }
 
 async function sendAdminMessage(chatId) {
+  const text = `🔐 <b>PANNEAU ADMINISTRATEUR</b>\n\nChoisissez :`;
+  const keyboard = {
+    inline_keyboard: [
+      [{ text: '🤖 Admin Bot (Annonces)', callback_data: 'adm_botpanel' }],
+      [{ text: '🔐 Dashboard Web (Stats, Stock)', web_app: { url: `${config.webapp.url}/admin.html` } }]
+    ]
+  };
+  await telegram.sendMessage(chatId, text, { reply_markup: JSON.stringify(keyboard) });
+}
+
+async function sendAdminBotPanel(chatId) {
   // Annuler tout état conversationnel en cours
   adminStates.delete(chatId.toString());
 
-  const text = `🔐 <b>PANNEAU ADMINISTRATEUR</b>\n\n` +
-    `<b>📢 Annonces</b> — Gérer les annonces sur les canaux\n` +
-    `<b>📊 Dashboard</b> — Stats, commandes, stock\n\n` +
+  const text = `🤖 <b>ADMIN BOT — ANNONCES</b>\n\n` +
+    `Gérez vos annonces sur les canaux :\n\n` +
     `Choisissez une action :`;
 
   const keyboard = {
@@ -4560,12 +4587,11 @@ async function sendAdminMessage(chatId) {
         { text: '❌ Annuler programmée', callback_data: 'adm_cancel' },
         { text: '🗑⏰ Suppr. programmée', callback_data: 'adm_scheddelete' }
       ],
-      [{ text: '🔐 Dashboard Web', web_app: { url: `${config.webapp.url}/admin.html` } }],
-      [{ text: '🔙 Retour', callback_data: 'adm_close' }]
+      [{ text: '🔙 Retour menu admin', callback_data: 'adm_mainmenu' }]
     ]
   };
 
-  await telegram.sendMessage(chatId, text, { reply_markup: keyboard });
+  await telegram.sendMessage(chatId, text, { reply_markup: JSON.stringify(keyboard) });
 }
 
 // ==================== ADMIN BOT - FLUX CONVERSATIONNEL ====================
@@ -4597,7 +4623,7 @@ async function sendChannelPicker(chatId, action) {
       [{ text: '🔙 Retour', callback_data: 'adm_back' }]
     ]
   };
-  await telegram.sendMessage(chatId, '📡 <b>Sur quel canal ?</b>', { reply_markup: keyboard });
+  await telegram.sendMessage(chatId, '📡 <b>Sur quel canal ?</b>', { reply_markup: JSON.stringify(keyboard) });
 }
 
 async function handleAdminTextInput(chatId, text) {
