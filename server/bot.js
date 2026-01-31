@@ -40,7 +40,7 @@ const CONFIG = {
   WEBAPP_URL: process.env.WEBAPP_URL || 'https://shop-2-production-6505.up.railway.app',
   WEBHOOK_DOMAIN: process.env.RAILWAY_PUBLIC_DOMAIN || 'https://shop-2-production-6505.up.railway.app',
   PORT: process.env.BOT_PORT || 3001,
-  SUPPORT_USERNAME: '@assistancenter',
+  SUPPORT_USERNAME: '@newassistance4',
   BUSINESS_HOURS: '7j/7 de 12H à 00H (minuit)',
   DELIVERY_INFO: {
     free: 'Gratuite sur Millau',
