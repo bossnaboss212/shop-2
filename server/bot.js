@@ -40,7 +40,7 @@ const CONFIG = {
   WEBAPP_URL: process.env.WEBAPP_URL || 'https://shop-2-production-6505.up.railway.app',
   WEBHOOK_DOMAIN: process.env.RAILWAY_PUBLIC_DOMAIN || 'https://shop-2-production-6505.up.railway.app',
   PORT: process.env.BOT_PORT || 3001,
-  SUPPORT_USERNAME: '@assistancenter',
+  SUPPORT_USERNAME: '@newassistance4',
   BUSINESS_HOURS: '7j/7 de 12H à 00H (minuit)',
   DELIVERY_INFO: {
     free: 'Gratuite sur Millau',
@@ -257,11 +257,11 @@ const Keyboards = {
       [
         {
           text: '📢 Canal Principal',
-          url: 'https://t.me/+MToYP95G9zY2ZTJk'
+          url: 'https://t.me/+jQmeiR0Cd3I2YjFk'
         },
         {
           text: '📸 Canal Photo',
-          url: 'https://t.me/+usSUbJOfYsk5ZTg0'
+          url: 'https://t.me/+MeIiGFxcXDA5MjFk'
         }
       ],
       [
@@ -349,7 +349,13 @@ const Keyboards = {
       [
         {
           text: '📸 Snapchat',
-          url: 'https://snapchat.com/t/l9gurvAj'
+          url: 'https://www.snapchat.com/add/cocoland-12'
+        }
+      ],
+      [
+        {
+          text: '🆘 Snap Secours',
+          url: 'https://www.snapchat.com/add/droguacenter12?share_id=GiyUiJLIwEU&locale'
         }
       ],
       [
@@ -498,8 +504,8 @@ Livraison rapide pendant les heures d'ouverture
 Pour toute question ou assistance :
 
 <b>📱 Telegram :</b> ${CONFIG.SUPPORT_USERNAME}
-<b>📸 Snapchat :</b> https://snapchat.com/t/l9gurvAj
-<b>🆘 Snap Secours :</b> https://snapchat.com/t/jR2yW7xa
+<b>📸 Snapchat :</b> https://www.snapchat.com/add/cocoland-12
+<b>🆘 Snap Secours :</b> https://www.snapchat.com/add/droguacenter12?share_id=GiyUiJLIwEU&locale
 
 Notre équipe est disponible <b>7j/7</b> pour vous aider !
 

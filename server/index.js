@@ -5403,7 +5403,7 @@ async function sendHelpMessage(chatId) {
 • Jusqu'à ${Math.floor(config.loyalty.discountPercent * 100)}% ou ${config.loyalty.maxDiscount}€ de réduction
 
 <b>📞 Contact support :</b>
-@assistancenter
+@newassistance4
 
 <b>⏰ Horaires d'ouverture :</b>
 7j/7 de 12H à 00H (minuit)
@@ -5414,7 +5414,7 @@ Utilisez les boutons en bas de votre écran pour naviguer rapidement ! 👇`;
 
   const keyboard = {
     inline_keyboard: [
-      [{ text: '💬 Contacter le Support', url: 'https://t.me/assistancenter' }],
+      [{ text: '💬 Contacter le Support', url: 'https://t.me/newassistance4' }],
       [
         { text: '🛒 Boutique', callback_data: 'open_shop' },
         { text: 'ℹ️ Infos', callback_data: 'show_info' }
@@ -5430,9 +5430,9 @@ async function sendSupportMessage(chatId) {
 
 Pour toute question ou assistance :
 
-<b>📱 Telegram :</b> @assistancenter
-<b>📸 Snapchat :</b> https://snapchat.com/t/l9gurvAj
-<b>🆘 Snap Secours :</b> https://snapchat.com/t/jR2yW7xa
+<b>📱 Telegram :</b> @newassistance4
+<b>📸 Snapchat :</b> https://www.snapchat.com/add/cocoland-12
+<b>🆘 Snap Secours :</b> https://www.snapchat.com/add/droguacenter12?share_id=GiyUiJLIwEU&locale
 
 Notre équipe est disponible <b>7j/7</b> pour vous aider !
 
@@ -5444,12 +5444,14 @@ Notre équipe est disponible <b>7j/7</b> pour vous aider !
 
   const keyboard = {
     inline_keyboard: [
-      [{ text: '💬 Support Telegram', url: 'https://t.me/assistancenter' }],
-      [{ text: '📸 Snapchat', url: 'https://snapchat.com/t/l9gurvAj' }],
+      [{ text: '💬 Support Telegram', url: 'https://t.me/newassistance4' }],
+      [{ text: '📸 Snapchat', url: 'https://www.snapchat.com/add/cocoland-12' }],
+      [{ text: '🆘 Snap Secours', url: 'https://www.snapchat.com/add/droguacenter12?share_id=GiyUiJLIwEU&locale' }],
       [
-        { text: '📢 Canal Principal', url: 'https://t.me/+MToYP95G9zY2ZTJk' },
-        { text: '📸 Canal Photo', url: 'https://t.me/+usSUbJOfYsk5ZTg0' }
-      ]
+        { text: '📢 Canal Principal', url: 'https://t.me/+jQmeiR0Cd3I2YjFk' },
+        { text: '📸 Canal Photo', url: 'https://t.me/+MeIiGFxcXDA5MjFk' }
+      ],
+      [{ text: '🆘 Canal Secours', url: 'https://t.me/+LQ07z8Ts4ftiNzk0' }]
     ]
   };
   
@@ -5527,7 +5529,7 @@ Des questions ? Contactez le support ! 💬`;
     inline_keyboard: [
       [{ text: '🛒 Commander Maintenant', web_app: { url: config.webapp.url } }],
       [
-        { text: '💬 Support', url: 'https://t.me/assistancenter' },
+        { text: '💬 Support', url: 'https://t.me/newassistance4' },
         { text: 'ℹ️ Plus d\'infos', callback_data: 'show_info' }
       ]
     ]

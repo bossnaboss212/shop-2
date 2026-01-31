@@ -2234,24 +2234,36 @@ async function syncProductsFromDatabase() {
       // Créer une map des produits locaux par ID
       const localProductsMap = new Map(localProducts.map(p => [p.id, p]));
 
-      // Fusionner: priorité aux produits de la base de données
+      // Fusionner: DB pour les infos produit, LOCAL pour le stock
       const mergedProducts = [];
       const seenIds = new Set();
 
       // D'abord, ajouter tous les produits de la base de données
       dbProducts.forEach(p => {
+        const localProduct = localProductsMap.get(p.id);
+
         mergedProducts.push({
           ...p,
           video: p.video || '',
           archived: p.archived || false,
           variants: Object.fromEntries(
-            Object.entries(p.variants).map(([label, vdata]) => [
-              label,
-              {
-                ...vdata,
-                grams: vdata.grams || extractGrams(label)
-              }
-            ])
+            Object.entries(p.variants).map(([label, vdata]) => {
+              // Préserver le stock local s'il existe pour ce variant
+              const localStock = localProduct
+                && localProduct.variants[label]
+                && typeof localProduct.variants[label].stock === 'number'
+                ? localProduct.variants[label].stock
+                : vdata.stock;
+
+              return [
+                label,
+                {
+                  ...vdata,
+                  stock: localStock,
+                  grams: vdata.grams || extractGrams(label)
+                }
+              ];
+            })
           )
         });
         seenIds.add(p.id);
@@ -3701,28 +3713,31 @@ function saveProductEdit(id) {
       p.video = e.target.result;
       p.videoType = file.type;
       p.videoSize = file.size;
-      
+
       // Mettre à jour les variants
       Object.keys(p.variants).forEach(v => {
         const safeV = v.replace(/\W/g, '_');
         const priceEl = document.getElementById(`price_${safeV}`);
         const stockEl = document.getElementById(`stock_${safeV}`);
-        
-        if (priceEl) p.variants[v].price = parseFloat(priceEl.value);
-        if (stockEl) p.variants[v].stock = parseInt(stockEl.value);
-        
+
+        if (priceEl) p.variants[v].price = parseFloat(priceEl.value) || p.variants[v].price;
+        if (stockEl) {
+          const parsed = parseInt(stockEl.value);
+          if (!isNaN(parsed)) p.variants[v].stock = parsed;
+        }
+
         if (!p.variants[v].grams) {
           p.variants[v].grams = extractGrams(v);
         }
       });
-      
+
       saveData();
       loadProducts();
       loadStock();
       closeModal();
       showToast('✅ Produit modifié avec nouvelle vidéo', 'success');
     };
-    
+
     reader.readAsDataURL(file);
   } else {
     // Pas de nouvelle vidéo, juste mettre à jour les autres champs
@@ -3730,10 +3745,13 @@ function saveProductEdit(id) {
       const safeV = v.replace(/\W/g, '_');
       const priceEl = document.getElementById(`price_${safeV}`);
       const stockEl = document.getElementById(`stock_${safeV}`);
-      
-      if (priceEl) p.variants[v].price = parseFloat(priceEl.value);
-      if (stockEl) p.variants[v].stock = parseInt(stockEl.value);
-      
+
+      if (priceEl) p.variants[v].price = parseFloat(priceEl.value) || p.variants[v].price;
+      if (stockEl) {
+        const parsed = parseInt(stockEl.value);
+        if (!isNaN(parsed)) p.variants[v].stock = parsed;
+      }
+
       if (!p.variants[v].grams) {
         p.variants[v].grams = extractGrams(v);
       }
