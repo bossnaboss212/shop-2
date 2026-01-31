@@ -10,6 +10,7 @@ const axios = require('axios');
 const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
+const bcrypt = require('bcrypt');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -140,17 +141,23 @@ class TokenStore {
   }
 
   generateToken() {
-    return Math.random().toString(36).substr(2) + Date.now().toString(36);
+    return crypto.randomBytes(32).toString('hex');
   }
 }
 
 const adminTokens = new TokenStore(config.admin.tokenExpiry);
 
-// Hash du mot de passe admin (ne jamais comparer en clair)
-function hashPassword(password) {
-  return crypto.createHash('sha256').update(password).digest('hex');
+// Hash du mot de passe admin avec bcrypt (ne jamais comparer en clair)
+const BCRYPT_ROUNDS = 12;
+let adminPasswordHash = null;
+
+async function initAdminPassword() {
+  adminPasswordHash = await bcrypt.hash(config.admin.password, BCRYPT_ROUNDS);
 }
-const adminPasswordHash = hashPassword(config.admin.password);
+
+async function verifyAdminPassword(password) {
+  return bcrypt.compare(password || '', adminPasswordHash);
+}
 
 // Admins authentifiés en session (via /adminlogin)
 const sessionAdmins = new Set();
@@ -2438,16 +2445,21 @@ function requireAdmin(req, res, next) {
 
 // ==================== ADMIN ROUTES ====================
 
-app.post('/api/admin/login', authLimiter, (req, res) => {
+app.post('/api/admin/login', authLimiter, async (req, res) => {
   const { password } = req.body;
 
-  const inputHash = hashPassword(password || '');
-  if (crypto.timingSafeEqual(Buffer.from(inputHash), Buffer.from(adminPasswordHash))) {
-    const token = adminTokens.generateToken();
-    adminTokens.add(token);
-    res.json({ ok: true, token });
-  } else {
-    res.status(401).json({ ok: false, error: 'Mot de passe incorrect' });
+  try {
+    const isValid = await verifyAdminPassword(password);
+    if (isValid) {
+      const token = adminTokens.generateToken();
+      adminTokens.add(token);
+      res.json({ ok: true, token });
+    } else {
+      res.status(401).json({ ok: false, error: 'Mot de passe incorrect' });
+    }
+  } catch (err) {
+    console.error('Erreur lors de la vérification du mot de passe:', err);
+    res.status(500).json({ ok: false, error: 'Erreur interne' });
   }
 });
 
@@ -4566,8 +4578,8 @@ async function handleTelegramMessage(message) {
   // Commande /adminlogin <mot_de_passe> - authentification admin par mot de passe
   if (text.startsWith('/adminlogin ')) {
     const password = text.substring(12).trim();
-    const inputHash = hashPassword(password);
-    if (crypto.timingSafeEqual(Buffer.from(inputHash), Buffer.from(adminPasswordHash))) {
+    const isValid = await verifyAdminPassword(password);
+    if (isValid) {
       sessionAdmins.add(chatId.toString());
       console.log(`✅ Admin login success for chatId ${chatId} | sessionAdmins=[${[...sessionAdmins].join(',')}]`);
       await telegram.sendMessage(chatId, `✅ Authentification réussie !`);
@@ -6466,6 +6478,7 @@ app.get('*', (req, res) => {
 
 async function start() {
   try {
+    await initAdminPassword();
     await initDB();
     
     app.listen(PORT, async () => {
