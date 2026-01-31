@@ -769,6 +769,9 @@
       <button class="tab-btn" onclick="showTab('finances')">💰 Finances</button>
       <button class="tab-btn" onclick="showTab('cashier')">💶 Caisse</button>
       <button class="tab-btn" onclick="showTab('analytics')">📊 Analytics</button>
+      <button class="tab-btn" onclick="showTab('nourrice')">🏦 Nourrice</button>
+      <button class="tab-btn" onclick="showTab('gerant')">👔 Gérant</button>
+      <button class="tab-btn" onclick="showTab('livreur')">🚗 Livreur</button>
       <button class="tab-btn" onclick="showTab('reports')">📋 Rapports</button>
       <button class="tab-btn" onclick="showTab('settings')">⚙️ Paramètres</button>
     </div>
@@ -1384,6 +1387,214 @@
       </div>
     </div>
 
+    <div class="tab-content" id="tab-nourrice">
+      <!-- KPI Cards -->
+      <div class="stats">
+        <div class="stat-card">
+          <div class="stat-label">Caisse Nourrice</div>
+          <div class="stat-value" id="nourriceCash">0,00 &euro;</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Stock Total (g)</div>
+          <div class="stat-value" id="nourriceTotalGrams">0g</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Valeur Stock</div>
+          <div class="stat-value" id="nourriceStockValue">0,00 &euro;</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Nb Produits</div>
+          <div class="stat-value" id="nourriceProductCount">0</div>
+        </div>
+      </div>
+
+      <!-- Caisse -->
+      <div class="chart-container">
+        <h3>💶 Caisse Nourrice</h3>
+        <div class="toolbar" style="flex-wrap:wrap">
+          <input type="number" id="nourriceCashAmount" placeholder="Montant (€)" step="0.01" style="flex:1;min-width:120px">
+          <input type="text" id="nourriceCashNote" placeholder="Note (optionnel)" style="flex:2;min-width:150px">
+          <button onclick="nourriceAddCash()" style="background:var(--success)">➕ Ajouter</button>
+          <button onclick="nourriceRemoveCash()" style="background:var(--danger)">➖ Retirer</button>
+        </div>
+        <div class="table-container" style="max-height:200px;overflow-y:auto;margin-top:12px">
+          <table>
+            <thead><tr><th>Date</th><th>Type</th><th>Montant</th><th>Note</th></tr></thead>
+            <tbody id="nourriceCashTable"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Stock Gros -->
+      <div class="chart-container">
+        <h3>📦 Stock Gros (Nourrice)</h3>
+        <div class="toolbar" style="flex-wrap:wrap">
+          <select id="nourriceProduct" onchange="updateNourriceVariants()" style="flex:1;min-width:140px">
+            <option value="">Produit...</option>
+          </select>
+          <input type="number" id="nourriceGrams" placeholder="Grammes" min="0" step="0.1" style="flex:1;min-width:100px">
+          <button onclick="nourriceAddStock()" style="background:var(--success)">➕ Ajouter</button>
+          <button onclick="nourriceRemoveStock()" style="background:var(--warning)">➖ Retirer</button>
+        </div>
+        <div class="table-container" style="margin-top:12px">
+          <table>
+            <thead><tr><th>Produit</th><th>Cat.</th><th>Stock (g)</th><th>Prix achat/g</th><th>Valeur</th><th>Actions</th></tr></thead>
+            <tbody id="nourriceStockTable"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Historique -->
+      <div class="chart-container">
+        <h3>📋 Historique Nourrice</h3>
+        <div style="display:flex;gap:8px;margin-bottom:12px">
+          <button onclick="nourriceFilterHistory('all')" class="tab-btn active" style="font-size:12px;padding:6px 12px">Tout</button>
+          <button onclick="nourriceFilterHistory('stock')" class="tab-btn" style="font-size:12px;padding:6px 12px">Stock</button>
+          <button onclick="nourriceFilterHistory('cash')" class="tab-btn" style="font-size:12px;padding:6px 12px">Caisse</button>
+        </div>
+        <div class="table-container" style="max-height:300px;overflow-y:auto">
+          <table>
+            <thead><tr><th>Date</th><th>Type</th><th>Detail</th><th>Montant/Qt</th></tr></thead>
+            <tbody id="nourriceHistoryTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== GERANT ==================== -->
+    <div class="tab-content" id="tab-gerant">
+      <div class="stats">
+        <div class="stat-card"><div class="stat-label">Caisse Gérant</div><div class="stat-value" id="gerantCash">0,00 &euro;</div></div>
+        <div class="stat-card"><div class="stat-label">Stock Gros (g)</div><div class="stat-value" id="gerantTotalGrams">0g</div></div>
+        <div class="stat-card"><div class="stat-label">Stock Variants</div><div class="stat-value" id="gerantTotalVariants">0</div></div>
+        <div class="stat-card"><div class="stat-label">Valeur Totale</div><div class="stat-value" id="gerantStockValue">0,00 &euro;</div></div>
+      </div>
+
+      <div class="chart-container">
+        <h3>💶 Caisse Gérant</h3>
+        <div class="toolbar" style="flex-wrap:wrap">
+          <input type="number" id="gerantCashAmount" placeholder="Montant (€)" step="0.01" style="flex:1;min-width:120px">
+          <input type="text" id="gerantCashNote" placeholder="Note (optionnel)" style="flex:2;min-width:150px">
+          <button onclick="staffAddCash('gerant')" style="background:var(--success)">➕ Ajouter</button>
+          <button onclick="staffRemoveCash('gerant')" style="background:var(--danger)">➖ Retirer</button>
+        </div>
+        <div class="table-container" style="max-height:200px;overflow-y:auto;margin-top:12px">
+          <table><thead><tr><th>Date</th><th>Type</th><th>Montant</th><th>Note</th></tr></thead>
+          <tbody id="gerantCashTable"></tbody></table>
+        </div>
+      </div>
+
+      <div class="chart-container">
+        <h3>📦 Stock Gros Gérant</h3>
+        <div class="toolbar" style="flex-wrap:wrap">
+          <select id="gerantProduct" style="flex:1;min-width:140px"><option value="">Produit...</option></select>
+          <input type="number" id="gerantGrams" placeholder="Grammes" min="0" step="0.1" style="flex:1;min-width:100px">
+          <button onclick="staffAddGros('gerant')" style="background:var(--success)">➕ Ajouter</button>
+          <button onclick="staffRemoveGros('gerant')" style="background:var(--warning)">➖ Retirer</button>
+        </div>
+        <div class="table-container" style="margin-top:12px">
+          <table><thead><tr><th>Produit</th><th>Stock Gros (g)</th><th>Prix/g</th><th>Valeur</th><th>Actions</th></tr></thead>
+          <tbody id="gerantGrosTable"></tbody></table>
+        </div>
+      </div>
+
+      <div class="chart-container">
+        <h3>🏷 Stock Variants Gérant</h3>
+        <div class="toolbar" style="flex-wrap:wrap">
+          <select id="gerantVarProduct" onchange="staffUpdateVariantOptions('gerant')" style="flex:1;min-width:140px"><option value="">Produit...</option></select>
+          <select id="gerantVarVariant" disabled style="flex:1;min-width:120px"><option value="">Variant...</option></select>
+          <input type="number" id="gerantVarQty" placeholder="Quantité" min="0" style="flex:1;min-width:80px">
+          <button onclick="staffAddVariant('gerant')" style="background:var(--success)">➕</button>
+          <button onclick="staffRemoveVariant('gerant')" style="background:var(--warning)">➖</button>
+        </div>
+        <div class="table-container" style="margin-top:12px">
+          <table><thead><tr><th>Produit</th><th>Variant</th><th>Qté</th><th>Prix</th><th>Valeur</th></tr></thead>
+          <tbody id="gerantVariantsTable"></tbody></table>
+        </div>
+      </div>
+
+      <div class="chart-container">
+        <h3>📋 Historique Gérant</h3>
+        <div style="display:flex;gap:8px;margin-bottom:12px">
+          <button onclick="staffFilterHistory('gerant','all')" class="tab-btn active" style="font-size:12px;padding:6px 12px">Tout</button>
+          <button onclick="staffFilterHistory('gerant','gros')" class="tab-btn" style="font-size:12px;padding:6px 12px">Gros</button>
+          <button onclick="staffFilterHistory('gerant','variant')" class="tab-btn" style="font-size:12px;padding:6px 12px">Variants</button>
+          <button onclick="staffFilterHistory('gerant','cash')" class="tab-btn" style="font-size:12px;padding:6px 12px">Caisse</button>
+        </div>
+        <div class="table-container" style="max-height:300px;overflow-y:auto">
+          <table><thead><tr><th>Date</th><th>Type</th><th>Détail</th><th>Montant/Qt</th></tr></thead>
+          <tbody id="gerantHistoryTable"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== LIVREUR ==================== -->
+    <div class="tab-content" id="tab-livreur">
+      <div class="stats">
+        <div class="stat-card"><div class="stat-label">Caisse Livreur</div><div class="stat-value" id="livreurCash">0,00 &euro;</div></div>
+        <div class="stat-card"><div class="stat-label">Stock Gros (g)</div><div class="stat-value" id="livreurTotalGrams">0g</div></div>
+        <div class="stat-card"><div class="stat-label">Stock Variants</div><div class="stat-value" id="livreurTotalVariants">0</div></div>
+        <div class="stat-card"><div class="stat-label">Valeur Totale</div><div class="stat-value" id="livreurStockValue">0,00 &euro;</div></div>
+      </div>
+
+      <div class="chart-container">
+        <h3>💶 Caisse Livreur</h3>
+        <div class="toolbar" style="flex-wrap:wrap">
+          <input type="number" id="livreurCashAmount" placeholder="Montant (€)" step="0.01" style="flex:1;min-width:120px">
+          <input type="text" id="livreurCashNote" placeholder="Note (optionnel)" style="flex:2;min-width:150px">
+          <button onclick="staffAddCash('livreur')" style="background:var(--success)">➕ Ajouter</button>
+          <button onclick="staffRemoveCash('livreur')" style="background:var(--danger)">➖ Retirer</button>
+        </div>
+        <div class="table-container" style="max-height:200px;overflow-y:auto;margin-top:12px">
+          <table><thead><tr><th>Date</th><th>Type</th><th>Montant</th><th>Note</th></tr></thead>
+          <tbody id="livreurCashTable"></tbody></table>
+        </div>
+      </div>
+
+      <div class="chart-container">
+        <h3>📦 Stock Gros Livreur</h3>
+        <div class="toolbar" style="flex-wrap:wrap">
+          <select id="livreurProduct" style="flex:1;min-width:140px"><option value="">Produit...</option></select>
+          <input type="number" id="livreurGrams" placeholder="Grammes" min="0" step="0.1" style="flex:1;min-width:100px">
+          <button onclick="staffAddGros('livreur')" style="background:var(--success)">➕ Ajouter</button>
+          <button onclick="staffRemoveGros('livreur')" style="background:var(--warning)">➖ Retirer</button>
+        </div>
+        <div class="table-container" style="margin-top:12px">
+          <table><thead><tr><th>Produit</th><th>Stock Gros (g)</th><th>Prix/g</th><th>Valeur</th><th>Actions</th></tr></thead>
+          <tbody id="livreurGrosTable"></tbody></table>
+        </div>
+      </div>
+
+      <div class="chart-container">
+        <h3>🏷 Stock Variants Livreur</h3>
+        <div class="toolbar" style="flex-wrap:wrap">
+          <select id="livreurVarProduct" onchange="staffUpdateVariantOptions('livreur')" style="flex:1;min-width:140px"><option value="">Produit...</option></select>
+          <select id="livreurVarVariant" disabled style="flex:1;min-width:120px"><option value="">Variant...</option></select>
+          <input type="number" id="livreurVarQty" placeholder="Quantité" min="0" style="flex:1;min-width:80px">
+          <button onclick="staffAddVariant('livreur')" style="background:var(--success)">➕</button>
+          <button onclick="staffRemoveVariant('livreur')" style="background:var(--warning)">➖</button>
+        </div>
+        <div class="table-container" style="margin-top:12px">
+          <table><thead><tr><th>Produit</th><th>Variant</th><th>Qté</th><th>Prix</th><th>Valeur</th></tr></thead>
+          <tbody id="livreurVariantsTable"></tbody></table>
+        </div>
+      </div>
+
+      <div class="chart-container">
+        <h3>📋 Historique Livreur</h3>
+        <div style="display:flex;gap:8px;margin-bottom:12px">
+          <button onclick="staffFilterHistory('livreur','all')" class="tab-btn active" style="font-size:12px;padding:6px 12px">Tout</button>
+          <button onclick="staffFilterHistory('livreur','gros')" class="tab-btn" style="font-size:12px;padding:6px 12px">Gros</button>
+          <button onclick="staffFilterHistory('livreur','variant')" class="tab-btn" style="font-size:12px;padding:6px 12px">Variants</button>
+          <button onclick="staffFilterHistory('livreur','cash')" class="tab-btn" style="font-size:12px;padding:6px 12px">Caisse</button>
+        </div>
+        <div class="table-container" style="max-height:300px;overflow-y:auto">
+          <table><thead><tr><th>Date</th><th>Type</th><th>Détail</th><th>Montant/Qt</th></tr></thead>
+          <tbody id="livreurHistoryTable"></tbody></table>
+        </div>
+      </div>
+    </div>
+
     <div class="tab-content" id="tab-reports">
       <div class="stats">
         <div class="stat-card">
@@ -1626,6 +1837,29 @@ const state = {
     ]
   },
   
+  nourrice: {
+    cash: 0,
+    stock: {},
+    cashHistory: [],
+    history: []
+  },
+
+  gerant: {
+    cash: 0,
+    gros: {},
+    variants: {},
+    cashHistory: [],
+    history: []
+  },
+
+  livreur: {
+    cash: 0,
+    gros: {},
+    variants: {},
+    cashHistory: [],
+    history: []
+  },
+
   data: {
     orders: [],
     products: [
@@ -1835,6 +2069,31 @@ function loadData() {
       state.cash = JSON.parse(savedCash);
     } catch (e) {}
   }
+
+  const savedNourrice = localStorage.getItem('admin_nourrice');
+  if (savedNourrice) {
+    try {
+      const n = JSON.parse(savedNourrice);
+      state.nourrice.cash = n.cash || 0;
+      state.nourrice.stock = n.stock || {};
+      state.nourrice.cashHistory = n.cashHistory || [];
+      state.nourrice.history = n.history || [];
+    } catch (e) {}
+  }
+
+  ['gerant', 'livreur'].forEach(role => {
+    const saved = localStorage.getItem(`admin_${role}`);
+    if (saved) {
+      try {
+        const d = JSON.parse(saved);
+        state[role].cash = d.cash || 0;
+        state[role].gros = d.gros || {};
+        state[role].variants = d.variants || {};
+        state[role].cashHistory = d.cashHistory || [];
+        state[role].history = d.history || [];
+      } catch (e) {}
+    }
+  });
   
   const pass = localStorage.getItem('admin_password');
   if (pass) {
@@ -1879,6 +2138,9 @@ function saveData() {
     
     localStorage.setItem('admin_data_ultra', JSON.stringify(state.data));
     localStorage.setItem('admin_cash_ultra', JSON.stringify(state.cash));
+    localStorage.setItem('admin_nourrice', JSON.stringify(state.nourrice));
+    localStorage.setItem('admin_gerant', JSON.stringify(state.gerant));
+    localStorage.setItem('admin_livreur', JSON.stringify(state.livreur));
     localStorage.setItem('shop_products', JSON.stringify(syncedProducts));
     localStorage.setItem('admin_analytics', JSON.stringify(state.analytics));
     
@@ -2366,6 +2628,14 @@ function showTab(name) {
   
   if (name === 'products') {
     loadProducts();
+  }
+
+  if (name === 'nourrice') {
+    loadNourrice();
+  }
+
+  if (name === 'gerant' || name === 'livreur') {
+    loadStaff(name);
   }
   
   if (name === 'settings') {
@@ -3740,6 +4010,560 @@ function adjustStock() {
   document.getElementById('stockQty').value = '';
   showToast(`Stock ajusté à ${qty}`, 'success');
 }
+
+// ==================== NOURRICE ====================
+
+function loadNourrice() {
+  loadNourriceProducts();
+  loadNourriceStats();
+  loadNourriceStockTable();
+  loadNourriceCashTable();
+  loadNourriceHistory('all');
+}
+
+function loadNourriceProducts() {
+  const sel = document.getElementById('nourriceProduct');
+  if (!sel) return;
+  const current = sel.value;
+  sel.innerHTML = '<option value="">Produit...</option>';
+  state.data.products.filter(p => !p.archived).forEach(p => {
+    sel.innerHTML += `<option value="${p.id}">${p.name}</option>`;
+  });
+  if (current) sel.value = current;
+}
+
+function loadNourriceStats() {
+  const n = state.nourrice;
+  document.getElementById('nourriceCash').textContent = fc(n.cash);
+
+  let totalGrams = 0;
+  let totalValue = 0;
+  let productCount = 0;
+  for (const [pid, grams] of Object.entries(n.stock)) {
+    if (grams > 0) {
+      productCount++;
+      totalGrams += grams;
+      const p = state.data.products.find(x => x.id == pid);
+      if (p) totalValue += grams * (p.buyPrice || 0);
+    }
+  }
+  document.getElementById('nourriceTotalGrams').textContent = totalGrams.toFixed(1) + 'g';
+  document.getElementById('nourriceStockValue').textContent = fc(totalValue);
+  document.getElementById('nourriceProductCount').textContent = productCount;
+}
+
+function loadNourriceStockTable() {
+  const tbody = document.getElementById('nourriceStockTable');
+  if (!tbody) return;
+  const products = state.data.products.filter(p => !p.archived);
+  const n = state.nourrice;
+
+  if (products.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted)">Aucun produit</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = products.map(p => {
+    const grams = n.stock[p.id] || 0;
+    const value = grams * (p.buyPrice || 0);
+    const status = grams === 0 ? '<span class="badge" style="background:var(--danger)">Vide</span>' :
+                   grams < 50 ? '<span class="badge" style="background:var(--warning)">Faible</span>' :
+                   '<span class="badge" style="background:var(--success)">OK</span>';
+    return `<tr>
+      <td><strong>${p.name}</strong></td>
+      <td>${p.category}</td>
+      <td><strong>${grams.toFixed(1)}g</strong></td>
+      <td>${fc(p.buyPrice || 0)}/g</td>
+      <td>${fc(value)}</td>
+      <td>
+        <button onclick="nourriceQuickSet(${p.id})" style="background:var(--accent);color:#fff;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px">Ajuster</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function loadNourriceCashTable() {
+  const tbody = document.getElementById('nourriceCashTable');
+  if (!tbody) return;
+  const history = (state.nourrice.cashHistory || []).slice(0, 20);
+
+  if (history.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted)">Aucune transaction</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = history.map(h => {
+    const color = h.type === 'add' ? 'var(--success)' : 'var(--danger)';
+    const sign = h.type === 'add' ? '+' : '-';
+    return `<tr>
+      <td>${h.date}</td>
+      <td style="color:${color};font-weight:700">${h.type === 'add' ? 'Depot' : 'Retrait'}</td>
+      <td style="color:${color};font-weight:700">${sign}${fc(h.amount)}</td>
+      <td>${h.note || '-'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function nourriceAddCash() {
+  const amount = parseFloat(document.getElementById('nourriceCashAmount').value);
+  const note = document.getElementById('nourriceCashNote').value.trim();
+  if (!amount || amount <= 0) { showToast('Montant invalide', 'error'); return; }
+
+  state.nourrice.cash += amount;
+  state.nourrice.cashHistory.unshift({
+    date: new Date().toLocaleDateString('fr-FR'),
+    type: 'add',
+    amount: amount,
+    note: note
+  });
+  state.nourrice.history.unshift({
+    date: new Date().toLocaleDateString('fr-FR'),
+    type: 'cash',
+    detail: `Depot caisse: ${note || 'N/A'}`,
+    value: `+${fc(amount)}`
+  });
+
+  document.getElementById('nourriceCashAmount').value = '';
+  document.getElementById('nourriceCashNote').value = '';
+  saveData();
+  loadNourrice();
+  showToast(`+${fc(amount)} ajouté a la caisse nourrice`, 'success');
+}
+
+function nourriceRemoveCash() {
+  const amount = parseFloat(document.getElementById('nourriceCashAmount').value);
+  const note = document.getElementById('nourriceCashNote').value.trim();
+  if (!amount || amount <= 0) { showToast('Montant invalide', 'error'); return; }
+  if (amount > state.nourrice.cash) { showToast('Fonds insuffisants', 'error'); return; }
+
+  state.nourrice.cash -= amount;
+  state.nourrice.cashHistory.unshift({
+    date: new Date().toLocaleDateString('fr-FR'),
+    type: 'remove',
+    amount: amount,
+    note: note
+  });
+  state.nourrice.history.unshift({
+    date: new Date().toLocaleDateString('fr-FR'),
+    type: 'cash',
+    detail: `Retrait caisse: ${note || 'N/A'}`,
+    value: `-${fc(amount)}`
+  });
+
+  document.getElementById('nourriceCashAmount').value = '';
+  document.getElementById('nourriceCashNote').value = '';
+  saveData();
+  loadNourrice();
+  showToast(`-${fc(amount)} retiré de la caisse nourrice`, 'success');
+}
+
+function nourriceAddStock() {
+  const productId = document.getElementById('nourriceProduct').value;
+  const grams = parseFloat(document.getElementById('nourriceGrams').value);
+  if (!productId) { showToast('Selectionnez un produit', 'error'); return; }
+  if (!grams || grams <= 0) { showToast('Grammes invalides', 'error'); return; }
+
+  const p = state.data.products.find(x => x.id == productId);
+  if (!p) return;
+
+  state.nourrice.stock[productId] = (state.nourrice.stock[productId] || 0) + grams;
+  state.nourrice.history.unshift({
+    date: new Date().toLocaleDateString('fr-FR'),
+    type: 'stock',
+    detail: `+${grams}g ${p.name}`,
+    value: `+${grams}g`
+  });
+
+  document.getElementById('nourriceGrams').value = '';
+  saveData();
+  loadNourrice();
+  showToast(`+${grams}g de ${p.name} ajouté au stock nourrice`, 'success');
+}
+
+function nourriceRemoveStock() {
+  const productId = document.getElementById('nourriceProduct').value;
+  const grams = parseFloat(document.getElementById('nourriceGrams').value);
+  if (!productId) { showToast('Selectionnez un produit', 'error'); return; }
+  if (!grams || grams <= 0) { showToast('Grammes invalides', 'error'); return; }
+
+  const current = state.nourrice.stock[productId] || 0;
+  if (grams > current) { showToast('Stock nourrice insuffisant', 'error'); return; }
+
+  const p = state.data.products.find(x => x.id == productId);
+  if (!p) return;
+
+  state.nourrice.stock[productId] = current - grams;
+  state.nourrice.history.unshift({
+    date: new Date().toLocaleDateString('fr-FR'),
+    type: 'stock',
+    detail: `-${grams}g ${p.name}`,
+    value: `-${grams}g`
+  });
+
+  document.getElementById('nourriceGrams').value = '';
+  saveData();
+  loadNourrice();
+  showToast(`-${grams}g de ${p.name} retiré du stock nourrice`, 'success');
+}
+
+function nourriceQuickSet(productId) {
+  const p = state.data.products.find(x => x.id == productId);
+  if (!p) return;
+  const current = state.nourrice.stock[productId] || 0;
+  const newVal = prompt(`${p.name}\nStock actuel: ${current.toFixed(1)}g\n\nNouveau stock (grammes):`, current.toFixed(1));
+  if (newVal === null) return;
+  const grams = parseFloat(newVal);
+  if (isNaN(grams) || grams < 0) { showToast('Valeur invalide', 'error'); return; }
+
+  const diff = grams - current;
+  state.nourrice.stock[productId] = grams;
+  state.nourrice.history.unshift({
+    date: new Date().toLocaleDateString('fr-FR'),
+    type: 'stock',
+    detail: `Ajustement ${p.name}: ${current.toFixed(1)}g -> ${grams.toFixed(1)}g`,
+    value: `${diff >= 0 ? '+' : ''}${diff.toFixed(1)}g`
+  });
+
+  saveData();
+  loadNourrice();
+  showToast(`${p.name} ajusté a ${grams}g`, 'success');
+}
+
+function loadNourriceHistory(filter) {
+  const tbody = document.getElementById('nourriceHistoryTable');
+  if (!tbody) return;
+
+  let history = state.nourrice.history || [];
+  if (filter !== 'all') {
+    history = history.filter(h => h.type === filter);
+  }
+  history = history.slice(0, 50);
+
+  if (history.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted)">Aucun historique</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = history.map(h => {
+    const icon = h.type === 'stock' ? '📦' : '💶';
+    const color = h.value.startsWith('+') ? 'var(--success)' : 'var(--danger)';
+    return `<tr>
+      <td>${h.date}</td>
+      <td>${icon} ${h.type === 'stock' ? 'Stock' : 'Caisse'}</td>
+      <td>${h.detail}</td>
+      <td style="color:${color};font-weight:700">${h.value}</td>
+    </tr>`;
+  }).join('');
+}
+
+function nourriceFilterHistory(filter) {
+  document.querySelectorAll('#tab-nourrice .chart-container:last-child .tab-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  loadNourriceHistory(filter);
+}
+
+// ==================== FIN NOURRICE ====================
+
+// ==================== STAFF GENERIQUE (GERANT + LIVREUR) ====================
+
+function loadStaff(role) {
+  staffLoadProducts(role);
+  staffLoadStats(role);
+  staffLoadGrosTable(role);
+  staffLoadVariantsTable(role);
+  staffLoadCashTable(role);
+  staffLoadHistory(role, 'all');
+}
+
+function staffLoadProducts(role) {
+  const products = state.data.products.filter(p => !p.archived);
+  // Gros dropdown
+  const selGros = document.getElementById(`${role}Product`);
+  if (selGros) {
+    const cur = selGros.value;
+    selGros.innerHTML = '<option value="">Produit...</option>';
+    products.forEach(p => { selGros.innerHTML += `<option value="${p.id}">${p.name}</option>`; });
+    if (cur) selGros.value = cur;
+  }
+  // Variant dropdown
+  const selVar = document.getElementById(`${role}VarProduct`);
+  if (selVar) {
+    const cur = selVar.value;
+    selVar.innerHTML = '<option value="">Produit...</option>';
+    products.forEach(p => { selVar.innerHTML += `<option value="${p.id}">${p.name}</option>`; });
+    if (cur) selVar.value = cur;
+  }
+}
+
+function staffLoadStats(role) {
+  const s = state[role];
+  document.getElementById(`${role}Cash`).textContent = fc(s.cash);
+
+  let totalGrams = 0, totalValue = 0, totalVariants = 0;
+  for (const [pid, grams] of Object.entries(s.gros)) {
+    if (grams > 0) {
+      totalGrams += grams;
+      const p = state.data.products.find(x => x.id == pid);
+      if (p) totalValue += grams * (p.buyPrice || 0);
+    }
+  }
+  for (const [key, qty] of Object.entries(s.variants)) {
+    if (qty > 0) {
+      totalVariants += qty;
+      const [pid, vname] = key.split('::');
+      const p = state.data.products.find(x => x.id == pid);
+      if (p && p.variants[vname]) totalValue += qty * p.variants[vname].price;
+    }
+  }
+  document.getElementById(`${role}TotalGrams`).textContent = totalGrams.toFixed(1) + 'g';
+  document.getElementById(`${role}TotalVariants`).textContent = totalVariants;
+  document.getElementById(`${role}StockValue`).textContent = fc(totalValue);
+}
+
+function staffLoadGrosTable(role) {
+  const tbody = document.getElementById(`${role}GrosTable`);
+  if (!tbody) return;
+  const products = state.data.products.filter(p => !p.archived);
+  const s = state[role];
+
+  tbody.innerHTML = products.map(p => {
+    const grams = s.gros[p.id] || 0;
+    const value = grams * (p.buyPrice || 0);
+    return `<tr>
+      <td><strong>${p.name}</strong></td>
+      <td><strong>${grams.toFixed(1)}g</strong></td>
+      <td>${fc(p.buyPrice || 0)}/g</td>
+      <td>${fc(value)}</td>
+      <td><button onclick="staffQuickSetGros('${role}',${p.id})" style="background:var(--accent);color:#fff;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px">Ajuster</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function staffLoadVariantsTable(role) {
+  const tbody = document.getElementById(`${role}VariantsTable`);
+  if (!tbody) return;
+  const s = state[role];
+  const rows = [];
+
+  for (const [key, qty] of Object.entries(s.variants)) {
+    if (qty <= 0) continue;
+    const [pid, vname] = key.split('::');
+    const p = state.data.products.find(x => x.id == pid);
+    if (!p) continue;
+    const v = p.variants[vname];
+    if (!v) continue;
+    rows.push(`<tr>
+      <td><strong>${p.name}</strong></td>
+      <td>${vname}</td>
+      <td><strong>${qty}</strong></td>
+      <td>${fc(v.price)}</td>
+      <td>${fc(qty * v.price)}</td>
+    </tr>`);
+  }
+
+  if (rows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted)">Aucun variant en stock</td></tr>';
+  } else {
+    tbody.innerHTML = rows.join('');
+  }
+}
+
+function staffLoadCashTable(role) {
+  const tbody = document.getElementById(`${role}CashTable`);
+  if (!tbody) return;
+  const history = (state[role].cashHistory || []).slice(0, 20);
+
+  if (history.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted)">Aucune transaction</td></tr>';
+    return;
+  }
+  tbody.innerHTML = history.map(h => {
+    const color = h.type === 'add' ? 'var(--success)' : 'var(--danger)';
+    const sign = h.type === 'add' ? '+' : '-';
+    return `<tr>
+      <td>${h.date}</td>
+      <td style="color:${color};font-weight:700">${h.type === 'add' ? 'Depot' : 'Retrait'}</td>
+      <td style="color:${color};font-weight:700">${sign}${fc(h.amount)}</td>
+      <td>${h.note || '-'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function staffAddCash(role) {
+  const amount = parseFloat(document.getElementById(`${role}CashAmount`).value);
+  const note = document.getElementById(`${role}CashNote`).value.trim();
+  if (!amount || amount <= 0) { showToast('Montant invalide', 'error'); return; }
+
+  state[role].cash += amount;
+  state[role].cashHistory.unshift({ date: new Date().toLocaleDateString('fr-FR'), type: 'add', amount, note });
+  state[role].history.unshift({ date: new Date().toLocaleDateString('fr-FR'), type: 'cash', detail: `Depot: ${note || 'N/A'}`, value: `+${fc(amount)}` });
+
+  document.getElementById(`${role}CashAmount`).value = '';
+  document.getElementById(`${role}CashNote`).value = '';
+  saveData(); loadStaff(role);
+  showToast(`+${fc(amount)} ajouté`, 'success');
+}
+
+function staffRemoveCash(role) {
+  const amount = parseFloat(document.getElementById(`${role}CashAmount`).value);
+  const note = document.getElementById(`${role}CashNote`).value.trim();
+  if (!amount || amount <= 0) { showToast('Montant invalide', 'error'); return; }
+  if (amount > state[role].cash) { showToast('Fonds insuffisants', 'error'); return; }
+
+  state[role].cash -= amount;
+  state[role].cashHistory.unshift({ date: new Date().toLocaleDateString('fr-FR'), type: 'remove', amount, note });
+  state[role].history.unshift({ date: new Date().toLocaleDateString('fr-FR'), type: 'cash', detail: `Retrait: ${note || 'N/A'}`, value: `-${fc(amount)}` });
+
+  document.getElementById(`${role}CashAmount`).value = '';
+  document.getElementById(`${role}CashNote`).value = '';
+  saveData(); loadStaff(role);
+  showToast(`-${fc(amount)} retiré`, 'success');
+}
+
+function staffAddGros(role) {
+  const productId = document.getElementById(`${role}Product`).value;
+  const grams = parseFloat(document.getElementById(`${role}Grams`).value);
+  if (!productId) { showToast('Selectionnez un produit', 'error'); return; }
+  if (!grams || grams <= 0) { showToast('Grammes invalides', 'error'); return; }
+
+  const p = state.data.products.find(x => x.id == productId);
+  if (!p) return;
+
+  state[role].gros[productId] = (state[role].gros[productId] || 0) + grams;
+  state[role].history.unshift({ date: new Date().toLocaleDateString('fr-FR'), type: 'gros', detail: `+${grams}g ${p.name}`, value: `+${grams}g` });
+
+  document.getElementById(`${role}Grams`).value = '';
+  saveData(); loadStaff(role);
+  showToast(`+${grams}g ${p.name}`, 'success');
+}
+
+function staffRemoveGros(role) {
+  const productId = document.getElementById(`${role}Product`).value;
+  const grams = parseFloat(document.getElementById(`${role}Grams`).value);
+  if (!productId) { showToast('Selectionnez un produit', 'error'); return; }
+  if (!grams || grams <= 0) { showToast('Grammes invalides', 'error'); return; }
+
+  const current = state[role].gros[productId] || 0;
+  if (grams > current) { showToast('Stock insuffisant', 'error'); return; }
+
+  const p = state.data.products.find(x => x.id == productId);
+  if (!p) return;
+
+  state[role].gros[productId] = current - grams;
+  state[role].history.unshift({ date: new Date().toLocaleDateString('fr-FR'), type: 'gros', detail: `-${grams}g ${p.name}`, value: `-${grams}g` });
+
+  document.getElementById(`${role}Grams`).value = '';
+  saveData(); loadStaff(role);
+  showToast(`-${grams}g ${p.name}`, 'success');
+}
+
+function staffQuickSetGros(role, productId) {
+  const p = state.data.products.find(x => x.id == productId);
+  if (!p) return;
+  const current = state[role].gros[productId] || 0;
+  const newVal = prompt(`${p.name}\nStock gros actuel: ${current.toFixed(1)}g\n\nNouveau stock (grammes):`, current.toFixed(1));
+  if (newVal === null) return;
+  const grams = parseFloat(newVal);
+  if (isNaN(grams) || grams < 0) { showToast('Valeur invalide', 'error'); return; }
+
+  const diff = grams - current;
+  state[role].gros[productId] = grams;
+  state[role].history.unshift({ date: new Date().toLocaleDateString('fr-FR'), type: 'gros', detail: `Ajustement ${p.name}: ${current.toFixed(1)}g -> ${grams.toFixed(1)}g`, value: `${diff >= 0 ? '+' : ''}${diff.toFixed(1)}g` });
+
+  saveData(); loadStaff(role);
+  showToast(`${p.name} ajusté a ${grams}g`, 'success');
+}
+
+function staffUpdateVariantOptions(role) {
+  const productId = document.getElementById(`${role}VarProduct`).value;
+  const variantSel = document.getElementById(`${role}VarVariant`);
+  variantSel.innerHTML = '<option value="">Variant...</option>';
+
+  if (!productId) { variantSel.disabled = true; return; }
+
+  const p = state.data.products.find(x => x.id == productId);
+  if (!p) return;
+
+  Object.keys(p.variants).forEach(v => {
+    variantSel.innerHTML += `<option value="${v}">${v} - ${fc(p.variants[v].price)}</option>`;
+  });
+  variantSel.disabled = false;
+}
+
+function staffAddVariant(role) {
+  const productId = document.getElementById(`${role}VarProduct`).value;
+  const vname = document.getElementById(`${role}VarVariant`).value;
+  const qty = parseInt(document.getElementById(`${role}VarQty`).value);
+  if (!productId || !vname) { showToast('Selectionnez produit et variant', 'error'); return; }
+  if (!qty || qty <= 0) { showToast('Quantité invalide', 'error'); return; }
+
+  const p = state.data.products.find(x => x.id == productId);
+  if (!p) return;
+  const key = `${productId}::${vname}`;
+
+  state[role].variants[key] = (state[role].variants[key] || 0) + qty;
+  state[role].history.unshift({ date: new Date().toLocaleDateString('fr-FR'), type: 'variant', detail: `+${qty}x ${p.name} ${vname}`, value: `+${qty}` });
+
+  document.getElementById(`${role}VarQty`).value = '';
+  saveData(); loadStaff(role);
+  showToast(`+${qty}x ${p.name} ${vname}`, 'success');
+}
+
+function staffRemoveVariant(role) {
+  const productId = document.getElementById(`${role}VarProduct`).value;
+  const vname = document.getElementById(`${role}VarVariant`).value;
+  const qty = parseInt(document.getElementById(`${role}VarQty`).value);
+  if (!productId || !vname) { showToast('Selectionnez produit et variant', 'error'); return; }
+  if (!qty || qty <= 0) { showToast('Quantité invalide', 'error'); return; }
+
+  const p = state.data.products.find(x => x.id == productId);
+  if (!p) return;
+  const key = `${productId}::${vname}`;
+  const current = state[role].variants[key] || 0;
+  if (qty > current) { showToast('Stock variant insuffisant', 'error'); return; }
+
+  state[role].variants[key] = current - qty;
+  state[role].history.unshift({ date: new Date().toLocaleDateString('fr-FR'), type: 'variant', detail: `-${qty}x ${p.name} ${vname}`, value: `-${qty}` });
+
+  document.getElementById(`${role}VarQty`).value = '';
+  saveData(); loadStaff(role);
+  showToast(`-${qty}x ${p.name} ${vname}`, 'success');
+}
+
+function staffLoadHistory(role, filter) {
+  const tbody = document.getElementById(`${role}HistoryTable`);
+  if (!tbody) return;
+
+  let history = state[role].history || [];
+  if (filter !== 'all') history = history.filter(h => h.type === filter);
+  history = history.slice(0, 50);
+
+  if (history.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted)">Aucun historique</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = history.map(h => {
+    const icon = h.type === 'gros' ? '📦' : h.type === 'variant' ? '🏷' : '💶';
+    const label = h.type === 'gros' ? 'Gros' : h.type === 'variant' ? 'Variant' : 'Caisse';
+    const color = h.value.startsWith('+') ? 'var(--success)' : 'var(--danger)';
+    return `<tr>
+      <td>${h.date}</td>
+      <td>${icon} ${label}</td>
+      <td>${h.detail}</td>
+      <td style="color:${color};font-weight:700">${h.value}</td>
+    </tr>`;
+  }).join('');
+}
+
+function staffFilterHistory(role, filter) {
+  const container = document.querySelector(`#tab-${role} .chart-container:last-child`);
+  if (container) container.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  staffLoadHistory(role, filter);
+}
+
+// ==================== FIN STAFF ====================
 
 function addCustomer() {
   showModal('Nouveau client', `
