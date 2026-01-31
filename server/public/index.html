@@ -2376,7 +2376,7 @@ const SyncManager = {
       }
 
       // Fallback sur localStorage avec gestion de version
-      const DATA_VERSION = 11; // Avis synchronisés serveur + catégories minuscules
+      const DATA_VERSION = 12; // Panier + favoris synchronisés serveur
       const savedVersion = parseInt(localStorage.getItem('data_version') || '0');
       const data = localStorage.getItem('shop_products');
 
@@ -2633,33 +2633,63 @@ const SyncManager = {
 
 const CartManager = {
   items: [],
-  
-  init() {
+  _sessionId: null,
+  _syncTimer: null,
+
+  _getSessionId() {
+    if (!this._sessionId) {
+      this._sessionId = localStorage.getItem('cart_session_id');
+      if (!this._sessionId) {
+        this._sessionId = 'cs_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 8);
+        localStorage.setItem('cart_session_id', this._sessionId);
+      }
+    }
+    return this._sessionId;
+  },
+
+  async init() {
     try {
+      // Charger depuis localStorage d'abord (instantané)
       const loaded = localStorage.getItem('shop_cart');
       this.items = loaded ? JSON.parse(loaded) : [];
+
+      // Puis tenter de charger depuis le serveur
+      try {
+        const res = await fetch(`/api/cart/${this._getSessionId()}`);
+        const data = await res.json();
+        if (data.ok && !data.expired && data.items.length > 0) {
+          this.items = data.items;
+          this._saveLocal();
+          console.log('🛒 Panier chargé depuis serveur');
+        } else if (data.expired && this.items.length > 0) {
+          // Le panier serveur a expiré, resync le local
+          this._syncToServer();
+        }
+      } catch (e) {
+        console.log('⚠️ Sync panier serveur indisponible');
+      }
     } catch (e) {
       console.error('Error loading cart:', e);
       this.items = [];
     }
   },
-  
+
   add(item) {
-    const existingIndex = this.items.findIndex(i => 
+    const existingIndex = this.items.findIndex(i =>
       i.productId === item.productId && i.variant === item.variant
     );
-    
+
     if (existingIndex >= 0) {
       this.items[existingIndex].qty += item.qty;
     } else {
       this.items.push(item);
     }
-    
+
     this.save();
     this.updateUI();
     return true;
   },
-  
+
   remove(index) {
     if (index >= 0 && index < this.items.length) {
       this.items.splice(index, 1);
@@ -2669,25 +2699,43 @@ const CartManager = {
     }
     return false;
   },
-  
+
   clear() {
     this.items = [];
     this.save();
+    // Supprimer aussi côté serveur
+    fetch(`/api/cart/${this._getSessionId()}`, { method: 'DELETE' }).catch(() => {});
     this.updateUI();
   },
-  
+
   getTotal() {
     return this.items.reduce((sum, item) => sum + (item.price * item.qty), 0);
   },
-  
+
   getTotalItems() {
     return this.items.reduce((sum, item) => sum + item.qty, 0);
   },
-  
-  save() {
+
+  _saveLocal() {
     localStorage.setItem('shop_cart', JSON.stringify(this.items));
   },
-  
+
+  _syncToServer() {
+    clearTimeout(this._syncTimer);
+    this._syncTimer = setTimeout(() => {
+      fetch(`/api/cart/${this._getSessionId()}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: this.items })
+      }).catch(() => {});
+    }, 500);
+  },
+
+  save() {
+    this._saveLocal();
+    this._syncToServer();
+  },
+
   updateUI() {
     const total = this.getTotalItems();
     document.getElementById('badge').textContent = total;
@@ -2697,20 +2745,40 @@ const CartManager = {
 
 const FavoritesManager = {
   items: [],
-  
-  init() {
+  _syncTimer: null,
+
+  _getSessionId() {
+    return CartManager._getSessionId();
+  },
+
+  async init() {
     try {
       const loaded = localStorage.getItem('shop_favorites');
       this.items = loaded ? JSON.parse(loaded) : [];
+
+      // Charger depuis le serveur
+      try {
+        const res = await fetch(`/api/favorites/${this._getSessionId()}`);
+        const data = await res.json();
+        if (data.ok && data.productIds.length > 0) {
+          this.items = data.productIds;
+          this._saveLocal();
+          console.log('❤️ Favoris chargés depuis serveur');
+        } else if (this.items.length > 0) {
+          this._syncToServer();
+        }
+      } catch (e) {
+        console.log('⚠️ Sync favoris serveur indisponible');
+      }
     } catch (e) {
       console.error('Error loading favorites:', e);
       this.items = [];
     }
   },
-  
+
   toggle(productId) {
     const index = this.items.indexOf(productId);
-    
+
     if (index >= 0) {
       this.items.splice(index, 1);
       showToast('❌ Retiré des favoris');
@@ -2718,20 +2786,36 @@ const FavoritesManager = {
       this.items.push(productId);
       showToast('❤️ Ajouté aux favoris');
     }
-    
+
     this.save();
     this.updateUI();
     return this.items.includes(productId);
   },
-  
+
   has(productId) {
     return this.items.includes(productId);
   },
-  
-  save() {
+
+  _saveLocal() {
     localStorage.setItem('shop_favorites', JSON.stringify(this.items));
   },
-  
+
+  _syncToServer() {
+    clearTimeout(this._syncTimer);
+    this._syncTimer = setTimeout(() => {
+      fetch(`/api/favorites/${this._getSessionId()}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productIds: this.items })
+      }).catch(() => {});
+    }, 500);
+  },
+
+  save() {
+    this._saveLocal();
+    this._syncToServer();
+  },
+
   updateUI() {
     document.getElementById('badgeFavorites').textContent = this.items.length;
   }
@@ -5691,8 +5775,8 @@ function initEventListeners() {
 
 async function init() {
   try {
-    CartManager.init();
-    FavoritesManager.init();
+    await CartManager.init();
+    await FavoritesManager.init();
     OrdersManager.init();
     LoyaltyManager.init();
     await ReviewsManager.init();
@@ -5707,8 +5791,8 @@ async function init() {
     // Démarrer la synchronisation automatique
     startAutoSync();
 
-    console.log('DROGUA CENTER v3.3 chargé');
-    console.log('9 produits, avis synchronisés avec le serveur');
+    console.log('DROGUA CENTER v3.4 chargé');
+    console.log('9 produits, panier/favoris/avis synchronisés serveur');
   } catch (error) {
     console.error('❌ Erreur initialisation:', error);
     showToast('⚠️ Erreur de chargement. Actualisez la page (F5)');

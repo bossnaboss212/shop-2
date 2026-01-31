@@ -772,6 +772,7 @@
       <button class="tab-btn" onclick="showTab('nourrice')">🏦 Nourrice</button>
       <button class="tab-btn" onclick="showTab('gerant')">👔 Gérant</button>
       <button class="tab-btn" onclick="showTab('livreur')">🚗 Livreur</button>
+      <button class="tab-btn" onclick="showTab('employees')">👷 Employés</button>
       <button class="tab-btn" onclick="showTab('reports')">📋 Rapports</button>
       <button class="tab-btn" onclick="showTab('settings')">⚙️ Paramètres</button>
     </div>
@@ -1408,6 +1409,10 @@
         </div>
       </div>
 
+      <div style="margin-bottom:12px;text-align:right">
+        <button onclick="exportStaffCSV('nourrice')" style="background:var(--primary);color:#fff;padding:8px 16px;border:none;border-radius:8px;cursor:pointer">📥 Exporter CSV</button>
+      </div>
+
       <!-- Caisse -->
       <div class="chart-container">
         <h3>💶 Caisse Nourrice</h3>
@@ -1470,6 +1475,9 @@
         <div class="stat-card"><div class="stat-label">Valeur Totale</div><div class="stat-value" id="gerantStockValue">0,00 &euro;</div></div>
       </div>
 
+      <div style="margin-bottom:12px;text-align:right">
+        <button onclick="exportStaffCSV('gerant')" style="background:var(--primary);color:#fff;padding:8px 16px;border:none;border-radius:8px;cursor:pointer">📥 Exporter CSV</button>
+      </div>
       <div class="chart-container">
         <h3>💶 Caisse Gérant</h3>
         <div class="toolbar" style="flex-wrap:wrap">
@@ -1537,6 +1545,9 @@
         <div class="stat-card"><div class="stat-label">Valeur Totale</div><div class="stat-value" id="livreurStockValue">0,00 &euro;</div></div>
       </div>
 
+      <div style="margin-bottom:12px;text-align:right">
+        <button onclick="exportStaffCSV('livreur')" style="background:var(--primary);color:#fff;padding:8px 16px;border:none;border-radius:8px;cursor:pointer">📥 Exporter CSV</button>
+      </div>
       <div class="chart-container">
         <h3>💶 Caisse Livreur</h3>
         <div class="toolbar" style="flex-wrap:wrap">
@@ -1591,6 +1602,50 @@
         <div class="table-container" style="max-height:300px;overflow-y:auto">
           <table><thead><tr><th>Date</th><th>Type</th><th>Détail</th><th>Montant/Qt</th></tr></thead>
           <tbody id="livreurHistoryTable"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== EMPLOYEES / PAYROLL ==================== -->
+    <div class="tab-content" id="tab-employees">
+      <div class="stats">
+        <div class="stat-card"><div class="stat-label">Employés Actifs</div><div class="stat-value" id="empActiveCount">0</div></div>
+        <div class="stat-card"><div class="stat-label">Masse Salariale</div><div class="stat-value" id="empTotalSalary">0,00 &euro;</div></div>
+        <div class="stat-card"><div class="stat-label">Paie en attente</div><div class="stat-value" id="empPendingPayroll">0</div></div>
+      </div>
+
+      <div class="chart-container">
+        <h3>👷 Gestion des Employés</h3>
+        <div class="toolbar">
+          <button onclick="showAddEmployeeModal()" style="background:var(--success)">➕ Ajouter un employé</button>
+        </div>
+        <div class="table-container" style="margin-top:12px">
+          <table>
+            <thead><tr><th>Nom</th><th>Poste</th><th>Type</th><th>Salaire</th><th>Embauche</th><th>Statut</th><th>Actions</th></tr></thead>
+            <tbody id="employeesTable"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="chart-container">
+        <h3>💰 Fiches de Paie</h3>
+        <div class="toolbar" style="flex-wrap:wrap">
+          <select id="payrollMonth" style="flex:1;min-width:100px">
+            <option value="">Mois...</option>
+            <option value="1">Janvier</option><option value="2">Février</option><option value="3">Mars</option>
+            <option value="4">Avril</option><option value="5">Mai</option><option value="6">Juin</option>
+            <option value="7">Juillet</option><option value="8">Août</option><option value="9">Septembre</option>
+            <option value="10">Octobre</option><option value="11">Novembre</option><option value="12">Décembre</option>
+          </select>
+          <input type="number" id="payrollYear" placeholder="Année" value="2026" style="width:80px">
+          <button onclick="showAddPayrollModal()" style="background:var(--success)">➕ Nouvelle fiche</button>
+          <button onclick="loadPayroll()" style="background:var(--primary)">🔄 Charger</button>
+        </div>
+        <div class="table-container" style="margin-top:12px">
+          <table>
+            <thead><tr><th>Employé</th><th>Mois</th><th>Brut</th><th>Bonus</th><th>Net</th><th>Statut</th><th>Actions</th></tr></thead>
+            <tbody id="payrollTable"></tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -2143,7 +2198,7 @@ function saveData() {
     localStorage.setItem('admin_livreur', JSON.stringify(state.livreur));
     localStorage.setItem('shop_products', JSON.stringify(syncedProducts));
     localStorage.setItem('admin_analytics', JSON.stringify(state.analytics));
-    
+
     console.log('💾 Données sauvegardées:', state.data.products.length, 'produits');
 
     // Mettre à jour la taille du stockage
@@ -2153,6 +2208,9 @@ function saveData() {
 
     // Sauvegarder aussi dans la base de données
     saveProductsToDatabase();
+
+    // Sync staff data vers le serveur
+    syncStaffToServer();
   } catch (e) {
     console.error('Error saving:', e);
     if (e.name === 'QuotaExceededError') {
@@ -2256,6 +2314,62 @@ async function saveProductsToDatabase() {
   }
 }
 
+let _staffSyncTimer = null;
+function syncStaffToServer() {
+  clearTimeout(_staffSyncTimer);
+  _staffSyncTimer = setTimeout(async () => {
+    const token = localStorage.getItem('admin_token');
+    if (!token) return;
+
+    const roles = ['nourrice', 'gerant', 'livreur'];
+    for (const role of roles) {
+      try {
+        await fetch(`/api/admin/staff/${role}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'x-admin-token': token },
+          body: JSON.stringify({ data: state[role] })
+        });
+      } catch (e) {
+        console.warn(`⚠️ Sync ${role} serveur échouée:`, e.message);
+      }
+    }
+    console.log('☁️ Staff data synced to server');
+  }, 1000);
+}
+
+async function loadStaffFromServer() {
+  const token = localStorage.getItem('admin_token');
+  if (!token) return;
+
+  const roles = ['nourrice', 'gerant', 'livreur'];
+  for (const role of roles) {
+    try {
+      const res = await fetch(`/api/admin/staff/${role}`, {
+        headers: { 'x-admin-token': token }
+      });
+      const json = await res.json();
+      if (json.ok && json.data) {
+        if (role === 'nourrice') {
+          state.nourrice.cash = json.data.cash || 0;
+          state.nourrice.stock = json.data.stock || {};
+          state.nourrice.cashHistory = json.data.cashHistory || [];
+          state.nourrice.history = json.data.history || [];
+        } else {
+          state[role].cash = json.data.cash || 0;
+          state[role].gros = json.data.gros || {};
+          state[role].variants = json.data.variants || {};
+          state[role].cashHistory = json.data.cashHistory || [];
+          state[role].history = json.data.history || [];
+        }
+        localStorage.setItem(`admin_${role}`, JSON.stringify(state[role]));
+        console.log(`☁️ ${role} chargé depuis serveur`);
+      }
+    } catch (e) {
+      console.log(`⚠️ Chargement ${role} serveur indisponible`);
+    }
+  }
+}
+
 async function checkAuth() {
   const auth = localStorage.getItem('admin_auth');
   const expiry = localStorage.getItem('session_expiry');
@@ -2286,11 +2400,12 @@ async function checkAuth() {
 
     showDashboard();
 
-    // Synchroniser les commandes après affichage
+    // Synchroniser les commandes et staff data après affichage
     if (state.apiToken) {
-      setTimeout(() => {
+      setTimeout(async () => {
         syncOrders(false);
-        console.log('🔄 Synchronisation des commandes...');
+        await loadStaffFromServer();
+        console.log('🔄 Synchronisation commandes + staff data...');
       }, 500);
     }
 
@@ -2638,6 +2753,11 @@ function showTab(name) {
     loadStaff(name);
   }
   
+  if (name === 'employees') {
+    loadEmployees();
+    loadPayroll();
+  }
+
   if (name === 'settings') {
     calculateStorageSize();
   }
@@ -4561,6 +4681,231 @@ function staffFilterHistory(role, filter) {
   if (container) container.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   event.target.classList.add('active');
   staffLoadHistory(role, filter);
+}
+
+// ==================== EMPLOYEES / PAYROLL ====================
+
+async function loadEmployees() {
+  const token = localStorage.getItem('admin_token');
+  if (!token) return;
+  try {
+    const res = await fetch('/api/admin/employees', { headers: { 'x-admin-token': token } });
+    const data = await res.json();
+    if (!data.ok) return;
+
+    const tbody = document.getElementById('employeesTable');
+    const active = data.employees.filter(e => e.status === 'active');
+    document.getElementById('empActiveCount').textContent = active.length;
+    document.getElementById('empTotalSalary').textContent = active.reduce((s, e) => s + e.salary, 0).toFixed(2) + ' €';
+
+    tbody.innerHTML = data.employees.map(e => `
+      <tr>
+        <td><strong>${e.name}</strong></td>
+        <td>${e.position}</td>
+        <td>${e.type}</td>
+        <td>${e.salary.toFixed(2)} €</td>
+        <td>${e.hire_date}</td>
+        <td><span style="color:${e.status === 'active' ? 'var(--success)' : 'var(--danger)'}">${e.status === 'active' ? '✅ Actif' : '❌ Inactif'}</span></td>
+        <td>
+          <button onclick="toggleEmployeeStatus(${e.id}, '${e.status === 'active' ? 'inactive' : 'active'}')" style="font-size:12px;padding:4px 8px">${e.status === 'active' ? '🔴' : '🟢'}</button>
+          <button onclick="deleteEmployee(${e.id})" style="font-size:12px;padding:4px 8px;background:var(--danger)">🗑</button>
+        </td>
+      </tr>
+    `).join('');
+  } catch (e) {
+    console.error('Load employees error:', e);
+  }
+}
+
+function showAddEmployeeModal() {
+  showModal('Nouvel Employé', `
+    <div class="form-group"><label>Nom</label><input type="text" id="empName"></div>
+    <div class="form-group"><label>Poste</label><input type="text" id="empPosition" placeholder="Ex: Livreur, Gérant..."></div>
+    <div class="form-group"><label>Type</label>
+      <select id="empType"><option value="CDI">CDI</option><option value="CDD">CDD</option><option value="Freelance">Freelance</option><option value="Stage">Stage</option></select>
+    </div>
+    <div class="form-group"><label>Salaire (€)</label><input type="number" id="empSalary" step="0.01"></div>
+    <div class="form-group"><label>Date d'embauche</label><input type="date" id="empHireDate"></div>
+    <button onclick="saveEmployee()">💾 Créer</button>
+  `);
+}
+
+async function saveEmployee() {
+  const token = localStorage.getItem('admin_token');
+  const body = {
+    name: document.getElementById('empName').value,
+    position: document.getElementById('empPosition').value,
+    type: document.getElementById('empType').value,
+    salary: parseFloat(document.getElementById('empSalary').value) || 0,
+    hire_date: document.getElementById('empHireDate').value
+  };
+  if (!body.name || !body.position || !body.hire_date) {
+    showToast('⚠️ Remplissez tous les champs', 'error');
+    return;
+  }
+  try {
+    const res = await fetch('/api/admin/employees', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-token': token },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    if (data.ok) {
+      showToast('✅ Employé créé');
+      closeModal();
+      loadEmployees();
+    } else {
+      showToast('❌ ' + (data.error || 'Erreur'), 'error');
+    }
+  } catch (e) {
+    showToast('❌ Erreur réseau', 'error');
+  }
+}
+
+async function toggleEmployeeStatus(id, newStatus) {
+  const token = localStorage.getItem('admin_token');
+  try {
+    await fetch(`/api/admin/employees/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'x-admin-token': token },
+      body: JSON.stringify({ status: newStatus })
+    });
+    loadEmployees();
+  } catch (e) {
+    showToast('❌ Erreur', 'error');
+  }
+}
+
+async function deleteEmployee(id) {
+  if (!confirm('Supprimer cet employé ?')) return;
+  const token = localStorage.getItem('admin_token');
+  try {
+    await fetch(`/api/admin/employees/${id}`, {
+      method: 'DELETE',
+      headers: { 'x-admin-token': token }
+    });
+    showToast('🗑 Employé supprimé');
+    loadEmployees();
+  } catch (e) {
+    showToast('❌ Erreur', 'error');
+  }
+}
+
+async function loadPayroll() {
+  const token = localStorage.getItem('admin_token');
+  if (!token) return;
+  const month = document.getElementById('payrollMonth').value;
+  const year = document.getElementById('payrollYear').value;
+  try {
+    let url = '/api/admin/payroll?';
+    if (month) url += `month=${month}&`;
+    if (year) url += `year=${year}&`;
+    const res = await fetch(url, { headers: { 'x-admin-token': token } });
+    const data = await res.json();
+    if (!data.ok) return;
+
+    const pending = data.payroll.filter(p => p.status === 'pending');
+    document.getElementById('empPendingPayroll').textContent = pending.length;
+
+    const MOIS = ['','Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+    document.getElementById('payrollTable').innerHTML = data.payroll.map(p => `
+      <tr>
+        <td>${p.employee_name}</td>
+        <td>${MOIS[p.month]} ${p.year}</td>
+        <td>${p.gross_amount.toFixed(2)} €</td>
+        <td>${(p.bonus || 0).toFixed(2)} €</td>
+        <td><strong>${p.net_amount.toFixed(2)} €</strong></td>
+        <td><span style="color:${p.status === 'paid' ? 'var(--success)' : p.status === 'pending' ? 'orange' : 'var(--danger)'}">${p.status === 'paid' ? '✅ Payé' : p.status === 'pending' ? '⏳ En attente' : '❌ Annulé'}</span></td>
+        <td>
+          ${p.status === 'pending' ? `<button onclick="markPayrollPaid(${p.id})" style="font-size:12px;padding:4px 8px;background:var(--success)">💰 Payer</button>` : ''}
+        </td>
+      </tr>
+    `).join('');
+  } catch (e) {
+    console.error('Load payroll error:', e);
+  }
+}
+
+function showAddPayrollModal() {
+  const token = localStorage.getItem('admin_token');
+  fetch('/api/admin/employees?status=active', { headers: { 'x-admin-token': token } })
+    .then(r => r.json())
+    .then(data => {
+      if (!data.ok || !data.employees.length) {
+        showToast('⚠️ Aucun employé actif', 'error');
+        return;
+      }
+      const options = data.employees.map(e => `<option value="${e.id}" data-salary="${e.salary}">${e.name} (${e.salary}€)</option>`).join('');
+      showModal('Nouvelle Fiche de Paie', `
+        <div class="form-group"><label>Employé</label><select id="payEmpId" onchange="prefillPayroll()">${options}</select></div>
+        <div class="form-group"><label>Mois</label><input type="number" id="payMonth" min="1" max="12" value="${new Date().getMonth() + 1}"></div>
+        <div class="form-group"><label>Année</label><input type="number" id="payYear" value="${new Date().getFullYear()}"></div>
+        <div class="form-group"><label>Montant Brut (€)</label><input type="number" id="payGross" step="0.01"></div>
+        <div class="form-group"><label>Bonus (€)</label><input type="number" id="payBonus" step="0.01" value="0"></div>
+        <div class="form-group"><label>Note</label><input type="text" id="payNote"></div>
+        <button onclick="savePayroll()">💾 Créer</button>
+      `);
+      prefillPayroll();
+    });
+}
+
+function prefillPayroll() {
+  const sel = document.getElementById('payEmpId');
+  const salary = sel.options[sel.selectedIndex]?.dataset.salary || 0;
+  document.getElementById('payGross').value = salary;
+}
+
+async function savePayroll() {
+  const token = localStorage.getItem('admin_token');
+  const body = {
+    employee_id: parseInt(document.getElementById('payEmpId').value),
+    month: parseInt(document.getElementById('payMonth').value),
+    year: parseInt(document.getElementById('payYear').value),
+    gross_amount: parseFloat(document.getElementById('payGross').value) || 0,
+    bonus: parseFloat(document.getElementById('payBonus').value) || 0,
+    note: document.getElementById('payNote').value
+  };
+  try {
+    const res = await fetch('/api/admin/payroll', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-token': token },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    if (data.ok) {
+      showToast('✅ Fiche de paie créée');
+      closeModal();
+      loadPayroll();
+    } else {
+      showToast('❌ ' + (data.error || 'Erreur'), 'error');
+    }
+  } catch (e) {
+    showToast('❌ Erreur réseau', 'error');
+  }
+}
+
+async function markPayrollPaid(id) {
+  const token = localStorage.getItem('admin_token');
+  try {
+    await fetch(`/api/admin/payroll/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'x-admin-token': token },
+      body: JSON.stringify({ status: 'paid', payment_date: new Date().toISOString().split('T')[0] })
+    });
+    showToast('✅ Paie marquée comme payée');
+    loadPayroll();
+  } catch (e) {
+    showToast('❌ Erreur', 'error');
+  }
+}
+
+function exportStaffCSV(role) {
+  const token = localStorage.getItem('admin_token');
+  if (!token) {
+    showToast('⚠️ Non authentifié', 'error');
+    return;
+  }
+  window.open(`/api/admin/staff/${role}/export?token=${token}`, '_blank');
 }
 
 // ==================== FIN STAFF ====================
