@@ -7,6 +7,7 @@ const { open } = require('sqlite');
 const cors = require('cors');
 const path = require('path');
 const axios = require('axios');
+const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 
@@ -93,7 +94,10 @@ const authLimiter = rateLimit({
 });
 
 // ==================== MIDDLEWARE ====================
-app.use(cors());
+app.use(cors({
+  origin: [config.webapp.url, 'http://localhost:3000'],
+  credentials: true
+}));
 app.use(express.json({ limit: '10mb' }));
 
 // Debug: Logger toutes les requêtes POST
@@ -141,6 +145,12 @@ class TokenStore {
 }
 
 const adminTokens = new TokenStore(config.admin.tokenExpiry);
+
+// Hash du mot de passe admin (ne jamais comparer en clair)
+function hashPassword(password) {
+  return crypto.createHash('sha256').update(password).digest('hex');
+}
+const adminPasswordHash = hashPassword(config.admin.password);
 
 // Admins authentifiés en session (via /adminlogin)
 const sessionAdmins = new Set();
@@ -297,6 +307,21 @@ const chatManager = new ChatManager();
 
 // Cleanup automatique toutes les 15 minutes (optimisé)
 setInterval(() => chatManager.cleanupInactive(), 15 * 60 * 1000);
+
+// Cleanup paniers expirés toutes les 5 minutes (30min d'expiration)
+setInterval(async () => {
+  try {
+    if (!db) return;
+    const result = await db.run(
+      "DELETE FROM carts WHERE updated_at < datetime('now', '-30 minutes')"
+    );
+    if (result.changes > 0) {
+      console.log(`🧹 ${result.changes} panier(s) expiré(s) supprimé(s)`);
+    }
+  } catch (e) {
+    console.error('Cart cleanup error:', e.message);
+  }
+}, 5 * 60 * 1000);
 
 // ==================== DATABASE ====================
 let db;
@@ -494,6 +519,25 @@ async function initDB() {
       FOREIGN KEY (announcement_id) REFERENCES announcements(id)
     );
 
+    CREATE TABLE IF NOT EXISTS carts (
+      session_id TEXT PRIMARY KEY,
+      items TEXT NOT NULL DEFAULT '[]',
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS favorites (
+      session_id TEXT PRIMARY KEY,
+      product_ids TEXT NOT NULL DEFAULT '[]',
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS staff_data (
+      role TEXT PRIMARY KEY CHECK(role IN ('nourrice', 'gerant', 'livreur')),
+      data TEXT NOT NULL DEFAULT '{}',
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_carts_updated ON carts(updated_at);
     CREATE INDEX IF NOT EXISTS idx_scheduled_actions_status ON scheduled_actions(status, execute_at);
     CREATE INDEX IF NOT EXISTS idx_announcements_channel ON announcements(channel_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_announcements_status ON announcements(status);
@@ -2385,7 +2429,7 @@ app.get('/api/credit-balance', apiLimiter, async (req, res) => {
 
 // ==================== ADMIN MIDDLEWARE ====================
 function requireAdmin(req, res, next) {
-  const token = req.headers['x-admin-token'];
+  const token = req.headers['x-admin-token'] || req.query.token;
   if (!token || !adminTokens.has(token)) {
     return res.status(401).json({ ok: false, error: 'Non autorisé' });
   }
@@ -2396,8 +2440,9 @@ function requireAdmin(req, res, next) {
 
 app.post('/api/admin/login', authLimiter, (req, res) => {
   const { password } = req.body;
-  
-  if (password === config.admin.password) {
+
+  const inputHash = hashPassword(password || '');
+  if (crypto.timingSafeEqual(Buffer.from(inputHash), Buffer.from(adminPasswordHash))) {
     const token = adminTokens.generateToken();
     adminTokens.add(token);
     res.json({ ok: true, token });
@@ -2483,18 +2528,43 @@ app.put('/api/admin/orders/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const updates = req.body;
-    
+
     delete updates.id;
-    
+
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({ ok: false, error: 'Aucune mise à jour fournie' });
     }
-    
+
+    // Récupérer l'ancien statut avant mise à jour
+    const oldOrder = await db.get('SELECT status, client_telegram_id, customer FROM orders WHERE id = ?', [id]);
+
     const fields = Object.keys(updates).map(key => `${key} = ?`).join(', ');
     const values = [...Object.values(updates), id];
-    
+
     await db.run(`UPDATE orders SET ${fields} WHERE id = ?`, values);
-    
+
+    // Notification Telegram au client si le statut a changé
+    if (updates.status && oldOrder && updates.status !== oldOrder.status) {
+      const clientTelegramId = oldOrder.client_telegram_id || await getClientTelegramId(oldOrder.customer);
+      if (clientTelegramId) {
+        const statusMessages = {
+          'pending': '⏳ Votre commande #' + id + ' est en attente de traitement.',
+          'confirmed': '✅ Votre commande #' + id + ' a été confirmée !',
+          'preparing': '👨‍🍳 Votre commande #' + id + ' est en préparation.',
+          'en_route': '🚚 Votre commande #' + id + ' est en route !',
+          'delivered': '✅ Votre commande #' + id + ' a été livrée. Merci !',
+          'cancelled': '❌ Votre commande #' + id + ' a été annulée.'
+        };
+        const msg = statusMessages[updates.status] || `📦 Votre commande #${id} a changé de statut: ${updates.status}`;
+        try {
+          await telegram.sendMessage(clientTelegramId, msg);
+          console.log(`📱 Notification statut envoyée au client ${clientTelegramId} pour commande #${id}`);
+        } catch (e) {
+          console.error(`Failed to notify client ${clientTelegramId}:`, e.message);
+        }
+      }
+    }
+
     res.json({ ok: true });
   } catch (error) {
     console.error('Update order error:', error);
@@ -2840,6 +2910,325 @@ app.get('/api/admin/orders/export/csv', requireAdmin, async (req, res) => {
     res.send('\uFEFF' + csv);
   } catch (error) {
     console.error('Export error:', error);
+    res.status(500).json({ ok: false, error: 'Erreur serveur' });
+  }
+});
+
+// ==================== CART PERSISTENCE (30min expiry) ====================
+
+app.put('/api/cart/:sessionId', apiLimiter, async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { items } = req.body;
+    if (!sessionId || typeof sessionId !== 'string' || sessionId.length > 100) {
+      return res.status(400).json({ ok: false, error: 'Session invalide' });
+    }
+    if (!Array.isArray(items)) {
+      return res.status(400).json({ ok: false, error: 'Items invalides' });
+    }
+    await db.run(
+      `INSERT INTO carts (session_id, items, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)
+       ON CONFLICT(session_id) DO UPDATE SET items = excluded.items, updated_at = CURRENT_TIMESTAMP`,
+      [sessionId, JSON.stringify(items)]
+    );
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Save cart error:', error);
+    res.status(500).json({ ok: false, error: 'Erreur serveur' });
+  }
+});
+
+app.get('/api/cart/:sessionId', apiLimiter, async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const cart = await db.get(
+      "SELECT items, updated_at FROM carts WHERE session_id = ? AND updated_at >= datetime('now', '-30 minutes')",
+      [sessionId]
+    );
+    if (!cart) {
+      return res.json({ ok: true, items: [], expired: true });
+    }
+    res.json({ ok: true, items: JSON.parse(cart.items), expired: false });
+  } catch (error) {
+    console.error('Load cart error:', error);
+    res.status(500).json({ ok: false, error: 'Erreur serveur' });
+  }
+});
+
+app.delete('/api/cart/:sessionId', apiLimiter, async (req, res) => {
+  try {
+    await db.run('DELETE FROM carts WHERE session_id = ?', [req.params.sessionId]);
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Delete cart error:', error);
+    res.status(500).json({ ok: false, error: 'Erreur serveur' });
+  }
+});
+
+// ==================== FAVORITES SYNC ====================
+
+app.put('/api/favorites/:sessionId', apiLimiter, async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { productIds } = req.body;
+    if (!sessionId || typeof sessionId !== 'string' || sessionId.length > 100) {
+      return res.status(400).json({ ok: false, error: 'Session invalide' });
+    }
+    if (!Array.isArray(productIds)) {
+      return res.status(400).json({ ok: false, error: 'Données invalides' });
+    }
+    await db.run(
+      `INSERT INTO favorites (session_id, product_ids, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)
+       ON CONFLICT(session_id) DO UPDATE SET product_ids = excluded.product_ids, updated_at = CURRENT_TIMESTAMP`,
+      [sessionId, JSON.stringify(productIds)]
+    );
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Save favorites error:', error);
+    res.status(500).json({ ok: false, error: 'Erreur serveur' });
+  }
+});
+
+app.get('/api/favorites/:sessionId', apiLimiter, async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const fav = await db.get('SELECT product_ids FROM favorites WHERE session_id = ?', [sessionId]);
+    if (!fav) {
+      return res.json({ ok: true, productIds: [] });
+    }
+    res.json({ ok: true, productIds: JSON.parse(fav.product_ids) });
+  } catch (error) {
+    console.error('Load favorites error:', error);
+    res.status(500).json({ ok: false, error: 'Erreur serveur' });
+  }
+});
+
+// ==================== STAFF DATA SYNC (Nourrice/Gérant/Livreur) ====================
+
+app.put('/api/admin/staff/:role', requireAdmin, async (req, res) => {
+  try {
+    const { role } = req.params;
+    if (!['nourrice', 'gerant', 'livreur'].includes(role)) {
+      return res.status(400).json({ ok: false, error: 'Rôle invalide' });
+    }
+    const { data } = req.body;
+    if (!data || typeof data !== 'object') {
+      return res.status(400).json({ ok: false, error: 'Données invalides' });
+    }
+    await db.run(
+      `INSERT INTO staff_data (role, data, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)
+       ON CONFLICT(role) DO UPDATE SET data = excluded.data, updated_at = CURRENT_TIMESTAMP`,
+      [role, JSON.stringify(data)]
+    );
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Save staff data error:', error);
+    res.status(500).json({ ok: false, error: 'Erreur serveur' });
+  }
+});
+
+app.get('/api/admin/staff/:role', requireAdmin, async (req, res) => {
+  try {
+    const { role } = req.params;
+    if (!['nourrice', 'gerant', 'livreur'].includes(role)) {
+      return res.status(400).json({ ok: false, error: 'Rôle invalide' });
+    }
+    const row = await db.get('SELECT data, updated_at FROM staff_data WHERE role = ?', [role]);
+    if (!row) {
+      return res.json({ ok: true, data: null });
+    }
+    res.json({ ok: true, data: JSON.parse(row.data), updated_at: row.updated_at });
+  } catch (error) {
+    console.error('Load staff data error:', error);
+    res.status(500).json({ ok: false, error: 'Erreur serveur' });
+  }
+});
+
+// ==================== STAFF DATA EXPORT (CSV) ====================
+
+app.get('/api/admin/staff/:role/export', requireAdmin, async (req, res) => {
+  try {
+    const { role } = req.params;
+    if (!['nourrice', 'gerant', 'livreur'].includes(role)) {
+      return res.status(400).json({ ok: false, error: 'Rôle invalide' });
+    }
+    const row = await db.get('SELECT data FROM staff_data WHERE role = ?', [role]);
+    if (!row) {
+      return res.status(404).json({ ok: false, error: 'Aucune donnée' });
+    }
+    const data = JSON.parse(row.data);
+    let csv = '';
+
+    if (role === 'nourrice') {
+      csv += 'Type,Produit,Quantité (g),Date\n';
+      if (data.stock) {
+        Object.entries(data.stock).forEach(([product, qty]) => {
+          csv += `Stock,"${product}",${qty},-\n`;
+        });
+      }
+      csv += `\nArgent en caisse,${data.cash || 0}€,,\n`;
+      if (data.history && data.history.length > 0) {
+        csv += '\nHistorique\nType,Détail,Quantité,Date\n';
+        data.history.forEach(h => {
+          csv += `"${h.type || ''}","${h.detail || h.product || ''}","${h.qty || h.amount || ''}","${h.date || ''}"\n`;
+        });
+      }
+    } else {
+      csv += 'Section,Produit/Variant,Quantité,Date\n';
+      if (data.gros) {
+        Object.entries(data.gros).forEach(([product, qty]) => {
+          csv += `Gros,"${product}",${qty}g,-\n`;
+        });
+      }
+      if (data.variants) {
+        Object.entries(data.variants).forEach(([key, qty]) => {
+          csv += `Variant,"${key.replace('::', ' - ')}",${qty},-\n`;
+        });
+      }
+      csv += `\nArgent en caisse,${data.cash || 0}€,,\n`;
+      if (data.history && data.history.length > 0) {
+        csv += '\nHistorique\nType,Détail,Quantité,Date\n';
+        data.history.forEach(h => {
+          csv += `"${h.type || ''}","${h.detail || h.product || ''}","${h.qty || h.amount || ''}","${h.date || ''}"\n`;
+        });
+      }
+    }
+
+    const roleName = { nourrice: 'Nourrice', gerant: 'Gerant', livreur: 'Livreur' }[role];
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename=stock_${roleName}.csv`);
+    res.send('\uFEFF' + csv);
+  } catch (error) {
+    console.error('Staff export error:', error);
+    res.status(500).json({ ok: false, error: 'Erreur serveur' });
+  }
+});
+
+// ==================== EMPLOYEES / PAYROLL CRUD ====================
+
+app.get('/api/admin/employees', requireAdmin, async (req, res) => {
+  try {
+    const { status } = req.query;
+    let query = 'SELECT * FROM employees';
+    const params = [];
+    if (status && status !== 'all') {
+      query += ' WHERE status = ?';
+      params.push(status);
+    }
+    query += ' ORDER BY created_at DESC';
+    const employees = await db.all(query, params);
+    res.json({ ok: true, employees });
+  } catch (error) {
+    console.error('Employees error:', error);
+    res.status(500).json({ ok: false, error: 'Erreur serveur' });
+  }
+});
+
+app.post('/api/admin/employees', requireAdmin, async (req, res) => {
+  try {
+    const { name, position, type, salary, hire_date } = req.body;
+    if (!name || !position || !type || salary == null || !hire_date) {
+      return res.status(400).json({ ok: false, error: 'Champs requis manquants' });
+    }
+    const result = await db.run(
+      'INSERT INTO employees (name, position, type, salary, hire_date) VALUES (?, ?, ?, ?, ?)',
+      [name, position, type, Math.max(0, parseFloat(salary)), hire_date]
+    );
+    res.json({ ok: true, id: result.lastID });
+  } catch (error) {
+    console.error('Add employee error:', error);
+    res.status(500).json({ ok: false, error: 'Erreur serveur' });
+  }
+});
+
+app.put('/api/admin/employees/:id', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, position, type, salary, status } = req.body;
+    const fields = [];
+    const values = [];
+    if (name) { fields.push('name = ?'); values.push(name); }
+    if (position) { fields.push('position = ?'); values.push(position); }
+    if (type) { fields.push('type = ?'); values.push(type); }
+    if (salary != null) { fields.push('salary = ?'); values.push(Math.max(0, parseFloat(salary))); }
+    if (status) { fields.push('status = ?'); values.push(status); }
+    if (fields.length === 0) {
+      return res.status(400).json({ ok: false, error: 'Aucune mise à jour' });
+    }
+    values.push(id);
+    await db.run(`UPDATE employees SET ${fields.join(', ')} WHERE id = ?`, values);
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Update employee error:', error);
+    res.status(500).json({ ok: false, error: 'Erreur serveur' });
+  }
+});
+
+app.delete('/api/admin/employees/:id', requireAdmin, async (req, res) => {
+  try {
+    await db.run('DELETE FROM employees WHERE id = ?', [req.params.id]);
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Delete employee error:', error);
+    res.status(500).json({ ok: false, error: 'Erreur serveur' });
+  }
+});
+
+app.get('/api/admin/payroll', requireAdmin, async (req, res) => {
+  try {
+    const { month, year, status } = req.query;
+    let query = 'SELECT p.*, e.position FROM payroll p LEFT JOIN employees e ON p.employee_id = e.id WHERE 1=1';
+    const params = [];
+    if (month) { query += ' AND p.month = ?'; params.push(parseInt(month)); }
+    if (year) { query += ' AND p.year = ?'; params.push(parseInt(year)); }
+    if (status && status !== 'all') { query += ' AND p.status = ?'; params.push(status); }
+    query += ' ORDER BY p.year DESC, p.month DESC, p.created_at DESC';
+    const payroll = await db.all(query, params);
+    res.json({ ok: true, payroll });
+  } catch (error) {
+    console.error('Payroll error:', error);
+    res.status(500).json({ ok: false, error: 'Erreur serveur' });
+  }
+});
+
+app.post('/api/admin/payroll', requireAdmin, async (req, res) => {
+  try {
+    const { employee_id, month, year, gross_amount, bonus, note } = req.body;
+    if (!employee_id || !month || !year || gross_amount == null) {
+      return res.status(400).json({ ok: false, error: 'Champs requis manquants' });
+    }
+    const employee = await db.get('SELECT name FROM employees WHERE id = ?', [employee_id]);
+    if (!employee) {
+      return res.status(404).json({ ok: false, error: 'Employé introuvable' });
+    }
+    const bonusAmount = parseFloat(bonus) || 0;
+    const netAmount = parseFloat(gross_amount) + bonusAmount;
+    const result = await db.run(
+      `INSERT INTO payroll (employee_id, employee_name, month, year, gross_amount, bonus, net_amount, note)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [employee_id, employee.name, parseInt(month), parseInt(year), parseFloat(gross_amount), bonusAmount, netAmount, note || '']
+    );
+    res.json({ ok: true, id: result.lastID });
+  } catch (error) {
+    console.error('Add payroll error:', error);
+    res.status(500).json({ ok: false, error: 'Erreur serveur' });
+  }
+});
+
+app.put('/api/admin/payroll/:id', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, payment_date } = req.body;
+    if (!status) {
+      return res.status(400).json({ ok: false, error: 'Statut requis' });
+    }
+    await db.run(
+      'UPDATE payroll SET status = ?, payment_date = ? WHERE id = ?',
+      [status, payment_date || null, id]
+    );
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Update payroll error:', error);
     res.status(500).json({ ok: false, error: 'Erreur serveur' });
   }
 });
@@ -4177,7 +4566,8 @@ async function handleTelegramMessage(message) {
   // Commande /adminlogin <mot_de_passe> - authentification admin par mot de passe
   if (text.startsWith('/adminlogin ')) {
     const password = text.substring(12).trim();
-    if (password === config.admin.password) {
+    const inputHash = hashPassword(password);
+    if (crypto.timingSafeEqual(Buffer.from(inputHash), Buffer.from(adminPasswordHash))) {
       sessionAdmins.add(chatId.toString());
       console.log(`✅ Admin login success for chatId ${chatId} | sessionAdmins=[${[...sessionAdmins].join(',')}]`);
       await telegram.sendMessage(chatId, `✅ Authentification réussie !`);
