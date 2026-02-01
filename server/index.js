@@ -700,6 +700,15 @@ async function getClientContact(telegramId) {
   return result?.contact || null;
 }
 
+async function getCustomerDisplayName(contact) {
+  // Chercher le nom dans telegram_clients
+  const result = await db.get(
+    'SELECT first_name FROM telegram_clients WHERE contact = ? OR telegram_id = ?',
+    [contact, contact]
+  );
+  return result?.first_name || contact;
+}
+
 // ==================== BIDIRECTIONAL MESSAGING ====================
 
 async function saveMessage(orderId, senderType, senderId, message) {
@@ -1254,16 +1263,34 @@ async function restoreStockForOrder(items, orderId) {
 }
 
 // ==================== REFERRAL SYSTEM ====================
-async function generateReferralCode(customer, orderId) {
-  // Générer code unique basé sur le nom du client et l'ID de commande
-  const cleanCustomer = customer.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 6);
-  const code = `${cleanCustomer}${orderId}`;
+async function generateReferralCode() {
+  // Générer un code unique aléatoire de 8 caractères
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code;
+  let attempts = 0;
+  do {
+    const bytes = crypto.randomBytes(6);
+    code = 'DC';
+    for (let i = 0; i < 6; i++) {
+      code += chars[bytes[i] % chars.length];
+    }
+    const existing = await db.get('SELECT 1 FROM referrals WHERE referral_code = ?', [code]);
+    if (!existing) break;
+    attempts++;
+  } while (attempts < 10);
   return code;
 }
 
-async function getOrCreateReferralCode(customer, orderId) {
-  // INSERT OR IGNORE atomique pour éviter les doublons en cas de requêtes concurrentes
-  const code = await generateReferralCode(customer, orderId);
+async function getOrCreateReferralCode(customer) {
+  // Vérifier si le client a déjà un code
+  const existing = await db.get(
+    'SELECT * FROM referrals WHERE customer_contact = ?',
+    [customer]
+  );
+  if (existing) return existing;
+
+  // Générer et insérer un nouveau code unique
+  const code = await generateReferralCode();
   await db.run(
     'INSERT OR IGNORE INTO referrals (referral_code, customer_contact) VALUES (?, ?)',
     [code, customer]
@@ -1358,7 +1385,7 @@ async function applyReferralCredits(referrerCode, newCustomer, orderId) {
     );
 
     // Créer le code de parrainage pour le nouveau client
-    const code = await generateReferralCode(newCustomer, orderId);
+    const code = await generateReferralCode();
     await db.run(
       'INSERT OR IGNORE INTO referrals (referral_code, customer_contact) VALUES (?, ?)',
       [code, newCustomer]
@@ -1450,6 +1477,8 @@ async function getReferralStats(customer) {
 async function notifyReferralSuccess(referrerContact, newCustomerContact, creditAmount, orderId, vipInfo = {}) {
   // Essayer de trouver l'ID Telegram du parrain
   const referrerTelegramId = await getClientTelegramId(referrerContact);
+  const referrerName = await getCustomerDisplayName(referrerContact);
+  const newCustomerName = await getCustomerDisplayName(newCustomerContact);
 
   if (referrerTelegramId && config.telegram.botToken) {
     let vipMessage = '';
@@ -1462,7 +1491,7 @@ async function notifyReferralSuccess(referrerContact, newCustomerContact, credit
     const message = `🎉 <b>FÉLICITATIONS ! PARRAINAGE RÉUSSI !</b>
 
 💰 <b>+${creditAmount} DA ajoutés à votre crédit !</b>${vipMessage}
-👤 <b>Nouveau client parrainé:</b> ${newCustomerContact}
+👤 <b>Nouveau client parrainé:</b> ${newCustomerName}
 📦 <b>Commande:</b> #${orderId}
 
 💳 <b>Votre crédit est disponible immédiatement</b>
@@ -1478,12 +1507,12 @@ Utilisez-le lors de votre prochaine commande !
     }
   }
 
-  // Notification admin optionnelle
+  // Notification admin
   if (getAdminChatIds().length > 0) {
     const adminMessage = `💰 <b>PARRAINAGE RÉUSSI</b>
 
-👤 Parrain: ${referrerContact} → +${creditAmount} DA
-🆕 Filleul: ${newCustomerContact}
+👤 Parrain: ${referrerName} → +${creditAmount} DA
+🆕 Filleul: ${newCustomerName}
 📦 Commande: #${orderId}`;
 
     await notifyAdmins(adminMessage);
@@ -1493,6 +1522,7 @@ Utilisez-le lors de votre prochaine commande !
 async function notifyVIPTierUpgrade(referrerContact, newTier, totalReferrals) {
   // Essayer de trouver l'ID Telegram du parrain
   const referrerTelegramId = await getClientTelegramId(referrerContact);
+  const referrerName = await getCustomerDisplayName(referrerContact);
 
   if (referrerTelegramId && config.telegram.botToken) {
     let bonusPercent = 0;
@@ -1511,7 +1541,7 @@ async function notifyVIPTierUpgrade(referrerContact, newTier, totalReferrals) {
 
     const message = `👑 <b>NOUVEAU PALIER VIP DÉBLOQUÉ !</b>
 
-🎊 <b>Félicitations ${referrerContact} !</b>
+🎊 <b>Félicitations ${referrerName} !</b>
 
 Vous venez de passer au palier <b>${newTier}</b> !
 
@@ -1535,7 +1565,7 @@ Tapez /parrainage pour voir votre progression complète 📈`;
   if (getAdminChatIds().length > 0) {
     const adminMessage = `👑 <b>MONTÉE DE PALIER VIP</b>
 
-👤 Client: ${referrerContact}
+👤 Client: ${referrerName}
 🎯 Nouveau palier: ${newTier}
 📊 Total parrainages: ${totalReferrals}`;
 
@@ -1544,12 +1574,13 @@ Tapez /parrainage pour voir votre progression complète 📈`;
 }
 
 async function notifyNewCustomerOrder(order, items, customerRecord) {
+  const displayName = await getCustomerDisplayName(order.customer);
   if (getAdminChatIds().length > 0) {
     const message = `🆕 <b>NOUVEAU CLIENT - VALIDATION REQUISE</b>
 
 📦 <b>Commande #${order.id}</b>
 
-👤 <b>Client:</b> ${order.customer}
+👤 <b>Client:</b> ${displayName}
 📅 <b>Première commande:</b> ${new Date(customerRecord.first_order_date).toLocaleString('fr-FR')}
 
 📍 Type: ${order.type}
@@ -1582,32 +1613,33 @@ ${items.map(item => `• ${item.name} - ${item.variant} ×${item.qty} = ${item.l
     const supportMessage = `🆕 <b>NOUVEAU CLIENT</b>
 
 📦 Commande #${order.id}
-👤 Client: ${order.customer}
+👤 Client: ${displayName}
 💰 Total: ${order.total}€
 
 ⏳ En attente de validation admin`;
-    
+
     await telegram.sendMessage(config.telegram.supportChatId, supportMessage);
   }
 }
 
 async function notifyNewOrder(order, items) {
   const driverInfo = getDriverForDeliveryType(order.type);
-  
+  const displayName = await getCustomerDisplayName(order.customer);
+
   if (config.telegram.supportChatId) {
     const supportMessage = `🔔 NOUVELLE COMMANDE #${order.id}
 
-👤 Client: ${order.customer}
+👤 Client: ${displayName}
 📍 Type: ${order.type}
 🏠 Adresse: ${order.address || 'Sur place'}
 💰 Total: ${order.total}€
 📦 Articles: ${items.length} produit(s)
 
 ⚡ Contacter le client si besoin`;
-    
+
     await telegram.sendMessage(config.telegram.supportChatId, supportMessage);
   }
-  
+
   if (getAdminChatIds().length > 0) {
     // Récupérer les infos client complètes
     const customerInfo = await db.get('SELECT * FROM customers WHERE contact = ?', [order.customer]);
@@ -1615,7 +1647,7 @@ async function notifyNewOrder(order, items) {
 
     let adminMessage = `📦 <b>COMMANDE #${order.id}</b>
 
-👤 <b>Client: ${order.customer}</b>`;
+👤 <b>Client: ${displayName}</b>`;
 
     if (telegramInfo) {
       adminMessage += `\n📱 Telegram: @${telegramInfo.username || telegramInfo.telegram_id}`;
@@ -2038,7 +2070,7 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
 
     validateOrderInput(req.body);
 
-    const { customer, type, address, items, total, referralCode, useCredit, telegramId } = req.body;
+    const { customer, customerName, type, address, items, total, referralCode, useCredit, telegramId } = req.body;
     
     const sanitizedCustomer = sanitizeString(customer, 100);
     const sanitizedType = sanitizeString(type, 50);
@@ -2156,16 +2188,18 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
     const finalTotal = total - discount - creditUsed;
     const orderStatus = isNewCustomer ? 'pending_approval' : 'pending';
 
-    // Si un telegram_id a été fourni, lier ce telegram_id au contact du client
+    // Lier telegram_id au contact et stocker le nom d'affichage
+    const sanitizedName = customerName ? sanitizeString(customerName, 100) : sanitizedCustomer;
     if (telegramId) {
       try {
         await db.run(`
-          INSERT INTO telegram_clients (telegram_id, contact)
-          VALUES (?, ?)
+          INSERT INTO telegram_clients (telegram_id, contact, first_name)
+          VALUES (?, ?, ?)
           ON CONFLICT(telegram_id) DO UPDATE SET
-            contact = excluded.contact
-        `, [telegramId, sanitizedCustomer]);
-        console.log(`🔗 Linked Telegram ID ${telegramId} to contact ${sanitizedCustomer}`);
+            contact = excluded.contact,
+            first_name = excluded.first_name
+        `, [telegramId, sanitizedCustomer, sanitizedName]);
+        console.log(`🔗 Linked Telegram ID ${telegramId} to contact ${sanitizedCustomer} (${sanitizedName})`);
       } catch (error) {
         console.error('Error linking telegram_id to contact:', error);
       }
@@ -2201,7 +2235,7 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
 
     // ==================== SYSTÈME DE PARRAINAGE ====================
     // Créer ou récupérer le code de parrainage du client
-    const customerReferral = await getOrCreateReferralCode(sanitizedCustomer, orderId);
+    const customerReferral = await getOrCreateReferralCode(sanitizedCustomer);
     let referralResult = null;
 
     // Appliquer les crédits de parrainage si un code a été fourni
@@ -2371,8 +2405,8 @@ app.get('/api/referral-leaderboard', apiLimiter, async (req, res) => {
       LIMIT ?
     `, [limit]);
 
-    // Calculer les paliers VIP
-    const leaderboardWithTiers = leaderboard.map((user, index) => {
+    // Calculer les paliers VIP et résoudre les noms d'affichage
+    const leaderboardWithTiers = await Promise.all(leaderboard.map(async (user, index) => {
       const totalReferrals = user.total_referrals || 0;
       let vipTier = 'Bronze 🥉';
       let vipBonus = 0;
@@ -2388,18 +2422,21 @@ app.get('/api/referral-leaderboard', apiLimiter, async (req, res) => {
         vipBonus = 10;
       }
 
-      // Masquer une partie du numéro de téléphone
-      const maskedContact = user.customer_contact.replace(/(\d{2})\d+(\d{4})/, '$1****$2');
+      // Afficher le nom avec première lettre + *** pour la confidentialité
+      const displayName = await getCustomerDisplayName(user.customer_contact);
+      const maskedName = displayName.length > 2
+        ? displayName.substring(0, 2) + '***'
+        : displayName[0] + '***';
 
       return {
         rank: index + 1,
-        contact: maskedContact,
+        contact: maskedName,
         totalReferrals,
         totalEarned: user.total_earned,
         vipTier,
         vipBonus
       };
-    });
+    }));
 
     res.json({
       ok: true,
@@ -5851,12 +5888,12 @@ async function sendMyReferralCode(chatId) {
     }
 
     // Créer ou récupérer le code
-    const referral = await getOrCreateReferralCode(client.contact, 0);
+    const referral = await getOrCreateReferralCode(client.contact);
 
     const text = `🎁 <b>VOTRE CODE PARRAINAGE</b>
 
 <b>🔑 Code personnel :</b>
-<code>${referral}</code>
+<code>${referral.referral_code}</code>
 
 <b>💰 Partagez et gagnez :</b>
 • Vous : 500 DA par parrainage
@@ -5867,7 +5904,7 @@ Plus vous parrainez, plus vos gains augmentent !
 
 Partagez dès maintenant ! 🚀`;
 
-    const shareText = encodeURIComponent(`🎉 Commande sur DROGUA CENTER et reçois 300 DA !\n\n🎁 Code : ${referral}\n\n👉 ${config.webapp.url}`);
+    const shareText = encodeURIComponent(`🎉 Commande sur DROGUA CENTER et reçois 300 DA !\n\n🎁 Code : ${referral.referral_code}\n\n👉 ${config.webapp.url}`);
 
     const keyboard = {
       inline_keyboard: [

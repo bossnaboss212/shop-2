@@ -2464,7 +2464,7 @@ const SyncManager = {
       const order = {
         id: 'DC' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substr(2, 4).toUpperCase(),
         timestamp: new Date().toISOString(),
-        name: orderData.customer,
+        name: orderData.customerName || orderData.customer,
         items: orderData.items,
         total: orderData.total,
         paymentMethod: 'Espèces',
@@ -2480,33 +2480,20 @@ const SyncManager = {
 
       console.log('✅ Commande créée localement:', order.id);
 
-      // Récupérer le telegram_id et le nom si disponible
-      let telegramId = null;
-      let telegramName = null;
-      try {
-        if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe) {
-          const user = window.Telegram.WebApp.initDataUnsafe.user;
-          telegramId = user?.id || null;
-          telegramName = user ? (user.first_name + (user.last_name ? ' ' + user.last_name : '')) : null;
-          console.log('📱 Telegram ID capturé:', telegramId, '| Nom:', telegramName);
-        }
-      } catch (e) {
-        console.log('ℹ️ Telegram WebApp non disponible (navigation normale)');
-      }
-
-      // 🔥 NOUVEAU: Envoyer la commande au serveur pour sync avec l'admin
+      // Envoyer la commande au serveur pour sync avec l'admin
       fetch('/api/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          customer: telegramName || orderData.customer,
+          customer: orderData.customer,
+          customerName: orderData.customerName || orderData.customer,
           type: orderData.type,
           address: orderData.address,
           items: orderData.items,
           total: orderData.total,
           referralCode: orderData.referralCode || '',
           useCredit: orderData.useCredit || false,
-          telegramId: telegramId
+          telegramId: orderData.customer
         })
       })
       .then(res => res.json())
@@ -3610,8 +3597,8 @@ async function fetchUserCredit(customerContact) {
     const response = await fetch(`/api/referral-stats?customer=${encodeURIComponent(customerContact)}`);
     const data = await response.json();
 
-    if (data.ok && data.stats) {
-      userCreditBalance = data.stats.creditBalance || 0;
+    if (data.ok) {
+      userCreditBalance = data.creditBalance || 0;
       updateHeaderCreditDisplay(userCreditBalance);
       return userCreditBalance;
     }
@@ -4294,10 +4281,14 @@ function renderCart() {
       }
 
       try {
-        const response = await fetch(`/api/validate-referral?code=${encodeURIComponent(code)}`);
+        const response = await fetch('/api/validate-referral', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code })
+        });
         const data = await response.json();
 
-        if (data.ok && data.valid) {
+        if (data.valid) {
           statusDiv.innerHTML = '<span style="color:var(--success)">✅ Code valide ! Vous recevrez 300 DA après votre commande</span>';
           input.disabled = true;
           applyReferralBtn.disabled = true;
@@ -4465,10 +4456,12 @@ async function validateOrder() {
     const referralInput = document.getElementById('referralInput');
     const referralCode = referralInput?.value.trim().toUpperCase() || '';
 
+    const tgUser = (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe && window.Telegram.WebApp.initDataUnsafe.user)
+      ? window.Telegram.WebApp.initDataUnsafe.user : null;
+
     const orderData = {
-      customer: (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe && window.Telegram.WebApp.initDataUnsafe.user)
-        ? (window.Telegram.WebApp.initDataUnsafe.user.first_name + (window.Telegram.WebApp.initDataUnsafe.user.last_name ? ' ' + window.Telegram.WebApp.initDataUnsafe.user.last_name : ''))
-        : 'Client Web',
+      customer: tgUser ? String(tgUser.id) : 'Client Web',
+      customerName: tgUser ? (tgUser.first_name + (tgUser.last_name ? ' ' + tgUser.last_name : '')) : 'Client Web',
       type: deliveryType,
       address: address,
       items: items,
@@ -4530,7 +4523,7 @@ function createOrderMessage(orderData, orderId, totalAmount) {
   const message = `🆕 COMMANDE DROGUA CENTER
 
 📋 N° de commande: #${orderId}
-🎭 Client: ${orderData.customer}
+🎭 Client: ${orderData.customerName || orderData.customer}
 
 📦 DÉTAILS DE LA COMMANDE 🛍️
 
@@ -4845,7 +4838,7 @@ function showOrderSummary(orderData, orderId, discount = 0, notificationSent = f
           Annuler certains articles
         </button>
 
-        <button id="cancelOrderBtn" data-order-id="${orderId}" data-customer="${orderData.customer}" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--danger);border:none;border-radius:12px;padding:12px 20px;color:#fff;font-weight:600;cursor:pointer;transition:all 0.2s" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
+        <button id="cancelOrderBtn" data-order-id="${orderId}" data-customer="${orderData.customerName || orderData.customer}" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--danger);border:none;border-radius:12px;padding:12px 20px;color:#fff;font-weight:600;cursor:pointer;transition:all 0.2s" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
           <svg style="width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2" viewBox="0 0 24 24">
             <circle cx="12" cy="12" r="10"></circle>
             <line x1="15" y1="9" x2="9" y2="15"></line>
@@ -4884,8 +4877,8 @@ function showOrderSummary(orderData, orderId, discount = 0, notificationSent = f
   }
 
   // Fetch and display VIP tier info
-  if (orderData.phone) {
-    fetchAndDisplayVIPTier(orderData.phone);
+  if (orderData.customer && orderData.customer !== 'Client Web') {
+    fetchAndDisplayVIPTier(orderData.customer);
   }
 
 }
@@ -4896,8 +4889,8 @@ async function fetchAndDisplayVIPTier(customerContact) {
     const response = await fetch(`/api/referral-stats?customer=${encodeURIComponent(customerContact)}`);
     const data = await response.json();
 
-    if (data.ok && data.stats) {
-      const totalReferrals = data.stats.totalReferrals || 0;
+    if (data.ok && data.exists) {
+      const totalReferrals = data.totalReferrals || 0;
       let vipTier = 'Bronze 🥉';
       let vipBonus = 0;
       let nextTier = 'Argent 🥈';
@@ -5801,6 +5794,14 @@ async function init() {
 
     // Démarrer la synchronisation automatique
     startAutoSync();
+
+    // Charger le crédit utilisateur si Telegram WebApp disponible
+    try {
+      const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
+      if (tgUser && tgUser.id) {
+        fetchUserCredit(String(tgUser.id));
+      }
+    } catch (e) { /* pas de Telegram WebApp */ }
 
     console.log('DROGUA CENTER v3.4 chargé');
     console.log('9 produits, panier/favoris/avis synchronisés serveur');
