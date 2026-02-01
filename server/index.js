@@ -2505,6 +2505,95 @@ app.get('/api/admin/stats', requireAdmin, async (req, res) => {
   }
 });
 
+app.get('/api/admin/driver-caisse', requireAdmin, async (req, res) => {
+  try {
+    const { zone, days = 30 } = req.query;
+
+    let query = `
+      SELECT id, address, items, total, created_at, assigned_driver_zone
+      FROM orders
+      WHERE status = 'delivered'
+      AND DATE(created_at) >= DATE('now', '-' || ? || ' days')
+    `;
+    const params = [days];
+
+    if (zone && zone !== 'all') {
+      query += ' AND assigned_driver_zone = ?';
+      params.push(zone);
+    }
+
+    query += ' ORDER BY created_at DESC';
+
+    const orders = await db.all(query, params);
+
+    const millauOrders = orders.filter(o => o.assigned_driver_zone === 'millau');
+    const exterieurOrders = orders.filter(o => o.assigned_driver_zone === 'exterieur');
+
+    res.json({
+      ok: true,
+      millau: {
+        count: millauOrders.length,
+        total: millauOrders.reduce((s, o) => s + (o.total || 0), 0),
+        orders: millauOrders.map(o => ({
+          id: o.id,
+          address: o.address,
+          items: JSON.parse(o.items || '[]'),
+          total: o.total,
+          date: o.created_at
+        }))
+      },
+      exterieur: {
+        count: exterieurOrders.length,
+        total: exterieurOrders.reduce((s, o) => s + (o.total || 0), 0),
+        orders: exterieurOrders.map(o => ({
+          id: o.id,
+          address: o.address,
+          items: JSON.parse(o.items || '[]'),
+          total: o.total,
+          date: o.created_at
+        }))
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching driver caisse:', error);
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+app.post('/api/admin/broadcast', requireAdmin, async (req, res) => {
+  try {
+    const { message } = req.body;
+    if (!message || !message.trim()) {
+      return res.status(400).json({ ok: false, error: 'Message requis' });
+    }
+
+    const clients = await db.all('SELECT telegram_id, first_name FROM telegram_clients');
+
+    if (clients.length === 0) {
+      return res.json({ ok: true, sent: 0, failed: 0, total: 0 });
+    }
+
+    let sent = 0;
+    let failed = 0;
+
+    for (const client of clients) {
+      try {
+        await telegram.sendMessage(client.telegram_id, message);
+        sent++;
+      } catch (err) {
+        failed++;
+      }
+      // Délai anti-spam : 50ms entre chaque message (max 20 msg/sec)
+      await new Promise(r => setTimeout(r, 50));
+    }
+
+    res.json({ ok: true, sent, failed, total: clients.length });
+  } catch (error) {
+    console.error('Error broadcasting:', error);
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
 app.get('/api/admin/orders', requireAdmin, async (req, res) => {
   try {
     const { status, limit = 100 } = req.query;
@@ -3775,7 +3864,7 @@ function getPermanentKeyboard(chatId) {
     return {
       keyboard: [
         [{ text: '📋 Mes Livraisons' }],
-        [{ text: '📊 Mes Stats' }],
+        [{ text: '📊 Mes Stats' }, { text: '💰 Caisse' }],
         [{ text: '🛍️ Boutique', web_app: { url: `${config.webapp.url}/clear-cache.html` } }],
         [{ text: '❓ Aide' }]
       ],
@@ -4558,6 +4647,9 @@ async function handleTelegramMessage(message) {
   } else if (text === '📊 Mes Stats') {
     await sendDriverStats(chatId);
     return;
+  } else if (text === '💰 Caisse') {
+    await sendDriverCaisse(chatId);
+    return;
   } else if (text === '❓ Aide') {
     await sendHelpMessage(chatId);
     return;
@@ -4623,11 +4715,17 @@ async function handleTelegramMessage(message) {
   } else if (text === '/stats') {
     await sendDriverStats(chatId);
     return;
+  } else if (text === '/caisse') {
+    await sendDriverCaisse(chatId);
+    return;
   } else if (text === '/stop') {
     await stopUserConversations(chatId);
     return;
   } else if (text === '/zones' && isAdmin(chatId)) {
     await sendZoneStats(chatId);
+    return;
+  } else if (text.startsWith('/broadcast ') && isAdmin(chatId)) {
+    await handleBroadcast(chatId, text.substring(11).trim());
     return;
   } else if (text.startsWith('/annonce ') && isAdmin(chatId)) {
     await handlePostAnnouncement(chatId, text.substring(9).trim());
@@ -5922,6 +6020,85 @@ Continue comme ça ! 🚀`;
   await telegram.sendMessage(chatId, message);
 }
 
+async function sendDriverCaisse(chatId) {
+  let driverZone = null;
+  if (chatId.toString() === config.telegram.driverMillauId) {
+    driverZone = 'millau';
+  } else if (chatId.toString() === config.telegram.driverExterieurId) {
+    driverZone = 'exterieur';
+  }
+
+  if (!driverZone) return;
+
+  const deliveredOrders = await db.all(`
+    SELECT id, customer, address, items, total, created_at
+    FROM orders
+    WHERE status = 'delivered'
+    AND assigned_driver_zone = ?
+    AND DATE(created_at) >= DATE('now', '-30 days')
+    ORDER BY created_at DESC
+  `, [driverZone]);
+
+  const totalCount = deliveredOrders.length;
+  const totalRevenue = deliveredOrders.reduce((sum, o) => sum + (o.total || 0), 0);
+
+  let message = `💰 <b>CAISSE LIVREUR (${driverZone.toUpperCase()})</b>\n`;
+  message += `━━━━━━━━━━━━━━━━━━━\n\n`;
+  message += `🚚 <b>Total livraisons :</b> ${totalCount}\n`;
+  message += `💶 <b>Total encaissé :</b> ${totalRevenue.toFixed(2)}€\n\n`;
+  message += `━━━━━━━━━━━━━━━━━━━\n`;
+  message += `📋 <b>DÉTAIL DES COMMANDES (30 derniers jours)</b>\n\n`;
+
+  if (deliveredOrders.length === 0) {
+    message += `<i>Aucune livraison sur cette période</i>`;
+  } else {
+    deliveredOrders.forEach((order, index) => {
+      const items = JSON.parse(order.items || '[]');
+      const date = new Date(order.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
+      const time = new Date(order.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+      const itemsList = items.map(i => `${i.name} ${i.variant} ×${i.qty}`).join(', ');
+
+      message += `${index + 1}. <b>#${order.id}</b> — ${date} ${time}\n`;
+      message += `   📦 ${itemsList}\n`;
+      message += `   📍 ${order.address}\n`;
+      message += `   💰 <b>${order.total}€</b>\n\n`;
+    });
+  }
+
+  message += `━━━━━━━━━━━━━━━━━━━\n`;
+  message += `⚠️ <i>Remettez l'argent à l'admin régulièrement !</i>`;
+
+  // Telegram a une limite de 4096 caractères par message
+  if (message.length > 4000) {
+    const header = `💰 <b>CAISSE LIVREUR (${driverZone.toUpperCase()})</b>\n━━━━━━━━━━━━━━━━━━━\n\n🚚 <b>Total livraisons :</b> ${totalCount}\n💶 <b>Total encaissé :</b> ${totalRevenue.toFixed(2)}€\n\n━━━━━━━━━━━━━━━━━━━\n📋 <b>DÉTAIL DES COMMANDES (30 derniers jours)</b>\n\n`;
+    await telegram.sendMessage(chatId, header);
+
+    let chunk = '';
+    for (let i = 0; i < deliveredOrders.length; i++) {
+      const order = deliveredOrders[i];
+      const items = JSON.parse(order.items || '[]');
+      const date = new Date(order.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
+      const time = new Date(order.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+      const itemsList = items.map(it => `${it.name} ${it.variant} ×${it.qty}`).join(', ');
+
+      const line = `${i + 1}. <b>#${order.id}</b> — ${date} ${time}\n   📦 ${itemsList}\n   📍 ${order.address}\n   💰 <b>${order.total}€</b>\n\n`;
+
+      if ((chunk + line).length > 3800) {
+        await telegram.sendMessage(chatId, chunk);
+        chunk = '';
+      }
+      chunk += line;
+    }
+
+    if (chunk) {
+      chunk += `━━━━━━━━━━━━━━━━━━━\n⚠️ <i>Remettez l'argent à l'admin régulièrement !</i>`;
+      await telegram.sendMessage(chatId, chunk);
+    }
+  } else {
+    await telegram.sendMessage(chatId, message);
+  }
+}
+
 async function sendZoneStats(chatId) {
   const statsMillau = await db.get(`
     SELECT COUNT(*) as count, SUM(total) as revenue
@@ -5953,6 +6130,50 @@ ID : ${config.telegram.driverExterieurId || 'N/A'}
 🌐 Extérieur : ${statsExterieur?.count || 0} livraisons, ${(statsExterieur?.revenue || 0).toFixed(2)}€`;
   
   await telegram.sendMessage(chatId, message);
+}
+
+async function handleBroadcast(adminChatId, messageText) {
+  if (!messageText) {
+    await telegram.sendMessage(adminChatId, `📢 <b>BROADCAST</b>
+
+Envoyez un message à tous les clients enregistrés.
+
+<b>Usage :</b>
+<code>/broadcast Votre message ici</code>
+
+Le message sera envoyé en MP à chaque client qui a interagi avec le bot.`);
+    return;
+  }
+
+  const clients = await db.all('SELECT telegram_id, first_name FROM telegram_clients');
+
+  if (clients.length === 0) {
+    await telegram.sendMessage(adminChatId, '❌ Aucun client enregistré dans la base.');
+    return;
+  }
+
+  await telegram.sendMessage(adminChatId, `📢 <b>Envoi en cours...</b>\n\n📨 ${clients.length} destinataires\n💬 "${messageText.substring(0, 100)}${messageText.length > 100 ? '...' : ''}"`);
+
+  let sent = 0;
+  let failed = 0;
+
+  for (const client of clients) {
+    try {
+      await telegram.sendMessage(client.telegram_id, messageText);
+      sent++;
+    } catch (err) {
+      failed++;
+      console.log(`❌ Broadcast failed for ${client.telegram_id} (${client.first_name}): ${err.message}`);
+    }
+    // Délai anti-spam : 50ms entre chaque message (max 20 msg/sec)
+    await new Promise(r => setTimeout(r, 50));
+  }
+
+  await telegram.sendMessage(adminChatId, `📢 <b>BROADCAST TERMINÉ</b>
+
+✅ Envoyés : ${sent}
+❌ Échoués : ${failed}
+📊 Total : ${clients.length}`);
 }
 
 async function showDeliveryTimeOptions(chatId, orderId) {
