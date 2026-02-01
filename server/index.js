@@ -12,6 +12,8 @@ const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 const bcrypt = require('bcrypt');
 
+const fs = require('fs');
+
 const app = express();
 app.set('trust proxy', 1);
 
@@ -334,8 +336,18 @@ setInterval(async () => {
 let db;
 
 async function initDB() {
+  const dbPath = process.env.DATABASE_PATH || './boutique.db';
+
+  // Créer le dossier parent si nécessaire (ex: /data/boutique.db)
+  const dbDir = path.dirname(dbPath);
+  if (dbDir !== '.' && !fs.existsSync(dbDir)) {
+    fs.mkdirSync(dbDir, { recursive: true });
+  }
+
+  console.log(`📂 Base de données: ${dbPath}`);
+
   db = await open({
-    filename: './boutique.db',
+    filename: dbPath,
     driver: sqlite3.Database
   });
 
