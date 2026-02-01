@@ -3362,6 +3362,19 @@ let useCreditEnabled = false;
 let discount = 0;
 let telegramUser = null;
 
+// Capturer Telegram user IMMÉDIATEMENT au chargement du script
+// (le script telegram-web-app.js est chargé en synchrone dans <head>)
+try {
+  const _tg = window.Telegram?.WebApp;
+  if (_tg) {
+    _tg.ready();
+    telegramUser = _tg.initDataUnsafe?.user || null;
+    if (telegramUser) {
+      console.log('Telegram user capturé:', telegramUser.first_name, telegramUser.id);
+    }
+  }
+} catch (e) { console.warn('Telegram WebApp non disponible:', e); }
+
 // ═══════════════════════════════════════════════════════════════════════════
 // INTERFACE & RENDERING
 // ═══════════════════════════════════════════════════════════════════════════
@@ -5965,18 +5978,10 @@ async function init() {
     // Démarrer la synchronisation automatique
     startAutoSync();
 
-    // Capturer les données Telegram au démarrage
-    try {
-      const tg = window.Telegram?.WebApp;
-      if (tg) {
-        tg.ready();
-        telegramUser = tg.initDataUnsafe?.user || null;
-      }
-      if (telegramUser && telegramUser.id) {
-        fetchUserCredit(String(telegramUser.id));
-        console.log('Telegram user:', telegramUser.first_name, telegramUser.id);
-      }
-    } catch (e) { console.warn('Pas de Telegram WebApp:', e); }
+    // Charger le crédit si Telegram user est disponible
+    if (telegramUser && telegramUser.id) {
+      fetchUserCredit(String(telegramUser.id));
+    }
 
     console.log('DROGUA CENTER v3.4 chargé');
     console.log('9 produits, panier/favoris/avis synchronisés serveur');
