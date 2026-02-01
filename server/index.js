@@ -3775,7 +3775,7 @@ function getPermanentKeyboard(chatId) {
     return {
       keyboard: [
         [{ text: '📋 Mes Livraisons' }],
-        [{ text: '📊 Mes Stats' }],
+        [{ text: '📊 Mes Stats' }, { text: '💰 Caisse' }],
         [{ text: '🛍️ Boutique', web_app: { url: `${config.webapp.url}/clear-cache.html` } }],
         [{ text: '❓ Aide' }]
       ],
@@ -4558,6 +4558,9 @@ async function handleTelegramMessage(message) {
   } else if (text === '📊 Mes Stats') {
     await sendDriverStats(chatId);
     return;
+  } else if (text === '💰 Caisse') {
+    await sendDriverCaisse(chatId);
+    return;
   } else if (text === '❓ Aide') {
     await sendHelpMessage(chatId);
     return;
@@ -4622,6 +4625,9 @@ async function handleTelegramMessage(message) {
     return;
   } else if (text === '/stats') {
     await sendDriverStats(chatId);
+    return;
+  } else if (text === '/caisse') {
+    await sendDriverCaisse(chatId);
     return;
   } else if (text === '/stop') {
     await stopUserConversations(chatId);
@@ -5920,6 +5926,85 @@ async function sendDriverStats(chatId) {
 Continue comme ça ! 🚀`;
   
   await telegram.sendMessage(chatId, message);
+}
+
+async function sendDriverCaisse(chatId) {
+  let driverZone = null;
+  if (chatId.toString() === config.telegram.driverMillauId) {
+    driverZone = 'millau';
+  } else if (chatId.toString() === config.telegram.driverExterieurId) {
+    driverZone = 'exterieur';
+  }
+
+  if (!driverZone) return;
+
+  const deliveredOrders = await db.all(`
+    SELECT id, customer, address, items, total, created_at
+    FROM orders
+    WHERE status = 'delivered'
+    AND assigned_driver_zone = ?
+    AND DATE(created_at) >= DATE('now', '-30 days')
+    ORDER BY created_at DESC
+  `, [driverZone]);
+
+  const totalCount = deliveredOrders.length;
+  const totalRevenue = deliveredOrders.reduce((sum, o) => sum + (o.total || 0), 0);
+
+  let message = `💰 <b>CAISSE LIVREUR (${driverZone.toUpperCase()})</b>\n`;
+  message += `━━━━━━━━━━━━━━━━━━━\n\n`;
+  message += `🚚 <b>Total livraisons :</b> ${totalCount}\n`;
+  message += `💶 <b>Total encaissé :</b> ${totalRevenue.toFixed(2)}€\n\n`;
+  message += `━━━━━━━━━━━━━━━━━━━\n`;
+  message += `📋 <b>DÉTAIL DES COMMANDES (30 derniers jours)</b>\n\n`;
+
+  if (deliveredOrders.length === 0) {
+    message += `<i>Aucune livraison sur cette période</i>`;
+  } else {
+    deliveredOrders.forEach((order, index) => {
+      const items = JSON.parse(order.items || '[]');
+      const date = new Date(order.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
+      const time = new Date(order.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+      const itemsList = items.map(i => `${i.name} ${i.variant} ×${i.qty}`).join(', ');
+
+      message += `${index + 1}. <b>#${order.id}</b> — ${date} ${time}\n`;
+      message += `   📦 ${itemsList}\n`;
+      message += `   📍 ${order.address}\n`;
+      message += `   💰 <b>${order.total}€</b>\n\n`;
+    });
+  }
+
+  message += `━━━━━━━━━━━━━━━━━━━\n`;
+  message += `⚠️ <i>Remettez l'argent à l'admin régulièrement !</i>`;
+
+  // Telegram a une limite de 4096 caractères par message
+  if (message.length > 4000) {
+    const header = `💰 <b>CAISSE LIVREUR (${driverZone.toUpperCase()})</b>\n━━━━━━━━━━━━━━━━━━━\n\n🚚 <b>Total livraisons :</b> ${totalCount}\n💶 <b>Total encaissé :</b> ${totalRevenue.toFixed(2)}€\n\n━━━━━━━━━━━━━━━━━━━\n📋 <b>DÉTAIL DES COMMANDES (30 derniers jours)</b>\n\n`;
+    await telegram.sendMessage(chatId, header);
+
+    let chunk = '';
+    for (let i = 0; i < deliveredOrders.length; i++) {
+      const order = deliveredOrders[i];
+      const items = JSON.parse(order.items || '[]');
+      const date = new Date(order.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
+      const time = new Date(order.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+      const itemsList = items.map(it => `${it.name} ${it.variant} ×${it.qty}`).join(', ');
+
+      const line = `${i + 1}. <b>#${order.id}</b> — ${date} ${time}\n   📦 ${itemsList}\n   📍 ${order.address}\n   💰 <b>${order.total}€</b>\n\n`;
+
+      if ((chunk + line).length > 3800) {
+        await telegram.sendMessage(chatId, chunk);
+        chunk = '';
+      }
+      chunk += line;
+    }
+
+    if (chunk) {
+      chunk += `━━━━━━━━━━━━━━━━━━━\n⚠️ <i>Remettez l'argent à l'admin régulièrement !</i>`;
+      await telegram.sendMessage(chatId, chunk);
+    }
+  } else {
+    await telegram.sendMessage(chatId, message);
+  }
 }
 
 async function sendZoneStats(chatId) {
