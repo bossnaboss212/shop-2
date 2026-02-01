@@ -977,14 +977,18 @@ class TelegramService {
     }
   }
 
-  async setWebhook(url) {
+  async setWebhook(url, secretToken = null) {
     if (!this.token) return null;
 
     try {
-      const response = await axios.post(`${this.baseUrl}/setWebhook`, {
+      const payload = {
         url,
         allowed_updates: ['message', 'callback_query']
-      }, { timeout: 10000 });
+      };
+      if (secretToken) {
+        payload.secret_token = secretToken;
+      }
+      const response = await axios.post(`${this.baseUrl}/setWebhook`, payload, { timeout: 10000 });
 
       if (response.data?.ok) {
         console.log(`✅ Webhook enregistré: ${url}`);
@@ -1208,8 +1212,8 @@ async function updateLoyaltyProgram(customer) {
 }
 
 // ==================== STOCK MANAGEMENT ====================
-async function updateStockForOrder(items, orderId) {
-  await db.run('BEGIN IMMEDIATE');
+async function updateStockForOrder(items, orderId, { inTransaction = false } = {}) {
+  if (!inTransaction) await db.run('BEGIN IMMEDIATE');
   try {
     for (const item of items) {
       await db.run(
@@ -1228,9 +1232,9 @@ async function updateStockForOrder(items, orderId) {
         [item.product_id, item.variant, item.qty, stockAfter?.qty || 0, `Commande #${orderId}`]
       );
     }
-    await db.run('COMMIT');
+    if (!inTransaction) await db.run('COMMIT');
   } catch (err) {
-    await db.run('ROLLBACK');
+    if (!inTransaction) await db.run('ROLLBACK');
     throw err;
   }
 }
@@ -2076,30 +2080,26 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
     const sanitizedType = sanitizeString(type, 50);
     const sanitizedAddress = sanitizeString(address, 200);
 
-    // ✅ VÉRIFICATION DE STOCK TEMPORAIREMENT DÉSACTIVÉE
-    // TODO: Initialiser le stock en base de données
-    /*
+    // ==================== VÉRIFICATION DE STOCK ====================
     for (const item of items) {
       const stock = await db.get(
         'SELECT qty FROM stock WHERE product_id = ? AND variant = ?',
         [item.product_id, item.variant]
       );
 
-      const available = stock?.qty || 0;
-
-      if (available < item.qty) {
+      // Si le produit n'existe pas en table stock, on laisse passer (stock pas encore initialisé)
+      if (stock && stock.qty < item.qty) {
         return res.status(400).json({
           ok: false,
-          error: `Stock insuffisant pour ${item.name} ${item.variant} (${available} disponible${available > 1 ? 's' : ''})`,
+          error: `Stock insuffisant pour ${item.name} ${item.variant} (${stock.qty} disponible${stock.qty > 1 ? 's' : ''})`,
           stockError: true,
           product: item.name,
           variant: item.variant,
-          available: available,
+          available: stock.qty,
           requested: item.qty
         });
       }
     }
-    */
     
     const blockedCustomer = await isCustomerBlocked(sanitizedCustomer);
     if (blockedCustomer) {
@@ -2148,17 +2148,21 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
       discount = loyaltyResult.discount;
     }
 
-    // ==================== UTILISATION DU CRÉDIT ====================
+    // ==================== TRANSACTION ATOMIQUE ====================
+    // Tout dans une seule transaction : crédit + commande + stock + fidélité + revenu
     let creditUsed = 0;
     let remainingCredit = 0;
+    let orderId;
+    let order;
 
-    if (useCredit === true || useCredit === 'true') {
-      const totalAfterDiscount = total - discount;
+    const sanitizedName = customerName ? sanitizeString(customerName, 100) : sanitizedCustomer;
+    const orderStatus = isNewCustomer ? 'pending_approval' : 'pending';
 
-      // Transaction IMMEDIATE pour verrouiller la lecture+écriture du crédit
-      // Empêche le double-spending si 2 commandes arrivent en même temps
-      await db.run('BEGIN IMMEDIATE');
-      try {
+    await db.run('BEGIN IMMEDIATE');
+    try {
+      // 1. Déduire le crédit si demandé
+      if (useCredit === true || useCredit === 'true') {
+        const totalAfterDiscount = total - discount;
         const customerReferralCheck = await db.get(
           'SELECT credit_balance FROM referrals WHERE customer_contact = ?',
           [sanitizedCustomer]
@@ -2174,24 +2178,12 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
             [remainingCredit, sanitizedCustomer]
           );
         }
-        await db.run('COMMIT');
-      } catch (creditErr) {
-        await db.run('ROLLBACK');
-        throw creditErr;
       }
 
-      if (creditUsed > 0) {
-        console.log(`💳 Credit used: ${creditUsed} DA (remaining: ${remainingCredit} DA)`);
-      }
-    }
+      const finalTotal = total - discount - creditUsed;
 
-    const finalTotal = total - discount - creditUsed;
-    const orderStatus = isNewCustomer ? 'pending_approval' : 'pending';
-
-    // Lier telegram_id au contact et stocker le nom d'affichage
-    const sanitizedName = customerName ? sanitizeString(customerName, 100) : sanitizedCustomer;
-    if (telegramId) {
-      try {
+      // 2. Lier telegram_id au contact
+      if (telegramId) {
         await db.run(`
           INSERT INTO telegram_clients (telegram_id, contact, first_name)
           VALUES (?, ?, ?)
@@ -2199,39 +2191,49 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
             contact = excluded.contact,
             first_name = excluded.first_name
         `, [telegramId, sanitizedCustomer, sanitizedName]);
-        console.log(`🔗 Linked Telegram ID ${telegramId} to contact ${sanitizedCustomer} (${sanitizedName})`);
-      } catch (error) {
-        console.error('Error linking telegram_id to contact:', error);
       }
+
+      // 3. Récupérer l'ID Telegram du client
+      const clientTelegramId = telegramId || await getClientTelegramId(sanitizedCustomer);
+
+      // 4. Créer la commande
+      const result = await db.run(
+        `INSERT INTO orders (customer, type, address, items, total, discount, status, client_telegram_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [sanitizedCustomer, sanitizedType, sanitizedAddress, JSON.stringify(items), finalTotal, discount, orderStatus, clientTelegramId]
+      );
+      orderId = result.lastID;
+
+      // 5. Mettre à jour la fidélité
+      if (isApproved) {
+        await updateLoyaltyProgram(sanitizedCustomer);
+      }
+
+      // 6. Déduire le stock (dans la même transaction)
+      await updateStockForOrder(items, orderId, { inTransaction: true });
+
+      // 7. Enregistrer la transaction de revenu
+      if (!isNewCustomer) {
+        await db.run(
+          `INSERT INTO transactions (type, category, description, amount, payment_method, date)
+           VALUES ('revenue', 'vente', ?, ?, 'online', DATE('now'))`,
+          [`Commande #${orderId}`, finalTotal]
+        );
+      }
+
+      await db.run('COMMIT');
+    } catch (txErr) {
+      await db.run('ROLLBACK');
+      console.error('❌ Order transaction failed, all changes rolled back:', txErr.message);
+      throw txErr;
     }
 
-    // Récupérer l'ID Telegram du client s'il existe
-    const clientTelegramId = telegramId || await getClientTelegramId(sanitizedCustomer);
-    
-    const result = await db.run(
-      `INSERT INTO orders (customer, type, address, items, total, discount, status, client_telegram_id) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [sanitizedCustomer, sanitizedType, sanitizedAddress, JSON.stringify(items), finalTotal, discount, orderStatus, clientTelegramId]
-    );
-    
-    const orderId = result.lastID;
-    console.log(`✅ Order #${orderId} created with status: ${orderStatus}`);
-    
-    if (isApproved) {
-      await updateLoyaltyProgram(sanitizedCustomer);
+    console.log(`✅ Order #${orderId} created atomically with status: ${orderStatus}`);
+    if (creditUsed > 0) {
+      console.log(`💳 Credit used: ${creditUsed} DA (remaining: ${remainingCredit} DA)`);
     }
-    
-    await updateStockForOrder(items, orderId);
-    
-    if (!isNewCustomer) {
-      await db.run(
-        `INSERT INTO transactions (type, category, description, amount, payment_method, date)
-         VALUES ('revenue', 'vente', ?, ?, 'online', DATE('now'))`,
-        [`Commande #${orderId}`, finalTotal]
-      );
-    }
-    
-    const order = await db.get('SELECT * FROM orders WHERE id = ?', [orderId]);
+
+    order = await db.get('SELECT * FROM orders WHERE id = ?', [orderId]);
 
     // ==================== SYSTÈME DE PARRAINAGE ====================
     // Créer ou récupérer le code de parrainage du client
@@ -2665,9 +2667,16 @@ app.get('/api/admin/orders', requireAdmin, async (req, res) => {
 app.put('/api/admin/orders/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const updates = req.body;
+    const body = req.body;
 
-    delete updates.id;
+    // Whitelist des champs autorisés pour éviter l'injection SQL
+    const allowedFields = ['status', 'type', 'address', 'total', 'discount', 'notes', 'driver_zone', 'assigned_driver'];
+    const updates = {};
+    for (const key of allowedFields) {
+      if (body[key] !== undefined) {
+        updates[key] = body[key];
+      }
+    }
 
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({ ok: false, error: 'Aucune mise à jour fournie' });
@@ -2712,7 +2721,26 @@ app.put('/api/admin/orders/:id', requireAdmin, async (req, res) => {
 
 app.delete('/api/admin/orders/:id', requireAdmin, async (req, res) => {
   try {
-    await db.run('DELETE FROM orders WHERE id = ?', [req.params.id]);
+    const { id } = req.params;
+
+    // Récupérer la commande avant suppression pour restaurer le stock
+    const order = await db.get('SELECT * FROM orders WHERE id = ?', [id]);
+    if (!order) {
+      return res.status(404).json({ ok: false, error: 'Commande introuvable' });
+    }
+
+    // Restaurer le stock si la commande n'était pas déjà annulée
+    if (order.status !== 'cancelled') {
+      try {
+        const items = JSON.parse(order.items);
+        await restoreStockForOrder(items, id);
+        console.log(`📦 Stock restauré pour commande #${id} supprimée`);
+      } catch (stockErr) {
+        console.error(`⚠️ Stock restore failed for order #${id}:`, stockErr.message);
+      }
+    }
+
+    await db.run('DELETE FROM orders WHERE id = ?', [id]);
     res.json({ ok: true });
   } catch (error) {
     console.error('Delete order error:', error);
@@ -3834,12 +3862,22 @@ app.delete('/api/admin/announcements/:id', requireAdmin, async (req, res) => {
 });
 
 // ==================== TELEGRAM BOT ====================
+// Secret token pour authentifier les requêtes webhook de Telegram
+const WEBHOOK_SECRET = crypto.randomBytes(32).toString('hex');
+
 if (config.telegram.token) {
   console.log('🤖 Configuring Telegram bot...');
 
   try {
     // Handler commun pour le webhook Telegram
     async function handleWebhookRequest(req, res) {
+      // Vérifier le secret token envoyé par Telegram
+      const receivedSecret = req.headers['x-telegram-bot-api-secret-token'];
+      if (receivedSecret !== WEBHOOK_SECRET) {
+        console.log('⚠️ Webhook rejeté: secret token invalide');
+        return res.sendStatus(403);
+      }
+
       console.log('📥 Webhook reçu:', JSON.stringify(req.body).substring(0, 200));
 
       try {
@@ -3872,11 +3910,11 @@ if (config.telegram.token) {
     // Endpoint alternatif compatible bot.js (au cas où le webhook Telegram pointe vers /bot<TOKEN>)
     app.post(`/bot${config.telegram.token}`, handleWebhookRequest);
 
-    // Route /setup-webhook pour reconfigurer le webhook depuis le navigateur ou curl
-    app.post('/setup-webhook', async (req, res) => {
+    // Route /setup-webhook protégée par authentification admin
+    app.post('/setup-webhook', requireAdmin, async (req, res) => {
       try {
         const webhookUrl = `${config.webapp.url}/telegram-webhook`;
-        await telegram.setWebhook(webhookUrl);
+        await telegram.setWebhook(webhookUrl, WEBHOOK_SECRET);
         res.json({ success: true, webhook: webhookUrl });
       } catch (error) {
         res.status(500).json({ success: false, error: error.message });
@@ -6755,10 +6793,10 @@ async function start() {
         const webhookUrl = `${config.webapp.url}/telegram-webhook`;
         console.log(`🔗 Webhook: ${webhookUrl}`);
 
-        // Toujours enregistrer le webhook au démarrage
+        // Toujours enregistrer le webhook au démarrage avec le secret token
         console.log('📡 Enregistrement du webhook...');
-        await telegram.setWebhook(webhookUrl);
-        console.log('✅ Webhook enregistré');
+        await telegram.setWebhook(webhookUrl, WEBHOOK_SECRET);
+        console.log('✅ Webhook enregistré (avec secret token)');
 
         // Configurer les commandes du bot (bouton Menu dans Telegram)
         await telegram.setMyCommands([
