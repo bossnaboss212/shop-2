@@ -2583,6 +2583,8 @@ app.post('/api/admin/broadcast', requireAdmin, async (req, res) => {
       } catch (err) {
         failed++;
       }
+      // Délai anti-spam : 50ms entre chaque message (max 20 msg/sec)
+      await new Promise(r => setTimeout(r, 50));
     }
 
     res.json({ ok: true, sent, failed, total: clients.length });
@@ -6163,6 +6165,8 @@ Le message sera envoyé en MP à chaque client qui a interagi avec le bot.`);
       failed++;
       console.log(`❌ Broadcast failed for ${client.telegram_id} (${client.first_name}): ${err.message}`);
     }
+    // Délai anti-spam : 50ms entre chaque message (max 20 msg/sec)
+    await new Promise(r => setTimeout(r, 50));
   }
 
   await telegram.sendMessage(adminChatId, `📢 <b>BROADCAST TERMINÉ</b>
