@@ -3360,6 +3360,7 @@ let syncInterval = null;
 let userCreditBalance = 0;
 let useCreditEnabled = false;
 let discount = 0;
+let telegramUser = null;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // INTERFACE & RENDERING
@@ -4625,15 +4626,12 @@ async function validateOrder() {
     const referralInput = document.getElementById('referralInput');
     const referralCode = referralInput?.value.trim().toUpperCase() || '';
 
-    const tgUser = (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe && window.Telegram.WebApp.initDataUnsafe.user)
-      ? window.Telegram.WebApp.initDataUnsafe.user : null;
-
     const fullAddress = selectedDelivery === 'meetup' ? 'Meetup'
       : (selectedHousingType ? `[${selectedHousingType}] ${address}` : address);
 
     const orderData = {
-      customer: tgUser ? String(tgUser.id) : 'Client Web',
-      customerName: tgUser ? (tgUser.first_name + (tgUser.last_name ? ' ' + tgUser.last_name : '')) : 'Client Web',
+      customer: telegramUser ? String(telegramUser.id) : 'Client Web',
+      customerName: telegramUser ? (telegramUser.first_name + (telegramUser.last_name ? ' ' + telegramUser.last_name : '')) : 'Client Web',
       type: deliveryType,
       address: fullAddress,
       items: items,
@@ -5967,13 +5965,18 @@ async function init() {
     // Démarrer la synchronisation automatique
     startAutoSync();
 
-    // Charger le crédit utilisateur si Telegram WebApp disponible
+    // Capturer les données Telegram au démarrage
     try {
-      const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
-      if (tgUser && tgUser.id) {
-        fetchUserCredit(String(tgUser.id));
+      const tg = window.Telegram?.WebApp;
+      if (tg) {
+        tg.ready();
+        telegramUser = tg.initDataUnsafe?.user || null;
       }
-    } catch (e) { /* pas de Telegram WebApp */ }
+      if (telegramUser && telegramUser.id) {
+        fetchUserCredit(String(telegramUser.id));
+        console.log('Telegram user:', telegramUser.first_name, telegramUser.id);
+      }
+    } catch (e) { console.warn('Pas de Telegram WebApp:', e); }
 
     console.log('DROGUA CENTER v3.4 chargé');
     console.log('9 produits, panier/favoris/avis synchronisés serveur');
