@@ -1837,6 +1837,19 @@
       </div>
 
       <div class="chart-container">
+        <h3>📢 Broadcast (Message à tous les clients)</h3>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Envoie un message privé Telegram à tous les clients enregistrés. Utile si vos canaux sont ban.</p>
+        <div class="form-group">
+          <label>Message</label>
+          <textarea id="broadcastMessage" rows="4" placeholder="Votre message ici..." style="width:100%;resize:vertical"></textarea>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <button onclick="sendBroadcast()" style="background:var(--primary);color:#fff">📢 Envoyer à tous</button>
+          <span id="broadcastStatus" style="font-size:13px;color:var(--muted)"></span>
+        </div>
+      </div>
+
+      <div class="chart-container">
         <h3>💾 Données</h3>
         <div style="background:var(--accent-light);padding:16px;border-radius:12px;border-left:3px solid var(--accent);margin-bottom:16px">
           <p style="font-size:13px;margin-bottom:8px"><strong>ℹ️ Stockage Local</strong></p>
@@ -4612,6 +4625,44 @@ async function loadDriverCaisse() {
     }).join('');
   } catch (err) {
     console.error('Erreur chargement caisse:', err);
+  }
+}
+
+async function sendBroadcast() {
+  const token = localStorage.getItem('admin_token');
+  if (!token) { showToast('Non connecté', 'error'); return; }
+
+  const msg = document.getElementById('broadcastMessage').value.trim();
+  if (!msg) { showToast('Écrivez un message', 'error'); return; }
+
+  if (!confirm('Envoyer ce message à TOUS les clients ?')) return;
+
+  const statusEl = document.getElementById('broadcastStatus');
+  statusEl.textContent = 'Envoi en cours...';
+  statusEl.style.color = 'var(--warning)';
+
+  try {
+    const res = await fetch('/api/admin/broadcast', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-token': token },
+      body: JSON.stringify({ message: msg })
+    });
+    const data = await res.json();
+
+    if (data.ok) {
+      statusEl.style.color = 'var(--success)';
+      statusEl.textContent = `Envoyés: ${data.sent} | Échoués: ${data.failed} | Total: ${data.total}`;
+      document.getElementById('broadcastMessage').value = '';
+      showToast(`Broadcast terminé: ${data.sent}/${data.total} envoyés`, 'success');
+    } else {
+      statusEl.style.color = 'var(--danger)';
+      statusEl.textContent = 'Erreur: ' + data.error;
+      showToast('Erreur: ' + data.error, 'error');
+    }
+  } catch (err) {
+    statusEl.style.color = 'var(--danger)';
+    statusEl.textContent = 'Erreur réseau';
+    showToast('Erreur réseau', 'error');
   }
 }
 

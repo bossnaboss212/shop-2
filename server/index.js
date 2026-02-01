@@ -2560,6 +2560,38 @@ app.get('/api/admin/driver-caisse', requireAdmin, async (req, res) => {
   }
 });
 
+app.post('/api/admin/broadcast', requireAdmin, async (req, res) => {
+  try {
+    const { message } = req.body;
+    if (!message || !message.trim()) {
+      return res.status(400).json({ ok: false, error: 'Message requis' });
+    }
+
+    const clients = await db.all('SELECT telegram_id, first_name FROM telegram_clients');
+
+    if (clients.length === 0) {
+      return res.json({ ok: true, sent: 0, failed: 0, total: 0 });
+    }
+
+    let sent = 0;
+    let failed = 0;
+
+    for (const client of clients) {
+      try {
+        await telegram.sendMessage(client.telegram_id, message);
+        sent++;
+      } catch (err) {
+        failed++;
+      }
+    }
+
+    res.json({ ok: true, sent, failed, total: clients.length });
+  } catch (error) {
+    console.error('Error broadcasting:', error);
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
 app.get('/api/admin/orders', requireAdmin, async (req, res) => {
   try {
     const { status, limit = 100 } = req.query;
@@ -4690,6 +4722,9 @@ async function handleTelegramMessage(message) {
   } else if (text === '/zones' && isAdmin(chatId)) {
     await sendZoneStats(chatId);
     return;
+  } else if (text.startsWith('/broadcast ') && isAdmin(chatId)) {
+    await handleBroadcast(chatId, text.substring(11).trim());
+    return;
   } else if (text.startsWith('/annonce ') && isAdmin(chatId)) {
     await handlePostAnnouncement(chatId, text.substring(9).trim());
     return;
@@ -6093,6 +6128,48 @@ ID : ${config.telegram.driverExterieurId || 'N/A'}
 🌐 Extérieur : ${statsExterieur?.count || 0} livraisons, ${(statsExterieur?.revenue || 0).toFixed(2)}€`;
   
   await telegram.sendMessage(chatId, message);
+}
+
+async function handleBroadcast(adminChatId, messageText) {
+  if (!messageText) {
+    await telegram.sendMessage(adminChatId, `📢 <b>BROADCAST</b>
+
+Envoyez un message à tous les clients enregistrés.
+
+<b>Usage :</b>
+<code>/broadcast Votre message ici</code>
+
+Le message sera envoyé en MP à chaque client qui a interagi avec le bot.`);
+    return;
+  }
+
+  const clients = await db.all('SELECT telegram_id, first_name FROM telegram_clients');
+
+  if (clients.length === 0) {
+    await telegram.sendMessage(adminChatId, '❌ Aucun client enregistré dans la base.');
+    return;
+  }
+
+  await telegram.sendMessage(adminChatId, `📢 <b>Envoi en cours...</b>\n\n📨 ${clients.length} destinataires\n💬 "${messageText.substring(0, 100)}${messageText.length > 100 ? '...' : ''}"`);
+
+  let sent = 0;
+  let failed = 0;
+
+  for (const client of clients) {
+    try {
+      await telegram.sendMessage(client.telegram_id, messageText);
+      sent++;
+    } catch (err) {
+      failed++;
+      console.log(`❌ Broadcast failed for ${client.telegram_id} (${client.first_name}): ${err.message}`);
+    }
+  }
+
+  await telegram.sendMessage(adminChatId, `📢 <b>BROADCAST TERMINÉ</b>
+
+✅ Envoyés : ${sent}
+❌ Échoués : ${failed}
+📊 Total : ${clients.length}`);
 }
 
 async function showDeliveryTimeOptions(chatId, orderId) {
