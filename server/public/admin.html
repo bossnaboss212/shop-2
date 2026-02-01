@@ -1545,11 +1545,39 @@
         <div class="stat-card"><div class="stat-label">Valeur Totale</div><div class="stat-value" id="livreurStockValue">0,00 &euro;</div></div>
       </div>
 
+      <div class="chart-container">
+        <h3>💰 Caisse Livraisons (auto)</h3>
+        <div class="toolbar" style="flex-wrap:wrap;margin-bottom:12px">
+          <select id="caisseZoneFilter" onchange="loadDriverCaisse()" style="min-width:140px">
+            <option value="all">Toutes les zones</option>
+            <option value="millau">Millau</option>
+            <option value="exterieur">Extérieur</option>
+          </select>
+          <select id="caisseDaysFilter" onchange="loadDriverCaisse()" style="min-width:140px">
+            <option value="7">7 derniers jours</option>
+            <option value="30" selected>30 derniers jours</option>
+            <option value="90">90 derniers jours</option>
+          </select>
+          <button onclick="loadDriverCaisse()" style="background:var(--primary);color:#fff">🔄 Actualiser</button>
+        </div>
+        <div class="stats" id="caisseStats" style="margin-bottom:16px">
+          <div class="stat-card"><div class="stat-label">Millau</div><div class="stat-value" id="caisseMillauTotal">-</div><div style="font-size:11px;color:var(--muted)" id="caisseMillauCount">0 livraisons</div></div>
+          <div class="stat-card"><div class="stat-label">Extérieur</div><div class="stat-value" id="caisseExtTotal">-</div><div style="font-size:11px;color:var(--muted)" id="caisseExtCount">0 livraisons</div></div>
+          <div class="stat-card"><div class="stat-label">Total Global</div><div class="stat-value" id="caisseGlobalTotal">-</div><div style="font-size:11px;color:var(--muted)" id="caisseGlobalCount">0 livraisons</div></div>
+        </div>
+        <div class="table-container" style="max-height:400px;overflow-y:auto">
+          <table>
+            <thead><tr><th>#</th><th>Date</th><th>Zone</th><th>Articles</th><th>Adresse</th><th>Montant</th></tr></thead>
+            <tbody id="caisseOrdersTable"><tr><td colspan="6" style="text-align:center;color:var(--muted)">Chargement...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
       <div style="margin-bottom:12px;text-align:right">
         <button onclick="exportStaffCSV('livreur')" style="background:var(--primary);color:#fff;padding:8px 16px;border:none;border-radius:8px;cursor:pointer">📥 Exporter CSV</button>
       </div>
       <div class="chart-container">
-        <h3>💶 Caisse Livreur</h3>
+        <h3>💶 Caisse Livreur (manuelle)</h3>
         <div class="toolbar" style="flex-wrap:wrap">
           <input type="number" id="livreurCashAmount" placeholder="Montant (€)" step="0.01" style="flex:1;min-width:120px">
           <input type="text" id="livreurCashNote" placeholder="Note (optionnel)" style="flex:2;min-width:150px">
@@ -2763,6 +2791,10 @@ function showTab(name) {
 
   if (name === 'gerant' || name === 'livreur') {
     loadStaff(name);
+  }
+
+  if (name === 'livreur') {
+    loadDriverCaisse();
   }
   
   if (name === 'employees') {
@@ -4525,6 +4557,62 @@ function staffLoadCashTable(role) {
       <td>${h.note || '-'}</td>
     </tr>`;
   }).join('');
+}
+
+async function loadDriverCaisse() {
+  const token = localStorage.getItem('admin_token');
+  if (!token) return;
+
+  const zone = document.getElementById('caisseZoneFilter')?.value || 'all';
+  const days = document.getElementById('caisseDaysFilter')?.value || '30';
+
+  try {
+    const res = await fetch(`/api/admin/driver-caisse?zone=${zone}&days=${days}`, {
+      headers: { 'x-admin-token': token }
+    });
+    const data = await res.json();
+
+    if (!data.ok) {
+      console.error('Erreur caisse:', data.error);
+      return;
+    }
+
+    document.getElementById('caisseMillauTotal').textContent = data.millau.total.toFixed(2) + ' \u20ac';
+    document.getElementById('caisseMillauCount').textContent = data.millau.count + ' livraisons';
+    document.getElementById('caisseExtTotal').textContent = data.exterieur.total.toFixed(2) + ' \u20ac';
+    document.getElementById('caisseExtCount').textContent = data.exterieur.count + ' livraisons';
+    document.getElementById('caisseGlobalTotal').textContent = (data.millau.total + data.exterieur.total).toFixed(2) + ' \u20ac';
+    document.getElementById('caisseGlobalCount').textContent = (data.millau.count + data.exterieur.count) + ' livraisons';
+
+    const allOrders = [...data.millau.orders.map(o => ({...o, zone: 'Millau'})), ...data.exterieur.orders.map(o => ({...o, zone: 'Ext\u00e9rieur'}))];
+    allOrders.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    const tbody = document.getElementById('caisseOrdersTable');
+    if (allOrders.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted)">Aucune livraison sur cette p\u00e9riode</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = allOrders.map((o, i) => {
+      const d = new Date(o.date);
+      const dateStr = d.toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit' });
+      const timeStr = d.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' });
+      const itemsStr = o.items.map(it => `${it.name} ${it.variant} \u00d7${it.qty}`).join(', ');
+      const zoneBadge = o.zone === 'Millau'
+        ? '<span style="background:#3b82f6;color:#fff;padding:2px 8px;border-radius:8px;font-size:11px">Millau</span>'
+        : '<span style="background:#f59e0b;color:#fff;padding:2px 8px;border-radius:8px;font-size:11px">Ext\u00e9rieur</span>';
+      return `<tr>
+        <td><b>#${o.id}</b></td>
+        <td>${dateStr} ${timeStr}</td>
+        <td>${zoneBadge}</td>
+        <td style="font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${itemsStr}</td>
+        <td style="font-size:12px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${o.address}</td>
+        <td><b>${o.total}\u20ac</b></td>
+      </tr>`;
+    }).join('');
+  } catch (err) {
+    console.error('Erreur chargement caisse:', err);
+  }
 }
 
 function staffAddCash(role) {

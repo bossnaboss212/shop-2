@@ -2505,6 +2505,61 @@ app.get('/api/admin/stats', requireAdmin, async (req, res) => {
   }
 });
 
+app.get('/api/admin/driver-caisse', requireAdmin, async (req, res) => {
+  try {
+    const { zone, days = 30 } = req.query;
+
+    let query = `
+      SELECT id, address, items, total, created_at, assigned_driver_zone
+      FROM orders
+      WHERE status = 'delivered'
+      AND DATE(created_at) >= DATE('now', '-' || ? || ' days')
+    `;
+    const params = [days];
+
+    if (zone && zone !== 'all') {
+      query += ' AND assigned_driver_zone = ?';
+      params.push(zone);
+    }
+
+    query += ' ORDER BY created_at DESC';
+
+    const orders = await db.all(query, params);
+
+    const millauOrders = orders.filter(o => o.assigned_driver_zone === 'millau');
+    const exterieurOrders = orders.filter(o => o.assigned_driver_zone === 'exterieur');
+
+    res.json({
+      ok: true,
+      millau: {
+        count: millauOrders.length,
+        total: millauOrders.reduce((s, o) => s + (o.total || 0), 0),
+        orders: millauOrders.map(o => ({
+          id: o.id,
+          address: o.address,
+          items: JSON.parse(o.items || '[]'),
+          total: o.total,
+          date: o.created_at
+        }))
+      },
+      exterieur: {
+        count: exterieurOrders.length,
+        total: exterieurOrders.reduce((s, o) => s + (o.total || 0), 0),
+        orders: exterieurOrders.map(o => ({
+          id: o.id,
+          address: o.address,
+          items: JSON.parse(o.items || '[]'),
+          total: o.total,
+          date: o.created_at
+        }))
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching driver caisse:', error);
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
 app.get('/api/admin/orders', requireAdmin, async (req, res) => {
   try {
     const { status, limit = 100 } = req.query;
