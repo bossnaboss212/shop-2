@@ -2480,12 +2480,15 @@ const SyncManager = {
 
       console.log('✅ Commande créée localement:', order.id);
 
-      // Récupérer le telegram_id si disponible
+      // Récupérer le telegram_id et le nom si disponible
       let telegramId = null;
+      let telegramName = null;
       try {
         if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe) {
-          telegramId = window.Telegram.WebApp.initDataUnsafe.user?.id || null;
-          console.log('📱 Telegram ID capturé:', telegramId);
+          const user = window.Telegram.WebApp.initDataUnsafe.user;
+          telegramId = user?.id || null;
+          telegramName = user ? (user.first_name + (user.last_name ? ' ' + user.last_name : '')) : null;
+          console.log('📱 Telegram ID capturé:', telegramId, '| Nom:', telegramName);
         }
       } catch (e) {
         console.log('ℹ️ Telegram WebApp non disponible (navigation normale)');
@@ -2496,7 +2499,7 @@ const SyncManager = {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          customer: orderData.customer || orderData.phone,
+          customer: telegramName || orderData.customer,
           type: orderData.type,
           address: orderData.address,
           items: orderData.items,
@@ -4463,7 +4466,9 @@ async function validateOrder() {
     const referralCode = referralInput?.value.trim().toUpperCase() || '';
 
     const orderData = {
-      customer: 'Client Web',
+      customer: (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe && window.Telegram.WebApp.initDataUnsafe.user)
+        ? (window.Telegram.WebApp.initDataUnsafe.user.first_name + (window.Telegram.WebApp.initDataUnsafe.user.last_name ? ' ' + window.Telegram.WebApp.initDataUnsafe.user.last_name : ''))
+        : 'Client Web',
       type: deliveryType,
       address: address,
       items: items,
