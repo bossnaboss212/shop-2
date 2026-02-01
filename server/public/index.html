@@ -1641,6 +1641,102 @@ body.modal-open{overflow:hidden;position:fixed;width:100%;max-width:100vw;overfl
 
 .total-amount{font-size:28px;font-weight:800;color:var(--accent)}
 
+.cart-item-row{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:14px 0;
+  border-bottom:1px solid var(--border);
+}
+
+.cart-item-row:last-of-type{border-bottom:none}
+
+.cart-item-left{flex:1;min-width:0;padding-right:12px}
+
+.cart-item-left .cart-item-name{font-weight:700;font-size:15px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.cart-item-left .cart-item-variant{color:var(--text-muted);font-size:12px;margin-bottom:2px}
+
+.cart-item-unit-price{color:var(--accent);font-size:13px;font-weight:600}
+
+.cart-item-controls{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-shrink:0;
+}
+
+.cart-item-controls .qty-btn{
+  width:32px;
+  height:32px;
+  font-size:16px;
+  border-radius:8px;
+}
+
+.cart-item-controls .qty-btn.delete{
+  background:var(--danger);
+  border-color:var(--danger);
+  color:#fff;
+  font-size:14px;
+  margin-left:4px;
+}
+
+.cart-item-controls .qty-btn.delete:hover{background:#dc2626;border-color:#dc2626}
+
+.qty-value{
+  font-size:16px;
+  font-weight:700;
+  min-width:24px;
+  text-align:center;
+}
+
+.cart-total-bar{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  background:var(--bg-tertiary);
+  border-radius:12px;
+  padding:16px;
+  margin:16px 0;
+  border:1px solid var(--border);
+}
+
+.cart-total-label{font-size:17px;font-weight:700;color:var(--text-secondary)}
+
+.cart-total-value{font-size:22px;font-weight:800;color:var(--accent)}
+
+.cart-section-title{
+  font-size:15px;
+  font-weight:700;
+  color:var(--text-secondary);
+  margin:20px 0 12px;
+}
+
+.cart-radio-option{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:12px 14px;
+  background:var(--bg-tertiary);
+  border:1px solid var(--border);
+  border-radius:10px;
+  margin-bottom:8px;
+  cursor:pointer;
+  transition:all 0.2s;
+  font-size:15px;
+  font-weight:500;
+}
+
+.cart-radio-option:hover{border-color:var(--accent);background:rgba(0,212,255,0.05)}
+
+.cart-radio-option input[type="radio"]{
+  width:18px;
+  height:18px;
+  accent-color:var(--accent);
+  cursor:pointer;
+  flex-shrink:0;
+}
+
 .delivery-section{margin:24px 0}
 
 .section-label{font-size:16px;font-weight:700;margin-bottom:16px;color:var(--text-secondary)}
@@ -3223,7 +3319,8 @@ const DEFAULT_PRODUCTS = [
 ];
 let selectedVariant = null;
 let quantity = 1;
-let selectedDelivery = 'millau';
+let selectedDelivery = 'livraison';
+let selectedHousingType = '';
 let currentSort = 'default';
 let currentCategory = 'all';
 let syncInterval = null;
@@ -4128,7 +4225,7 @@ if (!document.getElementById('celebrationStyles')) {
 
 function renderCart() {
   const content = document.getElementById('cartContent');
-  
+
   if (CartManager.items.length === 0) {
     content.innerHTML = `
       <div class="cart-empty">
@@ -4142,63 +4239,86 @@ function renderCart() {
     `;
     return;
   }
-  
+
   const subtotal = CartManager.getTotal();
   const deliveryFee = selectedDelivery === 'exterieur' ? 20 : 0;
 
   const totalBeforeCredit = subtotal + deliveryFee;
   const creditToApply = useCreditEnabled ? Math.min(userCreditBalance, totalBeforeCredit) : 0;
   const total = totalBeforeCredit - creditToApply;
-  
+
   content.innerHTML = `
     ${CartManager.items.map((item, idx) => `
-      <div class="cart-item">
-        <div class="cart-item-image">
-          <img class="cart-item-img" src="${item.image || 'https://picsum.photos/seed/' + item.productId + '/80/80'}" alt="${sanitizeInput(item.name)}">
-        </div>
-        <div class="cart-item-info">
+      <div class="cart-item-row">
+        <div class="cart-item-left">
           <div class="cart-item-name">${sanitizeInput(item.name)}</div>
-          <div class="cart-item-variant">${sanitizeInput(item.variant)} × ${item.qty}</div>
-          <div class="cart-item-price">${fmt(item.price * item.qty)}</div>
+          <div class="cart-item-variant">(${sanitizeInput(item.variant)})</div>
+          <div class="cart-item-unit-price">${fmt(item.price)} / unité</div>
         </div>
-        <div class="cart-item-actions">
-          <button class="delete-btn" data-idx="${idx}">🗑️</button>
+        <div class="cart-item-controls">
+          <button class="qty-btn" data-idx="${idx}" data-action="minus">−</button>
+          <span class="qty-value">${item.qty}</span>
+          <button class="qty-btn" data-idx="${idx}" data-action="plus">+</button>
+          <button class="qty-btn delete" data-idx="${idx}" data-action="delete">🗑️</button>
         </div>
       </div>
     `).join('')}
 
-    <div class="delivery-section">
-      <div class="section-label">Mode de livraison</div>
-      <div class="delivery-options">
-        <div class="delivery-option ${selectedDelivery === 'millau' ? 'selected' : ''}" data-delivery="millau">
-          <div class="delivery-info">
-            <div class="delivery-title">📍 Livraison sur Millau</div>
-            <div class="delivery-price">Gratuit</div>
-          </div>
-        </div>
-        <div class="delivery-option ${selectedDelivery === 'exterieur' ? 'selected' : ''}" data-delivery="exterieur">
-          <div class="delivery-info">
-            <div class="delivery-title">🚚 Livraison extérieure</div>
-            <div class="delivery-price">+20,00 €</div>
-          </div>
-        </div>
-      </div>
-    </div>
-    
-    <div class="anonymous-info">
-      <div class="anonymous-icon">🎭</div>
-      <div class="anonymous-text">
-        <div class="anonymous-title">Commande 100% anonyme</div>
-        <div class="anonymous-subtitle">
-          • Aucune donnée personnelle enregistrée<br>
-          • Communication via notre bot sécurisé<br>
-          • Paiement en espèces à la livraison
-        </div>
-      </div>
+    <div class="cart-total-bar">
+      <span class="cart-total-label">Total :</span>
+      <span class="cart-total-value">${fmt(total)}</span>
     </div>
 
-    <div class="referral-input-section" style="margin-top:16px">
-      <div class="section-label">🎁 Code de parrainage (optionnel)</div>
+    ${userCreditBalance > 0 ? `
+    <div style="background:var(--bg-tertiary);border-radius:12px;padding:14px;margin-top:16px;border:1px solid var(--border)">
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+        <input type="checkbox" id="useCreditCheckbox" ${useCreditEnabled ? 'checked' : ''} style="width:20px;height:20px;accent-color:var(--accent);cursor:pointer">
+        <span style="font-size:15px;font-weight:600">💰 Utiliser mon crédit (${fmt(userCreditBalance)})</span>
+      </label>
+      ${useCreditEnabled && creditToApply > 0 ? `
+        <div style="margin-top:8px;font-size:13px;color:var(--success)">✅ -${fmt(creditToApply)} déduits</div>
+      ` : ''}
+    </div>
+    ` : ''}
+
+    <div class="cart-section-title">Sélectionnez votre type de commande :</div>
+
+    <label class="cart-radio-option">
+      <input type="radio" name="deliveryType" value="meetup" ${selectedDelivery === 'meetup' ? 'checked' : ''}>
+      <span>Meetup</span>
+    </label>
+    <label class="cart-radio-option">
+      <input type="radio" name="deliveryType" value="livraison" ${selectedDelivery === 'livraison' ? 'checked' : ''}>
+      <span>Livraison</span>
+    </label>
+    <label class="cart-radio-option">
+      <input type="radio" name="deliveryType" value="exterieur" ${selectedDelivery === 'exterieur' ? 'checked' : ''}>
+      <span>Livraison extérieure (+20€)</span>
+    </label>
+
+    <div id="addressBlock" style="display:${selectedDelivery === 'meetup' ? 'none' : 'block'}">
+      <div class="input-wrapper" style="margin-top:16px">
+        <input type="text" class="input-field" id="addressInput" placeholder="Entrez votre adresse de livraison" maxlength="200">
+        <div class="suggestions" id="suggestions" style="display:none"></div>
+      </div>
+
+      <div class="cart-section-title">Informations supplémentaire :</div>
+      <label class="cart-radio-option">
+        <input type="radio" name="housingType" value="Maison" ${selectedHousingType === 'Maison' ? 'checked' : ''}>
+        <span>Maison</span>
+      </label>
+      <label class="cart-radio-option">
+        <input type="radio" name="housingType" value="Appartement" ${selectedHousingType === 'Appartement' ? 'checked' : ''}>
+        <span>Appartement</span>
+      </label>
+      <label class="cart-radio-option">
+        <input type="radio" name="housingType" value="Hotel" ${selectedHousingType === 'Hotel' ? 'checked' : ''}>
+        <span>Hotel</span>
+      </label>
+    </div>
+
+    <div class="referral-input-section" style="margin-top:20px">
+      <div class="cart-section-title">🎁 Code de parrainage (optionnel)</div>
       <div class="promo-input-wrapper">
         <input type="text" class="promo-input" id="referralInput" placeholder="Entrez un code ami" maxlength="20">
         <button class="promo-btn" id="applyReferral">Vérifier</button>
@@ -4206,76 +4326,55 @@ function renderCart() {
       <div id="referralStatus" style="margin-top:8px;font-size:13px"></div>
     </div>
 
-    <div class="address-section">
-      <div class="section-label">📍 Adresse de livraison</div>
-      <div class="input-wrapper">
-        <input type="text" class="input-field" id="addressInput" placeholder="Entrez votre adresse..." maxlength="200">
-        <div class="suggestions" id="suggestions" style="display:none"></div>
-      </div>
-    </div>
-
-    ${userCreditBalance > 0 ? `
-    <div class="credit-section" style="background:var(--card-bg);border-radius:12px;padding:16px;margin-top:16px;border:1px solid var(--border)">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-        <div style="display:flex;align-items:center;gap:8px">
-          <div style="font-size:24px">💰</div>
-          <div>
-            <div style="font-weight:700;font-size:14px">Crédit disponible</div>
-            <div style="color:var(--success);font-size:18px;font-weight:700">${fmt(userCreditBalance)}</div>
-          </div>
-        </div>
-      </div>
-      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:12px;background:var(--bg);border-radius:8px;border:2px solid ${useCreditEnabled ? 'var(--success)' : 'var(--border)'}">
-        <input type="checkbox" id="useCreditCheckbox" ${useCreditEnabled ? 'checked' : ''} style="width:20px;height:20px;cursor:pointer">
-        <span style="font-size:14px;font-weight:600">Utiliser mon crédit pour cette commande</span>
-      </label>
-      ${useCreditEnabled && creditToApply > 0 ? `
-        <div style="margin-top:12px;padding:12px;background:var(--success-bg,rgba(34,197,94,0.1));border-radius:8px;color:var(--success)">
-          <div style="font-size:13px">✅ <strong>${fmt(creditToApply)}</strong> seront déduits de votre total</div>
-          ${creditToApply < userCreditBalance ? `<div style="font-size:12px;margin-top:4px;opacity:0.8">Solde restant: ${fmt(userCreditBalance - creditToApply)}</div>` : ''}
-        </div>
-      ` : ''}
-    </div>
-    ` : ''}
-
-    <div class="cart-total">
-      <div>
-        <div style="color:var(--text-muted);font-size:14px;margin-bottom:4px">Sous-total : ${fmt(subtotal)}</div>
-        ${deliveryFee > 0 ? `<div style="color:var(--text-muted);font-size:14px">Livraison : ${fmt(deliveryFee)}</div>` : ''}
-        ${discount > 0 ? `<div style="color:var(--success);font-size:14px">Réduction : -${fmt(discount)}</div>` : ''}
-        ${creditToApply > 0 ? `<div style="color:var(--success);font-size:14px;font-weight:700">💰 Crédit : -${fmt(creditToApply)}</div>` : ''}
-      </div>
-      <span class="total-amount">${fmt(total)}</span>
-    </div>
+    <div style="padding-bottom:40px"></div>
   `;
-  
-  content.querySelectorAll('.delete-btn').forEach(btn => {
-    btn.onclick = async () => {
+
+  // Quantity controls
+  content.querySelectorAll('.qty-btn').forEach(btn => {
+    btn.onclick = () => {
       const idx = parseInt(btn.dataset.idx);
-      const confirmed = confirm('Retirer cet article du panier ?');
-      if (confirmed) {
+      const action = btn.dataset.action;
+      if (action === 'plus') {
+        CartManager.items[idx].qty++;
+        CartManager.save();
+        CartManager.updateUI();
+        renderCart();
+      } else if (action === 'minus') {
+        if (CartManager.items[idx].qty > 1) {
+          CartManager.items[idx].qty--;
+          CartManager.save();
+          CartManager.updateUI();
+          renderCart();
+        }
+      } else if (action === 'delete') {
         CartManager.remove(idx);
         renderCart();
-        showToast('Article retiré du panier');
+        showToast('Article retiré');
       }
     };
   });
-  
-  content.querySelectorAll('.delivery-option').forEach(opt => {
-    opt.onclick = function() {
-      selectedDelivery = this.dataset.delivery;
+
+  // Delivery type radios
+  content.querySelectorAll('input[name="deliveryType"]').forEach(radio => {
+    radio.onchange = function() {
+      selectedDelivery = this.value;
       renderCart();
     };
   });
-  
+
+  // Housing type radios
+  content.querySelectorAll('input[name="housingType"]').forEach(radio => {
+    radio.onchange = function() {
+      selectedHousingType = this.value;
+    };
+  });
+
+  // Credit checkbox
   const useCreditCheckbox = content.querySelector('#useCreditCheckbox');
   if (useCreditCheckbox) {
     useCreditCheckbox.onchange = () => {
       useCreditEnabled = useCreditCheckbox.checked;
       renderCart();
-      if (useCreditEnabled) {
-        showToast('💰 Crédit activé pour cette commande');
-      }
     };
   }
 
@@ -4433,7 +4532,7 @@ async function validateOrder() {
   const addressInput = document.getElementById('addressInput');
   const address = addressInput?.value.trim() || '';
 
-  if (!address || address.length < 5) {
+  if (selectedDelivery !== 'meetup' && (!address || address.length < 5)) {
     showToast('⚠️ Entrez une adresse de livraison');
     addressInput?.focus({ preventScroll: true });
     return;
@@ -4454,9 +4553,11 @@ async function validateOrder() {
   
   try {
     const clientId = generateClientId();
-    const deliveryType = selectedDelivery === 'millau' 
-      ? 'Livraison sur Millau' 
-      : 'Livraison extérieure (+20€)';
+    const deliveryType = selectedDelivery === 'meetup'
+      ? 'Meetup'
+      : selectedDelivery === 'exterieur'
+        ? 'Livraison extérieure (+20€)'
+        : 'Livraison';
     
     const items = CartManager.items.map(item => ({
       product_id: item.productId,
@@ -4488,11 +4589,14 @@ async function validateOrder() {
     const tgUser = (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe && window.Telegram.WebApp.initDataUnsafe.user)
       ? window.Telegram.WebApp.initDataUnsafe.user : null;
 
+    const fullAddress = selectedDelivery === 'meetup' ? 'Meetup'
+      : (selectedHousingType ? `[${selectedHousingType}] ${address}` : address);
+
     const orderData = {
       customer: tgUser ? String(tgUser.id) : 'Client Web',
       customerName: tgUser ? (tgUser.first_name + (tgUser.last_name ? ' ' + tgUser.last_name : '')) : 'Client Web',
       type: deliveryType,
-      address: address,
+      address: fullAddress,
       items: items,
       total: total,
       referralCode: referralCode,
@@ -4543,7 +4647,7 @@ async function validateOrder() {
 }
 
 function createOrderMessage(orderData, orderId, totalAmount) {
-  const deliveryEmoji = orderData.type.includes('Millau') ? '🏠' : '🚚';
+  const deliveryEmoji = orderData.type === 'Meetup' ? '🤝' : '🚚';
   
   const items = orderData.items.map(item => 
     `${item.qty}x ${item.name} ${item.variant}`
