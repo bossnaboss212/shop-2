@@ -911,7 +911,6 @@
         <select id="filterCategory" onchange="filterProducts()">
           <option value="all">Toutes</option>
           <option value="weed">🌿 Weed</option>
-          <option value="hash">🟫 Hash</option>
           <option value="filtré">🔹 Filtré</option>
           <option value="frozen">❄️ Frozen</option>
           <option value="blanche">⚪ Blanche</option>
@@ -3426,7 +3425,6 @@ function addProduct() {
         <option value="weed">🌿 Weed</option>
         <option value="cali">🇺🇸 Cali</option>
         <option value="mousseux">🧽 Mousseux</option>
-        <option value="hash">🟫 Hash</option>
         <option value="filtré">🔹 Filtré</option>
         <option value="frozen">❄️ Frozen</option>
         <option value="blanche">⚪ Blanche</option>
@@ -3650,7 +3648,6 @@ function editProduct(id) {
         <option value="weed" ${p.category === 'weed' ? 'selected' : ''}>🌿 Weed</option>
         <option value="cali" ${p.category === 'cali' ? 'selected' : ''}>🇺🇸 Cali</option>
         <option value="mousseux" ${p.category === 'mousseux' ? 'selected' : ''}>🧽 Mousseux</option>
-        <option value="hash" ${p.category === 'hash' ? 'selected' : ''}>🟫 Hash</option>
         <option value="filtré" ${p.category === 'filtré' ? 'selected' : ''}>🔹 Filtré</option>
         <option value="frozen" ${p.category === 'frozen' ? 'selected' : ''}>❄️ Frozen</option>
         <option value="blanche" ${p.category === 'blanche' ? 'selected' : ''}>⚪ Blanche</option>
@@ -5728,7 +5725,7 @@ function updateProfitabilityTable() {
   const tbody = document.getElementById('profitabilityTable');
   if (!tbody) return;
   
-  const categories = ['weed', 'hash', 'blanche', 'mdma', 'keta', 'frozen', 'filtré'];
+  const categories = ['weed', 'cali', 'mousseux', 'blanche', 'mdma', 'keta', 'frozen', 'filtré'];
   const categoryData = {};
   
   categories.forEach(cat => {
