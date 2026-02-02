@@ -911,7 +911,6 @@
         <select id="filterCategory" onchange="filterProducts()">
           <option value="all">Toutes</option>
           <option value="weed">🌿 Weed</option>
-          <option value="hash">🟫 Hash</option>
           <option value="filtré">🔹 Filtré</option>
           <option value="frozen">❄️ Frozen</option>
           <option value="blanche">⚪ Blanche</option>
@@ -3424,18 +3423,22 @@ function addProduct() {
       <label>Catégorie</label>
       <select id="productCategory">
         <option value="weed">🌿 Weed</option>
-        <option value="hash">🟫 Hash</option>
+        <option value="cali">🇺🇸 Cali</option>
+        <option value="mousseux">🧽 Mousseux</option>
         <option value="filtré">🔹 Filtré</option>
         <option value="frozen">❄️ Frozen</option>
         <option value="blanche">⚪ Blanche</option>
         <option value="mdma">💊 MDMA</option>
-        <option value="cali">🌟 Cali</option>
         <option value="keta">💎 Keta</option>
       </select>
     </div>
     <div class="form-group">
       <label>Prix achat €/g</label>
       <input type="number" id="productBuyPrice" step="0.01">
+    </div>
+    <div class="form-group">
+      <label>Description (optionnel)</label>
+      <textarea id="productDescription" rows="3" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);resize:vertical" placeholder="Description du produit..."></textarea>
     </div>
     <div class="form-group">
       <label>Vidéo produit (optionnel)</label>
@@ -3497,19 +3500,21 @@ function saveProduct() {
     return;
   }
   
+  const description = document.getElementById('productDescription').value.trim();
   const videoFile = document.getElementById('productVideoFile');
-  
+
   if (videoFile && videoFile.files[0]) {
     const file = videoFile.files[0];
     const reader = new FileReader();
-    
+
     reader.onload = (e) => {
       const videoData = e.target.result;
-      
+
       const newProduct = {
         id: Math.max(...state.data.products.map(p => p.id), 0) + 1,
         name,
         category,
+        description,
         buyPrice,
         video: videoData,
         videoType: file.type,
@@ -3533,6 +3538,7 @@ function saveProduct() {
       id: Math.max(...state.data.products.map(p => p.id), 0) + 1,
       name,
       category,
+      description,
       buyPrice,
       video: '',
       archived: false,
@@ -3647,18 +3653,22 @@ function editProduct(id) {
       <label>Catégorie</label>
       <select id="editProductCategory">
         <option value="weed" ${p.category === 'weed' ? 'selected' : ''}>🌿 Weed</option>
-        <option value="hash" ${p.category === 'hash' ? 'selected' : ''}>🟫 Hash</option>
+        <option value="cali" ${p.category === 'cali' ? 'selected' : ''}>🇺🇸 Cali</option>
+        <option value="mousseux" ${p.category === 'mousseux' ? 'selected' : ''}>🧽 Mousseux</option>
         <option value="filtré" ${p.category === 'filtré' ? 'selected' : ''}>🔹 Filtré</option>
         <option value="frozen" ${p.category === 'frozen' ? 'selected' : ''}>❄️ Frozen</option>
         <option value="blanche" ${p.category === 'blanche' ? 'selected' : ''}>⚪ Blanche</option>
         <option value="mdma" ${p.category === 'mdma' ? 'selected' : ''}>💊 MDMA</option>
-        <option value="cali" ${p.category === 'cali' ? 'selected' : ''}>🌟 Cali</option>
         <option value="keta" ${p.category === 'keta' ? 'selected' : ''}>💎 Keta</option>
       </select>
     </div>
     <div class="form-group">
       <label>Prix achat €/g</label>
       <input type="number" id="editProductBuyPrice" value="${p.buyPrice}" step="0.01">
+    </div>
+    <div class="form-group">
+      <label>Description</label>
+      <textarea id="editProductDescription" rows="3" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);resize:vertical">${p.description || ''}</textarea>
     </div>
     <div class="form-group">
       <label>Vidéo produit</label>
@@ -3747,7 +3757,8 @@ function saveProductEdit(id) {
   if (categoryEl) p.category = categoryEl.value;
   
   p.buyPrice = parseFloat(document.getElementById('editProductBuyPrice').value);
-  
+  p.description = document.getElementById('editProductDescription').value.trim();
+
   // Gérer la vidéo
   const videoFile = document.getElementById('editProductVideoFile');
   if (videoFile && videoFile.files[0]) {
@@ -3915,17 +3926,17 @@ function permanentDeleteProduct(id) {
 }
 
 function resetProducts() {
-  if (!confirm('⚠️ ATTENTION : Restaurer les 9 produits par défaut ?\n\nCela va REMPLACER tous vos produits actuels !')) return;
+  if (!confirm('⚠️ ATTENTION : Restaurer les 10 produits par défaut ?\n\nCela va REMPLACER tous vos produits actuels !')) return;
 
   state.data.products = [
-    { id: 1, name: 'AMNESIA', category: 'weed', buyPrice: 2.8, video: '/videos/amnesia.MP4', archived: false, variants: {
+    { id: 1, name: 'AMNESIA', category: 'weed', buyPrice: 2.8, description: "Venu tout droit des Coffee BARCELONAIS cette vari\u00e9t\u00e9 tans convoit\u00e9 il y a 3-4ans maintenant devenu tr\u00e8s rares \u00e0 trouver dans les grands points de ventes nous l'avons trouv\u00e9 la VRAI LA V\u00c9RITABLE pas la commercial que certain croient go\u00fbter depuis sa disparition.", video: '/videos/amnesia.MP4', archived: false, variants: {
       '3.33G': { price: 20, stock: 0, grams: 3.33 },
       '5G': { price: 30, stock: 0, grams: 5 },
       '10G': { price: 60, stock: 0, grams: 10 },
       '50G': { price: 250, stock: 0, grams: 50 },
       '100G': { price: 450, stock: 0, grams: 100 }
     }},
-    { id: 2, name: 'NEEDLES KETA', category: 'keta', buyPrice: 3.9, video: '/videos/needles.MP4', archived: false, variants: {
+    { id: 2, name: 'NEEDLES KETA', category: 'keta', buyPrice: 3.9, description: "Cela procure un profond sentiment d'euphorie et de l\u00e9g\u00e8ret\u00e9.\n\nDes \u00e9clats de rire spontan\u00e9s ou un sentiment d'\u00e9merveillement peuvent survenir.\n\nLes couleurs, les sons et les sensations peuvent sembler plus intenses et agr\u00e9ables.", video: '/videos/needles.MP4', archived: false, variants: {
       '1G': { price: 20, stock: 0, grams: 1 },
       '2G': { price: 40, stock: 0, grams: 2 },
       '3G': { price: 50, stock: 0, grams: 3 },
@@ -3934,50 +3945,57 @@ function resetProducts() {
       '50G': { price: 450, stock: 0, grams: 50 },
       '100G': { price: 870, stock: 0, grams: 100 }
     }},
-    { id: 3, name: 'CANADIENNE', category: 'weed', buyPrice: 2.8, video: '/videos/canadienne.MP4', archived: false, variants: {
+    { id: 3, name: 'CANADIENNE', category: 'cali', buyPrice: 2.8, description: "Ultra puissante. Ultra raffin\u00e9e.\nUne claque \u00e9l\u00e9gante, effet velvet, pr\u00e9sence impossible \u00e0 ignorer\nDu haut de gamme qui fait sourire\u2026 puis l\u00e2cher un WOW\nMade in Canada \u2014 pour palais exigeants only", video: '/videos/canadienne.MP4', archived: false, variants: {
       '1.6G': { price: 20, stock: 0, grams: 1.6 },
       '3.2G': { price: 40, stock: 0, grams: 3.2 },
       '5G': { price: 60, stock: 0, grams: 5 },
       '10G': { price: 110, stock: 0, grams: 10 }
     }},
-    { id: 4, name: 'BLACK PURPLE', category: 'weed', buyPrice: 2.8, video: '/videos/black_purple.MP4', archived: false, variants: {
+    { id: 4, name: 'BLACK PURPLE', category: 'cali', buyPrice: 2.8, description: "Une frappe nette et \u00e9l\u00e9gante, effet velvet, pr\u00e9sence impossible \u00e0 ignorer\nDu premium qui fait sourire\u2026 puis l\u00e2cher un WOW\nMade in USA \u2014 pour palais \u00e9lites only", video: '/videos/black_purple.MP4', archived: false, variants: {
       '2.2G': { price: 20, stock: 0, grams: 2.2 },
       '5G': { price: 40, stock: 0, grams: 5 },
       '10G': { price: 80, stock: 0, grams: 10 },
       '100G': { price: 500, stock: 0, grams: 100 }
     }},
-    { id: 5, name: 'MIMOSA PIE', category: 'weed', buyPrice: 2.8, video: '/videos/mimosa_pie.MP4', archived: false, variants: {
+    { id: 5, name: 'MIMOSA PIE', category: 'cali', buyPrice: 2.8, description: "Une frappe nette et \u00e9l\u00e9gante, effet velvet, pr\u00e9sence impossible \u00e0 ignorer\nDu premium qui fait sourire\u2026 puis l\u00e2cher un WOW\nMade in USA \u2014 pour palais \u00e9lites only", video: '/videos/mimosa_pie.MP4', archived: false, variants: {
       '1.8G': { price: 20, stock: 0, grams: 1.8 },
       '3.6G': { price: 40, stock: 0, grams: 3.6 },
       '5G': { price: 50, stock: 0, grams: 5 },
       '10G': { price: 100, stock: 0, grams: 10 }
     }},
-    { id: 6, name: 'GEORGIA PIE', category: 'weed', buyPrice: 2.8, video: '/videos/gorgia_pie.MP4', archived: false, variants: {
+    { id: 6, name: 'GEORGIA PIE', category: 'cali', buyPrice: 2.8, description: "Une frappe nette et \u00e9l\u00e9gante, effet velvet, pr\u00e9sence impossible \u00e0 ignorer\nDu premium qui fait sourire\u2026 puis l\u00e2cher un WOW\nMade in USA \u2014 pour palais \u00e9lites only", video: '/videos/gorgia_pie.MP4', archived: false, variants: {
       '1.8G': { price: 20, stock: 0, grams: 1.8 },
       '3.6G': { price: 40, stock: 0, grams: 3.6 },
       '5G': { price: 50, stock: 0, grams: 5 },
       '10G': { price: 100, stock: 0, grams: 10 }
     }},
-    { id: 7, name: 'BLACK CHEESE', category: 'weed', buyPrice: 2.8, video: '/videos/black_cheese.MP4', archived: false, variants: {
+    { id: 7, name: 'BLACK CHEESE', category: 'cali', buyPrice: 2.8, description: "Une frappe nette et \u00e9l\u00e9gante, effet velvet, pr\u00e9sence impossible \u00e0 ignorer\nDu premium qui fait sourire\u2026 puis l\u00e2cher un WOW\nMade in USA \u2014 pour palais \u00e9lites only", video: '/videos/black_cheese.MP4', archived: false, variants: {
       '1.8G': { price: 20, stock: 0, grams: 1.8 },
       '3.6G': { price: 40, stock: 0, grams: 3.6 },
       '5G': { price: 50, stock: 0, grams: 5 },
       '10G': { price: 100, stock: 0, grams: 10 }
     }},
-    { id: 8, name: "ZOUR'S 120u", category: 'filtré', buyPrice: 2.75, video: "/videos/zour's.MP4", archived: false, variants: {
+    { id: 8, name: "ZOUR'S 120u", category: 'filtr\u00e9', buyPrice: 2.75, description: "Ce produit d'une qualit\u00e9 RARISSIME, un go\u00fbt INOUBLIABLE vous procurera des effets M\u00c9MORABLES.\n\nCurer a 100% muter \u00e0 100% qualit\u00e9s Universal", video: "/videos/zour's.MP4", archived: false, variants: {
       '2G': { price: 20, stock: 0, grams: 2 },
       '5G': { price: 40, stock: 0, grams: 5 },
       '10G': { price: 70, stock: 0, grams: 10 },
       '50G': { price: 260, stock: 0, grams: 50 },
       '100G': { price: 490, stock: 0, grams: 100 }
     }},
-    { id: 9, name: 'COURCHEVEL', category: 'blanche', buyPrice: 17.5, video: '/videos/courchevel.MP4', archived: false, variants: {
+    { id: 9, name: 'COURCHEVEL', category: 'blanche', buyPrice: 17.5, description: "Origine : COLOMBIE\n\nNotre produit est pure\nSa texture est comme de la neige\n\nElle procure un sentiment de puissance, d'euphorie et de bonheur\n\nAinsi qu'un besoin irr\u00e9pressible de parler, danser ou m\u00eame faire l'amour", video: '/videos/courchevel.MP4', archived: false, variants: {
       '0.5G': { price: 30, stock: 0, grams: 0.5 },
       '1G': { price: 50, stock: 0, grams: 1 },
       '2G': { price: 80, stock: 0, grams: 2 },
       '5G': { price: 190, stock: 0, grams: 5 },
       '10G': { price: 340, stock: 0, grams: 10 },
       '50G': { price: 1200, stock: 0, grams: 50 }
+    }},
+    { id: 10, name: 'PIINK KUSH', category: 'mousseux', buyPrice: 2, description: "Direct du Maroc, pure et puissante\nCouleur dor\u00e9e, texture mousseuse, effet smooth et velout\u00e9\nChaque bouff\u00e9e frappe fort\u2026 intense, raffin\u00e9e, et 100 % WOW\nPour les connaisseurs qui veulent du haut de gamme qui se remarque", video: '/videos/piink_kush.MP4', archived: false, variants: {
+      '4G': { price: 20, stock: 0, grams: 4 },
+      '6.5G': { price: 30, stock: 0, grams: 6.5 },
+      '12G': { price: 50, stock: 0, grams: 12 },
+      '50G': { price: 180, stock: 0, grams: 50 },
+      '100G': { price: 350, stock: 0, grams: 100 }
     }}
   ];
 
@@ -3985,7 +4003,7 @@ function resetProducts() {
   loadProducts();
   loadStock();
   updateAllStats();
-  showToast('9 produits par défaut restaurés !', 'success');
+  showToast('10 produits par défaut restaurés !', 'success');
 }
 
 function openArchivedStats() {
@@ -5719,7 +5737,7 @@ function updateProfitabilityTable() {
   const tbody = document.getElementById('profitabilityTable');
   if (!tbody) return;
   
-  const categories = ['weed', 'hash', 'blanche', 'mdma', 'keta', 'frozen', 'filtré'];
+  const categories = ['weed', 'cali', 'mousseux', 'blanche', 'mdma', 'keta', 'frozen', 'filtré'];
   const categoryData = {};
   
   categories.forEach(cat => {
