@@ -3003,6 +3003,69 @@ const OrdersManager = {
 
   save() {
     localStorage.setItem('shop_customer_orders', JSON.stringify(this.orders));
+  },
+
+  async syncFromServer() {
+    if (!telegramUser?.id) return;
+    try {
+      const res = await fetch(`/api/customer/orders?telegram_id=${telegramUser.id}`);
+      const data = await res.json();
+      if (!data.ok || !data.orders) return;
+
+      let changed = false;
+      for (const serverOrder of data.orders) {
+        const local = this.orders.find(o => o.id === serverOrder.id);
+        if (local) {
+          if (local.status !== serverOrder.status) {
+            local.status = serverOrder.status;
+            if (serverOrder.cancel_reason) {
+              local.cancelReason = serverOrder.cancel_reason;
+              local.cancelledAt = serverOrder.cancelled_at;
+            }
+            if (serverOrder.delivery_time) {
+              local.deliveryTime = serverOrder.delivery_time;
+            }
+            changed = true;
+          }
+        } else {
+          // Commande sur le serveur mais pas en local — l'ajouter
+          this.orders.push({
+            id: serverOrder.id,
+            status: serverOrder.status,
+            type: serverOrder.type,
+            total: serverOrder.total,
+            discount: serverOrder.discount,
+            items: serverOrder.items,
+            cancelReason: serverOrder.cancel_reason,
+            cancelledAt: serverOrder.cancelled_at,
+            deliveryTime: serverOrder.delivery_time,
+            date: serverOrder.created_at
+          });
+          changed = true;
+        }
+      }
+
+      if (changed) {
+        this.save();
+        renderOrders();
+        console.log('🔄 Commandes synchronisées depuis le serveur');
+      }
+    } catch (e) {
+      console.warn('Sync commandes échouée:', e);
+    }
+  },
+
+  startPolling() {
+    // Sync immédiat puis toutes les 30 secondes
+    this.syncFromServer();
+    this._pollInterval = setInterval(() => this.syncFromServer(), 30000);
+  },
+
+  stopPolling() {
+    if (this._pollInterval) {
+      clearInterval(this._pollInterval);
+      this._pollInterval = null;
+    }
   }
 };
 
@@ -5681,15 +5744,16 @@ function renderOrders() {
     const canCancel = order.status === 'pending';
     const isCancelled = order.status === 'cancelled';
     const isDelivered = order.status === 'delivered';
-    
-    let statusHTML = '';
-    if (isCancelled) {
-      statusHTML = '<span class="order-status cancelled">❌ Annulée</span>';
-    } else if (isDelivered) {
-      statusHTML = '<span class="order-status delivered">✅ Livrée</span>';
-    } else {
-      statusHTML = '<span class="order-status pending">⏳ En cours</span>';
-    }
+
+    const statusMap = {
+      'pending': '<span class="order-status pending">⏳ En attente</span>',
+      'confirmed': '<span class="order-status" style="background:rgba(0,200,83,0.15);color:#00c853">✅ Confirmée</span>',
+      'preparing': '<span class="order-status" style="background:rgba(255,152,0,0.15);color:#ff9800">👨‍🍳 En préparation</span>',
+      'en_route': '<span class="order-status" style="background:rgba(33,150,243,0.15);color:#2196f3">🚚 En livraison</span>',
+      'delivered': '<span class="order-status delivered">✅ Livrée</span>',
+      'cancelled': '<span class="order-status cancelled">❌ Annulée</span>'
+    };
+    const statusHTML = statusMap[order.status] || '<span class="order-status pending">⏳ En cours</span>';
     
     return `
     <div class="order-card" style="${isCancelled ? 'opacity:0.7' : ''}">
@@ -5697,8 +5761,9 @@ function renderOrders() {
         <span class="order-number">#${order.id}</span>
         ${statusHTML}
       </div>
-      <div class="order-date">${new Date(order.timestamp).toLocaleDateString('fr-FR', {day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'})}</div>
+      <div class="order-date">${new Date(order.timestamp || order.date).toLocaleDateString('fr-FR', {day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'})}</div>
       ${isCancelled ? `<div style="color:var(--danger);font-size:12px;margin-bottom:8px">🚫 ${order.cancelReason || 'Annulée'}</div>` : ''}
+      ${order.status === 'en_route' && order.deliveryTime ? `<div style="color:#2196f3;font-size:12px;margin-bottom:8px">🕐 Temps estimé: ${order.deliveryTime} min</div>` : ''}
       <div class="order-items">${order.items.length} article${order.items.length > 1 ? 's' : ''}</div>
       <div class="order-total" style="margin-bottom:${canCancel ? '12px' : '0'}">${fmt(order.total)}</div>
       ${canCancel ? `
@@ -6000,6 +6065,7 @@ async function init() {
     await CartManager.init();
     await FavoritesManager.init();
     OrdersManager.init();
+    OrdersManager.startPolling();
     LoyaltyManager.init();
     await ReviewsManager.init();
     initTheme();

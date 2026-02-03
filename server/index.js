@@ -2783,6 +2783,39 @@ app.post('/api/admin/broadcast', requireAdmin, async (req, res) => {
   }
 });
 
+// ==================== CUSTOMER ORDERS (status sync) ====================
+app.get('/api/customer/orders', apiLimiter, async (req, res) => {
+  try {
+    const { telegram_id } = req.query;
+    if (!telegram_id) {
+      return res.status(400).json({ ok: false, error: 'telegram_id requis' });
+    }
+
+    const sanitizedId = sanitizeString(telegram_id, 50);
+    const orders = await db.all(
+      `SELECT id, status, type, total, discount, items, cancel_reason, cancelled_at, delivery_time, created_at
+       FROM orders
+       WHERE client_telegram_id = ? OR customer = ?
+       ORDER BY created_at DESC
+       LIMIT 50`,
+      [sanitizedId, sanitizedId]
+    );
+
+    orders.forEach(order => {
+      try {
+        order.items = JSON.parse(order.items);
+      } catch (e) {
+        order.items = [];
+      }
+    });
+
+    res.json({ ok: true, orders });
+  } catch (error) {
+    console.error('Customer orders error:', error);
+    res.status(500).json({ ok: false, error: 'Erreur serveur' });
+  }
+});
+
 app.get('/api/admin/orders', requireAdmin, async (req, res) => {
   try {
     const { status, limit = 100 } = req.query;
