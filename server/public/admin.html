@@ -1996,7 +1996,7 @@ const state = {
       {
         id: 3,
         name: 'CANADIENNE',
-        category: 'weed',
+        category: 'cali',
         buyPrice: 2.8,
         video: '/videos/canadienne.MP4',
         videoType: 'video/mp4',
@@ -2011,7 +2011,7 @@ const state = {
       {
         id: 4,
         name: 'BLACK PURPLE',
-        category: 'weed',
+        category: 'cali',
         buyPrice: 2.8,
         video: '/videos/black_purple.MP4',
         videoType: 'video/mp4',
@@ -2026,7 +2026,7 @@ const state = {
       {
         id: 5,
         name: 'MIMOSA PIE',
-        category: 'weed',
+        category: 'cali',
         buyPrice: 2.8,
         video: '/videos/mimosa_pie.MP4',
         videoType: 'video/mp4',
@@ -2041,7 +2041,7 @@ const state = {
       {
         id: 6,
         name: 'GEORGIA PIE',
-        category: 'weed',
+        category: 'cali',
         buyPrice: 2.8,
         video: '/videos/gorgia_pie.MP4',
         videoType: 'video/mp4',
@@ -2056,7 +2056,7 @@ const state = {
       {
         id: 7,
         name: 'BLACK CHEESE',
-        category: 'weed',
+        category: 'cali',
         buyPrice: 2.8,
         video: '/videos/black_cheese.MP4',
         videoType: 'video/mp4',
@@ -2100,6 +2100,22 @@ const state = {
           '10G': { price: 340, stock: 0, grams: 10 },
           '50G': { price: 1200, stock: 0, grams: 50 }
         }
+      },
+      {
+        id: 10,
+        name: 'PIINK KUSH',
+        category: 'mousseux',
+        buyPrice: 2.5,
+        video: '/videos/piink_kush.MOV',
+        videoType: 'video/mp4',
+        archived: false,
+        variants: {
+          '4G': { price: 20, stock: 0, grams: 4 },
+          '6.5G': { price: 30, stock: 0, grams: 6.5 },
+          '12G': { price: 50, stock: 0, grams: 12 },
+          '50G': { price: 180, stock: 0, grams: 50 },
+          '100G': { price: 350, stock: 0, grams: 100 }
+        }
       }
     ],
     customers: []  // ✅ UNE SEULE FOIS ICI
@@ -2107,9 +2123,29 @@ const state = {
 };  // ✅ FERMETURE DE "state"
 
 // ✅ Ensuite les fonctions commencent :
+// Copie des produits par défaut pour auto-merge
+const DEFAULT_ADMIN_PRODUCTS = JSON.parse(JSON.stringify(state.data.products));
+
 function init() {
   console.log('🚀 Initialisation du panel admin...');
   loadData();
+
+  // Auto-merge: ajouter les produits par défaut manquants dans le localStorage
+  const existingNames = state.data.products.map(p => p.name.toUpperCase());
+  let added = 0;
+  let maxId = Math.max(...state.data.products.map(p => p.id), 0);
+  for (const dp of DEFAULT_ADMIN_PRODUCTS) {
+    if (!existingNames.includes(dp.name.toUpperCase())) {
+      state.data.products.push({ ...dp, id: ++maxId });
+      added++;
+      console.log('➕ Produit ajouté automatiquement:', dp.name);
+    }
+  }
+  if (added > 0) {
+    saveData();
+    console.log(`✅ ${added} nouveau(x) produit(s) ajouté(s) depuis les défauts`);
+  }
+
   console.log('📦 État initial - Produits:', state.data.products.length);
 
   // Synchroniser les produits depuis la base de données
