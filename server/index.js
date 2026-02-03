@@ -655,6 +655,19 @@ async function initDB() {
     if (productsData?.value) {
       // Products exist in DB - merge any missing default products
       const existingProducts = JSON.parse(productsData.value);
+
+      // Renommages de produits (ancien nom → nouveau nom)
+      const RENAMES = {
+        "ZOUR'S 120U": "FAST BOY 120u"
+      };
+      for (const p of existingProducts) {
+        const newName = RENAMES[p.name.toUpperCase()];
+        if (newName) {
+          console.log(`✏️ Renommage: ${p.name} → ${newName}`);
+          p.name = newName;
+        }
+      }
+
       const existingNames = existingProducts.map(p => p.name.toUpperCase());
       const maxId = Math.max(...existingProducts.map(p => p.id), 0);
       let nextId = maxId + 1;

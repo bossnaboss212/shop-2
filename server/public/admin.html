@@ -913,7 +913,7 @@
           <option value="weed">🌿 Weed</option>
           <option value="cali">🇺🇸 Cali</option>
           <option value="mousseux">🧽 Mousseux</option>
-          <option value="filtré">🔹 Filtré</option>
+          <option value="filtre">🔹 Filtré</option>
           <option value="frozen">❄️ Frozen</option>
           <option value="blanche">⚪ Blanche</option>
           <option value="mdma">💊 MDMA</option>
@@ -2071,7 +2071,7 @@ const state = {
       {
         id: 8,
         name: 'FAST BOY 120u',
-        category: 'filtré',
+        category: 'filtre',
         buyPrice: 2.75,
         video: '/videos/morroco2025-compressed.mov',
         videoType: 'video/mp4',
@@ -3462,7 +3462,7 @@ function addProduct() {
         <option value="weed">🌿 Weed</option>
         <option value="cali">🇺🇸 Cali</option>
         <option value="mousseux">🧽 Mousseux</option>
-        <option value="filtré">🔹 Filtré</option>
+        <option value="filtre">🔹 Filtré</option>
         <option value="frozen">❄️ Frozen</option>
         <option value="blanche">⚪ Blanche</option>
         <option value="mdma">💊 MDMA</option>
@@ -3692,7 +3692,7 @@ function editProduct(id) {
         <option value="weed" ${p.category === 'weed' ? 'selected' : ''}>🌿 Weed</option>
         <option value="cali" ${p.category === 'cali' ? 'selected' : ''}>🇺🇸 Cali</option>
         <option value="mousseux" ${p.category === 'mousseux' ? 'selected' : ''}>🧽 Mousseux</option>
-        <option value="filtré" ${p.category === 'filtré' ? 'selected' : ''}>🔹 Filtré</option>
+        <option value="filtre" ${p.category === 'filtre' ? 'selected' : ''}>🔹 Filtré</option>
         <option value="frozen" ${p.category === 'frozen' ? 'selected' : ''}>❄️ Frozen</option>
         <option value="blanche" ${p.category === 'blanche' ? 'selected' : ''}>⚪ Blanche</option>
         <option value="mdma" ${p.category === 'mdma' ? 'selected' : ''}>💊 MDMA</option>
@@ -4012,7 +4012,7 @@ function resetProducts() {
       '5G': { price: 50, stock: 0, grams: 5 },
       '10G': { price: 100, stock: 0, grams: 10 }
     }},
-    { id: 8, name: "FAST BOY 120u", category: 'filtr\u00e9', buyPrice: 2.75, description: "Ce produit d'une qualit\u00e9 RARISSIME, un go\u00fbt INOUBLIABLE vous procurera des effets M\u00c9MORABLES.\n\nCurer a 100% muter \u00e0 100% qualit\u00e9s Universal", video: "/videos/morroco2025-compressed.mov", archived: false, variants: {
+    { id: 8, name: "FAST BOY 120u", category: 'filtre', buyPrice: 2.75, description: "Ce produit d'une qualit\u00e9 RARISSIME, un go\u00fbt INOUBLIABLE vous procurera des effets M\u00c9MORABLES.\n\nCurer a 100% muter \u00e0 100% qualit\u00e9s Universal", video: "/videos/morroco2025-compressed.mov", archived: false, variants: {
       '2G': { price: 20, stock: 0, grams: 2 },
       '5G': { price: 40, stock: 0, grams: 5 },
       '10G': { price: 70, stock: 0, grams: 10 },
@@ -5774,7 +5774,7 @@ function updateProfitabilityTable() {
   const tbody = document.getElementById('profitabilityTable');
   if (!tbody) return;
   
-  const categories = ['weed', 'cali', 'mousseux', 'blanche', 'mdma', 'keta', 'frozen', 'filtré'];
+  const categories = ['weed', 'cali', 'mousseux', 'blanche', 'mdma', 'keta', 'frozen', 'filtre'];
   const categoryData = {};
   
   categories.forEach(cat => {
