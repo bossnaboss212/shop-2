@@ -631,9 +631,9 @@ async function initDB() {
       variants: { '1.8G': { price: 20, grams: 1.8, stock: 0 }, '3.6G': { price: 40, grams: 3.6, stock: 0 }, '5G': { price: 50, grams: 5, stock: 0 }, '10G': { price: 100, grams: 10, stock: 0 } }
     },
     {
-      id: 8, name: "ZOUR'S 120u", category: 'filtre',
+      id: 8, name: 'FAST BOY 120u', category: 'filtre',
       description: "Ce produit d'une qualité RARISSIME, un goût INOUBLIABLE vous procurera des effets MÉMORABLES.\n\nCurer a 100% muter à 100% qualités Universal \u{1F440}",
-      video: "/videos/zour's.MP4",
+      video: '/videos/morroco2025-compressed.mov',
       variants: { '2G': { price: 20, grams: 2, stock: 0 }, '5G': { price: 40, grams: 5, stock: 0 }, '10G': { price: 70, grams: 10, stock: 0 }, '50G': { price: 260, grams: 50, stock: 0 }, '100G': { price: 490, grams: 100, stock: 0 } }
     },
     {
