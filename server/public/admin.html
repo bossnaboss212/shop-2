@@ -1407,6 +1407,14 @@
           <div class="stat-label">Nb Produits</div>
           <div class="stat-value" id="nourriceProductCount">0</div>
         </div>
+        <div class="stat-card">
+          <div class="stat-label">Stock Variants</div>
+          <div class="stat-value" id="nourriceVariantCount">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Valeur Variants</div>
+          <div class="stat-value" id="nourriceVariantValue">0,00 &euro;</div>
+        </div>
       </div>
 
       <div style="margin-bottom:12px;text-align:right">
@@ -1449,12 +1457,35 @@
         </div>
       </div>
 
+      <!-- Stock Variants -->
+      <div class="chart-container">
+        <h3>🏷️ Stock Variants (Nourrice)</h3>
+        <div class="toolbar" style="flex-wrap:wrap">
+          <select id="nourriceVarProduct" onchange="loadNourriceVarOptions()" style="flex:1;min-width:140px">
+            <option value="">Produit...</option>
+          </select>
+          <select id="nourriceVarVariant" style="flex:1;min-width:120px">
+            <option value="">Variant...</option>
+          </select>
+          <input type="number" id="nourriceVarQty" placeholder="Quantit&eacute;" min="1" step="1" style="flex:1;min-width:80px">
+          <button onclick="nourriceAddVariant()" style="background:var(--success)">➕ Ajouter</button>
+          <button onclick="nourriceRemoveVariant()" style="background:var(--warning)">➖ Retirer</button>
+        </div>
+        <div class="table-container" style="margin-top:12px;max-height:400px;overflow-y:auto">
+          <table>
+            <thead><tr><th>Produit</th><th>Variant</th><th>Qt&eacute;</th><th>Prix unit.</th><th>Valeur</th><th>Actions</th></tr></thead>
+            <tbody id="nourriceVariantTable"></tbody>
+          </table>
+        </div>
+      </div>
+
       <!-- Historique -->
       <div class="chart-container">
         <h3>📋 Historique Nourrice</h3>
         <div style="display:flex;gap:8px;margin-bottom:12px">
           <button onclick="nourriceFilterHistory('all')" class="tab-btn active" style="font-size:12px;padding:6px 12px">Tout</button>
-          <button onclick="nourriceFilterHistory('stock')" class="tab-btn" style="font-size:12px;padding:6px 12px">Stock</button>
+          <button onclick="nourriceFilterHistory('stock')" class="tab-btn" style="font-size:12px;padding:6px 12px">Stock Gros</button>
+          <button onclick="nourriceFilterHistory('variant')" class="tab-btn" style="font-size:12px;padding:6px 12px">Variants</button>
           <button onclick="nourriceFilterHistory('cash')" class="tab-btn" style="font-size:12px;padding:6px 12px">Caisse</button>
         </div>
         <div class="table-container" style="max-height:300px;overflow-y:auto">
@@ -1936,6 +1967,7 @@ const state = {
   nourrice: {
     cash: 0,
     stock: {},
+    variantStock: {},
     cashHistory: [],
     history: []
   },
@@ -2208,6 +2240,7 @@ function loadData() {
       const n = JSON.parse(savedNourrice);
       state.nourrice.cash = n.cash || 0;
       state.nourrice.stock = n.stock || {};
+      state.nourrice.variantStock = n.variantStock || {};
       state.nourrice.cashHistory = n.cashHistory || [];
       state.nourrice.history = n.history || [];
     } catch (e) {}
@@ -2441,6 +2474,7 @@ async function loadStaffFromServer() {
         if (role === 'nourrice') {
           state.nourrice.cash = json.data.cash || 0;
           state.nourrice.stock = json.data.stock || {};
+          state.nourrice.variantStock = json.data.variantStock || {};
           state.nourrice.cashHistory = json.data.cashHistory || [];
           state.nourrice.history = json.data.history || [];
         } else {
@@ -4321,8 +4355,10 @@ function adjustStock() {
 
 function loadNourrice() {
   loadNourriceProducts();
+  loadNourriceVarProducts();
   loadNourriceStats();
   loadNourriceStockTable();
+  loadNourriceVariantTable();
   loadNourriceCashTable();
   loadNourriceHistory('all');
 }
@@ -4356,6 +4392,23 @@ function loadNourriceStats() {
   document.getElementById('nourriceTotalGrams').textContent = totalGrams.toFixed(1) + 'g';
   document.getElementById('nourriceStockValue').textContent = fc(totalValue);
   document.getElementById('nourriceProductCount').textContent = productCount;
+
+  // Stats variants
+  let variantTotal = 0;
+  let variantValue = 0;
+  for (const [pid, variants] of Object.entries(n.variantStock || {})) {
+    const p = state.data.products.find(x => x.id == pid);
+    for (const [vName, qty] of Object.entries(variants)) {
+      if (qty > 0) {
+        variantTotal += qty;
+        if (p && p.variants && p.variants[vName]) {
+          variantValue += qty * p.variants[vName].price;
+        }
+      }
+    }
+  }
+  document.getElementById('nourriceVariantCount').textContent = variantTotal;
+  document.getElementById('nourriceVariantValue').textContent = fc(variantValue);
 }
 
 function loadNourriceStockTable() {
@@ -4546,6 +4599,167 @@ function nourriceQuickSet(productId) {
   showToast(`${p.name} ajusté a ${grams}g`, 'success');
 }
 
+// ==================== NOURRICE VARIANT STOCK ====================
+
+function loadNourriceVarProducts() {
+  const sel = document.getElementById('nourriceVarProduct');
+  if (!sel) return;
+  const current = sel.value;
+  sel.innerHTML = '<option value="">Produit...</option>';
+  state.data.products.filter(p => !p.archived && p.variants).forEach(p => {
+    sel.innerHTML += `<option value="${p.id}">${p.name}</option>`;
+  });
+  if (current) sel.value = current;
+}
+
+function loadNourriceVarOptions() {
+  const productId = document.getElementById('nourriceVarProduct').value;
+  const varSel = document.getElementById('nourriceVarVariant');
+  const qtyInput = document.getElementById('nourriceVarQty');
+  varSel.innerHTML = '<option value="">Variant...</option>';
+  qtyInput.placeholder = 'Quantité';
+
+  if (!productId) return;
+
+  const p = state.data.products.find(x => x.id == productId);
+  if (!p || !p.variants) return;
+
+  Object.keys(p.variants).forEach(vName => {
+    const currentQty = (state.nourrice.variantStock[productId] && state.nourrice.variantStock[productId][vName]) || 0;
+    varSel.innerHTML += `<option value="${vName}">${vName} (${fc(p.variants[vName].price)}) — stock: ${currentQty}</option>`;
+  });
+}
+
+function nourriceAddVariant() {
+  const productId = document.getElementById('nourriceVarProduct').value;
+  const variant = document.getElementById('nourriceVarVariant').value;
+  const qty = parseInt(document.getElementById('nourriceVarQty').value);
+
+  if (!productId) { showToast('Sélectionnez un produit', 'error'); return; }
+  if (!variant) { showToast('Sélectionnez un variant', 'error'); return; }
+  if (!qty || qty <= 0) { showToast('Quantité invalide', 'error'); return; }
+
+  const p = state.data.products.find(x => x.id == productId);
+  if (!p) return;
+
+  if (!state.nourrice.variantStock[productId]) {
+    state.nourrice.variantStock[productId] = {};
+  }
+  state.nourrice.variantStock[productId][variant] = (state.nourrice.variantStock[productId][variant] || 0) + qty;
+
+  state.nourrice.history.unshift({
+    date: new Date().toLocaleDateString('fr-FR'),
+    type: 'variant',
+    detail: `+${qty}x ${p.name} ${variant}`,
+    value: `+${qty}`
+  });
+
+  document.getElementById('nourriceVarQty').value = '';
+  saveData();
+  loadNourrice();
+  showToast(`+${qty}x ${p.name} ${variant} ajouté`, 'success');
+}
+
+function nourriceRemoveVariant() {
+  const productId = document.getElementById('nourriceVarProduct').value;
+  const variant = document.getElementById('nourriceVarVariant').value;
+  const qty = parseInt(document.getElementById('nourriceVarQty').value);
+
+  if (!productId) { showToast('Sélectionnez un produit', 'error'); return; }
+  if (!variant) { showToast('Sélectionnez un variant', 'error'); return; }
+  if (!qty || qty <= 0) { showToast('Quantité invalide', 'error'); return; }
+
+  const current = (state.nourrice.variantStock[productId] && state.nourrice.variantStock[productId][variant]) || 0;
+  if (qty > current) { showToast(`Stock insuffisant (${current} dispo)`, 'error'); return; }
+
+  const p = state.data.products.find(x => x.id == productId);
+  if (!p) return;
+
+  state.nourrice.variantStock[productId][variant] = current - qty;
+
+  state.nourrice.history.unshift({
+    date: new Date().toLocaleDateString('fr-FR'),
+    type: 'variant',
+    detail: `-${qty}x ${p.name} ${variant}`,
+    value: `-${qty}`
+  });
+
+  document.getElementById('nourriceVarQty').value = '';
+  saveData();
+  loadNourrice();
+  showToast(`-${qty}x ${p.name} ${variant} retiré`, 'success');
+}
+
+function nourriceQuickSetVariant(productId, variant) {
+  const p = state.data.products.find(x => x.id == productId);
+  if (!p) return;
+  const current = (state.nourrice.variantStock[productId] && state.nourrice.variantStock[productId][variant]) || 0;
+  const newVal = prompt(`${p.name} — ${variant}\nStock actuel: ${current}\n\nNouveau stock:`, current);
+  if (newVal === null) return;
+  const qty = parseInt(newVal);
+  if (isNaN(qty) || qty < 0) { showToast('Valeur invalide', 'error'); return; }
+
+  const diff = qty - current;
+  if (!state.nourrice.variantStock[productId]) {
+    state.nourrice.variantStock[productId] = {};
+  }
+  state.nourrice.variantStock[productId][variant] = qty;
+
+  state.nourrice.history.unshift({
+    date: new Date().toLocaleDateString('fr-FR'),
+    type: 'variant',
+    detail: `Ajustement ${p.name} ${variant}: ${current} → ${qty}`,
+    value: `${diff >= 0 ? '+' : ''}${diff}`
+  });
+
+  saveData();
+  loadNourrice();
+  showToast(`${p.name} ${variant} ajusté à ${qty}`, 'success');
+}
+
+function loadNourriceVariantTable() {
+  const tbody = document.getElementById('nourriceVariantTable');
+  if (!tbody) return;
+
+  const rows = [];
+  const vs = state.nourrice.variantStock || {};
+
+  for (const [pid, variants] of Object.entries(vs)) {
+    const p = state.data.products.find(x => x.id == pid);
+    if (!p || p.archived) continue;
+
+    for (const [vName, qty] of Object.entries(variants)) {
+      if (qty <= 0) continue;
+      const variantInfo = (p.variants && p.variants[vName]) || {};
+      const price = variantInfo.price || 0;
+      const value = qty * price;
+      rows.push({ p, vName, qty, price, value, pid });
+    }
+  }
+
+  if (rows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted)">Aucun stock variant</td></tr>';
+    return;
+  }
+
+  // Trier par produit puis variant
+  rows.sort((a, b) => a.p.name.localeCompare(b.p.name) || a.vName.localeCompare(b.vName));
+
+  tbody.innerHTML = rows.map(r => {
+    const statusColor = r.qty <= 2 ? 'var(--danger)' : r.qty <= 5 ? 'var(--warning)' : 'var(--success)';
+    return `<tr>
+      <td><strong>${r.p.name}</strong></td>
+      <td><span class="badge" style="background:var(--primary)">${r.vName}</span></td>
+      <td><strong style="color:${statusColor}">${r.qty}</strong></td>
+      <td>${fc(r.price)}</td>
+      <td>${fc(r.value)}</td>
+      <td>
+        <button onclick="nourriceQuickSetVariant(${r.pid},'${r.vName}')" style="background:var(--accent);color:#fff;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px">Ajuster</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
 function loadNourriceHistory(filter) {
   const tbody = document.getElementById('nourriceHistoryTable');
   if (!tbody) return;
@@ -4562,11 +4776,12 @@ function loadNourriceHistory(filter) {
   }
 
   tbody.innerHTML = history.map(h => {
-    const icon = h.type === 'stock' ? '📦' : '💶';
-    const color = h.value.startsWith('+') ? 'var(--success)' : 'var(--danger)';
+    const icon = h.type === 'stock' ? '📦' : h.type === 'variant' ? '🏷️' : '💶';
+    const label = h.type === 'stock' ? 'Stock' : h.type === 'variant' ? 'Variant' : 'Caisse';
+    const color = String(h.value).startsWith('+') ? 'var(--success)' : 'var(--danger)';
     return `<tr>
       <td>${h.date}</td>
-      <td>${icon} ${h.type === 'stock' ? 'Stock' : 'Caisse'}</td>
+      <td>${icon} ${label}</td>
       <td>${h.detail}</td>
       <td style="color:${color};font-weight:700">${h.value}</td>
     </tr>`;
