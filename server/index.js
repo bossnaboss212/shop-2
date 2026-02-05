@@ -2247,27 +2247,6 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
     const sanitizedType = sanitizeString(type, 50);
     const sanitizedAddress = sanitizeString(address, 200);
 
-    // ==================== VÉRIFICATION DE STOCK ====================
-    for (const item of items) {
-      const stock = await db.get(
-        'SELECT qty FROM stock WHERE product_id = ? AND variant = ?',
-        [item.product_id, item.variant]
-      );
-
-      // Si le produit n'existe pas en table stock, on laisse passer (stock pas encore initialisé)
-      if (stock && stock.qty < item.qty) {
-        return res.status(400).json({
-          ok: false,
-          error: `Stock insuffisant pour ${item.name} ${item.variant} (${stock.qty} disponible${stock.qty > 1 ? 's' : ''})`,
-          stockError: true,
-          product: item.name,
-          variant: item.variant,
-          available: stock.qty,
-          requested: item.qty
-        });
-      }
-    }
-    
     const blockedCustomer = await isCustomerBlocked(sanitizedCustomer);
     if (blockedCustomer) {
       const reason = blockedCustomer.blocked_reason || 'Compte bloqué';
