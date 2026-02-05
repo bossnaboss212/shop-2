@@ -54,7 +54,7 @@ const config = {
     },
     exterieur: {
       name: 'Extérieur',
-      keywords: ['extérieur', 'exterieur'],
+      keywords: ['aguessac', 'st georges', 'cavalerie', 'st affrique', 'hospitalet', 'st rome', 'severac', 'sévérac', 'salles curan', 'nant', 'pont de salars', 'le rozier', 'riviere', 'rivière', 'camares', 'camarès', 'laissac', 'st jean du bruel', 'lodeve', 'lodève', 'canourgue', 'banassac', 'bannasac', 'st chely', 'st chély', 'marvejol', 'rodez', 'mende', 'onet', 'primaube', '+10', '+20', '+30', '+40'],
       driverIdKey: 'driverExterieurId',
     },
   },

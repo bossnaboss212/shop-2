@@ -3448,9 +3448,18 @@ const DEFAULT_PRODUCTS = [
 ];
 let selectedVariant = null;
 let quantity = 1;
-let selectedDelivery = 'livraison';
+let selectedDelivery = 'meetup';
+let selectedZone = 'millau';
 let selectedHousingType = '';
 let currentSort = 'default';
+
+const DELIVERY_ZONES = [
+  { id: 'millau', name: 'Millau', fee: 0, min: 0, villes: [] },
+  { id: 'zone1', name: 'Aguessac / St Georges / La Cavalerie', fee: 10, min: 50, villes: ['aguessac', 'st georges', 'saint georges', 'la cavalerie', 'cavalerie'] },
+  { id: 'zone2', name: 'St Affrique / L\'Hospitalet / St Rome / Sévérac / Salles Curan / Nant / Pont de Salars / Le Rozier / Rivière sur Tarn', fee: 20, min: 80, villes: ['st affrique', 'saint affrique', 'hospitalet', 'st rome', 'saint rome', 'severac', 'sévérac', 'salles curan', 'salle curan', 'nant', 'pont de salars', 'pont de salar', 'le rozier', 'le rosier', 'riviere sur tarn', 'rivière sur tarn'] },
+  { id: 'zone3', name: 'Camarès / Laissac / St Jean du Bruel / Lodève / La Canourgue / Banassac', fee: 30, min: 100, villes: ['camares', 'camarès', 'laissac', 'st jean du bruel', 'saint jean du bruel', 'lodeve', 'lodève', 'la canourgue', 'canourgue', 'banassac', 'bannasac'] },
+  { id: 'zone4', name: 'St Chély d\'Apcher / Marvejols / Rodez / Mende / Onet le Château / Primaube', fee: 40, min: 100, villes: ['st chely', 'saint chely', 'st chély', 'marvejol', 'marvejols', 'rodez', 'mende', 'onet le chateau', 'onet le château', 'onet', 'primaube'] }
+];
 let currentCategory = 'all';
 let syncInterval = null;
 let userCreditBalance = 0;
@@ -4386,7 +4395,8 @@ function renderCart() {
   }
 
   const subtotal = CartManager.getTotal();
-  const deliveryFee = selectedDelivery === 'exterieur' ? 20 : 0;
+  const currentZone = DELIVERY_ZONES.find(z => z.id === selectedZone) || DELIVERY_ZONES[0];
+  const deliveryFee = selectedDelivery === 'livraison' ? currentZone.fee : 0;
 
   const totalBeforeCredit = subtotal + deliveryFee;
   const creditToApply = useCreditEnabled ? Math.min(userCreditBalance, totalBeforeCredit) : 0;
@@ -4409,9 +4419,46 @@ function renderCart() {
       </div>
     `).join('')}
 
+    <div class="cart-section-title">Sélectionnez votre type de commande :</div>
+
+    <label class="cart-radio-option">
+      <input type="radio" name="deliveryType" value="meetup" ${selectedDelivery === 'meetup' ? 'checked' : ''}>
+      <span>🤝 Meetup</span>
+    </label>
+    <label class="cart-radio-option">
+      <input type="radio" name="deliveryType" value="livraison" ${selectedDelivery === 'livraison' ? 'checked' : ''}>
+      <span>🚛 Livraison</span>
+    </label>
+
+    <div id="zoneBlock" style="display:${selectedDelivery === 'livraison' ? 'block' : 'none'}">
+      <div class="cart-section-title">Zone de livraison :</div>
+      ${DELIVERY_ZONES.map(z => `
+        <label class="cart-radio-option" style="align-items:flex-start">
+          <input type="radio" name="deliveryZone" value="${z.id}" ${selectedZone === z.id ? 'checked' : ''} style="margin-top:3px">
+          <span style="display:flex;flex-direction:column;gap:2px">
+            <span style="font-weight:600">${z.name}${z.fee > 0 ? ` <span style="color:var(--accent)">(+${z.fee}€)</span>` : ' <span style="color:var(--success)">(gratuit)</span>'}</span>
+            ${z.min > 0 ? `<span style="font-size:11px;color:var(--text-muted)">Minimum ${z.min}€ d'achat</span>` : ''}
+          </span>
+        </label>
+      `).join('')}
+
+      ${currentZone.min > 0 && subtotal < currentZone.min ? `
+        <div style="background:rgba(255,82,82,0.1);border:1px solid var(--danger);border-radius:10px;padding:12px;margin-top:8px;text-align:center">
+          <span style="color:var(--danger);font-weight:600;font-size:13px">⚠️ Minimum ${currentZone.min}€ d'achat requis pour cette zone (actuel: ${fmt(subtotal)})</span>
+        </div>
+      ` : ''}
+    </div>
+
     <div class="cart-total-bar">
-      <span class="cart-total-label">Total :</span>
-      <span class="cart-total-value">${fmt(total)}</span>
+      <div style="display:flex;flex-direction:column;gap:4px;flex:1">
+        <div style="display:flex;justify-content:space-between"><span>Sous-total :</span><span>${fmt(subtotal)}</span></div>
+        ${deliveryFee > 0 ? `<div style="display:flex;justify-content:space-between;font-size:13px;color:var(--text-muted)"><span>Livraison (${currentZone.name}) :</span><span>+${fmt(deliveryFee)}</span></div>` : ''}
+        ${useCreditEnabled && creditToApply > 0 ? `<div style="display:flex;justify-content:space-between;font-size:13px;color:var(--success)"><span>Crédit appliqué :</span><span>-${fmt(creditToApply)}</span></div>` : ''}
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
+        <span class="cart-total-label">Total :</span>
+        <span class="cart-total-value">${fmt(total)}</span>
+      </div>
     </div>
 
     ${userCreditBalance > 0 ? `
@@ -4420,28 +4467,10 @@ function renderCart() {
         <input type="checkbox" id="useCreditCheckbox" ${useCreditEnabled ? 'checked' : ''} style="width:20px;height:20px;accent-color:var(--accent);cursor:pointer">
         <span style="font-size:15px;font-weight:600">💰 Utiliser mon crédit (${fmt(userCreditBalance)})</span>
       </label>
-      ${useCreditEnabled && creditToApply > 0 ? `
-        <div style="margin-top:8px;font-size:13px;color:var(--success)">✅ -${fmt(creditToApply)} déduits</div>
-      ` : ''}
     </div>
     ` : ''}
 
-    <div class="cart-section-title">Sélectionnez votre type de commande :</div>
-
-    <label class="cart-radio-option">
-      <input type="radio" name="deliveryType" value="meetup" ${selectedDelivery === 'meetup' ? 'checked' : ''}>
-      <span>Meetup</span>
-    </label>
-    <label class="cart-radio-option">
-      <input type="radio" name="deliveryType" value="livraison" ${selectedDelivery === 'livraison' ? 'checked' : ''}>
-      <span>Livraison</span>
-    </label>
-    <label class="cart-radio-option">
-      <input type="radio" name="deliveryType" value="exterieur" ${selectedDelivery === 'exterieur' ? 'checked' : ''}>
-      <span>Livraison extérieure (+20€)</span>
-    </label>
-
-    <div id="addressBlock" style="display:${selectedDelivery === 'meetup' ? 'none' : 'block'}">
+    <div id="addressBlock" style="display:${selectedDelivery === 'livraison' ? 'block' : 'none'}">
       <div class="input-wrapper" style="margin-top:16px">
         <input type="text" class="input-field" id="addressInput" placeholder="Entrez votre adresse de livraison" maxlength="200">
         <div class="suggestions" id="suggestions" style="display:none"></div>
@@ -4503,6 +4532,15 @@ function renderCart() {
   content.querySelectorAll('input[name="deliveryType"]').forEach(radio => {
     radio.onchange = function() {
       selectedDelivery = this.value;
+      if (this.value === 'meetup') selectedZone = 'millau';
+      renderCart();
+    };
+  });
+
+  // Delivery zone radios
+  content.querySelectorAll('input[name="deliveryZone"]').forEach(radio => {
+    radio.onchange = function() {
+      selectedZone = this.value;
       renderCart();
     };
   });
@@ -4683,10 +4721,22 @@ async function validateOrder() {
   const addressInput = document.getElementById('addressInput');
   const address = addressInput?.value.trim() || '';
 
-  if (selectedDelivery !== 'meetup' && (!address || address.length < 5)) {
+  if (selectedDelivery === 'livraison' && (!address || address.length < 5)) {
     showToast('⚠️ Entrez une adresse de livraison');
     addressInput?.focus({ preventScroll: true });
     return;
+  }
+
+  // Vérifier le minimum de commande pour la zone sélectionnée
+  if (selectedDelivery === 'livraison') {
+    const zone = DELIVERY_ZONES.find(z => z.id === selectedZone);
+    if (zone && zone.min > 0) {
+      const cartSubtotal = CartManager.getTotal();
+      if (cartSubtotal < zone.min) {
+        showToast(`⚠️ Minimum ${zone.min}€ d'achat requis pour ${zone.name}`);
+        return;
+      }
+    }
   }
   
   const btn = document.getElementById('validateOrder');
@@ -4704,12 +4754,15 @@ async function validateOrder() {
   
   try {
     const clientId = generateClientId();
-    const deliveryType = selectedDelivery === 'meetup'
-      ? 'Meetup'
-      : selectedDelivery === 'exterieur'
-        ? 'Livraison extérieure (+20€)'
-        : 'Livraison';
-    
+    const currentZone = DELIVERY_ZONES.find(z => z.id === selectedZone) || DELIVERY_ZONES[0];
+    const deliveryFee = selectedDelivery === 'livraison' ? currentZone.fee : 0;
+    let deliveryType = 'Meetup';
+    if (selectedDelivery === 'livraison') {
+      deliveryType = deliveryFee > 0
+        ? `Livraison ${currentZone.name} (+${deliveryFee}€)`
+        : 'Livraison Millau';
+    }
+
     const items = CartManager.items.map(item => ({
       product_id: item.productId,
       name: item.name,
@@ -4718,9 +4771,8 @@ async function validateOrder() {
       price: item.price,
       lineTotal: item.price * item.qty
     }));
-    
+
     const subtotal = CartManager.getTotal();
-    const deliveryFee = selectedDelivery === 'exterieur' ? 20 : 0;
 
     const subtotalWithDelivery = subtotal + deliveryFee;
     const nextOrderNumber = LoyaltyManager.totalOrders + 1;
