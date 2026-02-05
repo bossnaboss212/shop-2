@@ -4081,13 +4081,6 @@ function openProduct(id) {
   if (addBtn) {
     addBtn.onclick = () => {
       if (selectedVariant) {
-        const availableStock = selectedVariant.stock || 0;
-        
-        if (quantity > availableStock) {
-          showToast('⚠️ Stock insuffisant pour cette quantité');
-          return;
-        }
-        
         const cartItem = {
           productId: currentProduct.id,
           name: currentProduct.name,
