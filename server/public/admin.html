@@ -3257,42 +3257,81 @@ function addOrder() {
 function saveOrder() {
   const customer = document.getElementById('orderCustomer').value;
   const total = parseFloat(document.getElementById('orderTotal').value);
-  
+
   if (!customer || !total) {
     showToast('Remplissez les champs', 'error');
     return;
   }
-  
-  const newOrder = {
-    id: Math.max(...state.data.orders.map(o => o.id), 0) + 1,
-    date: new Date().toLocaleDateString('fr-FR'),
-    customer,
-    products: 'Commande manuelle',
-    total,
-    status: 'pending',
-    payment: 'Espèces'
+
+  // Envoyer la commande au serveur
+  const token = localStorage.getItem('admin_token');
+  const orderData = {
+    customer: customer,
+    customerName: customer,
+    type: 'pickup',
+    address: 'Commande manuelle admin',
+    items: [{ product_id: 0, name: 'Commande manuelle', variant: 'custom', qty: 1, lineTotal: total }],
+    total: total
   };
-  
-  state.data.orders.unshift(newOrder);
-  
-  state.cash.total += total;
-  state.cash.transactions.push({
-    id: Date.now(),
-    date: new Date().toISOString(),
-    type: 'income',
-    amount: total,
-    category: 'sale',
-    description: `Commande #${newOrder.id} - ${customer}`,
-    balanceAfter: state.cash.total
-  });
-  
-  saveData();
-  loadOrders();
-  updateAllStats();
-  updateActivityFeed();
-  loadCashier();
-  closeModal();
-  showToast('Commande créée', 'success');
+
+  const createLocalOrder = () => {
+    const newOrder = {
+      id: Math.max(...state.data.orders.map(o => o.id), 0) + 1,
+      date: new Date().toLocaleDateString('fr-FR'),
+      customer,
+      products: 'Commande manuelle',
+      total,
+      status: 'pending',
+      payment: 'Espèces'
+    };
+    state.data.orders.unshift(newOrder);
+    state.cash.total += total;
+    state.cash.transactions.push({
+      id: Date.now(),
+      date: new Date().toISOString(),
+      type: 'income',
+      amount: total,
+      category: 'sale',
+      description: `Commande #${newOrder.id} - ${customer}`,
+      balanceAfter: state.cash.total
+    });
+    saveData();
+    loadOrders();
+    updateAllStats();
+    updateActivityFeed();
+    loadCashier();
+  };
+
+  if (token) {
+    fetch('/api/create-order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(orderData)
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.ok) {
+        // Sync depuis le serveur pour avoir l'ID correct
+        syncOrders(false);
+        closeModal();
+        showToast('Commande créée', 'success');
+      } else {
+        // Fallback local si le serveur refuse
+        createLocalOrder();
+        closeModal();
+        showToast('Commande créée (local)', 'warning');
+      }
+    })
+    .catch(() => {
+      createLocalOrder();
+      closeModal();
+      showToast('Commande créée (local)', 'warning');
+    });
+  } else {
+    createLocalOrder();
+    closeModal();
+    showToast('Commande créée (local)', 'success');
+  }
 }
 
 function viewOrder(id) {
@@ -3441,12 +3480,41 @@ function confirmValidateOrder(id) {
 
 function deleteOrder(id) {
   if (confirm('Supprimer ?')) {
-    state.data.orders = state.data.orders.filter(o => o.id !== id);
-    saveData();
-    loadOrders();
-    updateAllStats();
-    updateActivityFeed();
-    showToast('Supprimé', 'success');
+    // Supprimer côté serveur
+    const token = localStorage.getItem('admin_token');
+    if (token) {
+      fetch(`/api/admin/orders/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-token': token
+        }
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.ok) {
+          state.data.orders = state.data.orders.filter(o => o.id !== id);
+          saveData();
+          loadOrders();
+          updateAllStats();
+          updateActivityFeed();
+          showToast('Supprimé', 'success');
+        } else {
+          showToast('Erreur: ' + (data.error || 'Suppression échouée'), 'error');
+        }
+      })
+      .catch(err => {
+        console.error('Delete error:', err);
+        showToast('Erreur de connexion', 'error');
+      });
+    } else {
+      state.data.orders = state.data.orders.filter(o => o.id !== id);
+      saveData();
+      loadOrders();
+      updateAllStats();
+      updateActivityFeed();
+      showToast('Supprimé (local)', 'success');
+    }
   }
 }
 
@@ -4395,6 +4463,17 @@ function nourriceRemoveCash() {
   showToast(`-${fc(amount)} retiré de la caisse nourrice`, 'success');
 }
 
+function updateNourriceVariants() {
+  const productId = document.getElementById('nourriceProduct').value;
+  const gramsInput = document.getElementById('nourriceGrams');
+  if (!productId) {
+    gramsInput.placeholder = 'Grammes';
+    return;
+  }
+  const currentStock = state.nourrice.stock[productId] || 0;
+  gramsInput.placeholder = `Grammes (stock: ${currentStock}g)`;
+}
+
 function nourriceAddStock() {
   const productId = document.getElementById('nourriceProduct').value;
   const grams = parseFloat(document.getElementById('nourriceGrams').value);
@@ -5264,28 +5343,76 @@ function searchCustomers() {
 function sortTable(table, column) {
   const tbody = document.getElementById(`${table}Table`);
   const rows = Array.from(tbody.querySelectorAll('tr'));
-  
+
+  // Mapping des colonnes vers les indices de cellules
+  const columnMap = {
+    orders: { id: 0, date: 1, customer: 2, total: 4 },
+    products: { id: 0, name: 1 },
+    customers: { id: 0, name: 1 }
+  };
+
+  const colIndex = (columnMap[table] && columnMap[table][column] !== undefined) ? columnMap[table][column] : 0;
+
   const key = `${table}_${column}`;
   const order = state.sortConfig[key] === 'asc' ? 'desc' : 'asc';
   state.sortConfig[key] = order;
-  
+
   rows.sort((a, b) => {
-    const aVal = a.cells[0].textContent;
-    const bVal = b.cells[0].textContent;
-    
+    const aVal = a.cells[colIndex] ? a.cells[colIndex].textContent.trim() : '';
+    const bVal = b.cells[colIndex] ? b.cells[colIndex].textContent.trim() : '';
+
+    // Tenter un tri numérique si possible
+    const aNum = parseFloat(aVal.replace(/[^0-9.,-]/g, '').replace(',', '.'));
+    const bNum = parseFloat(bVal.replace(/[^0-9.,-]/g, '').replace(',', '.'));
+
+    if (!isNaN(aNum) && !isNaN(bNum)) {
+      return order === 'asc' ? aNum - bNum : bNum - aNum;
+    }
+
     if (order === 'asc') {
-      return aVal > bVal ? 1 : -1;
+      return aVal.localeCompare(bVal, 'fr');
     } else {
-      return aVal < bVal ? 1 : -1;
+      return bVal.localeCompare(aVal, 'fr');
     }
   });
-  
+
   rows.forEach(row => tbody.appendChild(row));
   showToast(`Trié: ${column}`, 'success');
 }
 
 function saveSettings() {
-  showToast('Paramètres sauvegardés', 'success');
+  const shopName = document.getElementById('shopName').value.trim();
+  if (!shopName) {
+    showToast('Le nom de la boutique est requis', 'error');
+    return;
+  }
+
+  const token = localStorage.getItem('admin_token');
+  if (token) {
+    fetch('/api/admin/settings', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-token': token
+      },
+      body: JSON.stringify({ settings: { shop_name: shopName } })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.ok) {
+        showToast('Paramètres sauvegardés', 'success');
+      } else {
+        showToast('Erreur: ' + (data.error || 'Sauvegarde échouée'), 'error');
+      }
+    })
+    .catch(err => {
+      console.error('Save settings error:', err);
+      showToast('Erreur de connexion', 'error');
+    });
+  } else {
+    localStorage.setItem('shop_name', shopName);
+    showToast('Paramètres sauvegardés (local)', 'success');
+  }
 }
 
 function changePassword() {
