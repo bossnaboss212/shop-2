@@ -1945,6 +1945,10 @@ body.modal-open{overflow:hidden;position:fixed;width:100%;max-width:100vw;overfl
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
         <span>Informations</span>
       </button>
+      <button class="menu-item" data-page="livraison">
+        <svg viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg>
+        <span>Tarifs Livraison</span>
+      </button>
       <button class="menu-item" data-page="avis">
         <svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
         <span>Avis clients</span>
@@ -2338,6 +2342,297 @@ body.modal-open{overflow:hidden;position:fixed;width:100%;max-width:100vw;overfl
       <button id="clearHistory" style="width:100%;padding:14px;background:transparent;border:2px solid var(--danger);color:var(--danger);border-radius:12px;font-weight:600;cursor:pointer;margin-top:16px">
         🗑️ Effacer l'historique
       </button>
+    </div>
+  </main>
+
+  <!-- PAGE TARIFS LIVRAISON -->
+  <main class="page" id="page-livraison">
+    <style>
+      @keyframes dlv-fadeIn{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+      @keyframes dlv-glow{0%,100%{box-shadow:0 0 15px var(--dlv-clr)}50%{box-shadow:0 0 30px var(--dlv-clr),0 0 60px var(--dlv-clr2)}}
+      @keyframes dlv-truck{0%{transform:translateX(-120%)}100%{transform:translateX(calc(100vw + 120%))}}
+      @keyframes dlv-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+      @keyframes dlv-shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+      @keyframes dlv-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+
+      .dlv-page{padding:0 16px 20px;max-width:600px;margin:0 auto}
+
+      .dlv-hero{
+        position:relative;overflow:hidden;border-radius:24px;padding:32px 20px 28px;margin-bottom:24px;text-align:center;
+        background:linear-gradient(160deg,#0c1219 0%,#162032 40%,#1a1028 100%);
+        border:1px solid rgba(255,215,0,0.15);
+      }
+      .dlv-hero::before{
+        content:'';position:absolute;top:0;left:0;right:0;bottom:0;
+        background:radial-gradient(ellipse at 30% 20%,rgba(255,215,0,0.08) 0%,transparent 60%),radial-gradient(ellipse at 70% 80%,rgba(0,212,255,0.06) 0%,transparent 60%);
+        pointer-events:none;
+      }
+      .dlv-hero::after{
+        content:'';position:absolute;bottom:0;left:0;right:0;height:1px;
+        background:linear-gradient(90deg,transparent,rgba(255,215,0,0.4),rgba(0,212,255,0.4),transparent);
+      }
+      .dlv-hero-truck{
+        position:absolute;bottom:12px;left:0;font-size:22px;opacity:0.15;
+        animation:dlv-truck 12s linear infinite;
+      }
+      .dlv-hero-title{
+        font-size:26px;font-weight:900;letter-spacing:-0.5px;margin-bottom:4px;position:relative;
+        background:linear-gradient(135deg,#ffd700 0%,#ffaa00 30%,#ffd700 60%,#fff5c0 100%);
+        background-size:200% auto;animation:dlv-shimmer 4s linear infinite;
+        -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+      }
+      .dlv-hero-sub{font-size:14px;color:var(--text-muted);font-weight:500;margin-bottom:18px;position:relative}
+      .dlv-hero-badge{
+        display:inline-flex;align-items:center;gap:8px;
+        background:rgba(255,215,0,0.1);border:1px solid rgba(255,215,0,0.3);
+        border-radius:50px;padding:10px 22px;position:relative;
+        animation:dlv-pulse 3s ease-in-out infinite;
+      }
+      .dlv-hero-badge span{font-size:14px;font-weight:700;color:#ffd700}
+      .dlv-hero-badge::before{
+        content:'';position:absolute;inset:-1px;border-radius:50px;
+        background:linear-gradient(135deg,rgba(255,215,0,0.3),transparent,rgba(255,215,0,0.3));
+        z-index:-1;opacity:0.5;
+      }
+
+      .dlv-zone{
+        position:relative;overflow:hidden;border-radius:20px;padding:0;margin-bottom:16px;
+        background:var(--bg-secondary);
+        border:1px solid color-mix(in srgb,var(--dlv-clr) 30%,transparent);
+        transition:all 0.35s cubic-bezier(0.4,0,0.2,1);
+        animation:dlv-fadeIn 0.5s ease-out both;
+      }
+      .dlv-zone:nth-child(2){animation-delay:0.1s}
+      .dlv-zone:nth-child(3){animation-delay:0.2s}
+      .dlv-zone:nth-child(4){animation-delay:0.3s}
+      .dlv-zone:nth-child(5){animation-delay:0.4s}
+
+      .dlv-zone:hover{
+        transform:translateY(-4px) scale(1.01);
+        border-color:var(--dlv-clr);
+        box-shadow:0 8px 32px color-mix(in srgb,var(--dlv-clr) 20%,transparent),0 0 0 1px color-mix(in srgb,var(--dlv-clr) 15%,transparent);
+      }
+      .dlv-zone-glow{
+        position:absolute;top:0;left:0;right:0;height:3px;
+        background:linear-gradient(90deg,transparent,var(--dlv-clr),var(--dlv-clr2),transparent);
+        opacity:0.8;
+      }
+      .dlv-zone-head{display:flex;align-items:center;justify-content:space-between;padding:18px 18px 0}
+      .dlv-zone-left{display:flex;align-items:center;gap:14px}
+      .dlv-zone-icon{
+        width:50px;height:50px;border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:26px;
+        background:linear-gradient(135deg,var(--dlv-clr),var(--dlv-clr2));
+        box-shadow:0 4px 16px color-mix(in srgb,var(--dlv-clr) 30%,transparent);
+        animation:dlv-float 4s ease-in-out infinite;
+      }
+      .dlv-zone-icon span{filter:drop-shadow(0 2px 4px rgba(0,0,0,0.3))}
+      .dlv-zone-name{font-size:17px;font-weight:800;letter-spacing:-0.3px}
+      .dlv-zone-min{font-size:12px;color:var(--text-muted);font-weight:500;margin-top:2px}
+      .dlv-zone-price{
+        font-size:24px;font-weight:900;color:var(--dlv-clr);
+        text-shadow:0 0 20px color-mix(in srgb,var(--dlv-clr) 40%,transparent);
+      }
+      .dlv-zone-cities{display:flex;flex-wrap:wrap;gap:8px;padding:14px 18px 18px}
+      .dlv-city{
+        background:var(--bg-tertiary);border:1px solid var(--border);border-radius:10px;
+        padding:7px 14px;font-size:13px;font-weight:500;
+        transition:all 0.2s;cursor:default;
+      }
+      .dlv-city:hover{border-color:var(--dlv-clr);background:color-mix(in srgb,var(--dlv-clr) 8%,var(--bg-tertiary))}
+      .dlv-city.--free{
+        background:color-mix(in srgb,var(--dlv-clr) 12%,var(--bg-tertiary));
+        border-color:color-mix(in srgb,var(--dlv-clr) 40%,transparent);
+        font-weight:700;
+      }
+      .dlv-city.--free::after{content:' (Gratuit)';font-size:10px;color:var(--dlv-clr);font-weight:800;margin-left:4px}
+
+      .dlv-recap{
+        border-radius:20px;padding:24px 20px;margin-top:24px;position:relative;overflow:hidden;
+        background:linear-gradient(160deg,var(--bg-secondary) 0%,var(--bg-tertiary) 100%);
+        border:1px solid var(--border);animation:dlv-fadeIn 0.5s ease-out 0.5s both;
+      }
+      .dlv-recap::before{
+        content:'';position:absolute;top:0;left:0;right:0;height:2px;
+        background:linear-gradient(90deg,#4ade80,#fbbf24,#f97316,#ef4444);
+      }
+      .dlv-recap-title{font-size:18px;font-weight:800;text-align:center;margin-bottom:20px;letter-spacing:-0.3px}
+      .dlv-recap-grid{display:flex;flex-direction:column;gap:10px}
+      .dlv-recap-row{
+        display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;border-radius:14px;overflow:hidden;
+        border:1px solid var(--border);transition:all 0.2s;
+      }
+      .dlv-recap-row:hover{border-color:var(--dlv-clr);transform:translateX(4px)}
+      .dlv-recap-row.--header{background:var(--bg-tertiary);border:none;font-weight:700}
+      .dlv-recap-cell{
+        padding:12px 8px;text-align:center;font-size:14px;font-weight:600;
+        display:flex;align-items:center;justify-content:center;gap:6px;
+      }
+      .dlv-recap-row:not(.--header) .dlv-recap-cell:first-child{background:color-mix(in srgb,var(--dlv-clr) 8%,var(--bg-secondary))}
+      .dlv-recap-row:not(.--header) .dlv-recap-cell:nth-child(2){background:var(--bg-secondary)}
+      .dlv-recap-row:not(.--header) .dlv-recap-cell:last-child{background:color-mix(in srgb,var(--dlv-clr) 6%,var(--bg-secondary));color:var(--dlv-clr);font-weight:800;font-size:16px}
+      .dlv-recap-dot{width:10px;height:10px;border-radius:50%;background:var(--dlv-clr);flex-shrink:0;box-shadow:0 0 8px var(--dlv-clr)}
+
+      .dlv-info{
+        border-radius:20px;padding:20px;margin-top:16px;position:relative;overflow:hidden;
+        background:linear-gradient(135deg,rgba(0,212,255,0.06) 0%,rgba(99,102,241,0.06) 100%);
+        border:1px solid rgba(0,212,255,0.15);animation:dlv-fadeIn 0.5s ease-out 0.6s both;
+      }
+      .dlv-info::before{
+        content:'';position:absolute;top:0;left:0;right:0;height:2px;
+        background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:0.5;
+      }
+      .dlv-info h3{font-size:16px;font-weight:700;margin:0 0 14px 0;display:flex;align-items:center;gap:8px}
+      .dlv-info ul{color:var(--text-muted);font-size:14px;line-height:2;margin:0;padding-left:20px}
+      .dlv-info li::marker{color:var(--accent)}
+    </style>
+
+    <div class="dlv-page">
+      <!-- Hero Banner -->
+      <div class="dlv-hero">
+        <div class="dlv-hero-truck">&#x1F69A;</div>
+        <div class="dlv-hero-title">TARIFS DE LIVRAISONS</div>
+        <div class="dlv-hero-sub">Hors Millau &#x1F69A;</div>
+        <div class="dlv-hero-badge">
+          <span>&#x26A0;&#xFE0F; Minimum 50&euro; d'achat</span>
+        </div>
+      </div>
+
+      <!-- ZONE 1 -->
+      <div class="dlv-zone" style="--dlv-clr:#4ade80;--dlv-clr2:#22c55e">
+        <div class="dlv-zone-glow"></div>
+        <div class="dlv-zone-head">
+          <div class="dlv-zone-left">
+            <div class="dlv-zone-icon"><span>&#x1F7E2;</span></div>
+            <div>
+              <div class="dlv-zone-name">Zone 1</div>
+              <div class="dlv-zone-min">Min. 50&euro; d'achat</div>
+            </div>
+          </div>
+          <div class="dlv-zone-price">+10&euro;</div>
+        </div>
+        <div class="dlv-zone-cities">
+          <span class="dlv-city --free">Millau</span>
+          <span class="dlv-city">Arnitas</span>
+          <span class="dlv-city">Aguessac</span>
+          <span class="dlv-city">St Georges</span>
+          <span class="dlv-city">Compeyre</span>
+          <span class="dlv-city">Le Monna</span>
+          <span class="dlv-city">Verri&egrave;res</span>
+        </div>
+      </div>
+
+      <!-- ZONE 2 -->
+      <div class="dlv-zone" style="--dlv-clr:#fbbf24;--dlv-clr2:#f59e0b">
+        <div class="dlv-zone-glow"></div>
+        <div class="dlv-zone-head">
+          <div class="dlv-zone-left">
+            <div class="dlv-zone-icon"><span>&#x1F7E1;</span></div>
+            <div>
+              <div class="dlv-zone-name">Zone 2</div>
+              <div class="dlv-zone-min">Min. 80&euro; d'achat</div>
+            </div>
+          </div>
+          <div class="dlv-zone-price">+20&euro;</div>
+        </div>
+        <div class="dlv-zone-cities">
+          <span class="dlv-city">St Affrigue</span>
+          <span class="dlv-city">Saint-Rome-de-Cernon</span>
+          <span class="dlv-city">St-Rome-de-Tarn</span>
+          <span class="dlv-city">S&eacute;v&eacute;rac-le-Ch&acirc;teau</span>
+          <span class="dlv-city">Valles-Curan</span>
+          <span class="dlv-city">Peyre</span>
+        </div>
+      </div>
+
+      <!-- ZONE 3 -->
+      <div class="dlv-zone" style="--dlv-clr:#f97316;--dlv-clr2:#ea580c">
+        <div class="dlv-zone-glow"></div>
+        <div class="dlv-zone-head">
+          <div class="dlv-zone-left">
+            <div class="dlv-zone-icon"><span>&#x1F7E0;</span></div>
+            <div>
+              <div class="dlv-zone-name">Zone 3</div>
+              <div class="dlv-zone-min">Min. 100&euro; d'achat</div>
+            </div>
+          </div>
+          <div class="dlv-zone-price">+30&euro;</div>
+        </div>
+        <div class="dlv-zone-cities">
+          <span class="dlv-city">Camar&egrave;s</span>
+          <span class="dlv-city">Belmont</span>
+          <span class="dlv-city">Laval-Roquecezi&egrave;re</span>
+          <span class="dlv-city">M&eacute;lagues</span>
+          <span class="dlv-city">Peux-et-Couffouleux</span>
+          <span class="dlv-city">Arnac-sur-Dourdou</span>
+          <span class="dlv-city">Fayet</span>
+        </div>
+      </div>
+
+      <!-- ZONE 4 -->
+      <div class="dlv-zone" style="--dlv-clr:#ef4444;--dlv-clr2:#dc2626">
+        <div class="dlv-zone-glow"></div>
+        <div class="dlv-zone-head">
+          <div class="dlv-zone-left">
+            <div class="dlv-zone-icon"><span>&#x1F534;</span></div>
+            <div>
+              <div class="dlv-zone-name">Zone 4</div>
+              <div class="dlv-zone-min">Min. 150&euro; d'achat</div>
+            </div>
+          </div>
+          <div class="dlv-zone-price">+40&euro;</div>
+        </div>
+        <div class="dlv-zone-cities">
+          <span class="dlv-city">Rodez</span>
+          <span class="dlv-city">Naucelle</span>
+          <span class="dlv-city">Espalion</span>
+          <span class="dlv-city">Canourgue</span>
+          <span class="dlv-city">Onet-le-Ch&acirc;teau</span>
+          <span class="dlv-city">Marvejols</span>
+        </div>
+      </div>
+
+      <!-- Recap -->
+      <div class="dlv-recap">
+        <div class="dlv-recap-title">&#x1F4CB; R&eacute;capitulatif</div>
+        <div class="dlv-recap-grid">
+          <div class="dlv-recap-row --header">
+            <div class="dlv-recap-cell">Zone</div>
+            <div class="dlv-recap-cell">Min. achat</div>
+            <div class="dlv-recap-cell">Livraison</div>
+          </div>
+          <div class="dlv-recap-row" style="--dlv-clr:#4ade80">
+            <div class="dlv-recap-cell"><span class="dlv-recap-dot"></span> Zone 1</div>
+            <div class="dlv-recap-cell">50&euro;</div>
+            <div class="dlv-recap-cell">+10&euro;</div>
+          </div>
+          <div class="dlv-recap-row" style="--dlv-clr:#fbbf24">
+            <div class="dlv-recap-cell"><span class="dlv-recap-dot"></span> Zone 2</div>
+            <div class="dlv-recap-cell">80&euro;</div>
+            <div class="dlv-recap-cell">+20&euro;</div>
+          </div>
+          <div class="dlv-recap-row" style="--dlv-clr:#f97316">
+            <div class="dlv-recap-cell"><span class="dlv-recap-dot"></span> Zone 3</div>
+            <div class="dlv-recap-cell">100&euro;</div>
+            <div class="dlv-recap-cell">+30&euro;</div>
+          </div>
+          <div class="dlv-recap-row" style="--dlv-clr:#ef4444">
+            <div class="dlv-recap-cell"><span class="dlv-recap-dot"></span> Zone 4</div>
+            <div class="dlv-recap-cell">150&euro;</div>
+            <div class="dlv-recap-cell">+40&euro;</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Info -->
+      <div class="dlv-info">
+        <h3>&#x1F4A1; Bon &agrave; savoir</h3>
+        <ul>
+          <li>Millau centre : livraison <strong style="color:var(--success)">gratuite</strong></li>
+          <li>Les frais sont ajout&eacute;s automatiquement au panier</li>
+          <li>Le minimum d'achat d&eacute;pend de votre zone</li>
+          <li>Pour toute question, contactez le support</li>
+        </ul>
+      </div>
     </div>
   </main>
 
