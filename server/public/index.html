@@ -3583,32 +3583,7 @@ const ReviewsManager = {
 
 let PRODUCTS = [];
 let currentProduct = null;
-
-// ═══════════════════════════════════════════════════════════════════════════
-// CHARGEMENT INSTANTANÉ DES PRODUITS AU DÉMARRAGE
-// ═══════════════════════════════════════════════════════════════════════════
-// Charger immédiatement les produits depuis le cache localStorage
-// pour que les clients voient les produits dès l'ouverture de la boutique
-(function instantLoadProducts() {
-  try {
-    const cachedData = localStorage.getItem('shop_products');
-    if (cachedData) {
-      const cached = JSON.parse(cachedData);
-      if (cached && cached.length > 0) {
-        PRODUCTS = cached;
-        // Render dès que le DOM est prêt
-        if (document.readyState === 'loading') {
-          document.addEventListener('DOMContentLoaded', () => {
-            renderProducts();
-          });
-        } else {
-          renderProducts();
-        }
-        console.log('⚡ Produits affichés instantanément depuis le cache:', cached.length);
-      }
-    }
-  } catch(e) { console.warn('Cache produits non disponible:', e); }
-})();
+let initialRenderDone = false;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PRODUITS PAR DÉFAUT - VOS VRAIS PRODUITS
@@ -3799,6 +3774,36 @@ try {
 } catch (e) { console.warn('Telegram WebApp non disponible:', e); }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// CHARGEMENT INSTANTANÉ DES PRODUITS AU DÉMARRAGE
+// ═══════════════════════════════════════════════════════════════════════════
+// Afficher les produits IMMÉDIATEMENT pour tous les clients (cache ou défaut)
+(function instantLoadProducts() {
+  try {
+    const cachedData = localStorage.getItem('shop_products');
+    if (cachedData) {
+      const cached = JSON.parse(cachedData);
+      if (cached && cached.length > 0) {
+        PRODUCTS = cached;
+        initialRenderDone = true; // Le cache a le vrai stock
+        console.log('⚡ Produits chargés depuis le cache:', cached.length);
+      }
+    }
+  } catch(e) {}
+
+  // Pas de cache ? Utiliser les produits par défaut
+  if (PRODUCTS.length === 0) {
+    PRODUCTS = DEFAULT_PRODUCTS;
+    initialRenderDone = false; // Pas de vrai stock, cacher RUPTURE
+    console.log('⚡ Produits par défaut chargés:', DEFAULT_PRODUCTS.length);
+  }
+
+  // Render dès que le DOM est prêt
+  document.addEventListener('DOMContentLoaded', () => {
+    renderProducts();
+  });
+})();
+
+// ═══════════════════════════════════════════════════════════════════════════
 // INTERFACE & RENDERING
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -3864,8 +3869,8 @@ function renderProducts(filter = 'all', sort = 'default') {
     const minPrice = Math.min(...Object.values(p.variants).map(v => v.price));
     const isFav = FavoritesManager.has(p.id);
     const totalStock = getTotalStock(p);
-    const isOutOfStock = totalStock === 0;
-    const isLowStock = totalStock > 0 && totalStock < 10;
+    const isOutOfStock = initialRenderDone ? totalStock === 0 : false;
+    const isLowStock = initialRenderDone ? (totalStock > 0 && totalStock < 10) : false;
     
     return `
     <div class="product-card ${isOutOfStock ? 'out-of-stock' : ''}" data-id="${p.id}">
@@ -3943,8 +3948,8 @@ const searchProducts = debounce((query) => {
     const minPrice = Math.min(...Object.values(p.variants).map(v => v.price));
     const isFav = FavoritesManager.has(p.id);
     const totalStock = getTotalStock(p);
-    const isOutOfStock = totalStock === 0;
-    
+    const isOutOfStock = initialRenderDone ? totalStock === 0 : false;
+
     return `
     <div class="product-card ${isOutOfStock ? 'out-of-stock' : ''}" data-id="${p.id}">
       <div class="product-thumb">
@@ -6177,6 +6182,12 @@ async function loadProducts() {
   const productsChanged = JSON.stringify(PRODUCTS) !== JSON.stringify(newProducts);
 
   PRODUCTS = newProducts;
+  initialRenderDone = true; // L'API a répondu, on a le vrai stock
+
+  // Sauvegarder dans le cache pour affichage instantané au prochain chargement
+  try {
+    localStorage.setItem('shop_products', JSON.stringify(newProducts));
+  } catch(e) {}
 
   if (PRODUCTS.length === 0) {
     document.getElementById('resultsCount').textContent = 'Aucun produit';
@@ -6188,7 +6199,7 @@ async function loadProducts() {
       </div>
     `;
   } else if (productsChanged) {
-    // Re-render SEULEMENT si les produits ont changé
+    // Re-render avec le vrai stock depuis l'API
     renderProducts(currentCategory, currentSort);
     console.log('🔄 Produits mis à jour:', PRODUCTS.length);
   }
