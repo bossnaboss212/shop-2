@@ -2062,7 +2062,8 @@ body.modal-open{overflow:hidden;position:fixed;width:100%;max-width:100vw;overfl
           <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
         </svg>
         <input type="text" class="search-input" placeholder="Rechercher un produit..." id="searchInput">
-        <button class="filter-btn" id="filterBtn">Filtrer</button>
+        <button class="search-clear" id="searchClear" style="display:none">&times;</button>
+        <button class="filter-btn" id="filterBtn" onclick="document.getElementById('sortBar').style.display = document.getElementById('sortBar').style.display === 'none' ? 'flex' : 'none'">Filtrer</button>
       </div>
     </section>
 
@@ -4045,7 +4046,7 @@ async function showLeaderboard() {
           <div style="font-weight:700;font-size:16px;margin-bottom:16px;color:var(--accent)">📋 Classement Complet</div>
           <div style="display:flex;flex-direction:column;gap:8px;max-height:400px;overflow-y:auto">
             ${data.leaderboard.map((user, index) => {
-              const isCurrentUser = phone && user.customer_contact === phone;
+              const isCurrentUser = telegramUser && user.customer_contact === String(telegramUser.id);
               let rankIcon = '👤';
               let borderColor = 'var(--border)';
               let bgColor = 'var(--bg-tertiary)';
@@ -5457,8 +5458,8 @@ function showPartialCancellationDialog(orderId, orderData) {
         document.body.classList.remove('modal-open');
 
         // Rafraîchir l'affichage si nécessaire
-        if (typeof loadOrders === 'function') {
-          setTimeout(() => loadOrders(), 1000);
+        if (typeof renderOrders === 'function') {
+          setTimeout(() => renderOrders(), 1000);
         }
       } else {
         showToast('❌ ' + (data.error || 'Erreur lors de l\'annulation'));
@@ -6294,7 +6295,7 @@ document.getElementById('shareReferralCode')?.addEventListener('click', () => {
 });
 
 // Charger les données de parrainage quand on ouvre la page
-document.querySelector('.menu-item[data-page="parrainage"]')?.addEventListener('click', () => {
+document.getElementById('menuReferralBtn')?.addEventListener('click', () => {
   setTimeout(() => loadReferralPage(), 200);
 });
 
@@ -6539,7 +6540,7 @@ const BrowseHistoryManager = {
             <h3 style="font-size:16px;font-weight:700;margin:0 0 4px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${sanitizeInput(p.name)}</h3>
             <div style="color:var(--text-muted);font-size:14px;margin-bottom:6px">${sanitizeInput(p.category)}</div>
             <div style="display:flex;justify-content:space-between;align-items:center">
-              <div style="color:var(--accent);font-weight:700;font-size:18px">${fmt(p.price)}</div>
+              <div style="color:var(--accent);font-weight:700;font-size:18px">${p.variants ? fmt(Math.min(...Object.values(p.variants).map(v => v.price))) : ''}</div>
               <div style="color:var(--text-muted);font-size:13px">${timeAgo}</div>
             </div>
           </div>
@@ -6619,16 +6620,13 @@ document.getElementById('clearHistory').onclick = function() {
 };
 
 // Ajouter le produit à l'historique quand on l'ouvre
-const originalOpenProductDetails = window.openProductDetails;
 window.openProductDetails = async function(productId) {
   const products = await SyncManager.loadProducts();
   const product = products.find(p => p.id === productId);
   if (product) {
     BrowseHistoryManager.addProduct(product);
   }
-  if (originalOpenProductDetails) {
-    originalOpenProductDetails(productId);
-  }
+  openProduct(productId);
 };
 
 // Initialiser les managers
