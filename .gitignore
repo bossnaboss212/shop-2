@@ -1,5 +1,6 @@
 node_modules/
 boutique.db
+*.sqlite
 .env
 server/.env
 .DS_Store
