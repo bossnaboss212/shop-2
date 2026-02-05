@@ -6460,23 +6460,60 @@ function renderFilteredProducts(products, query) {
 // ================================================
 // PAGE PARRAINAGE
 // ================================================
-function loadReferralPage() {
-  // Simuler les données (à remplacer par un appel API réel)
-  const referralCode = localStorage.getItem('user_referral_code') || generateReferralCode();
-  localStorage.setItem('user_referral_code', referralCode);
+async function loadReferralPage() {
+  const codeDisplay = document.getElementById('referralCodeDisplay');
+  const totalReferralsEl = document.getElementById('totalReferrals');
+  const totalCreditsEl = document.getElementById('totalCredits');
 
-  document.getElementById('referralCodeDisplay').textContent = referralCode;
+  // Vérifier si l'utilisateur est connecté
+  if (!telegramUser || !telegramUser.id) {
+    codeDisplay.textContent = '-----';
+    totalReferralsEl.textContent = '0';
+    totalCreditsEl.textContent = '0';
+    document.getElementById('referralsList').innerHTML = `
+      <div style="background:var(--bg-secondary);border:2px solid var(--border);border-radius:16px;padding:24px;text-align:center">
+        <div style="font-size:48px;margin-bottom:12px;opacity:0.3">🔒</div>
+        <p style="color:var(--text-muted)">Connectez-vous pour voir votre code parrainage</p>
+      </div>
+    `;
+    return;
+  }
 
-  // Charger stats depuis localStorage
-  const referralStats = JSON.parse(localStorage.getItem('referral_stats') || '{"referrals":0,"credits":0}');
-  document.getElementById('totalReferrals').textContent = referralStats.referrals || 0;
-  document.getElementById('totalCredits').textContent = referralStats.credits || 0;
+  try {
+    // Charger les stats depuis l'API
+    const res = await fetch('/api/referral-stats?customer=' + encodeURIComponent(String(telegramUser.id)));
+    const data = await res.json();
 
-  // Liste des filleuls
-  const referralsList = JSON.parse(localStorage.getItem('referrals_list') || '[]');
-  loadReferralsList(referralsList);
+    if (data.ok) {
+      if (data.exists && data.code) {
+        codeDisplay.textContent = data.code;
+      } else {
+        codeDisplay.textContent = 'AUCUN';
+      }
+      totalReferralsEl.textContent = data.totalReferrals || 0;
+      totalCreditsEl.textContent = (data.creditBalance || 0) + ' €';
 
-  // Leaderboard
+      // Charger la liste des filleuls depuis l'historique
+      if (data.history && data.history.length > 0) {
+        loadReferralsList(data.history);
+      } else {
+        loadReferralsList([]);
+      }
+    } else {
+      codeDisplay.textContent = 'ERREUR';
+      totalReferralsEl.textContent = '0';
+      totalCreditsEl.textContent = '0 €';
+      loadReferralsList([]);
+    }
+  } catch (e) {
+    console.error('Erreur chargement parrainage:', e);
+    codeDisplay.textContent = 'ERREUR';
+    totalReferralsEl.textContent = '0';
+    totalCreditsEl.textContent = '0 €';
+    loadReferralsList([]);
+  }
+
+  // Charger le leaderboard
   loadLeaderboard();
 }
 
@@ -6492,7 +6529,7 @@ function generateReferralCode() {
 function loadReferralsList(referrals) {
   const container = document.getElementById('referralsList');
 
-  if (referrals.length === 0) {
+  if (!referrals || referrals.length === 0) {
     container.innerHTML = `
       <div style="background:var(--bg-secondary);border:2px solid var(--border);border-radius:16px;padding:24px;text-align:center">
         <div style="font-size:48px;margin-bottom:12px;opacity:0.3">👥</div>
@@ -6509,41 +6546,55 @@ function loadReferralsList(referrals) {
       ${referrals.map(r => `
         <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--bg-tertiary);border-radius:12px;margin-bottom:8px">
           <div>
-            <div style="font-weight:600">${sanitizeInput(r.name || 'Filleul')}</div>
-            <div style="color:var(--text-muted);font-size:13px">${new Date(r.joinedAt).toLocaleDateString('fr-FR')}</div>
+            <div style="font-weight:600">${sanitizeInput(r.referred_name || r.name || 'Filleul')}</div>
+            <div style="color:var(--text-muted);font-size:13px">${r.created_at ? new Date(r.created_at).toLocaleDateString('fr-FR') : ''}</div>
           </div>
-          <div style="color:#ffd700;font-weight:700">+${r.creditsEarned || 10} crédits</div>
+          <div style="color:#ffd700;font-weight:700">+${r.credit_earned || r.creditsEarned || 10} €</div>
         </div>
       `).join('')}
     </div>
   `;
 }
 
-function loadLeaderboard() {
+async function loadLeaderboard() {
   const container = document.getElementById('leaderboardList');
 
-  // Données simulées (à remplacer par API)
-  const leaders = [
-    { name: 'TurboMax', referrals: 25, credits: 250 },
-    { name: 'CryptoKing', referrals: 18, credits: 180 },
-    { name: 'MoneyMaker', referrals: 15, credits: 150 },
-    { name: 'ProParrain', referrals: 12, credits: 120 },
-    { name: 'ViralBoss', referrals: 10, credits: 100 }
-  ];
+  try {
+    const res = await fetch('/api/referral-leaderboard?limit=10');
+    const data = await res.json();
 
-  container.innerHTML = leaders.map((leader, index) => {
-    const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '';
-    return `
-      <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--bg-tertiary);border-radius:12px;margin-bottom:8px">
-        <div style="width:32px;text-align:center;font-size:20px;font-weight:700">${medal || (index + 1)}</div>
-        <div style="flex:1">
-          <div style="font-weight:600">${sanitizeInput(leader.name)}</div>
-          <div style="color:var(--text-muted);font-size:13px">${leader.referrals} filleul${leader.referrals > 1 ? 's' : ''}</div>
+    if (data.ok && data.leaderboard && data.leaderboard.length > 0) {
+      container.innerHTML = data.leaderboard.map((leader, index) => {
+        const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '';
+        const displayName = leader.display_name || leader.customer_contact || 'Anonyme';
+        return `
+          <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--bg-tertiary);border-radius:12px;margin-bottom:8px">
+            <div style="width:32px;text-align:center;font-size:20px;font-weight:700">${medal || (index + 1)}</div>
+            <div style="flex:1">
+              <div style="font-weight:600">${sanitizeInput(displayName)}</div>
+              <div style="color:var(--text-muted);font-size:13px">${leader.total_referrals || 0} filleul${(leader.total_referrals || 0) > 1 ? 's' : ''} • ${leader.vip_tier || 'Bronze 🥉'}</div>
+            </div>
+            <div style="color:#ffd700;font-weight:700">${leader.total_earned || 0} €</div>
+          </div>
+        `;
+      }).join('');
+    } else {
+      container.innerHTML = `
+        <div style="text-align:center;padding:24px;color:var(--text-muted)">
+          <div style="font-size:32px;margin-bottom:8px;opacity:0.3">🏆</div>
+          <p>Aucun parrain pour le moment</p>
+          <p style="font-size:13px">Soyez le premier !</p>
         </div>
-        <div style="color:#ffd700;font-weight:700">${leader.credits} crédits</div>
+      `;
+    }
+  } catch (e) {
+    console.error('Erreur chargement leaderboard:', e);
+    container.innerHTML = `
+      <div style="text-align:center;padding:24px;color:var(--text-muted)">
+        <p>Erreur de chargement</p>
       </div>
     `;
-  }).join('');
+  }
 }
 
 // Boutons parrainage
