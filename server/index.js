@@ -3242,14 +3242,35 @@ app.get('/api/admin/settings', requireAdmin, async (req, res) => {
 app.put('/api/admin/settings', requireAdmin, async (req, res) => {
   try {
     const { settings } = req.body;
-    
+
     for (const [key, value] of Object.entries(settings)) {
       await db.run(
         'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
         [key, value]
       );
+
+      // Quand les produits sont sauvegardés, synchroniser le stock dans la table stock
+      if (key === 'products') {
+        try {
+          const products = JSON.parse(value);
+          for (const product of products) {
+            if (product.variants) {
+              for (const [variantName, variantData] of Object.entries(product.variants)) {
+                const stock = variantData.stock || 0;
+                await db.run(
+                  'INSERT OR REPLACE INTO stock (product_id, variant, qty) VALUES (?, ?, ?)',
+                  [product.id, variantName, stock]
+                );
+              }
+            }
+          }
+          console.log('✅ Stock synchronisé dans la table stock');
+        } catch (parseErr) {
+          console.error('Erreur sync stock:', parseErr);
+        }
+      }
     }
-    
+
     res.json({ ok: true });
   } catch (error) {
     console.error('Save settings error:', error);
