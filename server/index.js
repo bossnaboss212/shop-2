@@ -1962,9 +1962,26 @@ app.get('/api/products', apiLimiter, async (req, res) => {
     const productsData = await db.get(
       "SELECT value FROM settings WHERE key = 'products'"
     );
-    
+
     const products = productsData?.value ? JSON.parse(productsData.value) : [];
-    
+
+    // Merge real stock quantities from the stock table into product variants
+    const stockRows = await db.all('SELECT product_id, variant, qty FROM stock');
+    const stockMap = {};
+    for (const row of stockRows) {
+      if (!stockMap[row.product_id]) stockMap[row.product_id] = {};
+      stockMap[row.product_id][row.variant] = row.qty;
+    }
+
+    for (const product of products) {
+      if (product.variants) {
+        for (const [variantName, variantData] of Object.entries(product.variants)) {
+          const realQty = (stockMap[product.id] && stockMap[product.id][variantName]) || 0;
+          variantData.stock = realQty;
+        }
+      }
+    }
+
     res.json({ ok: true, products });
   } catch (error) {
     console.error('Products error:', error);
