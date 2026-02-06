@@ -6841,23 +6841,33 @@ async function approveCustomerFromTelegram(chatId, orderId) {
     await telegram.sendMessage(chatId, '❌ Action non autorisée');
     return;
   }
-  
+
   try {
     const order = await db.get('SELECT * FROM orders WHERE id = ?', [orderId]);
-    
+
     if (!order) {
       await telegram.sendMessage(chatId, '❌ Commande introuvable');
       return;
     }
-    
+
     const contact = order.customer;
-    const customer = await db.get('SELECT * FROM customers WHERE contact = ?', [contact]);
-    
+    let customer = await db.get('SELECT * FROM customers WHERE contact = ?', [contact]);
+
+    // Créer le client s'il n'existe pas (pour les anciennes commandes)
     if (!customer) {
-      await telegram.sendMessage(chatId, '❌ Client introuvable');
-      return;
+      await db.run(
+        'INSERT OR IGNORE INTO customers (contact, status) VALUES (?, ?)',
+        [contact, 'pending']
+      );
+      customer = await db.get('SELECT * FROM customers WHERE contact = ?', [contact]);
+
+      if (!customer) {
+        await telegram.sendMessage(chatId, '❌ Erreur: impossible de créer le profil client');
+        return;
+      }
+      console.log(`📝 Customer record created for old order: ${contact}`);
     }
-    
+
     if (customer.status === 'approved') {
       await telegram.sendMessage(chatId, '✅ Ce client est déjà approuvé');
       return;
@@ -6922,17 +6932,27 @@ async function blockCustomerFromTelegram(chatId, orderId) {
     await telegram.sendMessage(chatId, '❌ Action non autorisée');
     return;
   }
-  
+
   try {
     const order = await db.get('SELECT * FROM orders WHERE id = ?', [orderId]);
-    
+
     if (!order) {
       await telegram.sendMessage(chatId, '❌ Commande introuvable');
       return;
     }
-    
+
     const contact = order.customer;
-    
+
+    // Créer le client s'il n'existe pas (pour les anciennes commandes)
+    let customer = await db.get('SELECT * FROM customers WHERE contact = ?', [contact]);
+    if (!customer) {
+      await db.run(
+        'INSERT OR IGNORE INTO customers (contact, status) VALUES (?, ?)',
+        [contact, 'pending']
+      );
+      console.log(`📝 Customer record created for old order (blocking): ${contact}`);
+    }
+
     await db.run(
       'UPDATE customers SET status = ?, blocked_reason = ? WHERE contact = ?',
       ['blocked', 'Bloqué par admin via Telegram', contact]
@@ -6983,21 +7003,31 @@ async function sendOrderCustomerDetails(chatId, orderId) {
     await telegram.sendMessage(chatId, '❌ Action non autorisée');
     return;
   }
-  
+
   try {
     const order = await db.get('SELECT * FROM orders WHERE id = ?', [orderId]);
-    
+
     if (!order) {
       await telegram.sendMessage(chatId, '❌ Commande introuvable');
       return;
     }
-    
+
     const contact = order.customer;
-    const customer = await db.get('SELECT * FROM customers WHERE contact = ?', [contact]);
-    
+    let customer = await db.get('SELECT * FROM customers WHERE contact = ?', [contact]);
+
+    // Créer le client s'il n'existe pas (pour les anciennes commandes)
     if (!customer) {
-      await telegram.sendMessage(chatId, '❌ Client introuvable');
-      return;
+      await db.run(
+        'INSERT OR IGNORE INTO customers (contact, status) VALUES (?, ?)',
+        [contact, 'pending']
+      );
+      customer = await db.get('SELECT * FROM customers WHERE contact = ?', [contact]);
+
+      if (!customer) {
+        await telegram.sendMessage(chatId, '❌ Erreur: impossible de créer le profil client');
+        return;
+      }
+      console.log(`📝 Customer record created for old order (details): ${contact}`);
     }
     
     const stats = await db.get(
