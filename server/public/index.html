@@ -3733,12 +3733,11 @@ const DEFAULT_PRODUCTS = [
 ];
 let selectedVariant = null;
 let quantity = 1;
-let selectedDelivery = 'meetup';
+let selectedDelivery = 'millau';
 let selectedHousingType = '';
 
 // Configuration des zones de livraison
 const DELIVERY_ZONES = {
-  meetup: { name: 'Meetup', fee: 0, min: 0 },
   millau: { name: 'Millau', fee: 0, min: 0 },
   zone1: { name: 'Zone 1 (Aguessac, St Georges...)', fee: 10, min: 50 },
   zone2: { name: 'Zone 2 (St Affrigue...)', fee: 20, min: 80 },
@@ -4703,7 +4702,7 @@ function renderCart() {
   }
 
   const subtotal = CartManager.getTotal();
-  const zone = DELIVERY_ZONES[selectedDelivery] || DELIVERY_ZONES.meetup;
+  const zone = DELIVERY_ZONES[selectedDelivery] || DELIVERY_ZONES.millau;
   const deliveryFee = zone.fee;
 
   const totalBeforeCredit = subtotal + deliveryFee;
@@ -4747,10 +4746,6 @@ function renderCart() {
     <div class="cart-section-title">Sélectionnez votre zone de livraison :</div>
 
     <label class="cart-radio-option">
-      <input type="radio" name="deliveryType" value="meetup" ${selectedDelivery === 'meetup' ? 'checked' : ''}>
-      <span>🤝 Meetup (gratuit)</span>
-    </label>
-    <label class="cart-radio-option">
       <input type="radio" name="deliveryType" value="millau" ${selectedDelivery === 'millau' ? 'checked' : ''}>
       <span>🏠 Millau (gratuit)</span>
     </label>
@@ -4771,7 +4766,7 @@ function renderCart() {
       <span>🔴 Zone 4 - Rodez, Espalion... (+40€, min 150€)</span>
     </label>
 
-    <div id="addressBlock" style="display:${selectedDelivery === 'meetup' ? 'none' : 'block'}">
+    <div id="addressBlock">
       <div class="input-wrapper" style="margin-top:16px">
         <input type="text" class="input-field" id="addressInput" placeholder="Entrez votre adresse de livraison" maxlength="200">
         <div class="suggestions" id="suggestions" style="display:none"></div>
@@ -5013,7 +5008,7 @@ async function validateOrder() {
   const addressInput = document.getElementById('addressInput');
   const address = addressInput?.value.trim() || '';
 
-  if (selectedDelivery !== 'meetup' && (!address || address.length < 5)) {
+  if (!address || address.length < 5) {
     showToast('⚠️ Entrez une adresse de livraison');
     addressInput?.focus({ preventScroll: true });
     return;
@@ -5034,10 +5029,10 @@ async function validateOrder() {
   
   try {
     const clientId = generateClientId();
-    const zone = DELIVERY_ZONES[selectedDelivery] || DELIVERY_ZONES.meetup;
+    const zone = DELIVERY_ZONES[selectedDelivery] || DELIVERY_ZONES.millau;
     const deliveryFee = zone.fee;
-    const deliveryType = selectedDelivery === 'meetup'
-      ? 'Meetup'
+    const deliveryType = zone.fee === 0
+      ? zone.name
       : `${zone.name} (+${zone.fee}€)`;
 
     const items = CartManager.items.map(item => ({
@@ -5078,8 +5073,7 @@ async function validateOrder() {
     const referralInput = document.getElementById('referralInput');
     const referralCode = referralInput?.value.trim().toUpperCase() || '';
 
-    const fullAddress = selectedDelivery === 'meetup' ? 'Meetup'
-      : (selectedHousingType ? `[${selectedHousingType}] ${address}` : address);
+    const fullAddress = selectedHousingType ? `[${selectedHousingType}] ${address}` : address;
 
     const orderData = {
       customer: telegramUser ? String(telegramUser.id) : 'Client Web',
