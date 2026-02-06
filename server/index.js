@@ -1989,6 +1989,34 @@ app.get('/api/products', apiLimiter, async (req, res) => {
   }
 });
 
+// ==================== ENREGISTREMENT TELEGRAM VISITEURS ====================
+app.post('/api/register-telegram', apiLimiter, async (req, res) => {
+  try {
+    const { telegram_id, first_name, last_name, username } = req.body;
+
+    if (!telegram_id) {
+      return res.status(400).json({ ok: false, error: 'telegram_id requis' });
+    }
+
+    const fullName = [first_name, last_name].filter(Boolean).join(' ') || 'Visiteur';
+
+    await db.run(`
+      INSERT INTO telegram_clients (telegram_id, first_name, username, last_seen)
+      VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(telegram_id) DO UPDATE SET
+        first_name = excluded.first_name,
+        username = excluded.username,
+        last_seen = CURRENT_TIMESTAMP
+    `, [String(telegram_id), fullName, username || null]);
+
+    console.log(`📱 Visiteur Telegram enregistré: ${telegram_id} (${fullName})`);
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Register telegram error:', error);
+    res.status(500).json({ ok: false, error: 'Erreur serveur' });
+  }
+});
+
 // ==================== NOUVEAU : VÉRIFICATION STOCK ====================
 app.get('/api/stock/:productId/:variant', apiLimiter, async (req, res) => {
   try {
@@ -2742,6 +2770,17 @@ app.get('/api/admin/driver-caisse', requireAdmin, async (req, res) => {
   } catch (error) {
     console.error('Error fetching driver caisse:', error);
     res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+// Compter les clients enregistrés pour le broadcast
+app.get('/api/admin/broadcast/count', requireAdmin, async (req, res) => {
+  try {
+    const result = await db.get('SELECT COUNT(*) as count FROM telegram_clients');
+    res.json({ ok: true, count: result?.count || 0 });
+  } catch (error) {
+    console.error('Broadcast count error:', error);
+    res.status(500).json({ ok: false, error: 'Erreur serveur' });
   }
 });
 
