@@ -2467,6 +2467,25 @@ body.modal-open{overflow:hidden;position:fixed;width:100%;max-width:100vw;overfl
         </div>
       </div>
 
+      <!-- MILLAU GRATUIT -->
+      <div class="dlv-zone" style="--dlv-clr:#3b82f6;--dlv-clr2:#1d4ed8">
+        <div class="dlv-zone-glow"></div>
+        <div class="dlv-zone-head">
+          <div class="dlv-zone-left">
+            <div class="dlv-zone-icon"><span>🏠</span></div>
+            <div>
+              <div class="dlv-zone-name">Millau</div>
+              <div class="dlv-zone-min">Pas de minimum</div>
+            </div>
+          </div>
+          <div class="dlv-zone-price" style="color:#4ade80">GRATUIT</div>
+        </div>
+        <div class="dlv-zone-cities">
+          <span class="dlv-city --free">Millau centre</span>
+          <span class="dlv-city --free">Tout Millau</span>
+        </div>
+      </div>
+
       <!-- ZONE 1 -->
       <div class="dlv-zone" style="--dlv-clr:#4ade80;--dlv-clr2:#22c55e">
         <div class="dlv-zone-glow"></div>
@@ -2481,13 +2500,12 @@ body.modal-open{overflow:hidden;position:fixed;width:100%;max-width:100vw;overfl
           <div class="dlv-zone-price">+10&euro;</div>
         </div>
         <div class="dlv-zone-cities">
-          <span class="dlv-city --free">Millau</span>
-          <span class="dlv-city">Arnitas</span>
           <span class="dlv-city">Aguessac</span>
           <span class="dlv-city">St Georges</span>
           <span class="dlv-city">Compeyre</span>
           <span class="dlv-city">Le Monna</span>
           <span class="dlv-city">Verri&egrave;res</span>
+          <span class="dlv-city">Arnitas</span>
         </div>
       </div>
 
@@ -3715,8 +3733,17 @@ const DEFAULT_PRODUCTS = [
 ];
 let selectedVariant = null;
 let quantity = 1;
-let selectedDelivery = 'livraison';
+let selectedDelivery = 'millau';
 let selectedHousingType = '';
+
+// Configuration des zones de livraison
+const DELIVERY_ZONES = {
+  millau: { name: 'Millau', fee: 0, min: 0 },
+  zone1: { name: 'Zone 1 (Aguessac, St Georges...)', fee: 10, min: 50 },
+  zone2: { name: 'Zone 2 (St Affrigue...)', fee: 20, min: 80 },
+  zone3: { name: 'Zone 3 (Camarès, Belmont...)', fee: 30, min: 100 },
+  zone4: { name: 'Zone 4 (Rodez, Espalion...)', fee: 40, min: 150 }
+};
 let currentSort = 'default';
 let currentCategory = 'all';
 let syncInterval = null;
@@ -4675,7 +4702,8 @@ function renderCart() {
   }
 
   const subtotal = CartManager.getTotal();
-  const deliveryFee = selectedDelivery === 'exterieur' ? 20 : 0;
+  const zone = DELIVERY_ZONES[selectedDelivery] || DELIVERY_ZONES.millau;
+  const deliveryFee = zone.fee;
 
   const totalBeforeCredit = subtotal + deliveryFee;
   const creditToApply = useCreditEnabled ? Math.min(userCreditBalance, totalBeforeCredit) : 0;
@@ -4715,22 +4743,30 @@ function renderCart() {
     </div>
     ` : ''}
 
-    <div class="cart-section-title">Sélectionnez votre type de commande :</div>
+    <div class="cart-section-title">Sélectionnez votre zone de livraison :</div>
 
     <label class="cart-radio-option">
-      <input type="radio" name="deliveryType" value="meetup" ${selectedDelivery === 'meetup' ? 'checked' : ''}>
-      <span>Meetup</span>
+      <input type="radio" name="deliveryType" value="millau" ${selectedDelivery === 'millau' ? 'checked' : ''}>
+      <span>🏠 Millau (gratuit)</span>
     </label>
     <label class="cart-radio-option">
-      <input type="radio" name="deliveryType" value="livraison" ${selectedDelivery === 'livraison' ? 'checked' : ''}>
-      <span>Livraison</span>
+      <input type="radio" name="deliveryType" value="zone1" ${selectedDelivery === 'zone1' ? 'checked' : ''}>
+      <span>🟢 Zone 1 - Aguessac, St Georges... (+10€, min 50€)</span>
     </label>
     <label class="cart-radio-option">
-      <input type="radio" name="deliveryType" value="exterieur" ${selectedDelivery === 'exterieur' ? 'checked' : ''}>
-      <span>Livraison extérieure (+20€)</span>
+      <input type="radio" name="deliveryType" value="zone2" ${selectedDelivery === 'zone2' ? 'checked' : ''}>
+      <span>🟡 Zone 2 - St Affrigue... (+20€, min 80€)</span>
+    </label>
+    <label class="cart-radio-option">
+      <input type="radio" name="deliveryType" value="zone3" ${selectedDelivery === 'zone3' ? 'checked' : ''}>
+      <span>🟠 Zone 3 - Camarès, Belmont... (+30€, min 100€)</span>
+    </label>
+    <label class="cart-radio-option">
+      <input type="radio" name="deliveryType" value="zone4" ${selectedDelivery === 'zone4' ? 'checked' : ''}>
+      <span>🔴 Zone 4 - Rodez, Espalion... (+40€, min 150€)</span>
     </label>
 
-    <div id="addressBlock" style="display:${selectedDelivery === 'meetup' ? 'none' : 'block'}">
+    <div id="addressBlock">
       <div class="input-wrapper" style="margin-top:16px">
         <input type="text" class="input-field" id="addressInput" placeholder="Entrez votre adresse de livraison" maxlength="200">
         <div class="suggestions" id="suggestions" style="display:none"></div>
@@ -4972,7 +5008,7 @@ async function validateOrder() {
   const addressInput = document.getElementById('addressInput');
   const address = addressInput?.value.trim() || '';
 
-  if (selectedDelivery !== 'meetup' && (!address || address.length < 5)) {
+  if (!address || address.length < 5) {
     showToast('⚠️ Entrez une adresse de livraison');
     addressInput?.focus({ preventScroll: true });
     return;
@@ -4993,12 +5029,12 @@ async function validateOrder() {
   
   try {
     const clientId = generateClientId();
-    const deliveryType = selectedDelivery === 'meetup'
-      ? 'Meetup'
-      : selectedDelivery === 'exterieur'
-        ? 'Livraison extérieure (+20€)'
-        : 'Livraison';
-    
+    const zone = DELIVERY_ZONES[selectedDelivery] || DELIVERY_ZONES.millau;
+    const deliveryFee = zone.fee;
+    const deliveryType = zone.fee === 0
+      ? zone.name
+      : `${zone.name} (+${zone.fee}€)`;
+
     const items = CartManager.items.map(item => ({
       product_id: item.productId,
       name: item.name,
@@ -5007,9 +5043,20 @@ async function validateOrder() {
       price: item.price,
       lineTotal: item.price * item.qty
     }));
-    
+
     const subtotal = CartManager.getTotal();
-    const deliveryFee = selectedDelivery === 'exterieur' ? 20 : 0;
+
+    // Vérifier le minimum de commande pour la zone
+    if (zone.min > 0 && subtotal < zone.min) {
+      btn.disabled = false;
+      btn.classList.remove('loading');
+      btn.innerHTML = `<svg style="width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2" viewBox="0 0 24 24">
+        <line x1="22" y1="2" x2="11" y2="13"></line>
+        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+      </svg> Valider ma commande`;
+      showToast(`⚠️ Minimum ${zone.min}€ pour ${zone.name}`);
+      return;
+    }
 
     const subtotalWithDelivery = subtotal + deliveryFee;
     const nextOrderNumber = LoyaltyManager.totalOrders + 1;
@@ -5026,8 +5073,7 @@ async function validateOrder() {
     const referralInput = document.getElementById('referralInput');
     const referralCode = referralInput?.value.trim().toUpperCase() || '';
 
-    const fullAddress = selectedDelivery === 'meetup' ? 'Meetup'
-      : (selectedHousingType ? `[${selectedHousingType}] ${address}` : address);
+    const fullAddress = selectedHousingType ? `[${selectedHousingType}] ${address}` : address;
 
     const orderData = {
       customer: telegramUser ? String(telegramUser.id) : 'Client Web',
@@ -5114,7 +5160,9 @@ ${orderData.address}
 
 function showOrderSummary(orderData, orderId, discount = 0, notificationSent = false) {
   const content = document.getElementById('orderSummaryContent');
-  const deliveryFee = orderData.type.includes('+20') ? 20 : 0;
+  // Extraire les frais de livraison du type de commande (ex: "+10€", "+20€", etc.)
+  const feeMatch = orderData.type.match(/\+(\d+)€/);
+  const deliveryFee = feeMatch ? parseInt(feeMatch[1]) : 0;
   const subtotal = orderData.items.reduce((sum, item) => sum + item.lineTotal, 0);
   const totalWithDiscount = orderData.total;
   
