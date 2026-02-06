@@ -5,3 +5,8 @@ builder = "NIXPACKS"
 startCommand = "node server/index.js"
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 3
+
+# IMPORTANT: Pour persister la base de données entre les déploiements:
+# 1. Créer un Volume dans Railway (Settings → Volumes)
+# 2. Mount Path: /data
+# 3. Ajouter variable d'environnement: DATABASE_PATH=/data/boutique.db
