@@ -1,6 +1,8 @@
 node_modules/
 boutique.db
 *.sqlite
+*.db-shm
+*.db-wal
 .env
 server/.env
 .DS_Store
