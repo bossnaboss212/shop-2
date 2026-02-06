@@ -4098,13 +4098,12 @@ function openProduct(id) {
   
   if (qtyPlus) {
     qtyPlus.onclick = () => {
-      const maxQty = selectedVariant ? (selectedVariant.stock || 0) : 99;
-      if (quantity < maxQty) {
+      if (quantity < 99) {
         quantity++;
         document.getElementById('qtyDisplay').textContent = quantity;
         updateTotalPrice();
       } else {
-        showToast('⚠️ Quantité maximale atteinte');
+        showToast('⚠️ Quantité maximale atteinte (99)');
       }
     };
   }
