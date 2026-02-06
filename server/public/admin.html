@@ -1869,7 +1869,15 @@
 
       <div class="chart-container">
         <h3>📢 Broadcast (Message à tous les clients)</h3>
-        <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Envoie un message privé Telegram à tous les clients enregistrés. Utile si vos canaux sont ban.</p>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;padding:12px;background:var(--bg-tertiary);border-radius:8px">
+          <span style="font-size:24px">👥</span>
+          <div>
+            <div style="font-size:20px;font-weight:700" id="broadcastClientCount">-</div>
+            <div style="font-size:12px;color:var(--muted)">clients enregistrés</div>
+          </div>
+          <button onclick="loadBroadcastCount()" style="margin-left:auto;padding:6px 12px;font-size:12px">🔄 Actualiser</button>
+        </div>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Envoie un message privé Telegram à tous les clients qui ont visité la boutique.</p>
         <div class="form-group">
           <label>Message</label>
           <textarea id="broadcastMessage" rows="4" placeholder="Votre message ici..." style="width:100%;resize:vertical"></textarea>
@@ -2657,6 +2665,7 @@ function showDashboard() {
   loadCashier();
   loadProfitTable();
   loadReportsHistory();
+  loadBroadcastCount();
   updateReportsStats();
   initCharts();
   updateActivityFeed();
@@ -4974,6 +4983,22 @@ async function loadDriverCaisse() {
     }).join('');
   } catch (err) {
     console.error('Erreur chargement caisse:', err);
+  }
+}
+
+async function loadBroadcastCount() {
+  const token = localStorage.getItem('admin_token');
+  if (!token) return;
+  try {
+    const res = await fetch('/api/admin/broadcast/count', {
+      headers: { 'x-admin-token': token }
+    });
+    const data = await res.json();
+    if (data.ok) {
+      document.getElementById('broadcastClientCount').textContent = data.count;
+    }
+  } catch (e) {
+    console.error('Erreur chargement count:', e);
   }
 }
 
