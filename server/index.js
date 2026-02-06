@@ -724,6 +724,55 @@ async function initDB() {
     console.error('⚠️ Erreur lors du merge des produits:', err);
   }
 
+  // Seed reviews if empty
+  try {
+    const reviewCount = await db.get('SELECT COUNT(*) as count FROM reviews');
+    if (!reviewCount || reviewCount.count === 0) {
+      const defaultReviews = [
+        { product_id: 1, name: 'Lucas M.', stars: 5, text: 'La vraie Amnesia comme à Barcelona ! Effet cérébral puissant, parfait pour la créativité. Livraison rapide à Millau.' },
+        { product_id: 1, name: 'Sophie K.', stars: 5, text: 'Enfin retrouvé ce goût unique de l\'Amnesia. Qualité au rendez-vous, je recommande les yeux fermés !' },
+        { product_id: 1, name: 'Maxime R.', stars: 4, text: 'Très bonne qualité, effet smooth et durable. Le service client est top aussi.' },
+        { product_id: 2, name: 'Antoine D.', stars: 5, text: 'Effet euphorie garanti ! Qualité exceptionnelle, fondait dans la bouche. Merci pour la livraison express.' },
+        { product_id: 2, name: 'Léa P.', stars: 5, text: 'Produit premium, sensations incroyables. Ça vaut vraiment le prix.' },
+        { product_id: 2, name: 'Thomas B.', stars: 4, text: 'Très satisfait, effet comme décrit. Service impeccable.' },
+        { product_id: 3, name: 'Julie F.', stars: 5, text: 'La Canadienne est juste WOW ! Saveur boisée unique, effet relaxant parfait pour le soir.' },
+        { product_id: 3, name: 'Romain G.', stars: 5, text: 'Qualité exceptionnelle venue du Canada. Le goût est authentique, je suis fan !' },
+        { product_id: 4, name: 'Emma L.', stars: 5, text: 'Produit haut de gamme, on sent la différence. Parfait pour les connaisseurs.' },
+        { product_id: 4, name: 'Nicolas V.', stars: 5, text: 'La couleur violette est magnifique et l\'effet est puissant. Top qualité !' },
+        { product_id: 5, name: 'Camille D.', stars: 5, text: 'Saveur sucrée incroyable, comme une vraie tarte ! Effet joyeux et créatif.' },
+        { product_id: 5, name: 'Hugo M.', stars: 4, text: 'Bon produit, goût fruité agréable. Livraison rapide sur Rodez.' },
+        { product_id: 6, name: 'Chloé R.', stars: 5, text: 'Georgia Pie au top ! Goût sucré et effet relaxant, parfait après une longue journée.' },
+        { product_id: 6, name: 'Mathis L.', stars: 5, text: 'Excellent rapport qualité-prix. La saveur est unique et l\'effet très agréable.' },
+        { product_id: 7, name: 'Manon S.', stars: 5, text: 'Black Cheese délicieux ! Le goût fromager est subtil et l\'effet puissant.' },
+        { product_id: 7, name: 'Alexandre T.', stars: 4, text: 'Bonne qualité, goût original. Je recommande pour les amateurs de saveurs uniques.' },
+        { product_id: 8, name: 'Inès B.', stars: 5, text: 'Fast Boy porte bien son nom ! Effet rapide et efficace. Texture parfaite.' },
+        { product_id: 8, name: 'Théo D.', stars: 5, text: 'Qualité premium, effet comme promis. Service client réactif et sympa.' },
+        { product_id: 9, name: 'Clara M.', stars: 5, text: 'Courchevel c\'est du lourd ! Qualité alpine, effet puissant et durable. Mon préféré !' },
+        { product_id: 9, name: 'Enzo P.', stars: 5, text: 'Produit d\'exception, on sent la qualité dès l\'ouverture. Livraison parfaite.' },
+        { product_id: 10, name: 'Léna V.', stars: 5, text: 'Pink Kush marocain authentique ! Couleur dorée magnifique, effet velouté.' },
+        { product_id: 10, name: 'Raphaël C.', stars: 5, text: 'Direct du Maroc, ça se sent ! Qualité exceptionnelle, je suis client fidèle maintenant.' },
+        { product_id: 1, name: 'Sarah B.', stars: 5, text: 'Commande reçue en 30 min sur Millau ! Produit frais et de qualité. Merci !' },
+        { product_id: 3, name: 'Kevin L.', stars: 5, text: 'Meilleur produit que j\'ai testé. La Canadienne est vraiment au-dessus du lot.' },
+        { product_id: 5, name: 'Marine D.', stars: 5, text: 'Mimosa Pie, un délice ! Goût fruité et effet créatif. Parfait pour travailler.' },
+        { product_id: 7, name: 'Dylan R.', stars: 4, text: 'Black Cheese original et efficace. Bon rapport qualité-prix.' },
+        { product_id: 9, name: 'Pauline G.', stars: 5, text: 'Courchevel m\'a conquise ! Qualité irréprochable et service au top.' },
+        { product_id: 2, name: 'Florian M.', stars: 5, text: 'Needles Keta extraordinaire ! Effet euphorique garanti. Je recommande à 100%.' },
+        { product_id: 4, name: 'Océane T.', stars: 5, text: 'Black Purple magnifique ! La couleur et le goût sont incroyables.' },
+        { product_id: 10, name: 'Bastien H.', stars: 5, text: 'Pink Kush marocain de folie ! Texture mousseuse parfaite, effet smooth.' }
+      ];
+
+      for (const review of defaultReviews) {
+        await db.run(
+          'INSERT INTO reviews (product_id, name, stars, text, approved) VALUES (?, ?, ?, ?, 1)',
+          [review.product_id, review.name, review.stars, review.text]
+        );
+      }
+      console.log('✅ 30 avis par défaut ajoutés');
+    }
+  } catch (err) {
+    console.error('⚠️ Erreur lors de l\'ajout des avis:', err);
+  }
+
   console.log('✅ Database initialized with chat system');
 }
 
