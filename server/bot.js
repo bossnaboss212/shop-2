@@ -767,9 +767,7 @@ Accédez au tableau de bord pour gérer :
 • ${CONFIG.DELIVERY_INFO.paid}
 
 <b>💰 Paiement :</b>
-• Espèces à la livraison
-• Virement bancaire
-• Crypto-monnaies
+• Espèces à la livraison uniquement
 
 <b>🎁 Programme fidélité :</b>
 • Remise automatique tous les 10 achats
@@ -1051,10 +1049,8 @@ Suivez ces 4 étapes simples pour passer votre première commande !
 
 1️⃣2️⃣ Si vous avez un <b>code de parrainage</b>, entrez-le pour une remise !
 
-<b>💰 Modes de paiement acceptés :</b>
-• Espèces à la livraison
-• Virement bancaire
-• Crypto-monnaies`,
+<b>💰 Mode de paiement :</b>
+• Espèces à la livraison uniquement`,
 
   tutoStep4: `📖 <b>ÉTAPE 4 : Livraison & Suivi</b>
 

@@ -5921,9 +5921,7 @@ async function sendHelpMessage(chatId) {
 • +20€ pour l'extérieur
 
 <b>💰 Paiement :</b>
-• Espèces à la livraison
-• Virement bancaire
-• Crypto-monnaies
+• Espèces à la livraison uniquement
 
 <b>🎁 Programme fidélité :</b>
 • Remise automatique tous les ${config.loyalty.defaultThreshold} achats
