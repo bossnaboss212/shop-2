@@ -2925,7 +2925,7 @@ const SyncManager = {
           total: orderData.total,
           referralCode: orderData.referralCode || '',
           useCredit: orderData.useCredit || false,
-          telegramId: orderData.customer
+          telegramId: telegramUser ? String(telegramUser.id) : ''
         })
       })
       .then(res => res.json())
