@@ -7148,6 +7148,204 @@ async function sendOrderCustomerDetails(chatId, orderId) {
   }
 }
 
+// ==================== SYSTÈME DE BACKUP ====================
+const BACKUP_CONFIG = {
+  maxBackups: 7,
+  backupDir: process.env.BACKUP_DIR || path.join(path.dirname(process.env.DATABASE_PATH || './boutique.db'), 'backups'),
+  intervalMs: 24 * 60 * 60 * 1000 // 24h
+};
+
+function getDbPath() {
+  return process.env.DATABASE_PATH || './boutique.db';
+}
+
+function ensureBackupDir() {
+  if (!fs.existsSync(BACKUP_CONFIG.backupDir)) {
+    fs.mkdirSync(BACKUP_CONFIG.backupDir, { recursive: true });
+  }
+}
+
+function listBackups() {
+  ensureBackupDir();
+  const files = fs.readdirSync(BACKUP_CONFIG.backupDir)
+    .filter(f => f.startsWith('boutique_backup_') && f.endsWith('.db'))
+    .sort()
+    .reverse();
+
+  return files.map(f => {
+    const stats = fs.statSync(path.join(BACKUP_CONFIG.backupDir, f));
+    return {
+      filename: f,
+      size: stats.size,
+      sizeFormatted: (stats.size / 1024 / 1024).toFixed(2) + ' MB',
+      created: stats.mtime.toISOString()
+    };
+  });
+}
+
+async function createBackup() {
+  const dbPath = getDbPath();
+  if (!fs.existsSync(dbPath)) {
+    throw new Error('Base de données introuvable');
+  }
+
+  ensureBackupDir();
+
+  // Forcer un checkpoint WAL avant le backup pour avoir des données cohérentes
+  if (db) {
+    try {
+      await db.exec('PRAGMA wal_checkpoint(TRUNCATE)');
+    } catch (e) {
+      console.warn('⚠️ WAL checkpoint failed, backup will still proceed:', e.message);
+    }
+  }
+
+  const now = new Date();
+  const timestamp = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const backupFilename = `boutique_backup_${timestamp}.db`;
+  const backupPath = path.join(BACKUP_CONFIG.backupDir, backupFilename);
+
+  fs.copyFileSync(dbPath, backupPath);
+
+  // Rotation : supprimer les anciens backups au-delà de maxBackups
+  const backups = listBackups();
+  if (backups.length > BACKUP_CONFIG.maxBackups) {
+    const toDelete = backups.slice(BACKUP_CONFIG.maxBackups);
+    for (const old of toDelete) {
+      fs.unlinkSync(path.join(BACKUP_CONFIG.backupDir, old.filename));
+      console.log(`🗑️ Ancien backup supprimé: ${old.filename}`);
+    }
+  }
+
+  const stats = fs.statSync(backupPath);
+  console.log(`✅ Backup créé: ${backupFilename} (${(stats.size / 1024 / 1024).toFixed(2)} MB)`);
+
+  return {
+    filename: backupFilename,
+    size: stats.size,
+    sizeFormatted: (stats.size / 1024 / 1024).toFixed(2) + ' MB',
+    created: now.toISOString()
+  };
+}
+
+// Endpoint: Créer un backup et le télécharger
+app.get('/api/admin/backup', requireAdmin, async (req, res) => {
+  try {
+    const backup = await createBackup();
+    const backupPath = path.join(BACKUP_CONFIG.backupDir, backup.filename);
+
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('Content-Disposition', `attachment; filename=${backup.filename}`);
+    res.setHeader('Content-Length', backup.size);
+
+    const stream = fs.createReadStream(backupPath);
+    stream.pipe(res);
+  } catch (error) {
+    console.error('Backup download error:', error);
+    res.status(500).json({ ok: false, error: 'Erreur lors du backup: ' + error.message });
+  }
+});
+
+// Endpoint: Créer un backup (sans télécharger)
+app.post('/api/admin/backup', requireAdmin, async (req, res) => {
+  try {
+    const backup = await createBackup();
+    res.json({ ok: true, backup });
+  } catch (error) {
+    console.error('Backup creation error:', error);
+    res.status(500).json({ ok: false, error: 'Erreur lors du backup: ' + error.message });
+  }
+});
+
+// Endpoint: Lister les backups disponibles
+app.get('/api/admin/backups', requireAdmin, async (req, res) => {
+  try {
+    const backups = listBackups();
+    const dbPath = getDbPath();
+    const dbSize = fs.existsSync(dbPath) ? fs.statSync(dbPath).size : 0;
+
+    res.json({
+      ok: true,
+      backups,
+      totalBackups: backups.length,
+      maxBackups: BACKUP_CONFIG.maxBackups,
+      backupDir: BACKUP_CONFIG.backupDir,
+      databaseSize: (dbSize / 1024 / 1024).toFixed(2) + ' MB',
+      autoBackupInterval: '24h'
+    });
+  } catch (error) {
+    console.error('List backups error:', error);
+    res.status(500).json({ ok: false, error: 'Erreur serveur' });
+  }
+});
+
+// Endpoint: Télécharger un backup spécifique
+app.get('/api/admin/backups/:filename', requireAdmin, (req, res) => {
+  const { filename } = req.params;
+
+  // Validation du nom de fichier pour éviter le path traversal
+  if (!/^boutique_backup_[\d-T]+\.db$/.test(filename)) {
+    return res.status(400).json({ ok: false, error: 'Nom de fichier invalide' });
+  }
+
+  const filePath = path.join(BACKUP_CONFIG.backupDir, filename);
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ ok: false, error: 'Backup non trouvé' });
+  }
+
+  const stats = fs.statSync(filePath);
+  res.setHeader('Content-Type', 'application/octet-stream');
+  res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
+  res.setHeader('Content-Length', stats.size);
+
+  const stream = fs.createReadStream(filePath);
+  stream.pipe(res);
+});
+
+// Endpoint: Supprimer un backup
+app.delete('/api/admin/backups/:filename', requireAdmin, (req, res) => {
+  const { filename } = req.params;
+
+  if (!/^boutique_backup_[\d-T]+\.db$/.test(filename)) {
+    return res.status(400).json({ ok: false, error: 'Nom de fichier invalide' });
+  }
+
+  const filePath = path.join(BACKUP_CONFIG.backupDir, filename);
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ ok: false, error: 'Backup non trouvé' });
+  }
+
+  fs.unlinkSync(filePath);
+  console.log(`🗑️ Backup supprimé manuellement: ${filename}`);
+  res.json({ ok: true, message: 'Backup supprimé' });
+});
+
+// Backup automatique toutes les 24h
+let backupInterval;
+function startAutoBackup() {
+  // Premier backup 5 min après le démarrage
+  setTimeout(async () => {
+    try {
+      await createBackup();
+      console.log('✅ Backup automatique initial terminé');
+    } catch (error) {
+      console.error('❌ Erreur backup automatique initial:', error.message);
+    }
+  }, 5 * 60 * 1000);
+
+  // Puis toutes les 24h
+  backupInterval = setInterval(async () => {
+    try {
+      await createBackup();
+      console.log('✅ Backup automatique quotidien terminé');
+    } catch (error) {
+      console.error('❌ Erreur backup automatique:', error.message);
+    }
+  }, BACKUP_CONFIG.intervalMs);
+
+  console.log(`📦 Backup automatique activé (toutes les 24h, max ${BACKUP_CONFIG.maxBackups} backups)`);
+}
+
 app.get('*', (req, res) => {
   // Headers pour empêcher le cache (important pour Telegram WebApp)
   res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
@@ -7160,7 +7358,8 @@ async function start() {
   try {
     await initAdminPassword();
     await initDB();
-    
+    startAutoBackup();
+
     app.listen(PORT, async () => {
       console.log('🚀 ================================');
       console.log(`   Server running on port ${PORT}`);
