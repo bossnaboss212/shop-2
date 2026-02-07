@@ -1202,12 +1202,14 @@ class TelegramService {
     }
   }
 
-  async setMyCommands(commands) {
+  async setMyCommands(commands, scope = null) {
     if (!this.token) return null;
     try {
-      const response = await axios.post(`${this.baseUrl}/setMyCommands`, {
-        commands
-      }, { timeout: 5000 });
+      const payload = { commands };
+      if (scope) {
+        payload.scope = scope;
+      }
+      const response = await axios.post(`${this.baseUrl}/setMyCommands`, payload, { timeout: 5000 });
       return response.data?.ok;
     } catch (error) {
       console.error('❌ Set commands error:', error.message);
@@ -4151,7 +4153,11 @@ app.delete('/api/admin/announcements/:id', requireAdmin, async (req, res) => {
 
 // ==================== TELEGRAM BOT ====================
 // Secret token pour authentifier les requêtes webhook de Telegram
-const WEBHOOK_SECRET = crypto.randomBytes(32).toString('hex');
+// Utiliser une variable d'environnement pour persister entre les redémarrages
+const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET || crypto.randomBytes(32).toString('hex');
+if (!process.env.TELEGRAM_WEBHOOK_SECRET) {
+  console.warn('⚠️  TELEGRAM_WEBHOOK_SECRET non défini - secret généré aléatoirement (les webhooks pourraient échouer après un redémarrage)');
+}
 
 if (config.telegram.token) {
   console.log('🤖 Configuring Telegram bot...');
@@ -7121,9 +7127,49 @@ async function start() {
           { command: 'start', description: 'Démarrer / Accueil' },
           { command: 'shop', description: 'Voir la boutique' },
           { command: 'orders', description: 'Mes commandes' },
+          { command: 'credit', description: 'Mon solde crédit' },
+          { command: 'parrainage', description: 'Mon parrainage' },
+          { command: 'moncode', description: 'Mon code parrainage' },
           { command: 'help', description: 'Aide' }
         ]);
         console.log('✅ Bot commands configured (Menu button)');
+
+        // Commandes spécifiques aux livreurs
+        await telegram.setMyCommands([
+          { command: 'start', description: 'Démarrer / Accueil' },
+          { command: 'meslivraisons', description: 'Mes livraisons en cours' },
+          { command: 'stats', description: 'Mes statistiques' },
+          { command: 'caisse', description: 'Ma caisse' },
+          { command: 'help', description: 'Aide' }
+        ], { type: 'chat', chat_id: parseInt(config.telegram.driverMillauId) || 0 });
+
+        if (config.telegram.driverExterieurId && config.telegram.driverExterieurId !== '0') {
+          await telegram.setMyCommands([
+            { command: 'start', description: 'Démarrer / Accueil' },
+            { command: 'meslivraisons', description: 'Mes livraisons en cours' },
+            { command: 'stats', description: 'Mes statistiques' },
+            { command: 'caisse', description: 'Ma caisse' },
+            { command: 'help', description: 'Aide' }
+          ], { type: 'chat', chat_id: parseInt(config.telegram.driverExterieurId) });
+        }
+
+        // Commandes spécifiques aux admins
+        const adminIds = getAdminChatIds();
+        for (const adminId of adminIds) {
+          await telegram.setMyCommands([
+            { command: 'start', description: 'Démarrer / Accueil' },
+            { command: 'shop', description: 'Voir la boutique' },
+            { command: 'admin', description: 'Panneau admin' },
+            { command: 'broadcast', description: 'Envoyer un message à tous' },
+            { command: 'annonce', description: 'Poster une annonce' },
+            { command: 'annonces', description: 'Lister les annonces' },
+            { command: 'zones', description: 'Statistiques des zones' },
+            { command: 'orders', description: 'Mes commandes' },
+            { command: 'help', description: 'Aide' }
+          ], { type: 'chat', chat_id: parseInt(adminId) });
+        }
+
+        console.log('✅ Role-specific commands configured');
       }
 
       console.log('');
