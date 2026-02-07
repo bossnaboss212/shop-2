@@ -5486,7 +5486,24 @@ Bénéficiez d'une remise tous les ${config.loyalty.defaultThreshold} achats.
 Tapez sur les boutons ci-dessous pour commencer ! 👇`;
 
   const keyboard = getPermanentKeyboard(chatId);
-  await telegram.sendMessage(chatId, text, { reply_markup: keyboard });
+  const result = await telegram.sendMessage(chatId, text, { reply_markup: keyboard });
+
+  // Si l'envoi avec clavier échoue (ex: URL web_app invalide), renvoyer sans clavier
+  if (!result) {
+    console.warn(`⚠️ Envoi welcome avec clavier échoué pour ${chatId}, renvoi sans clavier web_app`);
+    const fallbackKeyboard = {
+      keyboard: [
+        [{ text: '🛒 Ouvrir la Boutique' }],
+        [{ text: '💰 Mon Crédit' }, { text: '🎁 Parrainage' }],
+        [{ text: 'ℹ️ Info' }, { text: '📞 Contact' }],
+        [{ text: '📖 Comment Commander' }]
+      ],
+      resize_keyboard: true,
+      persistent: true,
+      one_time_keyboard: false
+    };
+    await telegram.sendMessage(chatId, text, { reply_markup: fallbackKeyboard });
+  }
 }
 
 async function sendUserOrders(chatId) {
@@ -7119,11 +7136,25 @@ async function start() {
 
         // Toujours enregistrer le webhook au démarrage avec le secret token
         console.log('📡 Enregistrement du webhook...');
-        await telegram.setWebhook(webhookUrl, WEBHOOK_SECRET);
-        console.log('✅ Webhook enregistré (avec secret token)');
+        const webhookResult = await telegram.setWebhook(webhookUrl, WEBHOOK_SECRET);
+        if (webhookResult) {
+          console.log('✅ Webhook enregistré (avec secret token)');
+        } else {
+          console.error('❌ ÉCHEC enregistrement webhook ! Le bot ne recevra pas de messages.');
+          console.error('   Vérifiez WEBAPP_URL et TELEGRAM_TOKEN');
+        }
+
+        // Vérifier le webhook après enregistrement
+        const webhookInfo = await telegram.getWebhookInfo();
+        if (webhookInfo) {
+          console.log(`📡 Webhook info: url=${webhookInfo.url}, pending=${webhookInfo.pending_update_count || 0}`);
+          if (webhookInfo.last_error_message) {
+            console.error(`❌ Dernière erreur webhook: ${webhookInfo.last_error_message} (${webhookInfo.last_error_date ? new Date(webhookInfo.last_error_date * 1000).toISOString() : 'inconnu'})`);
+          }
+        }
 
         // Configurer les commandes du bot (bouton Menu dans Telegram)
-        await telegram.setMyCommands([
+        const cmdResult = await telegram.setMyCommands([
           { command: 'start', description: 'Démarrer / Accueil' },
           { command: 'shop', description: 'Voir la boutique' },
           { command: 'orders', description: 'Mes commandes' },
@@ -7132,7 +7163,11 @@ async function start() {
           { command: 'moncode', description: 'Mon code parrainage' },
           { command: 'help', description: 'Aide' }
         ]);
-        console.log('✅ Bot commands configured (Menu button)');
+        if (cmdResult) {
+          console.log('✅ Bot commands configured (Menu button)');
+        } else {
+          console.error('❌ ÉCHEC configuration des commandes du bot ! Vérifiez TELEGRAM_TOKEN');
+        }
 
         // Commandes spécifiques aux livreurs
         await telegram.setMyCommands([
