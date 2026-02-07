@@ -73,9 +73,26 @@ if (!config.admin.password) {
   process.exit(1);
 }
 
+if (!process.env.TELEGRAM_WEBHOOK_SECRET) {
+  console.warn('⚠️  TELEGRAM_WEBHOOK_SECRET non défini !');
+  console.warn('   Les webhooks pourraient échouer après un redémarrage.');
+  console.warn('   Générez un secret: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"');
+}
+
 // ==================== SECURITY MIDDLEWARE ====================
 app.use(helmet({
-  contentSecurityPolicy: false,
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://api.mapbox.com", "https://cdn.jsdelivr.net"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://api.mapbox.com", "https://fonts.googleapis.com"],
+      imgSrc: ["'self'", "data:", "blob:", "https://api.mapbox.com", "https://api.telegram.org"],
+      connectSrc: ["'self'", "https://api.mapbox.com", "https://events.mapbox.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      frameSrc: ["'none'"],
+      objectSrc: ["'none'"],
+    },
+  },
 }));
 
 const apiLimiter = rateLimit({
@@ -103,10 +120,16 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '10mb' }));
 
-// Debug: Logger toutes les requêtes POST
+// Logger les requêtes POST (sans données sensibles)
+const SENSITIVE_PATHS = ['/api/admin/login', '/telegram-webhook', '/adminlogin'];
 app.use((req, res, next) => {
   if (req.method === 'POST') {
-    console.log(`📨 POST ${req.path} - Body: ${JSON.stringify(req.body).substring(0, 100)}`);
+    const isSensitive = SENSITIVE_PATHS.some(p => req.path.includes(p));
+    if (isSensitive) {
+      console.log(`📨 POST ${req.path} - [body masqué]`);
+    } else {
+      console.log(`📨 POST ${req.path}`);
+    }
   }
   next();
 });
@@ -2700,7 +2723,7 @@ app.get('/api/credit-balance', apiLimiter, async (req, res) => {
 
 // ==================== ADMIN MIDDLEWARE ====================
 function requireAdmin(req, res, next) {
-  const token = req.headers['x-admin-token'] || req.query.token;
+  const token = req.headers['x-admin-token'];
   if (!token || !adminTokens.has(token)) {
     return res.status(401).json({ ok: false, error: 'Non autorisé' });
   }
@@ -2870,7 +2893,13 @@ app.post('/api/admin/broadcast', requireAdmin, async (req, res) => {
 });
 
 // ==================== CUSTOMER ORDERS (status sync) ====================
-app.get('/api/customer/orders', apiLimiter, async (req, res) => {
+const customerOrdersLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: 20,
+  message: { ok: false, error: 'Trop de requêtes' },
+  validate: false,
+});
+app.get('/api/customer/orders', customerOrdersLimiter, async (req, res) => {
   try {
     const { telegram_id } = req.query;
     if (!telegram_id) {
@@ -2878,6 +2907,12 @@ app.get('/api/customer/orders', apiLimiter, async (req, res) => {
     }
 
     const sanitizedId = sanitizeString(telegram_id, 50);
+
+    // Vérifier que le telegram_id correspond à un client enregistré
+    const client = await db.get('SELECT telegram_id FROM telegram_clients WHERE telegram_id = ?', [sanitizedId]);
+    if (!client) {
+      return res.status(403).json({ ok: false, error: 'Client non reconnu' });
+    }
     const orders = await db.all(
       `SELECT id, status, type, total, discount, items, cancel_reason, cancelled_at, delivery_time, created_at
        FROM orders
@@ -4988,7 +5023,9 @@ async function handleTelegramMessage(message) {
 
   await registerTelegramClient(message);
 
-  console.log(`💬 Message from ${chatId} (${firstName}): ${text}`);
+  // Masquer les mots de passe dans les logs
+  const logText = text && text.startsWith('/adminlogin ') ? '/adminlogin ***' : text;
+  console.log(`💬 Message from ${chatId} (${firstName}): ${logText}`);
 
   // Ignorer les messages sans texte (photos, stickers, etc.)
   if (!text) {
@@ -5038,6 +5075,12 @@ async function handleTelegramMessage(message) {
 
   // Commande /adminlogin <mot_de_passe> - authentification admin par mot de passe
   if (text.startsWith('/adminlogin ')) {
+    // Supprimer immédiatement le message contenant le mot de passe
+    try {
+      await telegram.deleteMessage(chatId, message.message_id);
+    } catch (e) {
+      console.warn('⚠️ Impossible de supprimer le message /adminlogin (le bot n\'est peut-être pas admin du chat)');
+    }
     const password = text.substring(12).trim();
     const isValid = await verifyAdminPassword(password);
     if (isValid) {
