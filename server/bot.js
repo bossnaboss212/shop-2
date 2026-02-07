@@ -34,6 +34,7 @@ const axios = require('axios');
 //    /fidelite - Programme de fidélité
 //    /horaires - Horaires d'ouverture
 //    /catalogue - Voir les catégories de produits
+//    /tuto - Tutoriel comment commander
 //
 // ============================================================
 
@@ -183,6 +184,7 @@ class TelegramAPI {
     const commands = [
       { command: 'start', description: '🏠 Menu principal' },
       { command: 'shop', description: '🛒 Ouvrir la boutique' },
+      { command: 'tuto', description: '📖 Comment commander' },
       { command: 'orders', description: '📦 Mes commandes' },
       { command: 'status', description: '📊 Suivi de commande' },
       { command: 'catalogue', description: '📋 Voir les produits' },
@@ -305,10 +307,13 @@ const Keyboards = {
       ],
       [
         { text: '📋 Catalogue' },
-        { text: '🕐 Horaires' }
+        { text: '📖 Tuto' }
       ],
       [
-        { text: '❓ Aide' },
+        { text: '🕐 Horaires' },
+        { text: '❓ Aide' }
+      ],
+      [
         { text: '💬 Support' }
       ]
     ],
@@ -622,6 +627,96 @@ const Keyboards = {
         }
       ]
     ]
+  },
+
+  tuto: {
+    inline_keyboard: [
+      [
+        {
+          text: '➡️ Étape 2 : Choisir les Produits',
+          callback_data: 'tuto_step2'
+        }
+      ],
+      [
+        {
+          text: '🛍️ Commander Maintenant',
+          web_app: { url: CONFIG.WEBAPP_URL }
+        }
+      ],
+      [
+        {
+          text: '💬 Besoin d\'aide ?',
+          callback_data: 'contact_support'
+        },
+        {
+          text: '🏠 Menu',
+          callback_data: 'start'
+        }
+      ]
+    ]
+  },
+
+  tutoStep2: {
+    inline_keyboard: [
+      [
+        {
+          text: '➡️ Étape 3 : Panier & Paiement',
+          callback_data: 'tuto_step3'
+        }
+      ],
+      [
+        {
+          text: '⬅️ Retour Étape 1',
+          callback_data: 'tuto_step1'
+        },
+        {
+          text: '🏠 Menu',
+          callback_data: 'start'
+        }
+      ]
+    ]
+  },
+
+  tutoStep3: {
+    inline_keyboard: [
+      [
+        {
+          text: '➡️ Étape 4 : Livraison & Suivi',
+          callback_data: 'tuto_step4'
+        }
+      ],
+      [
+        {
+          text: '⬅️ Retour Étape 2',
+          callback_data: 'tuto_step2'
+        },
+        {
+          text: '🏠 Menu',
+          callback_data: 'start'
+        }
+      ]
+    ]
+  },
+
+  tutoStep4: {
+    inline_keyboard: [
+      [
+        {
+          text: '🛍️ Commander Maintenant',
+          web_app: { url: CONFIG.WEBAPP_URL }
+        }
+      ],
+      [
+        {
+          text: '⬅️ Retour Étape 3',
+          callback_data: 'tuto_step3'
+        },
+        {
+          text: '🏠 Menu',
+          callback_data: 'start'
+        }
+      ]
+    ]
   }
 };
 
@@ -672,9 +767,7 @@ Accédez au tableau de bord pour gérer :
 • ${CONFIG.DELIVERY_INFO.paid}
 
 <b>💰 Paiement :</b>
-• Espèces à la livraison
-• Virement bancaire
-• Crypto-monnaies
+• Espèces à la livraison uniquement
 
 <b>🎁 Programme fidélité :</b>
 • Remise automatique tous les 10 achats
@@ -690,6 +783,7 @@ Livraison rapide pendant les heures d'ouverture
 <b>📱 Commandes disponibles :</b>
 /start - Menu principal
 /shop - Ouvrir la boutique
+/tuto - Comment commander
 /orders - Mes commandes
 /status - Suivi de commande
 /catalogue - Voir les produits
@@ -895,12 +989,105 @@ Cliquez sur "Boutique" et complétez le formulaire.
     return text;
   },
 
+  tuto: `📖 <b>TUTORIEL : COMMENT COMMANDER</b>
+
+Suivez ces 4 étapes simples pour passer votre première commande !
+
+━━━━━━━━━━━━━━━━━━━━━━
+
+<b>📌 ÉTAPE 1 : Ouvrir la Boutique</b>
+
+1️⃣ Cliquez sur le bouton <b>"🛍️ Commander Maintenant"</b> ci-dessous
+   <i>(ou tapez /shop ou appuyez sur "Boutique" au clavier)</i>
+
+2️⃣ La boutique s'ouvre directement dans Telegram
+
+3️⃣ Parcourez les catégories :
+   • 🌿 Weed
+   • 🟤 Résines
+   • ⬜ Blanche
+   • 💊 Keta
+   • 🧊 Frozen
+   • Et plus encore...
+
+<i>➡️ Continuez avec les étapes suivantes en cliquant sur les boutons.</i>`,
+
+  tutoStep2: `📖 <b>ÉTAPE 2 : Choisir vos Produits</b>
+
+━━━━━━━━━━━━━━━━━━━━━━
+
+4️⃣ <b>Sélectionnez un produit</b> qui vous intéresse
+   Vous verrez sa photo, vidéo et description
+
+5️⃣ <b>Choisissez la variante</b> (grammage/quantité)
+   Exemple : 1g, 2g, 5g, 10g...
+
+6️⃣ <b>Ajustez la quantité</b> avec les boutons + et -
+   <i>(jusqu'à 99 unités par article)</i>
+
+7️⃣ Appuyez sur <b>"Ajouter au panier"</b> 🛒
+
+8️⃣ Continuez vos achats ou passez au panier
+
+<b>💡 Astuce :</b> Ajoutez des produits en favoris avec le ❤️ pour les retrouver facilement !`,
+
+  tutoStep3: `📖 <b>ÉTAPE 3 : Panier & Paiement</b>
+
+━━━━━━━━━━━━━━━━━━━━━━
+
+9️⃣ Ouvrez votre <b>panier</b> 🛒 en haut de la page
+
+🔟 Vérifiez vos articles et quantités
+   Vous pouvez modifier ou supprimer des articles
+
+1️⃣1️⃣ Remplissez le <b>formulaire de commande</b> :
+   • 📱 <b>Numéro de téléphone</b> (pour vous contacter)
+   • 📍 <b>Adresse de livraison</b> (numéro + rue)
+   • 🚚 <b>Zone de livraison</b> :
+     - Millau = Livraison <b>GRATUITE</b>
+     - Extérieur = +20€ de frais
+
+1️⃣2️⃣ Si vous avez un <b>code de parrainage</b>, entrez-le pour une remise !
+
+<b>💰 Mode de paiement :</b>
+• Espèces à la livraison uniquement`,
+
+  tutoStep4: `📖 <b>ÉTAPE 4 : Livraison & Suivi</b>
+
+━━━━━━━━━━━━━━━━━━━━━━
+
+1️⃣3️⃣ Validez votre commande ✅
+
+1️⃣4️⃣ Vous recevrez une <b>confirmation</b> automatique
+
+1️⃣5️⃣ Suivez votre commande avec /status :
+   • ⏳ <b>En attente</b> - Commande reçue
+   • ✅ <b>Approuvée</b> - En préparation
+   • 🚀 <b>Livrée</b> - En route !
+
+1️⃣6️⃣ Le livreur vous contactera par Telegram
+
+<b>⏰ Horaires de livraison :</b>
+${CONFIG.BUSINESS_HOURS}
+
+<b>❌ Annulation :</b>
+Vous pouvez annuler sous 30 minutes via /orders
+
+━━━━━━━━━━━━━━━━━━━━━━
+
+<b>🎁 Bonus :</b>
+• Programme fidélité : remise tous les 10 achats (/fidelite)
+• Parrainage : invitez vos amis et gagnez des crédits (/parrainage)
+
+<b>Prêt à commander ? Cliquez ci-dessous !</b>`,
+
   unknownCommand: `❓ <b>Commande non reconnue</b>
 
 Voici les commandes disponibles :
 
 /start - Menu principal
 /shop - Ouvrir la boutique
+/tuto - Comment commander
 /orders - Mes commandes
 /status - Suivi de commandes
 /catalogue - Voir les produits
@@ -966,6 +1153,23 @@ const MessageHandlers = {
 
   '🛍️ Boutique': async (chatId) => {
     await MessageHandlers['/shop'](chatId);
+  },
+
+  '/tuto': async (chatId) => {
+    try {
+      await TelegramAPI.sendMessage(chatId, Messages.tuto, Keyboards.tuto);
+      console.log(`✅ Tuto message sent to ${chatId}`);
+    } catch (error) {
+      console.error(`❌ Error in /tuto handler:`, error);
+    }
+  },
+
+  '/tutoriel': async (chatId) => {
+    await MessageHandlers['/tuto'](chatId);
+  },
+
+  '📖 Tuto': async (chatId) => {
+    await MessageHandlers['/tuto'](chatId);
   },
 
   '/admin': async (chatId) => {
@@ -1153,6 +1357,7 @@ Utilisez les boutons ci-dessous pour naviguer rapidement :
 🎁 <b>Fidélité</b> - Vos récompenses
 🤝 <b>Parrainage</b> - Inviter des amis
 📋 <b>Catalogue</b> - Voir les produits
+📖 <b>Tuto</b> - Comment commander
 🕐 <b>Horaires</b> - Heures d'ouverture
 ❓ <b>Aide</b> - Support et informations
 💬 <b>Support</b> - Contacter l'équipe
@@ -1309,6 +1514,38 @@ const CallbackHandlers = {
       await TelegramAPI.editMessageText(chatId, messageId, text, Keyboards.catalogue);
     } catch (error) {
       await MessageHandlers['/catalogue'](chatId);
+    }
+  },
+
+  'tuto_step1': async (chatId, messageId) => {
+    try {
+      await TelegramAPI.editMessageText(chatId, messageId, Messages.tuto, Keyboards.tuto);
+    } catch (error) {
+      await TelegramAPI.sendMessage(chatId, Messages.tuto, Keyboards.tuto);
+    }
+  },
+
+  'tuto_step2': async (chatId, messageId) => {
+    try {
+      await TelegramAPI.editMessageText(chatId, messageId, Messages.tutoStep2, Keyboards.tutoStep2);
+    } catch (error) {
+      await TelegramAPI.sendMessage(chatId, Messages.tutoStep2, Keyboards.tutoStep2);
+    }
+  },
+
+  'tuto_step3': async (chatId, messageId) => {
+    try {
+      await TelegramAPI.editMessageText(chatId, messageId, Messages.tutoStep3, Keyboards.tutoStep3);
+    } catch (error) {
+      await TelegramAPI.sendMessage(chatId, Messages.tutoStep3, Keyboards.tutoStep3);
+    }
+  },
+
+  'tuto_step4': async (chatId, messageId) => {
+    try {
+      await TelegramAPI.editMessageText(chatId, messageId, Messages.tutoStep4, Keyboards.tutoStep4);
+    } catch (error) {
+      await TelegramAPI.sendMessage(chatId, Messages.tutoStep4, Keyboards.tutoStep4);
     }
   },
 
