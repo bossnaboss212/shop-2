@@ -73,9 +73,26 @@ if (!config.admin.password) {
   process.exit(1);
 }
 
+if (!process.env.TELEGRAM_WEBHOOK_SECRET) {
+  console.warn('⚠️  TELEGRAM_WEBHOOK_SECRET non défini !');
+  console.warn('   Les webhooks pourraient échouer après un redémarrage.');
+  console.warn('   Générez un secret: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"');
+}
+
 // ==================== SECURITY MIDDLEWARE ====================
 app.use(helmet({
-  contentSecurityPolicy: false,
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://api.mapbox.com", "https://cdn.jsdelivr.net"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://api.mapbox.com", "https://fonts.googleapis.com"],
+      imgSrc: ["'self'", "data:", "blob:", "https://api.mapbox.com", "https://api.telegram.org"],
+      connectSrc: ["'self'", "https://api.mapbox.com", "https://events.mapbox.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      frameSrc: ["'none'"],
+      objectSrc: ["'none'"],
+    },
+  },
 }));
 
 const apiLimiter = rateLimit({
@@ -103,10 +120,16 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '10mb' }));
 
-// Debug: Logger toutes les requêtes POST
+// Logger les requêtes POST (sans données sensibles)
+const SENSITIVE_PATHS = ['/api/admin/login', '/telegram-webhook', '/adminlogin'];
 app.use((req, res, next) => {
   if (req.method === 'POST') {
-    console.log(`📨 POST ${req.path} - Body: ${JSON.stringify(req.body).substring(0, 100)}`);
+    const isSensitive = SENSITIVE_PATHS.some(p => req.path.includes(p));
+    if (isSensitive) {
+      console.log(`📨 POST ${req.path} - [body masqué]`);
+    } else {
+      console.log(`📨 POST ${req.path}`);
+    }
   }
   next();
 });
@@ -1202,12 +1225,14 @@ class TelegramService {
     }
   }
 
-  async setMyCommands(commands) {
+  async setMyCommands(commands, scope = null) {
     if (!this.token) return null;
     try {
-      const response = await axios.post(`${this.baseUrl}/setMyCommands`, {
-        commands
-      }, { timeout: 5000 });
+      const payload = { commands };
+      if (scope) {
+        payload.scope = scope;
+      }
+      const response = await axios.post(`${this.baseUrl}/setMyCommands`, payload, { timeout: 5000 });
       return response.data?.ok;
     } catch (error) {
       console.error('❌ Set commands error:', error.message);
@@ -2698,7 +2723,7 @@ app.get('/api/credit-balance', apiLimiter, async (req, res) => {
 
 // ==================== ADMIN MIDDLEWARE ====================
 function requireAdmin(req, res, next) {
-  const token = req.headers['x-admin-token'] || req.query.token;
+  const token = req.headers['x-admin-token'];
   if (!token || !adminTokens.has(token)) {
     return res.status(401).json({ ok: false, error: 'Non autorisé' });
   }
@@ -2868,7 +2893,13 @@ app.post('/api/admin/broadcast', requireAdmin, async (req, res) => {
 });
 
 // ==================== CUSTOMER ORDERS (status sync) ====================
-app.get('/api/customer/orders', apiLimiter, async (req, res) => {
+const customerOrdersLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: 20,
+  message: { ok: false, error: 'Trop de requêtes' },
+  validate: false,
+});
+app.get('/api/customer/orders', customerOrdersLimiter, async (req, res) => {
   try {
     const { telegram_id } = req.query;
     if (!telegram_id) {
@@ -2876,6 +2907,12 @@ app.get('/api/customer/orders', apiLimiter, async (req, res) => {
     }
 
     const sanitizedId = sanitizeString(telegram_id, 50);
+
+    // Vérifier que le telegram_id correspond à un client enregistré
+    const client = await db.get('SELECT telegram_id FROM telegram_clients WHERE telegram_id = ?', [sanitizedId]);
+    if (!client) {
+      return res.status(403).json({ ok: false, error: 'Client non reconnu' });
+    }
     const orders = await db.all(
       `SELECT id, status, type, total, discount, items, cancel_reason, cancelled_at, delivery_time, created_at
        FROM orders
@@ -4151,7 +4188,11 @@ app.delete('/api/admin/announcements/:id', requireAdmin, async (req, res) => {
 
 // ==================== TELEGRAM BOT ====================
 // Secret token pour authentifier les requêtes webhook de Telegram
-const WEBHOOK_SECRET = crypto.randomBytes(32).toString('hex');
+// Utiliser une variable d'environnement pour persister entre les redémarrages
+const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET || crypto.randomBytes(32).toString('hex');
+if (!process.env.TELEGRAM_WEBHOOK_SECRET) {
+  console.warn('⚠️  TELEGRAM_WEBHOOK_SECRET non défini - secret généré aléatoirement (les webhooks pourraient échouer après un redémarrage)');
+}
 
 if (config.telegram.token) {
   console.log('🤖 Configuring Telegram bot...');
@@ -4982,7 +5023,9 @@ async function handleTelegramMessage(message) {
 
   await registerTelegramClient(message);
 
-  console.log(`💬 Message from ${chatId} (${firstName}): ${text}`);
+  // Masquer les mots de passe dans les logs
+  const logText = text && text.startsWith('/adminlogin ') ? '/adminlogin ***' : text;
+  console.log(`💬 Message from ${chatId} (${firstName}): ${logText}`);
 
   // Ignorer les messages sans texte (photos, stickers, etc.)
   if (!text) {
@@ -5032,6 +5075,12 @@ async function handleTelegramMessage(message) {
 
   // Commande /adminlogin <mot_de_passe> - authentification admin par mot de passe
   if (text.startsWith('/adminlogin ')) {
+    // Supprimer immédiatement le message contenant le mot de passe
+    try {
+      await telegram.deleteMessage(chatId, message.message_id);
+    } catch (e) {
+      console.warn('⚠️ Impossible de supprimer le message /adminlogin (le bot n\'est peut-être pas admin du chat)');
+    }
     const password = text.substring(12).trim();
     const isValid = await verifyAdminPassword(password);
     if (isValid) {
@@ -5480,7 +5529,24 @@ Bénéficiez d'une remise tous les ${config.loyalty.defaultThreshold} achats.
 Tapez sur les boutons ci-dessous pour commencer ! 👇`;
 
   const keyboard = getPermanentKeyboard(chatId);
-  await telegram.sendMessage(chatId, text, { reply_markup: keyboard });
+  const result = await telegram.sendMessage(chatId, text, { reply_markup: keyboard });
+
+  // Si l'envoi avec clavier échoue (ex: URL web_app invalide), renvoyer sans clavier
+  if (!result) {
+    console.warn(`⚠️ Envoi welcome avec clavier échoué pour ${chatId}, renvoi sans clavier web_app`);
+    const fallbackKeyboard = {
+      keyboard: [
+        [{ text: '🛒 Ouvrir la Boutique' }],
+        [{ text: '💰 Mon Crédit' }, { text: '🎁 Parrainage' }],
+        [{ text: 'ℹ️ Info' }, { text: '📞 Contact' }],
+        [{ text: '📖 Comment Commander' }]
+      ],
+      resize_keyboard: true,
+      persistent: true,
+      one_time_keyboard: false
+    };
+    await telegram.sendMessage(chatId, text, { reply_markup: fallbackKeyboard });
+  }
 }
 
 async function sendUserOrders(chatId) {
@@ -7113,17 +7179,75 @@ async function start() {
 
         // Toujours enregistrer le webhook au démarrage avec le secret token
         console.log('📡 Enregistrement du webhook...');
-        await telegram.setWebhook(webhookUrl, WEBHOOK_SECRET);
-        console.log('✅ Webhook enregistré (avec secret token)');
+        const webhookResult = await telegram.setWebhook(webhookUrl, WEBHOOK_SECRET);
+        if (webhookResult) {
+          console.log('✅ Webhook enregistré (avec secret token)');
+        } else {
+          console.error('❌ ÉCHEC enregistrement webhook ! Le bot ne recevra pas de messages.');
+          console.error('   Vérifiez WEBAPP_URL et TELEGRAM_TOKEN');
+        }
+
+        // Vérifier le webhook après enregistrement
+        const webhookInfo = await telegram.getWebhookInfo();
+        if (webhookInfo) {
+          console.log(`📡 Webhook info: url=${webhookInfo.url}, pending=${webhookInfo.pending_update_count || 0}`);
+          if (webhookInfo.last_error_message) {
+            console.error(`❌ Dernière erreur webhook: ${webhookInfo.last_error_message} (${webhookInfo.last_error_date ? new Date(webhookInfo.last_error_date * 1000).toISOString() : 'inconnu'})`);
+          }
+        }
 
         // Configurer les commandes du bot (bouton Menu dans Telegram)
-        await telegram.setMyCommands([
+        const cmdResult = await telegram.setMyCommands([
           { command: 'start', description: 'Démarrer / Accueil' },
           { command: 'shop', description: 'Voir la boutique' },
           { command: 'orders', description: 'Mes commandes' },
+          { command: 'credit', description: 'Mon solde crédit' },
+          { command: 'parrainage', description: 'Mon parrainage' },
+          { command: 'moncode', description: 'Mon code parrainage' },
           { command: 'help', description: 'Aide' }
         ]);
-        console.log('✅ Bot commands configured (Menu button)');
+        if (cmdResult) {
+          console.log('✅ Bot commands configured (Menu button)');
+        } else {
+          console.error('❌ ÉCHEC configuration des commandes du bot ! Vérifiez TELEGRAM_TOKEN');
+        }
+
+        // Commandes spécifiques aux livreurs
+        await telegram.setMyCommands([
+          { command: 'start', description: 'Démarrer / Accueil' },
+          { command: 'meslivraisons', description: 'Mes livraisons en cours' },
+          { command: 'stats', description: 'Mes statistiques' },
+          { command: 'caisse', description: 'Ma caisse' },
+          { command: 'help', description: 'Aide' }
+        ], { type: 'chat', chat_id: parseInt(config.telegram.driverMillauId) || 0 });
+
+        if (config.telegram.driverExterieurId && config.telegram.driverExterieurId !== '0') {
+          await telegram.setMyCommands([
+            { command: 'start', description: 'Démarrer / Accueil' },
+            { command: 'meslivraisons', description: 'Mes livraisons en cours' },
+            { command: 'stats', description: 'Mes statistiques' },
+            { command: 'caisse', description: 'Ma caisse' },
+            { command: 'help', description: 'Aide' }
+          ], { type: 'chat', chat_id: parseInt(config.telegram.driverExterieurId) });
+        }
+
+        // Commandes spécifiques aux admins
+        const adminIds = getAdminChatIds();
+        for (const adminId of adminIds) {
+          await telegram.setMyCommands([
+            { command: 'start', description: 'Démarrer / Accueil' },
+            { command: 'shop', description: 'Voir la boutique' },
+            { command: 'admin', description: 'Panneau admin' },
+            { command: 'broadcast', description: 'Envoyer un message à tous' },
+            { command: 'annonce', description: 'Poster une annonce' },
+            { command: 'annonces', description: 'Lister les annonces' },
+            { command: 'zones', description: 'Statistiques des zones' },
+            { command: 'orders', description: 'Mes commandes' },
+            { command: 'help', description: 'Aide' }
+          ], { type: 'chat', chat_id: parseInt(adminId) });
+        }
+
+        console.log('✅ Role-specific commands configured');
       }
 
       console.log('');
