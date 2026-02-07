@@ -29,6 +29,11 @@ const axios = require('axios');
 //    /admin - Panneau admin
 //    /help ou /aide - Aide
 //    /keyboard - Activer/Désactiver clavier persistant
+//    /status - Suivi de commandes
+//    /parrainage - Programme de parrainage
+//    /fidelite - Programme de fidélité
+//    /horaires - Horaires d'ouverture
+//    /catalogue - Voir les catégories de produits
 //
 // ============================================================
 
@@ -179,6 +184,11 @@ class TelegramAPI {
       { command: 'start', description: '🏠 Menu principal' },
       { command: 'shop', description: '🛒 Ouvrir la boutique' },
       { command: 'orders', description: '📦 Mes commandes' },
+      { command: 'status', description: '📊 Suivi de commande' },
+      { command: 'catalogue', description: '📋 Voir les produits' },
+      { command: 'fidelite', description: '🎁 Programme de fidélité' },
+      { command: 'parrainage', description: '🤝 Programme de parrainage' },
+      { command: 'horaires', description: '🕐 Horaires d\'ouverture' },
       { command: 'admin', description: '🔐 Panneau admin' },
       { command: 'help', description: '❓ Aide et support' },
       { command: 'keyboard', description: '⌨️ Afficher/Masquer le clavier' }
@@ -217,6 +227,64 @@ class TelegramAPI {
 }
 
 // ============================================================
+// SERVER API HELPERS (appels vers le serveur principal)
+// ============================================================
+class ServerAPI {
+  static get baseUrl() {
+    return CONFIG.WEBAPP_URL;
+  }
+
+  static async getCustomerOrders(telegramId) {
+    try {
+      const response = await axios.get(`${this.baseUrl}/api/customer/orders`, {
+        params: { telegram_id: telegramId },
+        timeout: 5000
+      });
+      return response.data;
+    } catch (error) {
+      console.error('❌ Error fetching orders:', error.message);
+      return null;
+    }
+  }
+
+  static async getProducts() {
+    try {
+      const response = await axios.get(`${this.baseUrl}/api/products`, { timeout: 5000 });
+      return response.data;
+    } catch (error) {
+      console.error('❌ Error fetching products:', error.message);
+      return null;
+    }
+  }
+
+  static async getReferralStats(customer) {
+    try {
+      const response = await axios.get(`${this.baseUrl}/api/referral-stats`, {
+        params: { customer },
+        timeout: 5000
+      });
+      return response.data;
+    } catch (error) {
+      console.error('❌ Error fetching referral stats:', error.message);
+      return null;
+    }
+  }
+
+  static async getCreditBalance(customer) {
+    try {
+      const response = await axios.get(`${this.baseUrl}/api/credit-balance`, {
+        params: { customer },
+        timeout: 5000
+      });
+      return response.data;
+    } catch (error) {
+      console.error('❌ Error fetching credit balance:', error.message);
+      return null;
+    }
+  }
+}
+
+// ============================================================
 // KEYBOARDS (CLAVIERS)
 // ============================================================
 const Keyboards = {
@@ -229,7 +297,15 @@ const Keyboards = {
       ],
       [
         { text: '📦 Mes Commandes' },
-        { text: '🔐 Admin' }
+        { text: '📊 Suivi Commande' }
+      ],
+      [
+        { text: '🎁 Fidélité' },
+        { text: '🤝 Parrainage' }
+      ],
+      [
+        { text: '📋 Catalogue' },
+        { text: '🕐 Horaires' }
       ],
       [
         { text: '❓ Aide' },
@@ -250,8 +326,22 @@ const Keyboards = {
       ],
       [
         {
-          text: '🔐 Panneau Admin',
-          web_app: { url: `${CONFIG.WEBAPP_URL}/admin.html` }
+          text: '📋 Catalogue',
+          callback_data: 'show_catalogue'
+        },
+        {
+          text: '📊 Suivi',
+          callback_data: 'show_orders'
+        }
+      ],
+      [
+        {
+          text: '🎁 Fidélité',
+          callback_data: 'show_fidelite'
+        },
+        {
+          text: '🤝 Parrainage',
+          callback_data: 'show_parrainage'
         }
       ],
       [
@@ -429,6 +519,109 @@ const Keyboards = {
         }
       ]
     ]
+  },
+
+  status: {
+    inline_keyboard: [
+      [
+        {
+          text: '📱 Voir Toutes Mes Commandes',
+          web_app: { url: `${CONFIG.WEBAPP_URL}#orders` }
+        }
+      ],
+      [
+        {
+          text: '💬 Support',
+          callback_data: 'contact_support'
+        },
+        {
+          text: '🏠 Menu',
+          callback_data: 'start'
+        }
+      ]
+    ]
+  },
+
+  parrainage: {
+    inline_keyboard: [
+      [
+        {
+          text: '🛍️ Inviter via la Boutique',
+          web_app: { url: CONFIG.WEBAPP_URL }
+        }
+      ],
+      [
+        {
+          text: '📊 Classement Parrains',
+          callback_data: 'show_leaderboard'
+        }
+      ],
+      [
+        {
+          text: '🏠 Menu Principal',
+          callback_data: 'start'
+        }
+      ]
+    ]
+  },
+
+  fidelite: {
+    inline_keyboard: [
+      [
+        {
+          text: '🛒 Commander Maintenant',
+          web_app: { url: CONFIG.WEBAPP_URL }
+        }
+      ],
+      [
+        {
+          text: '🤝 Parrainage',
+          callback_data: 'show_parrainage'
+        },
+        {
+          text: '🏠 Menu',
+          callback_data: 'start'
+        }
+      ]
+    ]
+  },
+
+  horaires: {
+    inline_keyboard: [
+      [
+        {
+          text: '🛒 Commander Maintenant',
+          web_app: { url: CONFIG.WEBAPP_URL }
+        }
+      ],
+      [
+        {
+          text: '💬 Support',
+          callback_data: 'contact_support'
+        },
+        {
+          text: '🏠 Menu',
+          callback_data: 'start'
+        }
+      ]
+    ]
+  },
+
+  catalogue: {
+    inline_keyboard: [
+      [
+        {
+          text: '🛍️ Voir Tout le Catalogue',
+          web_app: { url: CONFIG.WEBAPP_URL }
+        }
+      ],
+      [
+        {
+          text: '🏠 Menu Principal',
+          callback_data: 'start'
+        }
+      ]
+    ]
   }
 };
 
@@ -443,11 +636,13 @@ Votre boutique premium accessible directement depuis Telegram.
 <b>🛍️ Que souhaitez-vous faire ?</b>
 
 • <b>Boutique</b> - Parcourir et commander
-• <b>Admin</b> - Gérer votre boutique
+• <b>Catalogue</b> - Voir nos produits
+• <b>Suivi</b> - Suivre vos commandes
+• <b>Fidélité</b> - Vos récompenses
+• <b>Parrainage</b> - Inviter des amis
 • <b>Support</b> - Aide et assistance
 
-✨ <i>Programme de fidélité actif !</i>
-Bénéficiez d'une remise tous les 10 achats.`,
+✨ <i>Programme de fidélité & parrainage actifs !</i>`,
 
   shop: `🛍️ <b>BOUTIQUE DROGUA CENTER</b>
 
@@ -496,6 +691,11 @@ Livraison rapide pendant les heures d'ouverture
 /start - Menu principal
 /shop - Ouvrir la boutique
 /orders - Mes commandes
+/status - Suivi de commande
+/catalogue - Voir les produits
+/fidelite - Programme de fidélité
+/parrainage - Programme de parrainage
+/horaires - Horaires d'ouverture
 /admin - Panneau admin
 /help - Cette aide`,
 
@@ -548,7 +748,168 @@ Consultez l'historique de vos commandes et suivez leur statut en temps réel.
 Suivez votre progression vers votre prochaine remise !
 🎁 Une remise tous les 10 achats
 
-Cliquez sur le bouton ci-dessous pour accéder à vos commandes.`
+Cliquez sur le bouton ci-dessous pour accéder à vos commandes.`,
+
+  horaires: `🕐 <b>HORAIRES D'OUVERTURE</b>
+
+<b>📅 Jours :</b> 7 jours sur 7
+<b>⏰ Heures :</b> ${CONFIG.BUSINESS_HOURS}
+
+<b>📍 Livraison :</b>
+• ${CONFIG.DELIVERY_INFO.free}
+• ${CONFIG.DELIVERY_INFO.paid}
+
+<b>⚡ Délai de livraison :</b>
+Livraison rapide pendant les heures d'ouverture
+
+<b>📞 En dehors des horaires ?</b>
+Passez commande en ligne, elle sera traitée dès l'ouverture !`,
+
+  parrainage: `🤝 <b>PROGRAMME DE PARRAINAGE</b>
+
+Parrainez vos amis et gagnez des crédits !
+
+<b>🎯 Comment ça marche :</b>
+1. Partagez votre code de parrainage
+2. Votre ami passe sa première commande
+3. Vous recevez un crédit bonus !
+
+<b>🏆 Paliers VIP :</b>
+• 🥉 Bronze - 0 à 2 parrainages
+• 🥈 Argent - 3 à 5 parrainages (+10€ bonus)
+• 🥇 Or - 6 à 9 parrainages (+20€ bonus)
+• 💎 Diamant - 10+ parrainages (+50€ bonus)
+
+<i>Utilisez votre code lors de chaque commande !</i>`,
+
+  fidelite: `🎁 <b>PROGRAMME DE FIDÉLITÉ</b>
+
+Gagnez des réductions automatiques en commandant !
+
+<b>📊 Le principe :</b>
+• Remise automatique tous les <b>10 achats</b>
+• Jusqu'à <b>10%</b> ou <b>20€</b> de réduction
+• Calcul automatique, rien à faire !
+
+<b>🔄 Comment ça fonctionne :</b>
+1. Passez vos commandes normalement
+2. Au 10ème achat, remise appliquée
+3. Le compteur recommence à zéro
+
+<b>💡 Astuce :</b>
+Combinez fidélité + parrainage pour maximiser vos économies !`,
+
+  catalogue: (products) => {
+    if (!products || products.length === 0) {
+      return `📋 <b>CATALOGUE</b>\n\nLe catalogue est en cours de chargement. Accédez à la boutique pour voir tous les produits.`;
+    }
+
+    // Regrouper par catégorie
+    const categories = {};
+    for (const p of products) {
+      const cat = p.category || 'Autre';
+      if (!categories[cat]) categories[cat] = [];
+      categories[cat].push(p);
+    }
+
+    let text = `📋 <b>CATALOGUE DROGUA CENTER</b>\n\n`;
+
+    for (const [category, items] of Object.entries(categories)) {
+      text += `<b>📂 ${category}</b>\n`;
+      for (const item of items) {
+        const variantCount = item.variants ? Object.keys(item.variants).length : 0;
+        const prices = item.variants
+          ? Object.values(item.variants).map(v => v.price).filter(Boolean)
+          : [];
+        const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
+        const maxPrice = prices.length > 0 ? Math.max(...prices) : 0;
+
+        let priceStr = '';
+        if (minPrice > 0 && maxPrice > 0) {
+          priceStr = minPrice === maxPrice
+            ? ` - ${minPrice}€`
+            : ` - ${minPrice}€ à ${maxPrice}€`;
+        }
+
+        text += `  • ${item.name}${priceStr}\n`;
+      }
+      text += '\n';
+    }
+
+    text += `<i>Cliquez ci-dessous pour voir le catalogue complet avec photos et vidéos.</i>`;
+    return text;
+  },
+
+  statusNoOrders: `📊 <b>SUIVI DE COMMANDE</b>
+
+Aucune commande trouvée pour votre compte.
+
+<b>💡 Pour passer une commande :</b>
+Cliquez sur "Boutique" et complétez le formulaire.
+
+<i>Si vous pensez que c'est une erreur, contactez le support.</i>`,
+
+  statusOrders: (orders) => {
+    const statusEmojis = {
+      'pending': '⏳',
+      'approved': '✅',
+      'delivered': '🚀',
+      'cancelled': '❌'
+    };
+    const statusLabels = {
+      'pending': 'En attente',
+      'approved': 'Approuvée',
+      'delivered': 'Livrée',
+      'cancelled': 'Annulée'
+    };
+
+    let text = `📊 <b>SUIVI DE VOS COMMANDES</b>\n\n`;
+    text += `<b>Total :</b> ${orders.length} commande(s)\n\n`;
+
+    // Afficher les 5 dernières commandes
+    const recentOrders = orders.slice(0, 5);
+    for (const order of recentOrders) {
+      const emoji = statusEmojis[order.status] || '❓';
+      const label = statusLabels[order.status] || order.status;
+      const date = new Date(order.created_at).toLocaleDateString('fr-FR', {
+        day: '2-digit', month: '2-digit', year: 'numeric'
+      });
+      const items = Array.isArray(order.items) ? order.items : [];
+      const itemCount = items.reduce((sum, i) => sum + (i.quantity || 1), 0);
+
+      text += `${emoji} <b>Commande #${order.id}</b>\n`;
+      text += `   Statut : ${label}\n`;
+      text += `   Date : ${date}\n`;
+      text += `   Articles : ${itemCount} | Total : ${order.total}€\n`;
+      if (order.discount > 0) {
+        text += `   Remise : -${order.discount}€\n`;
+      }
+      text += '\n';
+    }
+
+    if (orders.length > 5) {
+      text += `<i>... et ${orders.length - 5} autre(s) commande(s)</i>\n\n`;
+    }
+
+    text += `<i>Cliquez ci-dessous pour plus de détails.</i>`;
+    return text;
+  },
+
+  unknownCommand: `❓ <b>Commande non reconnue</b>
+
+Voici les commandes disponibles :
+
+/start - Menu principal
+/shop - Ouvrir la boutique
+/orders - Mes commandes
+/status - Suivi de commandes
+/catalogue - Voir les produits
+/fidelite - Programme de fidélité
+/parrainage - Programme de parrainage
+/horaires - Horaires d'ouverture
+/help - Aide et support
+
+Ou utilisez les boutons du clavier ci-dessous.`
 };
 
 // ============================================================
@@ -659,6 +1020,106 @@ const MessageHandlers = {
     await MessageHandlers['/orders'](chatId);
   },
 
+  '/status': async (chatId, firstName, telegramId) => {
+    try {
+      const data = await ServerAPI.getCustomerOrders(telegramId);
+
+      if (!data || !data.ok || !data.orders || data.orders.length === 0) {
+        await TelegramAPI.sendMessage(chatId, Messages.statusNoOrders, Keyboards.status);
+      } else {
+        await TelegramAPI.sendMessage(
+          chatId,
+          Messages.statusOrders(data.orders),
+          Keyboards.status
+        );
+      }
+      console.log(`✅ Status message sent to ${chatId}`);
+    } catch (error) {
+      console.error(`❌ Error in /status handler:`, error);
+      await TelegramAPI.sendMessage(chatId, Messages.statusNoOrders, Keyboards.status);
+    }
+  },
+
+  '📊 Suivi Commande': async (chatId, firstName, telegramId) => {
+    await MessageHandlers['/status'](chatId, firstName, telegramId);
+  },
+
+  '/parrainage': async (chatId, firstName, telegramId) => {
+    try {
+      const data = await ServerAPI.getReferralStats(telegramId);
+
+      let text = Messages.parrainage;
+      if (data && data.ok && data.exists) {
+        text += `\n\n━━━━━━━━━━━━━━━━━━━━━━`;
+        text += `\n\n<b>📊 Vos stats de parrainage :</b>`;
+        text += `\n• Code : <code>${data.code}</code>`;
+        text += `\n• Parrainages : ${data.totalReferrals || 0}`;
+        text += `\n• Crédits gagnés : ${data.totalEarned || 0}€`;
+        text += `\n• Solde actuel : ${data.creditBalance || 0}€`;
+
+        const refs = data.totalReferrals || 0;
+        let tier = '🥉 Bronze';
+        if (refs >= 10) tier = '💎 Diamant';
+        else if (refs >= 6) tier = '🥇 Or';
+        else if (refs >= 3) tier = '🥈 Argent';
+        text += `\n• Palier : ${tier}`;
+      }
+
+      await TelegramAPI.sendMessage(chatId, text, Keyboards.parrainage);
+      console.log(`✅ Parrainage message sent to ${chatId}`);
+    } catch (error) {
+      console.error(`❌ Error in /parrainage handler:`, error);
+      await TelegramAPI.sendMessage(chatId, Messages.parrainage, Keyboards.parrainage);
+    }
+  },
+
+  '🤝 Parrainage': async (chatId, firstName, telegramId) => {
+    await MessageHandlers['/parrainage'](chatId, firstName, telegramId);
+  },
+
+  '/fidelite': async (chatId) => {
+    try {
+      await TelegramAPI.sendMessage(chatId, Messages.fidelite, Keyboards.fidelite);
+      console.log(`✅ Fidelite message sent to ${chatId}`);
+    } catch (error) {
+      console.error(`❌ Error in /fidelite handler:`, error);
+    }
+  },
+
+  '🎁 Fidélité': async (chatId) => {
+    await MessageHandlers['/fidelite'](chatId);
+  },
+
+  '/horaires': async (chatId) => {
+    try {
+      await TelegramAPI.sendMessage(chatId, Messages.horaires, Keyboards.horaires);
+      console.log(`✅ Horaires message sent to ${chatId}`);
+    } catch (error) {
+      console.error(`❌ Error in /horaires handler:`, error);
+    }
+  },
+
+  '🕐 Horaires': async (chatId) => {
+    await MessageHandlers['/horaires'](chatId);
+  },
+
+  '/catalogue': async (chatId) => {
+    try {
+      const data = await ServerAPI.getProducts();
+      const products = (data && data.ok) ? data.products : [];
+      const text = Messages.catalogue(products);
+      await TelegramAPI.sendMessage(chatId, text, Keyboards.catalogue);
+      console.log(`✅ Catalogue message sent to ${chatId}`);
+    } catch (error) {
+      console.error(`❌ Error in /catalogue handler:`, error);
+      await TelegramAPI.sendMessage(chatId, Messages.catalogue([]), Keyboards.catalogue);
+    }
+  },
+
+  '📋 Catalogue': async (chatId) => {
+    await MessageHandlers['/catalogue'](chatId);
+  },
+
   '/keyboard': async (chatId) => {
     try {
       // Toggle du clavier
@@ -688,7 +1149,11 @@ Utilisez les boutons ci-dessous pour naviguer rapidement :
 🏠 <b>Menu Principal</b> - Retour à l'accueil
 🛍️ <b>Boutique</b> - Accéder au catalogue
 📦 <b>Mes Commandes</b> - Historique et suivi
-🔐 <b>Admin</b> - Panneau administrateur
+📊 <b>Suivi Commande</b> - Statut en temps réel
+🎁 <b>Fidélité</b> - Vos récompenses
+🤝 <b>Parrainage</b> - Inviter des amis
+📋 <b>Catalogue</b> - Voir les produits
+🕐 <b>Horaires</b> - Heures d'ouverture
 ❓ <b>Aide</b> - Support et informations
 💬 <b>Support</b> - Contacter l'équipe
 
@@ -795,6 +1260,91 @@ const CallbackHandlers = {
     } catch (error) {
       await TelegramAPI.sendMessage(chatId, Messages.info, Keyboards.info);
     }
+  },
+
+  'show_parrainage': async (chatId, messageId) => {
+    try {
+      await TelegramAPI.editMessageText(
+        chatId,
+        messageId,
+        Messages.parrainage,
+        Keyboards.parrainage
+      );
+    } catch (error) {
+      await TelegramAPI.sendMessage(chatId, Messages.parrainage, Keyboards.parrainage);
+    }
+  },
+
+  'show_fidelite': async (chatId, messageId) => {
+    try {
+      await TelegramAPI.editMessageText(
+        chatId,
+        messageId,
+        Messages.fidelite,
+        Keyboards.fidelite
+      );
+    } catch (error) {
+      await TelegramAPI.sendMessage(chatId, Messages.fidelite, Keyboards.fidelite);
+    }
+  },
+
+  'show_horaires': async (chatId, messageId) => {
+    try {
+      await TelegramAPI.editMessageText(
+        chatId,
+        messageId,
+        Messages.horaires,
+        Keyboards.horaires
+      );
+    } catch (error) {
+      await TelegramAPI.sendMessage(chatId, Messages.horaires, Keyboards.horaires);
+    }
+  },
+
+  'show_catalogue': async (chatId, messageId) => {
+    try {
+      const data = await ServerAPI.getProducts();
+      const products = (data && data.ok) ? data.products : [];
+      const text = Messages.catalogue(products);
+      await TelegramAPI.editMessageText(chatId, messageId, text, Keyboards.catalogue);
+    } catch (error) {
+      await MessageHandlers['/catalogue'](chatId);
+    }
+  },
+
+  'show_leaderboard': async (chatId, messageId) => {
+    try {
+      const response = await axios.get(`${CONFIG.WEBAPP_URL}/api/referral-leaderboard`, {
+        params: { limit: 5 },
+        timeout: 5000
+      });
+
+      let text = `🏆 <b>CLASSEMENT DES PARRAINS</b>\n\n`;
+
+      if (response.data?.ok && response.data.leaderboard?.length > 0) {
+        for (const user of response.data.leaderboard) {
+          const medal = user.rank === 1 ? '🥇' : user.rank === 2 ? '🥈' : user.rank === 3 ? '🥉' : '🏅';
+          text += `${medal} <b>#${user.rank}</b> ${user.contact}\n`;
+          text += `   Parrainages : ${user.totalReferrals} | ${user.vipTier}\n\n`;
+        }
+      } else {
+        text += `Aucun parrain pour le moment.\nSoyez le premier !`;
+      }
+
+      const keyboard = {
+        inline_keyboard: [
+          [{ text: '🤝 Mon Parrainage', callback_data: 'show_parrainage' }],
+          [{ text: '🏠 Menu Principal', callback_data: 'start' }]
+        ]
+      };
+
+      await TelegramAPI.editMessageText(chatId, messageId, text, keyboard);
+    } catch (error) {
+      console.error('❌ Error in leaderboard handler:', error.message);
+      await TelegramAPI.sendMessage(chatId, '❌ Impossible de charger le classement. Réessayez plus tard.', {
+        inline_keyboard: [[{ text: '🏠 Menu', callback_data: 'start' }]]
+      });
+    }
   }
 };
 
@@ -810,13 +1360,15 @@ app.post(`/bot${CONFIG.BOT_TOKEN}`, async (req, res) => {
       const chatId = message.chat.id;
       const text = message.text;
       const firstName = message.from.first_name || 'Client';
-      
+      const telegramId = String(message.from.id);
+
       const handler = MessageHandlers[text];
       if (handler) {
-        await handler(chatId, firstName);
+        await handler(chatId, firstName, telegramId);
       } else {
-        // Message non reconnu - on pourrait envoyer un message d'aide
+        // Auto-réponse pour les messages non reconnus
         console.log(`⚠️ Unhandled message: ${text} from ${chatId}`);
+        await TelegramAPI.sendMessage(chatId, Messages.unknownCommand, Keyboards.help);
       }
     }
     
