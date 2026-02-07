@@ -775,6 +775,7 @@
       <button class="tab-btn" onclick="showTab('employees')">👷 Employés</button>
       <button class="tab-btn" onclick="showTab('reports')">📋 Rapports</button>
       <button class="tab-btn" onclick="showTab('settings')">⚙️ Paramètres</button>
+      <button class="tab-btn" onclick="showTab('backup')">💾 Backup</button>
     </div>
 
     <div class="tab-content active" id="tab-dashboard">
@@ -1917,6 +1918,62 @@
         <button onclick="syncOrders(true)" style="margin-top:16px">🔄 Sync maintenant</button>
       </div>
     </div>
+
+    <div class="tab-content" id="tab-backup">
+      <div class="stats">
+        <div class="stat-card">
+          <h3>💾 Base de données</h3>
+          <div class="value" id="backupDbSize">-</div>
+        </div>
+        <div class="stat-card">
+          <h3>📦 Backups disponibles</h3>
+          <div class="value" id="backupCount">-</div>
+        </div>
+        <div class="stat-card">
+          <h3>🔄 Backup auto</h3>
+          <div class="value">24h</div>
+        </div>
+        <div class="stat-card">
+          <h3>📂 Rétention max</h3>
+          <div class="value" id="backupMax">7</div>
+        </div>
+      </div>
+
+      <div class="chart-container">
+        <h3>⚡ Actions rapides</h3>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          <button onclick="createAndDownloadBackup()" style="background:var(--success);color:white;padding:12px 24px;font-size:14px">
+            💾 Créer & Télécharger un Backup
+          </button>
+          <button onclick="createBackupOnly()" style="background:var(--accent);color:white;padding:12px 24px;font-size:14px">
+            📦 Créer un Backup (sans télécharger)
+          </button>
+          <button onclick="loadBackups()" style="background:var(--info);color:white;padding:12px 24px;font-size:14px">
+            🔄 Rafraîchir la liste
+          </button>
+        </div>
+      </div>
+
+      <div class="chart-container">
+        <h3>📋 Liste des Backups</h3>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Fichier</th>
+                <th>Taille</th>
+                <th>Date de création</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="backupsTable">
+              <tr><td colspan="4" style="text-align:center;padding:40px;color:var(--muted)">Cliquez sur "Rafraîchir" pour charger les backups</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -2896,6 +2953,10 @@ function showTab(name) {
 
   if (name === 'settings') {
     calculateStorageSize();
+  }
+
+  if (name === 'backup') {
+    loadBackups();
   }
 }
 
@@ -7426,6 +7487,152 @@ function scheduleAutoReports() {
       }
     }
   }, 3600000);
+}
+
+// ==================== BACKUP ====================
+async function loadBackups() {
+  const token = localStorage.getItem('admin_token');
+  if (!token) return;
+
+  try {
+    const res = await fetch('/api/admin/backups', {
+      headers: { 'x-admin-token': token }
+    });
+    const data = await res.json();
+    if (!data.ok) return;
+
+    document.getElementById('backupDbSize').textContent = data.databaseSize;
+    document.getElementById('backupCount').textContent = data.totalBackups + ' / ' + data.maxBackups;
+    document.getElementById('backupMax').textContent = data.maxBackups;
+
+    const tbody = document.getElementById('backupsTable');
+    if (data.backups.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:40px;color:var(--muted)">Aucun backup disponible</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = data.backups.map(b => {
+      const date = new Date(b.created).toLocaleString('fr-FR', {
+        day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+      });
+      return `<tr>
+        <td><strong>${b.filename}</strong></td>
+        <td>${b.sizeFormatted}</td>
+        <td>${date}</td>
+        <td>
+          <button onclick="downloadBackup('${b.filename}')" class="btn-sm" style="background:var(--accent);color:white">📥 Télécharger</button>
+          <button onclick="deleteBackup('${b.filename}')" class="btn-sm" style="background:var(--danger);color:white">🗑 Supprimer</button>
+        </td>
+      </tr>`;
+    }).join('');
+  } catch (e) {
+    console.error('Load backups error:', e);
+    showToast('Erreur chargement backups', 'error');
+  }
+}
+
+async function createAndDownloadBackup() {
+  const token = localStorage.getItem('admin_token');
+  if (!token) return;
+
+  showToast('Création du backup en cours...', 'info');
+  try {
+    const res = await fetch('/api/admin/backup', {
+      headers: { 'x-admin-token': token }
+    });
+
+    if (!res.ok) throw new Error('Erreur serveur');
+
+    const blob = await res.blob();
+    const disposition = res.headers.get('Content-Disposition') || '';
+    const filename = disposition.match(/filename=(.+)/)?.[1] || 'backup.db';
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    showToast('Backup téléchargé avec succès', 'success');
+    loadBackups();
+  } catch (e) {
+    console.error('Download backup error:', e);
+    showToast('Erreur lors du téléchargement', 'error');
+  }
+}
+
+async function createBackupOnly() {
+  const token = localStorage.getItem('admin_token');
+  if (!token) return;
+
+  showToast('Création du backup...', 'info');
+  try {
+    const res = await fetch('/api/admin/backup', {
+      method: 'POST',
+      headers: { 'x-admin-token': token }
+    });
+    const data = await res.json();
+    if (data.ok) {
+      showToast('Backup créé : ' + data.backup.filename + ' (' + data.backup.sizeFormatted + ')', 'success');
+      loadBackups();
+    } else {
+      showToast('Erreur : ' + (data.error || 'inconnue'), 'error');
+    }
+  } catch (e) {
+    console.error('Create backup error:', e);
+    showToast('Erreur lors de la création', 'error');
+  }
+}
+
+async function downloadBackup(filename) {
+  const token = localStorage.getItem('admin_token');
+  if (!token) return;
+
+  try {
+    const res = await fetch('/api/admin/backups/' + filename, {
+      headers: { 'x-admin-token': token }
+    });
+    if (!res.ok) throw new Error('Fichier non trouvé');
+
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    showToast('Téléchargement de ' + filename, 'success');
+  } catch (e) {
+    console.error('Download error:', e);
+    showToast('Erreur téléchargement', 'error');
+  }
+}
+
+async function deleteBackup(filename) {
+  if (!confirm('Supprimer le backup ' + filename + ' ?')) return;
+
+  const token = localStorage.getItem('admin_token');
+  if (!token) return;
+
+  try {
+    const res = await fetch('/api/admin/backups/' + filename, {
+      method: 'DELETE',
+      headers: { 'x-admin-token': token }
+    });
+    const data = await res.json();
+    if (data.ok) {
+      showToast('Backup supprimé', 'success');
+      loadBackups();
+    } else {
+      showToast('Erreur : ' + (data.error || 'inconnue'), 'error');
+    }
+  } catch (e) {
+    console.error('Delete backup error:', e);
+    showToast('Erreur suppression', 'error');
+  }
 }
 
 window.addEventListener('DOMContentLoaded', init);
