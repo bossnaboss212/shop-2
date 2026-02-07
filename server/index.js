@@ -367,6 +367,14 @@ async function initDB() {
     fs.mkdirSync(dbDir, { recursive: true });
   }
 
+  // Avertissement si la base n'est pas sur un volume persistant
+  if (!process.env.DATABASE_PATH || dbPath === './boutique.db') {
+    console.warn('⚠️  ATTENTION: DATABASE_PATH non défini !');
+    console.warn('   La base de données sera PERDUE à chaque redéploiement.');
+    console.warn('   Configurez DATABASE_PATH=/data/boutique.db dans les variables Railway');
+    console.warn('   et montez un Volume sur /data');
+  }
+
   console.log(`📂 Base de données: ${dbPath}`);
 
   db = await open({
@@ -919,7 +927,24 @@ async function getClientContact(telegramId) {
     'SELECT contact FROM telegram_clients WHERE telegram_id = ?',
     [telegramId]
   );
-  return result?.contact || null;
+  if (result?.contact) return result.contact;
+
+  // Fallback: chercher dans les commandes par client_telegram_id
+  const order = await db.get(
+    'SELECT customer FROM orders WHERE client_telegram_id = ? LIMIT 1',
+    [telegramId]
+  );
+  if (order?.customer) {
+    // Corriger le lien dans telegram_clients pour les prochaines fois
+    await db.run(
+      `UPDATE telegram_clients SET contact = ? WHERE telegram_id = ? AND (contact IS NULL OR contact = '')`,
+      [order.customer, telegramId]
+    );
+    console.log(`🔗 Auto-linked Telegram ${telegramId} to contact ${order.customer} via orders`);
+    return order.customer;
+  }
+
+  return null;
 }
 
 async function getCustomerDisplayName(contact) {
@@ -6066,13 +6091,10 @@ Des questions ? Contactez le support ! 💬`;
 // ==================== FONCTIONS CRÉDIT & PARRAINAGE ====================
 async function sendCreditBalance(chatId) {
   try {
-    // Récupérer le contact client depuis telegram_clients
-    const client = await db.get(
-      'SELECT contact FROM telegram_clients WHERE telegram_id = ?',
-      [chatId.toString()]
-    );
+    // Récupérer le contact client (avec fallback orders)
+    const contact = await getClientContact(chatId.toString());
 
-    if (!client || !client.contact) {
+    if (!contact) {
       const text = `💰 <b>MON CRÉDIT</b>
 
 ❌ <b>Aucun crédit disponible</b>
@@ -6091,7 +6113,7 @@ Tapez /parrainage pour voir votre code personnel 🚀`;
     }
 
     // Récupérer les stats de parrainage
-    const stats = await getReferralStats(client.contact);
+    const stats = await getReferralStats(contact);
 
     if (!stats) {
       const text = `💰 <b>MON CRÉDIT</b>
@@ -6154,13 +6176,10 @@ Votre crédit sera automatiquement proposé lors de votre prochaine commande sur
 
 async function sendReferralStats(chatId) {
   try {
-    // Récupérer le contact client
-    const client = await db.get(
-      'SELECT contact FROM telegram_clients WHERE telegram_id = ?',
-      [chatId.toString()]
-    );
+    // Récupérer le contact client (avec fallback orders)
+    const contact = await getClientContact(chatId.toString());
 
-    if (!client || !client.contact) {
+    if (!contact) {
       const text = `🎁 <b>PROGRAMME DE PARRAINAGE</b>
 
 ❌ <b>Pas encore de code parrainage</b>
@@ -6191,7 +6210,7 @@ Commandez maintenant pour débloquer votre code ! 🚀`;
     }
 
     // Récupérer les stats
-    const stats = await getReferralStats(client.contact);
+    const stats = await getReferralStats(contact);
 
     if (!stats) {
       await sendMyReferralCode(chatId);
@@ -6267,18 +6286,16 @@ Plus vous parrainez, plus vos bonus augmentent ! 💪`;
 
 async function sendMyReferralCode(chatId) {
   try {
-    const client = await db.get(
-      'SELECT contact FROM telegram_clients WHERE telegram_id = ?',
-      [chatId.toString()]
-    );
+    // Récupérer le contact client (avec fallback orders)
+    const contact = await getClientContact(chatId.toString());
 
-    if (!client || !client.contact) {
+    if (!contact) {
       await telegram.sendMessage(chatId, '❌ Passez d\'abord une commande pour obtenir votre code personnel !');
       return;
     }
 
     // Créer ou récupérer le code
-    const referral = await getOrCreateReferralCode(client.contact);
+    const referral = await getOrCreateReferralCode(contact);
 
     const text = `🎁 <b>VOTRE CODE PARRAINAGE</b>
 
