@@ -1619,8 +1619,9 @@ async function applyReferralCredits(referrerCode, newCustomer, orderId) {
     return { referrerCredit: 0, referredCredit: 0 };
   }
 
-  const REFERRER_CREDIT = 500;
-  const REFERRED_CREDIT = 300;
+  // Système : 10€ pour le parrain tous les 5 filleuls, 0€ pour le filleul
+  const REFERRAL_MILESTONE = 5;
+  const MILESTONE_REWARD = 10; // 10€
 
   // Transaction IMMEDIATE pour empêcher les doublons de parrainage en cas de requêtes concurrentes
   await db.run('BEGIN IMMEDIATE');
@@ -1638,94 +1639,54 @@ async function applyReferralCredits(referrerCode, newCustomer, orderId) {
     }
 
     const totalReferrals = referrer.total_referrals || 0;
-    let vipBonus = 0;
-    let vipTier = 'Bronze';
+    const newTotalReferrals = totalReferrals + 1;
 
-    if (totalReferrals >= 10) {
-      vipBonus = 0.5;
-      vipTier = 'Diamant 💎';
-    } else if (totalReferrals >= 6) {
-      vipBonus = 0.2;
-      vipTier = 'Or 🥇';
-    } else if (totalReferrals >= 3) {
-      vipBonus = 0.1;
-      vipTier = 'Argent 🥈';
-    } else {
-      vipBonus = 0;
-      vipTier = 'Bronze 🥉';
-    }
+    // Vérifier si le parrain atteint un palier de 5 filleuls
+    const hitMilestone = newTotalReferrals % REFERRAL_MILESTONE === 0;
+    const referrerCredit = hitMilestone ? MILESTONE_REWARD : 0;
 
-    const bonusAmount = Math.floor(REFERRER_CREDIT * vipBonus);
-    const totalReferrerCredit = REFERRER_CREDIT + bonusAmount;
-
-    console.log(`👑 VIP Tier: ${vipTier} - Bonus: ${vipBonus * 100}% (+${bonusAmount} DA)`);
-
-    // Créditer le parrain avec bonus VIP
+    // Incrémenter le compteur de parrainages
     await db.run(
       `UPDATE referrals
        SET credit_balance = credit_balance + ?,
            total_referrals = total_referrals + 1,
            total_earned = total_earned + ?
        WHERE referral_code = ?`,
-      [totalReferrerCredit, totalReferrerCredit, referrerCode]
+      [referrerCredit, referrerCredit, referrerCode]
     );
 
-    // Créer le code de parrainage pour le nouveau client
+    // Créer le code de parrainage pour le nouveau client (pour qu'il puisse parrainer à son tour)
     const code = await generateReferralCode();
     await db.run(
       'INSERT OR IGNORE INTO referrals (referral_code, customer_contact) VALUES (?, ?)',
       [code, newCustomer]
     );
 
-    // Créditer le filleul
-    await db.run(
-      `UPDATE referrals
-       SET credit_balance = credit_balance + ?
-       WHERE customer_contact = ?`,
-      [REFERRED_CREDIT, newCustomer]
-    );
-
-    // Enregistrer dans l'historique
+    // Enregistrer dans l'historique (0€ pour le filleul)
     await db.run(
       `INSERT INTO referral_history
        (referrer_code, referrer_contact, referred_contact, order_id, referrer_credit, referred_credit, status)
        VALUES (?, ?, ?, ?, ?, ?, 'completed')`,
-      [referrerCode, referrer.customer_contact, newCustomer, orderId, REFERRER_CREDIT, REFERRED_CREDIT]
+      [referrerCode, referrer.customer_contact, newCustomer, orderId, referrerCredit, 0]
     );
 
     await db.run('COMMIT');
 
-    console.log(`✅ Referral applied: ${referrer.customer_contact} → ${newCustomer} (${totalReferrerCredit} DA + ${REFERRED_CREDIT} DA)`);
+    console.log(`✅ Referral applied: ${referrer.customer_contact} → ${newCustomer} (parrain: ${referrerCredit}€, filleul: 0€, total: ${newTotalReferrals})`);
 
-    // Notification de montée de palier (hors transaction)
-    const newTotalReferrals = totalReferrals + 1;
-    let tierUpgrade = false;
-    let newTier = '';
-
-    if (newTotalReferrals === 3) {
-      tierUpgrade = true;
-      newTier = 'Argent 🥈';
-    } else if (newTotalReferrals === 6) {
-      tierUpgrade = true;
-      newTier = 'Or 🥇';
-    } else if (newTotalReferrals === 10) {
-      tierUpgrade = true;
-      newTier = 'Diamant 💎';
-    }
-
-    if (tierUpgrade) {
-      await notifyVIPTierUpgrade(referrer.customer_contact, newTier, newTotalReferrals).catch(err =>
-        console.error('VIP tier notification error:', err.message)
+    // Notification de palier atteint (hors transaction)
+    if (hitMilestone) {
+      await notifyReferralMilestone(referrer.customer_contact, newTotalReferrals, MILESTONE_REWARD).catch(err =>
+        console.error('Referral milestone notification error:', err.message)
       );
     }
 
     return {
-      referrerCredit: totalReferrerCredit,
-      referredCredit: REFERRED_CREDIT,
+      referrerCredit,
+      referredCredit: 0,
       referrerContact: referrer.customer_contact,
-      vipTier,
-      vipBonus: vipBonus * 100,
-      bonusAmount
+      hitMilestone,
+      newTotalReferrals
     };
   } catch (err) {
     await db.run('ROLLBACK');
@@ -1760,30 +1721,27 @@ async function getReferralStats(customer) {
 }
 
 // ==================== NOTIFICATION SYSTEM ====================
-async function notifyReferralSuccess(referrerContact, newCustomerContact, creditAmount, orderId, vipInfo = {}) {
+async function notifyReferralSuccess(referrerContact, newCustomerContact, orderId, referralInfo = {}) {
   // Essayer de trouver l'ID Telegram du parrain
   const referrerTelegramId = await getClientTelegramId(referrerContact);
   const referrerName = await getCustomerDisplayName(referrerContact);
   const newCustomerName = await getCustomerDisplayName(newCustomerContact);
 
   if (referrerTelegramId && config.telegram.botToken) {
-    let vipMessage = '';
-    if (vipInfo.vipTier && vipInfo.bonusAmount > 0) {
-      vipMessage = `\n👑 <b>BONUS VIP ${vipInfo.vipTier}:</b> +${vipInfo.bonusAmount} DA (${vipInfo.vipBonus}%)\n`;
-    } else if (vipInfo.vipTier) {
-      vipMessage = `\n🥉 <b>Palier actuel:</b> ${vipInfo.vipTier}\n`;
-    }
+    const remaining = 5 - (referralInfo.newTotalReferrals % 5);
+    const progressText = remaining === 5
+      ? `🎉 Vous avez débloqué <b>10€ de crédit</b> !`
+      : `📊 Encore <b>${remaining}</b> parrainage(s) pour débloquer <b>10€</b>`;
 
-    const message = `🎉 <b>FÉLICITATIONS ! PARRAINAGE RÉUSSI !</b>
+    const message = `🤝 <b>NOUVEAU PARRAINAGE ENREGISTRÉ !</b>
 
-💰 <b>+${creditAmount} DA ajoutés à votre crédit !</b>${vipMessage}
-👤 <b>Nouveau client parrainé:</b> ${newCustomerName}
-📦 <b>Commande:</b> #${orderId}
+👤 <b>Nouveau filleul :</b> ${newCustomerName}
+📦 <b>Commande :</b> #${orderId}
+📊 <b>Total parrainages :</b> ${referralInfo.newTotalReferrals || 0}
 
-💳 <b>Votre crédit est disponible immédiatement</b>
-Utilisez-le lors de votre prochaine commande !
+${progressText}
 
-🚀 Continuez à partager votre code et gagnez encore plus !`;
+🚀 Continuez à partager votre code !`;
 
     try {
       await telegram.sendMessage(referrerTelegramId, message);
@@ -1795,9 +1753,9 @@ Utilisez-le lors de votre prochaine commande !
 
   // Notification admin
   if (getAdminChatIds().length > 0) {
-    const adminMessage = `💰 <b>PARRAINAGE RÉUSSI</b>
+    const adminMessage = `🤝 <b>PARRAINAGE</b>
 
-👤 Parrain: ${referrerName} → +${creditAmount} DA
+👤 Parrain: ${referrerName} (total: ${referralInfo.newTotalReferrals || 0})
 🆕 Filleul: ${newCustomerName}
 📦 Commande: #${orderId}`;
 
@@ -1805,55 +1763,39 @@ Utilisez-le lors de votre prochaine commande !
   }
 }
 
-async function notifyVIPTierUpgrade(referrerContact, newTier, totalReferrals) {
+async function notifyReferralMilestone(referrerContact, totalReferrals, reward) {
   // Essayer de trouver l'ID Telegram du parrain
   const referrerTelegramId = await getClientTelegramId(referrerContact);
   const referrerName = await getCustomerDisplayName(referrerContact);
 
   if (referrerTelegramId && config.telegram.botToken) {
-    let bonusPercent = 0;
-    let nextTierText = '';
+    const message = `🎉 <b>FÉLICITATIONS ${referrerName} !</b>
 
-    if (newTier === 'Argent 🥈') {
-      bonusPercent = 10;
-      nextTierText = '\n\n🎯 <b>Prochain palier :</b> Or 🥇 (6 parrainages)';
-    } else if (newTier === 'Or 🥇') {
-      bonusPercent = 20;
-      nextTierText = '\n\n🎯 <b>Prochain palier :</b> Diamant 💎 (10 parrainages)';
-    } else if (newTier === 'Diamant 💎') {
-      bonusPercent = 50;
-      nextTierText = '\n\n🏆 <b>PALIER MAXIMUM ATTEINT !</b>';
-    }
+🏆 Vous avez atteint <b>${totalReferrals} parrainages</b> !
 
-    const message = `👑 <b>NOUVEAU PALIER VIP DÉBLOQUÉ !</b>
+💰 <b>+${reward}€ ajoutés à votre crédit !</b>
 
-🎊 <b>Félicitations ${referrerName} !</b>
+💳 Votre crédit est disponible immédiatement pour votre prochaine commande.
 
-Vous venez de passer au palier <b>${newTier}</b> !
+🚀 Continuez à parrainer, prochain bonus à ${totalReferrals + 5} parrainages !
 
-⚡ <b>Nouveau bonus :</b> +${bonusPercent}%
-💰 <b>Vous gagnez maintenant ${Math.floor(500 * (1 + bonusPercent/100))} DA</b> par parrainage
-📊 <b>Parrainages réussis :</b> ${totalReferrals}${nextTierText}
-
-🚀 Continuez à partager votre code et maximisez vos gains !
-
-Tapez /parrainage pour voir votre progression complète 📈`;
+Tapez /parrainage pour voir vos stats 📈`;
 
     try {
       await telegram.sendMessage(referrerTelegramId, message);
-      console.log(`✅ VIP tier upgrade notification sent to ${referrerContact}`);
+      console.log(`✅ Referral milestone notification sent to ${referrerContact}`);
     } catch (error) {
-      console.error(`❌ Failed to send VIP tier notification to ${referrerContact}:`, error.message);
+      console.error(`❌ Failed to send referral milestone notification to ${referrerContact}:`, error.message);
     }
   }
 
   // Notification admin
   if (getAdminChatIds().length > 0) {
-    const adminMessage = `👑 <b>MONTÉE DE PALIER VIP</b>
+    const adminMessage = `🏆 <b>PALIER PARRAINAGE</b>
 
 👤 Client: ${referrerName}
-🎯 Nouveau palier: ${newTier}
-📊 Total parrainages: ${totalReferrals}`;
+📊 Parrainages: ${totalReferrals}
+💰 Bonus: +${reward}€`;
 
     await notifyAdmins(adminMessage);
   }
@@ -2582,12 +2524,10 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
       await notifyReferralSuccess(
         referralResult.referrerContact,
         sanitizedCustomer,
-        referralResult.referrerCredit,
         orderId,
         {
-          vipTier: referralResult.vipTier,
-          vipBonus: referralResult.vipBonus,
-          bonusAmount: referralResult.bonusAmount
+          hitMilestone: referralResult.hitMilestone,
+          newTotalReferrals: referralResult.newTotalReferrals
         }
       ).catch(err => console.error('Referral notification error:', err.message));
     }
@@ -2739,22 +2679,9 @@ app.get('/api/referral-leaderboard', apiLimiter, async (req, res) => {
       LIMIT ?
     `, [limit]);
 
-    // Calculer les paliers VIP et résoudre les noms d'affichage
-    const leaderboardWithTiers = await Promise.all(leaderboard.map(async (user, index) => {
+    // Résoudre les noms d'affichage
+    const leaderboardWithInfo = await Promise.all(leaderboard.map(async (user, index) => {
       const totalReferrals = user.total_referrals || 0;
-      let vipTier = 'Bronze 🥉';
-      let vipBonus = 0;
-
-      if (totalReferrals >= 10) {
-        vipTier = 'Diamant 💎';
-        vipBonus = 50;
-      } else if (totalReferrals >= 6) {
-        vipTier = 'Or 🥇';
-        vipBonus = 20;
-      } else if (totalReferrals >= 3) {
-        vipTier = 'Argent 🥈';
-        vipBonus = 10;
-      }
 
       // Afficher le nom avec première lettre + *** pour la confidentialité
       const displayName = await getCustomerDisplayName(user.customer_contact);
@@ -2766,15 +2693,13 @@ app.get('/api/referral-leaderboard', apiLimiter, async (req, res) => {
         rank: index + 1,
         contact: maskedName,
         totalReferrals,
-        totalEarned: user.total_earned,
-        vipTier,
-        vipBonus
+        totalEarned: user.total_earned
       };
     }));
 
     res.json({
       ok: true,
-      leaderboard: leaderboardWithTiers
+      leaderboard: leaderboardWithInfo
     });
   } catch (error) {
     console.error('Leaderboard error:', error);
@@ -4007,31 +3932,21 @@ app.get('/api/admin/referrals', requireAdmin, async (req, res) => {
       ORDER BY r.total_earned DESC
     `);
 
-    // Calculate VIP tiers for each referral
-    const referralsWithTiers = referrals.map(ref => {
+    // Calculer les bonus de parrainage (10€ tous les 5 parrainages)
+    const referralsWithInfo = referrals.map(ref => {
       const totalReferrals = ref.total_referrals || 0;
-      let vipTier = 'Bronze 🥉';
-      let vipBonus = 0;
-
-      if (totalReferrals >= 10) {
-        vipTier = 'Diamant 💎';
-        vipBonus = 50;
-      } else if (totalReferrals >= 6) {
-        vipTier = 'Or 🥇';
-        vipBonus = 20;
-      } else if (totalReferrals >= 3) {
-        vipTier = 'Argent 🥈';
-        vipBonus = 10;
-      }
+      const milestonesReached = Math.floor(totalReferrals / 5);
+      const nextMilestone = (milestonesReached + 1) * 5;
 
       return {
         ...ref,
-        vipTier,
-        vipBonus
+        milestonesReached,
+        nextMilestone,
+        totalBonusEarned: milestonesReached * 10
       };
     });
 
-    res.json({ ok: true, referrals: referralsWithTiers });
+    res.json({ ok: true, referrals: referralsWithInfo });
   } catch (error) {
     console.error('Get referrals error:', error);
     res.status(500).json({ ok: false, error: 'Erreur serveur' });
@@ -4051,16 +3966,13 @@ app.get('/api/admin/referrals/export', requireAdmin, async (req, res) => {
     `);
 
     // Create CSV
-    let csv = 'Code Parrainage,Contact Client,Solde Crédit,Total Parrainages,Total Gagné,Palier VIP,Date Création\n';
+    let csv = 'Code Parrainage,Contact Client,Solde Crédit,Total Parrainages,Total Gagné,Bonus Parrainages,Date Création\n';
 
     referrals.forEach(ref => {
       const totalReferrals = ref.total_referrals || 0;
-      let vipTier = 'Bronze';
-      if (totalReferrals >= 10) vipTier = 'Diamant';
-      else if (totalReferrals >= 6) vipTier = 'Or';
-      else if (totalReferrals >= 3) vipTier = 'Argent';
+      const milestonesReached = Math.floor(totalReferrals / 5);
 
-      csv += `${ref.referral_code},${ref.customer_contact},${ref.credit_balance},${ref.total_referrals},${ref.total_earned},${vipTier},${ref.created_at}\n`;
+      csv += `${ref.referral_code},${ref.customer_contact},${ref.credit_balance},${ref.total_referrals},${ref.total_earned},${milestonesReached}x10€,${ref.created_at}\n`;
     });
 
     res.setHeader('Content-Type', 'text/csv');
@@ -5602,10 +5514,8 @@ Votre boutique premium accessible directement depuis Telegram.
 
 <b>🛍️ Utilisez le menu en bas pour naviguer</b>
 
-<b>🎁 PROGRAMME DE PARRAINAGE EXCLUSIF :</b>
-💰 Gagnez 500 DA par ami parrainé !
-🎉 Vos amis reçoivent 300 DA de bienvenue
-👑 Débloquez des bonus VIP jusqu'à +50%
+<b>🎁 PROGRAMME DE PARRAINAGE :</b>
+🤝 Parrainez 5 amis = 10€ de crédit !
 
 ✨ <i>Programme de fidélité actif !</i>
 Bénéficiez d'une remise tous les ${config.loyalty.defaultThreshold} achats.
@@ -6158,12 +6068,10 @@ async function sendCreditBalance(chatId) {
 
 ❌ <b>Aucun crédit disponible</b>
 
-Pour obtenir du crédit, passez une commande et utilisez un code de parrainage, ou parrainez vos amis !
+Pour obtenir du crédit, parrainez vos amis !
 
-<b>🎁 Comment gagner du crédit ?</b>
-1️⃣ Utilisez un code ami lors de votre première commande → <b>300 DA</b>
-2️⃣ Parrainez des amis et gagnez <b>500 DA</b> par filleul !
-3️⃣ Débloquez des bonus VIP jusqu'à <b>+50%</b> !
+<b>🎁 Comment ça marche ?</b>
+Parrainez 5 amis → Gagnez <b>10€</b> de crédit !
 
 Tapez /parrainage pour voir votre code personnel 🚀`;
 
@@ -6177,9 +6085,10 @@ Tapez /parrainage pour voir votre code personnel 🚀`;
     if (!stats) {
       const text = `💰 <b>MON CRÉDIT</b>
 
-<b>Solde actuel :</b> 0 DA
+<b>Solde actuel :</b> 0€
 
-Pour obtenir du crédit, parrainez vos amis ou utilisez un code ami lors de votre commande !
+Pour obtenir du crédit, parrainez vos amis !
+5 parrainages = 10€ de crédit
 
 Tapez /parrainage pour voir votre code personnel 🚀`;
 
@@ -6187,37 +6096,25 @@ Tapez /parrainage pour voir votre code personnel 🚀`;
       return;
     }
 
-    // Calculer le palier VIP
     const totalReferrals = stats.totalReferrals || 0;
-    let vipTier = 'Bronze 🥉';
-    let vipBonus = 0;
-
-    if (totalReferrals >= 10) {
-      vipTier = 'Diamant 💎';
-      vipBonus = 50;
-    } else if (totalReferrals >= 6) {
-      vipTier = 'Or 🥇';
-      vipBonus = 20;
-    } else if (totalReferrals >= 3) {
-      vipTier = 'Argent 🥈';
-      vipBonus = 10;
-    }
+    const remaining = 5 - (totalReferrals % 5);
+    const progressText = remaining === 5 && totalReferrals > 0
+      ? '🎉 Bonus débloqué ! Prochain à ' + (totalReferrals + 5) + ' parrainages'
+      : `${totalReferrals % 5}/5 pour le prochain bonus de 10€`;
 
     const text = `💰 <b>MON CRÉDIT</b>
 
-<b>💵 Solde disponible :</b> <b>${stats.creditBalance.toFixed(0)} DA</b>
-
-<b>👑 Palier VIP :</b> ${vipTier}
-<b>⚡ Bonus actuel :</b> +${vipBonus}%
+<b>💵 Solde disponible :</b> <b>${stats.creditBalance.toFixed(0)}€</b>
 
 <b>📊 Statistiques :</b>
-• Total gagné : ${stats.totalEarned.toFixed(0)} DA
+• Total gagné : ${stats.totalEarned.toFixed(0)}€
 • Parrainages réussis : ${totalReferrals}
+• Progression : ${progressText}
 
 <b>💡 Utilisation :</b>
 Votre crédit sera automatiquement proposé lors de votre prochaine commande sur la boutique !
 
-🎁 Parrainez plus d'amis pour débloquer de meilleurs bonus VIP !`;
+🎁 Parrainez 5 amis = 10€ de crédit !`;
 
     const keyboard = {
       inline_keyboard: [
@@ -6246,15 +6143,8 @@ async function sendReferralStats(chatId) {
 Pour obtenir votre code personnel, passez votre première commande sur la boutique !
 
 <b>💰 Comment ça marche ?</b>
-1️⃣ Vous parrainez un ami → Vous gagnez <b>500 DA</b>
-2️⃣ Votre ami reçoit <b>300 DA</b> de bienvenue
-3️⃣ Plus vous parrainez, plus vous gagnez de bonus !
-
-<b>🏆 Paliers VIP :</b>
-🥉 Bronze : 0% bonus (départ)
-🥈 Argent : +10% bonus (3 parrainages)
-🥇 Or : +20% bonus (6 parrainages)
-💎 Diamant : +50% bonus (10 parrainages)
+Parrainez <b>5 amis</b> → Gagnez <b>10€</b> de crédit !
+Le filleul ne gagne rien, sauf s'il parraine à son tour.
 
 Commandez maintenant pour débloquer votre code ! 🚀`;
 
@@ -6276,57 +6166,30 @@ Commandez maintenant pour débloquer votre code ! 🚀`;
       return;
     }
 
-    // Calculer VIP
     const totalReferrals = stats.totalReferrals || 0;
-    let vipTier = 'Bronze 🥉';
-    let vipBonus = 0;
-    let nextTier = 'Argent 🥈';
-    let nextTierCount = 3;
-
-    if (totalReferrals >= 10) {
-      vipTier = 'Diamant 💎';
-      vipBonus = 50;
-      nextTier = 'Maximum atteint';
-      nextTierCount = totalReferrals;
-    } else if (totalReferrals >= 6) {
-      vipTier = 'Or 🥇';
-      vipBonus = 20;
-      nextTier = 'Diamant 💎';
-      nextTierCount = 10;
-    } else if (totalReferrals >= 3) {
-      vipTier = 'Argent 🥈';
-      vipBonus = 10;
-      nextTier = 'Or 🥇';
-      nextTierCount = 6;
-    }
-
-    const progressText = nextTier === 'Maximum atteint'
-      ? '🏆 Palier maximum atteint !'
-      : `${totalReferrals}/${nextTierCount} pour ${nextTier}`;
+    const remaining = 5 - (totalReferrals % 5);
+    const progressText = remaining === 5 && totalReferrals > 0
+      ? `🎉 Bonus débloqué ! Prochain à ${totalReferrals + 5} parrainages`
+      : `${totalReferrals % 5}/5 pour le prochain bonus de 10€`;
 
     const text = `🎁 <b>MON PARRAINAGE</b>
 
 <b>🔑 Votre code personnel :</b>
 <code>${stats.code}</code>
 
-<b>👑 Palier VIP :</b> ${vipTier}
-<b>⚡ Bonus actuel :</b> +${vipBonus}%
-<b>📈 Progression :</b> ${progressText}
-
 <b>📊 Statistiques :</b>
 • Parrainages réussis : ${totalReferrals}
-• Total gagné : ${stats.totalEarned.toFixed(0)} DA
-• Crédit disponible : ${stats.creditBalance.toFixed(0)} DA
+• Total gagné : ${stats.totalEarned.toFixed(0)}€
+• Crédit disponible : ${stats.creditBalance.toFixed(0)}€
+• Progression : ${progressText}
 
-<b>💰 Gains par parrainage :</b>
-Base : 500 DA + ${vipBonus}% bonus = <b>${Math.floor(500 * (1 + vipBonus/100))} DA</b>
+<b>💰 Récompense :</b>
+5 parrainages = <b>10€ de crédit</b>
 
 <b>🚀 Partagez votre code :</b>
-Vos amis gagneront 300 DA en l'utilisant lors de leur première commande !
+Invitez vos amis à commander avec votre code !`;
 
-Plus vous parrainez, plus vos bonus augmentent ! 💪`;
-
-    const shareText = encodeURIComponent(`🎉 Commande sur DROGUA CENTER et reçois 300 DA de crédit !\n\n🎁 Utilise mon code : ${stats.code}\n\n💰 Profite de réductions et de la roue de la fortune !\n\n👉 ${config.webapp.url}`);
+    const shareText = encodeURIComponent(`🎉 Commande sur DROGUA CENTER !\n\n🎁 Code parrainage : ${stats.code}\n\n👉 ${config.webapp.url}`);
 
     const keyboard = {
       inline_keyboard: [
@@ -6361,16 +6224,12 @@ async function sendMyReferralCode(chatId) {
 <b>🔑 Code personnel :</b>
 <code>${referral.referral_code}</code>
 
-<b>💰 Partagez et gagnez :</b>
-• Vous : 500 DA par parrainage
-• Votre ami : 300 DA de bienvenue
-
-<b>🏆 Débloquez des bonus VIP :</b>
-Plus vous parrainez, plus vos gains augmentent !
+<b>💰 Parrainez et gagnez :</b>
+5 amis parrainés = <b>10€ de crédit</b> !
 
 Partagez dès maintenant ! 🚀`;
 
-    const shareText = encodeURIComponent(`🎉 Commande sur DROGUA CENTER et reçois 300 DA !\n\n🎁 Code : ${referral.referral_code}\n\n👉 ${config.webapp.url}`);
+    const shareText = encodeURIComponent(`🎉 Commande sur DROGUA CENTER !\n\n🎁 Code parrainage : ${referral.referral_code}\n\n👉 ${config.webapp.url}`);
 
     const keyboard = {
       inline_keyboard: [
