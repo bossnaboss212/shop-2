@@ -6843,7 +6843,7 @@ function openSheet(type) {
 
 // Ajouter des notifications de test au premier chargement (à supprimer en production)
 if (!localStorage.getItem('notifications_initialized')) {
-  NotificationManager.add('Bienvenue !', 'Merci de rejoindre DROGUA CENTER. Profitez de -10% sur votre première commande.', 'success');
+  NotificationManager.add('Bienvenue !', 'Merci de rejoindre DROGUA CENTER. Programme fidélité : 10€ offerts tous les 10 achats !', 'success');
   NotificationManager.add('Nouveauté', 'Nouveau produit disponible : STRAWBERRY 120U', 'info');
   localStorage.setItem('notifications_initialized', 'true');
 }

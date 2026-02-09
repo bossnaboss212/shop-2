@@ -43,8 +43,7 @@ const config = {
   },
   loyalty: {
     defaultThreshold: 10,
-    maxDiscount: 20,
-    discountPercent: 0.1,
+    fixedDiscount: 10,
   },
   deliveryZones: {
     millau: {
@@ -1469,7 +1468,7 @@ async function calculateLoyaltyDiscount(customer, total) {
   // Remise uniquement si le client a déjà au moins 1 commande enregistrée
   // et que sa prochaine commande atteint le palier (ex: 10ème, 20ème, etc.)
   if (loyalty && loyalty.orders_count >= 1 && (loyalty.orders_count + 1) % threshold === 0) {
-    discount = Math.min(total * config.loyalty.discountPercent, config.loyalty.maxDiscount);
+    discount = Math.min(config.loyalty.fixedDiscount, total);
   }
 
   return { discount, willEarnDiscount: discount > 0 };
@@ -6010,7 +6009,7 @@ async function sendHelpMessage(chatId) {
 
 <b>🎁 Programme fidélité :</b>
 • Remise automatique tous les ${config.loyalty.defaultThreshold} achats
-• Jusqu'à ${Math.floor(config.loyalty.discountPercent * 100)}% ou ${config.loyalty.maxDiscount}€ de réduction
+• ${config.loyalty.fixedDiscount}€ de remise à chaque ${config.loyalty.defaultThreshold}ème achat
 
 <b>📞 Contact support :</b>
 @newassistance4
