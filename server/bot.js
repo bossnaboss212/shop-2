@@ -771,7 +771,7 @@ Accédez au tableau de bord pour gérer :
 
 <b>🎁 Programme fidélité :</b>
 • Remise automatique tous les 10 achats
-• Jusqu'à 10% ou 20€ de réduction
+• 10€ de remise tous les 10 achats
 
 <b>📞 Contact support :</b>
 ${CONFIG.SUPPORT_USERNAME}
@@ -882,7 +882,7 @@ Gagnez des réductions automatiques en commandant !
 
 <b>📊 Le principe :</b>
 • Remise automatique tous les <b>10 achats</b>
-• Jusqu'à <b>10%</b> ou <b>20€</b> de réduction
+• <b>10€</b> de remise à chaque <b>10ème achat</b>
 • Calcul automatique, rien à faire !
 
 <b>🔄 Comment ça fonctionne :</b>

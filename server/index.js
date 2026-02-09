@@ -43,8 +43,7 @@ const config = {
   },
   loyalty: {
     defaultThreshold: 10,
-    maxDiscount: 20,
-    discountPercent: 0.1,
+    fixedDiscount: 10,
   },
   deliveryZones: {
     millau: {
@@ -367,15 +366,47 @@ async function initDB() {
     fs.mkdirSync(dbDir, { recursive: true });
   }
 
-  // Avertissement si la base n'est pas sur un volume persistant
-  if (!process.env.DATABASE_PATH || dbPath === './boutique.db') {
-    console.warn('⚠️  ATTENTION: DATABASE_PATH non défini !');
-    console.warn('   La base de données sera PERDUE à chaque redéploiement.');
-    console.warn('   Configurez DATABASE_PATH=/data/boutique.db dans les variables Railway');
-    console.warn('   et montez un Volume sur /data');
+  // Diagnostic de persistance au démarrage
+  const isVolumePath = dbPath.startsWith('/data');
+  const dbExists = fs.existsSync(dbPath);
+
+  console.log('📂 ======= DATABASE CONFIG =======');
+  console.log(`   Path: ${dbPath}`);
+  console.log(`   Exists: ${dbExists ? '✅ OUI (données conservées)' : '❌ NON (nouvelle base)'}`);
+  console.log(`   Volume: ${isVolumePath ? '✅ Persistant (/data)' : '⚠️  NON PERSISTANT - données perdues au redeploy !'}`);
+
+  if (!isVolumePath) {
+    console.warn('');
+    console.warn('⚠️  ========= ATTENTION =========');
+    console.warn('⚠️  La base de données N\'EST PAS sur un volume persistant !');
+    console.warn('⚠️  Toutes les données seront PERDUES au prochain redéploiement.');
+    console.warn('⚠️  ');
+    console.warn('⚠️  Pour corriger :');
+    console.warn('⚠️  1. Railway → Service → Settings → Volumes');
+    console.warn('⚠️  2. Créer un volume avec Mount Path: /data');
+    console.warn('⚠️  3. Railway → Service → Variables');
+    console.warn('⚠️  4. Ajouter: DATABASE_PATH=/data/boutique.db');
+    console.warn('⚠️  5. Redéployer');
+    console.warn('⚠️  ================================');
+    console.warn('');
   }
 
-  console.log(`📂 Base de données: ${dbPath}`);
+  // Auto-migration : si la base est sur /data mais n'existe pas,
+  // et qu'il y a une ancienne base à ./boutique.db, la copier
+  if (isVolumePath && !dbExists && fs.existsSync('./boutique.db')) {
+    console.log('🔄 Migration détectée : copie de ./boutique.db vers ' + dbPath);
+    fs.copyFileSync('./boutique.db', dbPath);
+    // Copier aussi les fichiers WAL si présents
+    if (fs.existsSync('./boutique.db-wal')) fs.copyFileSync('./boutique.db-wal', dbPath + '-wal');
+    if (fs.existsSync('./boutique.db-shm')) fs.copyFileSync('./boutique.db-shm', dbPath + '-shm');
+    console.log('✅ Migration terminée ! Anciennes données récupérées.');
+  }
+
+  if (dbExists) {
+    const stats = fs.statSync(dbPath);
+    console.log(`   Taille: ${(stats.size / 1024 / 1024).toFixed(2)} MB`);
+  }
+  console.log('📂 ==================================');
 
   db = await open({
     filename: dbPath,
@@ -1426,18 +1457,20 @@ async function calculateLoyaltyDiscount(customer, total) {
     'SELECT * FROM loyalty WHERE customer = ?',
     [customer]
   );
-  
+
   const loyaltyThreshold = await db.get(
     'SELECT value FROM settings WHERE key = ?',
     ['loyalty_threshold']
   );
   const threshold = parseInt(loyaltyThreshold?.value || config.loyalty.defaultThreshold);
-  
+
   let discount = 0;
-  if (loyalty && (loyalty.orders_count + 1) % threshold === 0) {
-    discount = Math.min(total * config.loyalty.discountPercent, config.loyalty.maxDiscount);
+  // Remise uniquement si le client a déjà au moins 1 commande enregistrée
+  // et que sa prochaine commande atteint le palier (ex: 10ème, 20ème, etc.)
+  if (loyalty && loyalty.orders_count >= 1 && (loyalty.orders_count + 1) % threshold === 0) {
+    discount = Math.min(config.loyalty.fixedDiscount, total);
   }
-  
+
   return { discount, willEarnDiscount: discount > 0 };
 }
 
@@ -2046,12 +2079,38 @@ Merci pour votre confiance ! 💚
 
 // ==================== PUBLIC ROUTES ====================
 
-app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
+app.get('/health', async (req, res) => {
+  const dbPath = process.env.DATABASE_PATH || './boutique.db';
+  const dbExists = fs.existsSync(dbPath);
+  let dbSize = 0;
+  let orderCount = 0;
+  let loyaltyCount = 0;
+
+  if (dbExists) {
+    dbSize = fs.statSync(dbPath).size;
+  }
+  if (db) {
+    try {
+      const o = await db.get('SELECT COUNT(*) as c FROM orders');
+      const l = await db.get('SELECT COUNT(*) as c FROM loyalty');
+      orderCount = o?.c || 0;
+      loyaltyCount = l?.c || 0;
+    } catch (e) {}
+  }
+
+  res.json({
+    status: 'ok',
     timestamp: new Date().toISOString(),
     telegram: !!config.telegram.token,
-    database: !!db
+    database: {
+      connected: !!db,
+      path: dbPath,
+      exists: dbExists,
+      persistent: dbPath.startsWith('/data'),
+      sizeMB: (dbSize / 1024 / 1024).toFixed(2),
+      orders: orderCount,
+      loyaltyRecords: loyaltyCount
+    }
   });
 });
 
@@ -5950,7 +6009,7 @@ async function sendHelpMessage(chatId) {
 
 <b>🎁 Programme fidélité :</b>
 • Remise automatique tous les ${config.loyalty.defaultThreshold} achats
-• Jusqu'à ${Math.floor(config.loyalty.discountPercent * 100)}% ou ${config.loyalty.maxDiscount}€ de réduction
+• ${config.loyalty.fixedDiscount}€ de remise à chaque ${config.loyalty.defaultThreshold}ème achat
 
 <b>📞 Contact support :</b>
 @newassistance4
