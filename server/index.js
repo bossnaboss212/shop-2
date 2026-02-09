@@ -1458,18 +1458,20 @@ async function calculateLoyaltyDiscount(customer, total) {
     'SELECT * FROM loyalty WHERE customer = ?',
     [customer]
   );
-  
+
   const loyaltyThreshold = await db.get(
     'SELECT value FROM settings WHERE key = ?',
     ['loyalty_threshold']
   );
   const threshold = parseInt(loyaltyThreshold?.value || config.loyalty.defaultThreshold);
-  
+
   let discount = 0;
-  if (loyalty && (loyalty.orders_count + 1) % threshold === 0) {
+  // Remise uniquement si le client a déjà au moins 1 commande enregistrée
+  // et que sa prochaine commande atteint le palier (ex: 10ème, 20ème, etc.)
+  if (loyalty && loyalty.orders_count >= 1 && (loyalty.orders_count + 1) % threshold === 0) {
     discount = Math.min(total * config.loyalty.discountPercent, config.loyalty.maxDiscount);
   }
-  
+
   return { discount, willEarnDiscount: discount > 0 };
 }
 
