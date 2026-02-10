@@ -133,6 +133,13 @@ app.use((req, res, next) => {
   next();
 });
 
+// Pas de cache pour les fichiers HTML (éviter les versions périmées dans Telegram WebApp)
+app.use((req, res, next) => {
+  if (req.path.endsWith('.html') || req.path === '/') {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  }
+  next();
+});
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
