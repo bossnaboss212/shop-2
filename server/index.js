@@ -105,7 +105,7 @@ const apiLimiter = rateLimit({
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 5,
+  max: 10,
   message: { ok: false, error: 'Trop de tentatives de connexion' },
   validate: false,
   standardHeaders: true,
@@ -2750,12 +2750,15 @@ app.post('/api/admin/login', authLimiter, async (req, res) => {
   const { password } = req.body;
 
   try {
+    console.log(`🔐 Tentative de connexion admin (password length: ${password ? password.length : 0}, ADMIN_PASS length: ${config.admin.password ? config.admin.password.length : 0})`);
     const isValid = await verifyAdminPassword(password);
     if (isValid) {
+      console.log('✅ Admin login réussi');
       const token = adminTokens.generateToken();
       adminTokens.add(token);
       res.json({ ok: true, token });
     } else {
+      console.log('❌ Admin login échoué: mot de passe incorrect');
       res.status(401).json({ ok: false, error: 'Mot de passe incorrect' });
     }
   } catch (err) {
