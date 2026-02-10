@@ -1286,12 +1286,17 @@ class TelegramService {
     try {
       const payload = { commands };
       if (scope) {
+        if (scope.chat_id && (!Number.isFinite(scope.chat_id) || scope.chat_id === 0)) {
+          console.warn(`⚠️ setMyCommands ignoré: chat_id invalide (${scope.chat_id})`);
+          return false;
+        }
         payload.scope = scope;
       }
       const response = await axios.post(`${this.baseUrl}/setMyCommands`, payload, { timeout: 5000 });
       return response.data?.ok;
     } catch (error) {
-      console.error('❌ Set commands error:', error.message);
+      const detail = error.response?.data?.description || error.message;
+      console.error(`❌ Set commands error: ${detail}${scope ? ` (scope: ${JSON.stringify(scope)})` : ''}`);
       return false;
     }
   }
@@ -7330,13 +7335,18 @@ async function start() {
 
         // Configurer les commandes du bot (bouton Menu dans Telegram)
         const cmdResult = await telegram.setMyCommands([
-          { command: 'start', description: 'Démarrer / Accueil' },
-          { command: 'shop', description: 'Voir la boutique' },
+          { command: 'start', description: 'Menu principal' },
+          { command: 'shop', description: 'Ouvrir la boutique' },
+          { command: 'tuto', description: 'Comment commander' },
           { command: 'orders', description: 'Mes commandes' },
+          { command: 'status', description: 'Suivi de commande' },
+          { command: 'catalogue', description: 'Voir les produits' },
           { command: 'credit', description: 'Mon solde crédit' },
-          { command: 'parrainage', description: 'Mon parrainage' },
+          { command: 'fidelite', description: 'Programme de fidélité' },
+          { command: 'parrainage', description: 'Programme de parrainage' },
           { command: 'moncode', description: 'Mon code parrainage' },
-          { command: 'help', description: 'Aide' }
+          { command: 'horaires', description: 'Horaires d\'ouverture' },
+          { command: 'help', description: 'Aide et support' }
         ]);
         if (cmdResult) {
           console.log('✅ Bot commands configured (Menu button)');
@@ -7345,22 +7355,22 @@ async function start() {
         }
 
         // Commandes spécifiques aux livreurs
-        await telegram.setMyCommands([
-          { command: 'start', description: 'Démarrer / Accueil' },
+        const driverCommands = [
+          { command: 'start', description: 'Menu principal' },
           { command: 'meslivraisons', description: 'Mes livraisons en cours' },
           { command: 'stats', description: 'Mes statistiques' },
           { command: 'caisse', description: 'Ma caisse' },
           { command: 'help', description: 'Aide' }
-        ], { type: 'chat', chat_id: parseInt(config.telegram.driverMillauId) || 0 });
+        ];
 
-        if (config.telegram.driverExterieurId && config.telegram.driverExterieurId !== '0') {
-          await telegram.setMyCommands([
-            { command: 'start', description: 'Démarrer / Accueil' },
-            { command: 'meslivraisons', description: 'Mes livraisons en cours' },
-            { command: 'stats', description: 'Mes statistiques' },
-            { command: 'caisse', description: 'Ma caisse' },
-            { command: 'help', description: 'Aide' }
-          ], { type: 'chat', chat_id: parseInt(config.telegram.driverExterieurId) });
+        const driverMillauId = parseInt(config.telegram.driverMillauId);
+        if (driverMillauId && Number.isFinite(driverMillauId)) {
+          await telegram.setMyCommands(driverCommands, { type: 'chat', chat_id: driverMillauId });
+        }
+
+        const driverExtId = parseInt(config.telegram.driverExterieurId);
+        if (driverExtId && Number.isFinite(driverExtId) && config.telegram.driverExterieurId !== '0') {
+          await telegram.setMyCommands(driverCommands, { type: 'chat', chat_id: driverExtId });
         }
 
         // Commandes spécifiques aux admins
