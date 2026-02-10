@@ -861,20 +861,18 @@ Passez commande en ligne, elle sera traitée dès l'ouverture !`,
 
   parrainage: `🤝 <b>PROGRAMME DE PARRAINAGE</b>
 
-Parrainez vos amis et gagnez des crédits !
+Parrainez vos amis et gagnez du crédit !
 
 <b>🎯 Comment ça marche :</b>
 1. Partagez votre code de parrainage
-2. Votre ami passe sa première commande
-3. Vous recevez un crédit bonus !
+2. Vos amis passent commande avec votre code
+3. Au bout de <b>5 parrainages</b>, vous gagnez <b>10€</b> de crédit !
 
-<b>🏆 Paliers VIP :</b>
-• 🥉 Bronze - 0 à 2 parrainages
-• 🥈 Argent - 3 à 5 parrainages (+10€ bonus)
-• 🥇 Or - 6 à 9 parrainages (+20€ bonus)
-• 💎 Diamant - 10+ parrainages (+50€ bonus)
+<b>💡 Le filleul ne gagne rien</b>, sauf s'il parraine à son tour.
 
-<i>Utilisez votre code lors de chaque commande !</i>`,
+<b>🔄 Cumulable :</b> 10 parrainages = 20€, 15 = 30€, etc.
+
+<i>Partagez votre code pour commencer à gagner !</i>`,
 
   fidelite: `🎁 <b>PROGRAMME DE FIDÉLITÉ</b>
 
@@ -1262,11 +1260,11 @@ const MessageHandlers = {
         text += `\n• Solde actuel : ${data.creditBalance || 0}€`;
 
         const refs = data.totalReferrals || 0;
-        let tier = '🥉 Bronze';
-        if (refs >= 10) tier = '💎 Diamant';
-        else if (refs >= 6) tier = '🥇 Or';
-        else if (refs >= 3) tier = '🥈 Argent';
-        text += `\n• Palier : ${tier}`;
+        const remaining = 5 - (refs % 5);
+        const progressText = remaining === 5 && refs > 0
+          ? 'Bonus débloqué !'
+          : `${refs % 5}/5 pour le prochain bonus`;
+        text += `\n• Progression : ${progressText}`;
       }
 
       await TelegramAPI.sendMessage(chatId, text, Keyboards.parrainage);
@@ -1562,7 +1560,7 @@ const CallbackHandlers = {
         for (const user of response.data.leaderboard) {
           const medal = user.rank === 1 ? '🥇' : user.rank === 2 ? '🥈' : user.rank === 3 ? '🥉' : '🏅';
           text += `${medal} <b>#${user.rank}</b> ${user.contact}\n`;
-          text += `   Parrainages : ${user.totalReferrals} | ${user.vipTier}\n\n`;
+          text += `   Parrainages : ${user.totalReferrals}\n\n`;
         }
       } else {
         text += `Aucun parrain pour le moment.\nSoyez le premier !`;

@@ -2000,22 +2000,18 @@ body.modal-open{overflow:hidden;position:fixed;width:100%;max-width:100vw;overfl
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
           <div style="font-size:40px;animation:bounce 2s infinite">🎁</div>
           <div style="flex:1">
-            <div style="font-size:18px;font-weight:800;color:#000;margin-bottom:4px">GAGNEZ 500 DA PAR AMI !</div>
-            <div style="font-size:14px;color:rgba(0,0,0,0.7);font-weight:600">Parrainez vos amis et débloquez des bonus VIP 👑</div>
+            <div style="font-size:18px;font-weight:800;color:#000;margin-bottom:4px">PARRAINEZ 5 AMIS = 10€ !</div>
+            <div style="font-size:14px;color:rgba(0,0,0,0.7);font-weight:600">Parrainez vos amis et gagnez du crédit !</div>
           </div>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
           <div style="background:rgba(0,0,0,0.1);padding:8px;border-radius:8px;text-align:center">
-            <div style="font-size:20px;font-weight:800;color:#000">500 DA</div>
-            <div style="font-size:11px;color:rgba(0,0,0,0.7)">Pour vous</div>
+            <div style="font-size:20px;font-weight:800;color:#000">5 amis</div>
+            <div style="font-size:11px;color:rgba(0,0,0,0.7)">À parrainer</div>
           </div>
           <div style="background:rgba(0,0,0,0.1);padding:8px;border-radius:8px;text-align:center">
-            <div style="font-size:20px;font-weight:800;color:#000">300 DA</div>
-            <div style="font-size:11px;color:rgba(0,0,0,0.7)">Pour votre ami</div>
-          </div>
-          <div style="background:rgba(0,0,0,0.1);padding:8px;border-radius:8px;text-align:center">
-            <div style="font-size:20px;font-weight:800;color:#000">+50%</div>
-            <div style="font-size:11px;color:rgba(0,0,0,0.7)">Bonus VIP max</div>
+            <div style="font-size:20px;font-weight:800;color:#000">10€</div>
+            <div style="font-size:11px;color:rgba(0,0,0,0.7)">De crédit gagné</div>
           </div>
         </div>
         <div style="text-align:center;padding:10px;background:rgba(0,0,0,0.8);border-radius:8px;color:#ffd700;font-weight:700;font-size:14px">
@@ -2235,7 +2231,7 @@ body.modal-open{overflow:hidden;position:fixed;width:100%;max-width:100vw;overfl
         </div>
         <div style="background:var(--bg-secondary);border:2px solid var(--border);border-radius:16px;padding:20px;text-align:center">
           <div style="font-size:36px;font-weight:800;color:#ffd700" id="totalCredits">0</div>
-          <div style="color:var(--text-muted);font-size:14px;margin-top:4px">Crédits VIP</div>
+          <div style="color:var(--text-muted);font-size:14px;margin-top:4px">Crédit gagné</div>
         </div>
       </div>
 
@@ -4024,7 +4020,7 @@ function openProduct(id) {
         <div style="font-size:32px">🎁</div>
         <div style="flex:1">
           <div style="font-weight:700;font-size:14px;color:var(--accent);margin-bottom:2px">Partagez et gagnez !</div>
-          <div style="font-size:12px;color:var(--text-muted)">500 DA par ami qui commande</div>
+          <div style="font-size:12px;color:var(--text-muted)">5 parrainages = 10€ de crédit</div>
         </div>
         <button onclick="shareProduct(${id})" style="padding:10px 16px;background:var(--accent);border:none;border-radius:8px;color:var(--bg-primary);font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap">
           📤 Partager
@@ -4219,13 +4215,13 @@ async function openReferralSheet() {
               <div style="min-width:28px;height:28px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px">2</div>
               <div style="flex:1">
                 <div style="font-weight:600;margin-bottom:4px">Votre ami commande</div>
-                <div style="font-size:13px;color:var(--text-muted)">Il reçoit 300 DA de bienvenue</div>
+                <div style="font-size:13px;color:var(--text-muted)">Il utilise votre code de parrainage</div>
               </div>
             </div>
             <div style="display:flex;gap:12px;align-items:start">
               <div style="min-width:28px;height:28px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px">3</div>
               <div style="flex:1">
-                <div style="font-weight:600;margin-bottom:4px">Vous gagnez 500 DA !</div>
+                <div style="font-weight:600;margin-bottom:4px">Au 5ème ami, vous gagnez 10€ !</div>
                 <div style="font-size:13px;color:var(--text-muted)">Crédit utilisable immédiatement</div>
               </div>
             </div>
@@ -4233,24 +4229,21 @@ async function openReferralSheet() {
         </div>
 
         <div style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);border-radius:16px;padding:20px;color:#fff;margin-bottom:20px">
-          <div style="font-weight:700;font-size:16px;margin-bottom:12px">👑 Paliers VIP</div>
+          <div style="font-weight:700;font-size:16px;margin-bottom:12px">🎁 Récompenses Parrainage</div>
           <div style="display:flex;flex-direction:column;gap:8px;font-size:14px">
             <div style="display:flex;justify-content:space-between;align-items:center">
-              <span>🥉 Bronze</span>
-              <span style="opacity:0.9">0% bonus</span>
+              <span>🤝 5 parrainages</span>
+              <span style="font-weight:700">10€ de crédit</span>
             </div>
             <div style="display:flex;justify-content:space-between;align-items:center">
-              <span>🥈 Argent (3+)</span>
-              <span style="font-weight:700">+10% bonus</span>
+              <span>🤝 10 parrainages</span>
+              <span style="font-weight:700">20€ de crédit</span>
             </div>
             <div style="display:flex;justify-content:space-between;align-items:center">
-              <span>🥇 Or (6+)</span>
-              <span style="font-weight:700">+20% bonus</span>
+              <span>🤝 15 parrainages</span>
+              <span style="font-weight:700">30€ de crédit</span>
             </div>
-            <div style="display:flex;justify-content:space-between;align-items:center">
-              <span>💎 Diamant (10+)</span>
-              <span style="font-weight:700">+50% bonus</span>
-            </div>
+            <div style="font-size:12px;opacity:0.8;text-align:center;margin-top:4px">Cumulable tous les 5 parrainages !</div>
           </div>
         </div>
 
@@ -4373,12 +4366,6 @@ async function showLeaderboard() {
                 bgColor = 'rgba(205,127,50,0.1)';
               }
 
-              // Calculer VIP tier
-              let vipTier = '🥉';
-              if (user.total_referrals >= 10) vipTier = '💎';
-              else if (user.total_referrals >= 6) vipTier = '🥇';
-              else if (user.total_referrals >= 3) vipTier = '🥈';
-
               return `
                 <div style="display:flex;align-items:center;gap:12px;padding:12px;background:${bgColor};border-radius:12px;border-left:3px solid ${borderColor}${isCurrentUser ? ';box-shadow:0 0 0 2px var(--accent)' : ''}">
                   <div style="min-width:32px;text-align:center;font-size:20px">${rankIcon}</div>
@@ -4388,12 +4375,12 @@ async function showLeaderboard() {
                       ${isCurrentUser ? '🌟 ' : ''}${user.masked_contact}${isCurrentUser ? ' (Vous)' : ''}
                     </div>
                     <div style="font-size:12px;color:var(--text-muted)">
-                      ${vipTier} ${user.total_referrals} parrainage${user.total_referrals > 1 ? 's' : ''} • ${Math.floor(user.total_earned)} DA gagnés
+                      ${user.total_referrals} parrainage${user.total_referrals > 1 ? 's' : ''} • ${Math.floor(user.total_earned)}€ gagnés
                     </div>
                   </div>
                   <div style="text-align:right">
                     <div style="font-size:12px;color:var(--text-muted)">Crédit</div>
-                    <div style="font-size:16px;font-weight:700;color:var(--success)">${Math.floor(user.credit_balance)} DA</div>
+                    <div style="font-size:16px;font-weight:700;color:var(--success)">${Math.floor(user.credit_balance)}€</div>
                   </div>
                 </div>
               `;
@@ -4502,7 +4489,7 @@ async function shareProduct(productId) {
     ${referralCode ? `
     <div style="padding:12px;background:linear-gradient(135deg,rgba(255,215,0,0.1) 0%,rgba(255,165,0,0.1) 100%);border-radius:8px;border:1px solid #ffd700;text-align:center">
       <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">Votre code: <strong style="color:var(--accent)">${referralCode}</strong></div>
-      <div style="font-size:11px;color:var(--text-muted)">💰 Gagnez 500 DA par parrainage validé !</div>
+      <div style="font-size:11px;color:var(--text-muted)">💰 5 parrainages = 10€ de crédit !</div>
     </div>
     ` : `
     <div style="padding:12px;background:var(--bg-tertiary);border-radius:8px;text-align:center">
@@ -4862,7 +4849,7 @@ function renderCart() {
         const data = await response.json();
 
         if (data.valid) {
-          statusDiv.innerHTML = '<span style="color:var(--success)">✅ Code valide ! Vous recevrez 300 DA après votre commande</span>';
+          statusDiv.innerHTML = '<span style="color:var(--success)">✅ Code valide !</span>';
           input.disabled = true;
           applyReferralBtn.disabled = true;
           applyReferralBtn.textContent = 'Validé';
@@ -5183,10 +5170,10 @@ function showOrderSummary(orderData, orderId, discount = 0, notificationSent = f
         <div style="position:relative;z-index:1">
           <div style="text-align:center;margin-bottom:20px">
             <h3 style="font-size:24px;font-weight:800;color:#fff;margin-bottom:8px;text-shadow:2px 2px 4px rgba(0,0,0,0.2)">
-              💰 GAGNEZ 500 DA PAR AMI ! 💰
+              🤝 5 AMIS = 10€ DE CRÉDIT ! 🤝
             </h3>
             <p style="color:rgba(255,255,255,0.9);font-size:15px">
-              Partagez votre code et gagnez de l'argent à chaque parrainage
+              Parrainez vos amis et gagnez du crédit !
             </p>
           </div>
 
@@ -5200,25 +5187,18 @@ function showOrderSummary(orderData, orderId, discount = 0, notificationSent = f
 
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
             <div style="background:rgba(255,255,255,0.2);border-radius:12px;padding:12px;text-align:center;backdrop-filter:blur(10px)">
-              <div style="font-size:24px;font-weight:800;color:#ffd700">500 DA</div>
-              <div style="font-size:12px;color:rgba(255,255,255,0.9)">Vous gagnez</div>
+              <div style="font-size:24px;font-weight:800;color:#ffd700">5 amis</div>
+              <div style="font-size:12px;color:rgba(255,255,255,0.9)">À parrainer</div>
             </div>
             <div style="background:rgba(255,255,255,0.2);border-radius:12px;padding:12px;text-align:center;backdrop-filter:blur(10px)">
-              <div style="font-size:24px;font-weight:800;color:#ffd700">300 DA</div>
-              <div style="font-size:12px;color:rgba(255,255,255,0.9)">Votre ami reçoit</div>
+              <div style="font-size:24px;font-weight:800;color:#ffd700">10€</div>
+              <div style="font-size:12px;color:rgba(255,255,255,0.9)">De crédit</div>
             </div>
           </div>
 
-          <!-- VIP Tier System -->
-          <div id="vipTierDisplay" style="background:rgba(255,255,255,0.15);border:2px solid rgba(255,215,0,0.5);border-radius:12px;padding:16px;text-align:center;backdrop-filter:blur(10px)">
-            <div style="font-size:14px;color:rgba(255,255,255,0.8);margin-bottom:8px">👑 PALIER VIP</div>
-            <div id="vipTierName" style="font-size:28px;font-weight:800;color:#ffd700;margin-bottom:8px">Bronze 🥉</div>
-            <div id="vipTierProgress" style="font-size:13px;color:rgba(255,255,255,0.9);margin-bottom:8px">0/3 parrainages pour Argent 🥈</div>
-            <div style="font-size:12px;color:rgba(255,255,255,0.7)">
-              <strong>Bonus actuel:</strong> <span id="vipBonusText">0%</span>
-              <br>
-              <span style="font-size:11px">Plus de parrainages = Plus de bonus !</span>
-            </div>
+          <div style="background:rgba(255,255,255,0.15);border:2px solid rgba(255,215,0,0.5);border-radius:12px;padding:16px;text-align:center;backdrop-filter:blur(10px)">
+            <div style="font-size:14px;color:rgba(255,255,255,0.8);margin-bottom:8px">🎁 RÉCOMPENSES</div>
+            <div style="font-size:13px;color:rgba(255,255,255,0.9)">Cumulable : 10 amis = 20€, 15 amis = 30€, etc.</div>
           </div>
         </div>
       </div>
@@ -5257,43 +5237,26 @@ function showOrderSummary(orderData, orderId, discount = 0, notificationSent = f
         </div>
       </div>
 
-      <!-- Système VIP -->
+      <!-- Récompenses Parrainage -->
       <div style="background:linear-gradient(135deg,#ffd89b 0%,#19547b 100%);border-radius:20px;padding:24px;box-shadow:0 10px 30px rgba(255,216,155,0.3);position:relative;overflow:hidden">
-        <div style="position:absolute;top:0;right:0;font-size:100px;opacity:0.1">👑</div>
+        <div style="position:absolute;top:0;right:0;font-size:100px;opacity:0.1">🎁</div>
 
         <div style="position:relative;z-index:1">
           <div style="text-align:center;margin-bottom:16px">
             <h3 style="font-size:22px;font-weight:800;color:#fff;margin-bottom:8px;text-shadow:2px 2px 4px rgba(0,0,0,0.2)">
-              👑 VOTRE STATUT VIP 👑
+              🎁 RÉCOMPENSES PARRAINAGE 🎁
             </h3>
-            <div style="font-size:40px;margin:12px 0">🥉</div>
-            <div style="font-size:20px;font-weight:700;color:#ffd700">BRONZE</div>
-            <p style="color:rgba(255,255,255,0.9);font-size:13px;margin-top:8px">
-              Plus que 2 commandes pour devenir <strong>ARGENT 🥈</strong>
+            <p style="color:rgba(255,255,255,0.9);font-size:15px;margin-top:8px">
+              Tous les <strong>5 parrainages</strong> = <strong>10€</strong> de crédit !
             </p>
           </div>
 
-          <div style="background:rgba(255,255,255,0.2);border-radius:12px;padding:4px;margin-bottom:16px;backdrop-filter:blur(10px)">
-            <div style="background:#ffd700;height:12px;border-radius:8px;width:33%;transition:all 0.5s"></div>
+          <div id="referralProgressBar" style="background:rgba(255,255,255,0.2);border-radius:12px;padding:4px;margin-bottom:16px;backdrop-filter:blur(10px)">
+            <div style="background:#ffd700;height:12px;border-radius:8px;width:0%;transition:all 0.5s"></div>
           </div>
 
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;text-align:center">
-            <div>
-              <div style="font-size:24px;opacity:1">🥉</div>
-              <div style="font-size:10px;color:rgba(255,255,255,0.8)">Bronze</div>
-            </div>
-            <div>
-              <div style="font-size:24px;opacity:0.4">🥈</div>
-              <div style="font-size:10px;color:rgba(255,255,255,0.8)">Argent</div>
-            </div>
-            <div>
-              <div style="font-size:24px;opacity:0.4">🥇</div>
-              <div style="font-size:10px;color:rgba(255,255,255,0.8)">Or</div>
-            </div>
-            <div>
-              <div style="font-size:24px;opacity:0.4">💎</div>
-              <div style="font-size:10px;color:rgba(255,255,255,0.8)">Diamant</div>
-            </div>
+          <div id="referralProgressText" style="text-align:center;font-size:13px;color:rgba(255,255,255,0.9)">
+            0/5 parrainages pour le prochain bonus
           </div>
         </div>
       </div>
@@ -5487,55 +5450,42 @@ function showOrderSummary(orderData, orderId, discount = 0, notificationSent = f
     };
   }
 
-  // Fetch and display VIP tier info
+  // Fetch and display referral progress
   if (orderData.customer && orderData.customer !== 'Client Web') {
-    fetchAndDisplayVIPTier(orderData.customer);
+    fetchAndDisplayReferralProgress(orderData.customer);
   }
 
 }
 
-// Fetch and display VIP tier information
-async function fetchAndDisplayVIPTier(customerContact) {
+// Fetch and display referral progress
+async function fetchAndDisplayReferralProgress(customerContact) {
   try {
     const response = await fetch(`/api/referral-stats?customer=${encodeURIComponent(customerContact)}`);
     const data = await response.json();
 
     if (data.ok && data.exists) {
       const totalReferrals = data.totalReferrals || 0;
-      let vipTier = 'Bronze 🥉';
-      let vipBonus = 0;
-      let nextTier = 'Argent 🥈';
-      let nextTierCount = 3;
+      const progressInCycle = totalReferrals % 5;
+      const progressPercent = (progressInCycle / 5) * 100;
 
-      if (totalReferrals >= 10) {
-        vipTier = 'Diamant 💎';
-        vipBonus = 50;
-        nextTier = 'Maximum';
-        nextTierCount = totalReferrals;
-      } else if (totalReferrals >= 6) {
-        vipTier = 'Or 🥇';
-        vipBonus = 20;
-        nextTier = 'Diamant 💎';
-        nextTierCount = 10;
-      } else if (totalReferrals >= 3) {
-        vipTier = 'Argent 🥈';
-        vipBonus = 10;
-        nextTier = 'Or 🥇';
-        nextTierCount = 6;
+      // Update progress bar
+      const progressBar = document.querySelector('#referralProgressBar > div');
+      if (progressBar) {
+        progressBar.style.width = `${progressPercent}%`;
       }
 
-      // Update VIP display
-      document.getElementById('vipTierName').textContent = vipTier;
-      document.getElementById('vipBonusText').textContent = `${vipBonus}%`;
-
-      if (nextTier !== 'Maximum') {
-        document.getElementById('vipTierProgress').textContent = `${totalReferrals}/${nextTierCount} parrainages pour ${nextTier}`;
-      } else {
-        document.getElementById('vipTierProgress').textContent = `🏆 Palier maximum atteint !`;
+      // Update progress text
+      const progressText = document.getElementById('referralProgressText');
+      if (progressText) {
+        if (progressInCycle === 0 && totalReferrals > 0) {
+          progressText.textContent = `🎉 Bonus débloqué ! Prochain à ${totalReferrals + 5} parrainages`;
+        } else {
+          progressText.textContent = `${progressInCycle}/5 parrainages pour le prochain bonus de 10€`;
+        }
       }
     }
   } catch (error) {
-    console.error('Error fetching VIP tier:', error);
+    console.error('Error fetching referral progress:', error);
   }
 }
 
@@ -5656,7 +5606,7 @@ function showPartialCancellationDialog(orderId, orderData) {
       <div style="background:var(--bg-tertiary);border-radius:12px;padding:16px;margin-bottom:20px">
         <div style="display:flex;justify-content:space-between;align-items:center">
           <span style="font-weight:600">Montant à rembourser :</span>
-          <span id="refundAmount" style="font-size:20px;font-weight:700;color:var(--danger)">0 DA</span>
+          <span id="refundAmount" style="font-size:20px;font-weight:700;color:var(--danger)">0€</span>
         </div>
       </div>
 
@@ -5817,7 +5767,7 @@ function copyReferralCode(code) {
 
 // Partage WhatsApp
 function shareToWhatsApp(code) {
-  const text = encodeURIComponent(`🎉 J'ai commandé sur ce site INCROYABLE ! 💰\n\n🎁 Profitez de :\n• Réductions jusqu'à 50%\n• Livraison rapide\n• Produits de qualité\n\n🎁 Utilisez mon code ${code} et recevez 300 DA de bienvenue !\n\nJe gagne 500 DA par parrainage 💵\n\n👉 ${window.location.origin}`);
+  const text = encodeURIComponent(`🎉 Commande sur DROGUA CENTER !\n\n🎁 Code parrainage : ${code}\n\n👉 ${window.location.origin}`);
 
   window.open(`https://wa.me/?text=${text}`, '_blank');
   showToast('📱 Partage WhatsApp ouvert !');
@@ -5825,7 +5775,7 @@ function shareToWhatsApp(code) {
 
 // Partage Telegram
 function shareToTelegram(code) {
-  const text = encodeURIComponent(`🎉 J'ai commandé sur ce site INCROYABLE ! 💰\n\n🎁 Profitez de :\n• Réductions jusqu'à 50%\n• Livraison rapide\n• Produits de qualité\n\n🎁 Utilisez mon code ${code} et recevez 300 DA de bienvenue !\n\nJe gagne 500 DA par parrainage 💵\n\n👉 ${window.location.origin}`);
+  const text = encodeURIComponent(`🎉 Commande sur DROGUA CENTER !\n\n🎁 Code parrainage : ${code}\n\n👉 ${window.location.origin}`);
 
   window.open(`https://t.me/share/url?url=${encodeURIComponent(window.location.origin)}&text=${text}`, '_blank');
   showToast('✈️ Partage Telegram ouvert !');
@@ -5847,7 +5797,7 @@ function shareToSnapchat() {
 function copyShareLink(code) {
   const link = `${window.location.origin}?ref=${code}`;
   navigator.clipboard.writeText(link).then(() => {
-    showToast('🔗 Lien copié ! Partagez-le pour gagner 500 DA par ami');
+    showToast('🔗 Lien copié ! Partagez-le avec vos amis');
   }).catch(() => {
     showToast('❌ Erreur lors de la copie du lien');
   });
@@ -6624,7 +6574,7 @@ async function loadLeaderboard() {
             <div style="width:32px;text-align:center;font-size:20px;font-weight:700">${medal || (index + 1)}</div>
             <div style="flex:1">
               <div style="font-weight:600">${sanitizeInput(displayName)}</div>
-              <div style="color:var(--text-muted);font-size:13px">${leader.total_referrals || 0} filleul${(leader.total_referrals || 0) > 1 ? 's' : ''} • ${leader.vip_tier || 'Bronze 🥉'}</div>
+              <div style="color:var(--text-muted);font-size:13px">${leader.total_referrals || 0} filleul${(leader.total_referrals || 0) > 1 ? 's' : ''}</div>
             </div>
             <div style="color:#ffd700;font-weight:700">${leader.total_earned || 0} €</div>
           </div>
@@ -6664,7 +6614,7 @@ document.getElementById('copyReferralCode')?.addEventListener('click', () => {
 document.getElementById('shareReferralCode')?.addEventListener('click', () => {
   const code = document.getElementById('referralCodeDisplay').textContent;
   if (code && code !== 'XXXXX') {
-    const text = `🎁 Rejoins DROGUA CENTER avec mon code de parrainage: ${code}\n\nTu recevras des crédits VIP pour ta première commande !`;
+    const text = `🎁 Rejoins DROGUA CENTER avec mon code de parrainage: ${code}\n\n👉 ${window.location.origin}`;
     const url = `${window.location.origin}?ref=${code}`;
 
     if (navigator.share) {
