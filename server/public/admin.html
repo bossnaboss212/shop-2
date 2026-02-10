@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Admin Panel Pro - DROGUA CENTER</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
   <style>
     :root {
       --bg: #0a0e14;
@@ -674,7 +673,7 @@
       <p id="loginMessage" style="text-align:center;margin-top:12px;font-size:12px;display:none"></p>
     </div>
     <div style="text-align:center;margin-top:20px;color:var(--muted);font-size:13px">
-      <p>🔐 Sécurité SHA-256</p>
+      <p>🔐 Connexion sécurisée</p>
     </div>
   </div>
 
@@ -1997,7 +1996,6 @@ function extractGrams(variantLabel) {
 
 const state = {
   currentPassword: 'admin',
-  passwordHash: typeof CryptoJS !== 'undefined' ? CryptoJS.SHA256('admin').toString() : null,
   apiToken: null,
   loginAttempts: 0,
   lockoutUntil: null,
@@ -2328,7 +2326,6 @@ function loadData() {
   const pass = localStorage.getItem('admin_password');
   if (pass) {
     state.currentPassword = pass;
-    if (typeof CryptoJS !== 'undefined') state.passwordHash = CryptoJS.SHA256(pass).toString();
   }
   
   const savedAnalytics = localStorage.getItem('admin_analytics');
@@ -2622,7 +2619,6 @@ async function login() {
   showLoginMessage('⏳ Vérification...', 'success');
 
   try {
-    // Authentification via le serveur (mot de passe .env)
     const response = await fetch('/api/admin/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -2632,56 +2628,36 @@ async function login() {
     const data = await response.json();
 
     if (data.ok && data.token) {
-      // Authentification réussie
       state.loginAttempts = 0;
       state.lockoutUntil = null;
       state.apiToken = data.token;
       localStorage.setItem('admin_token', data.token);
-      localStorage.setItem('admin_password', pass); // Sauvegarder pour refresh token
+      localStorage.setItem('admin_password', pass);
 
       const expiry = Date.now() + (24 * 60 * 60 * 1000);
       localStorage.setItem('admin_auth', 'true');
       localStorage.setItem('session_expiry', expiry.toString());
 
-      console.log('✅ Connexion réussie, token obtenu');
-
-      // Synchroniser les commandes
       syncOrders(false);
-
       showDashboard();
       showToast('✅ Connexion réussie !', 'success');
       return;
     }
+
+    if (data.error) {
+      showLoginMessage(`❌ ${data.error}`, 'error');
+    } else {
+      showLoginMessage('❌ Mot de passe incorrect', 'error');
+    }
   } catch (err) {
     console.warn('⚠️ Erreur serveur:', err);
+    showLoginMessage('❌ Erreur de connexion au serveur', 'error');
   }
 
-  // Si échec serveur, essayer le hash local (fallback)
-  if (typeof CryptoJS !== 'undefined' && state.passwordHash) {
-    const hash = CryptoJS.SHA256(pass).toString();
-    if (hash === state.passwordHash) {
-      state.loginAttempts = 0;
-      state.lockoutUntil = null;
-
-      const expiry = Date.now() + (24 * 60 * 60 * 1000);
-      localStorage.setItem('admin_auth', 'true');
-      localStorage.setItem('session_expiry', expiry.toString());
-
-      showDashboard();
-      showToast('✅ Connexion locale réussie !', 'success');
-      return;
-    }
-  }
-
-  // Échec total
   state.loginAttempts++;
-  const remaining = 5 - state.loginAttempts;
-
   if (state.loginAttempts >= 5) {
     state.lockoutUntil = Date.now() + (5 * 60 * 1000);
     showLoginMessage('🔒 Verrouillé 5 min', 'error');
-  } else {
-    showLoginMessage(`❌ Mot de passe incorrect. ${remaining} essai(s)`, 'error');
   }
 
   document.getElementById('pass').value = '';
@@ -5728,7 +5704,6 @@ function changePassword() {
   }
   
   state.currentPassword = newPass;
-  if (typeof CryptoJS !== 'undefined') state.passwordHash = CryptoJS.SHA256(newPass).toString();
   localStorage.setItem('admin_password', newPass);
   
   showToast('Mot de passe modifié', 'success');
