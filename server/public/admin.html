@@ -1997,7 +1997,7 @@ function extractGrams(variantLabel) {
 
 const state = {
   currentPassword: 'admin',
-  passwordHash: CryptoJS.SHA256('admin').toString(),
+  passwordHash: typeof CryptoJS !== 'undefined' ? CryptoJS.SHA256('admin').toString() : null,
   apiToken: null,
   loginAttempts: 0,
   lockoutUntil: null,
@@ -2328,7 +2328,7 @@ function loadData() {
   const pass = localStorage.getItem('admin_password');
   if (pass) {
     state.currentPassword = pass;
-    state.passwordHash = CryptoJS.SHA256(pass).toString();
+    if (typeof CryptoJS !== 'undefined') state.passwordHash = CryptoJS.SHA256(pass).toString();
   }
   
   const savedAnalytics = localStorage.getItem('admin_analytics');
@@ -2657,18 +2657,20 @@ async function login() {
   }
 
   // Si échec serveur, essayer le hash local (fallback)
-  const hash = CryptoJS.SHA256(pass).toString();
-  if (hash === state.passwordHash) {
-    state.loginAttempts = 0;
-    state.lockoutUntil = null;
+  if (typeof CryptoJS !== 'undefined' && state.passwordHash) {
+    const hash = CryptoJS.SHA256(pass).toString();
+    if (hash === state.passwordHash) {
+      state.loginAttempts = 0;
+      state.lockoutUntil = null;
 
-    const expiry = Date.now() + (24 * 60 * 60 * 1000);
-    localStorage.setItem('admin_auth', 'true');
-    localStorage.setItem('session_expiry', expiry.toString());
+      const expiry = Date.now() + (24 * 60 * 60 * 1000);
+      localStorage.setItem('admin_auth', 'true');
+      localStorage.setItem('session_expiry', expiry.toString());
 
-    showDashboard();
-    showToast('✅ Connexion locale réussie !', 'success');
-    return;
+      showDashboard();
+      showToast('✅ Connexion locale réussie !', 'success');
+      return;
+    }
   }
 
   // Échec total
@@ -5726,7 +5728,7 @@ function changePassword() {
   }
   
   state.currentPassword = newPass;
-  state.passwordHash = CryptoJS.SHA256(newPass).toString();
+  if (typeof CryptoJS !== 'undefined') state.passwordHash = CryptoJS.SHA256(newPass).toString();
   localStorage.setItem('admin_password', newPass);
   
   showToast('Mot de passe modifié', 'success');
