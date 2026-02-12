@@ -3063,15 +3063,19 @@ function calculateOrderPriority(order) {
 
   // Commandes programmées (pas ASAP)
   if (order.time_slot && order.time_slot !== 'asap') {
-    const orderDateStr = orderDate.toISOString().split('T')[0];
+    const [hours, minutes] = order.time_slot.split(':').map(Number);
     let targetDate;
     if (order.time_slot === '00:00') {
-      targetDate = new Date(orderDateStr + 'T23:59:00');
+      targetDate = new Date(orderDate.getFullYear(), orderDate.getMonth(), orderDate.getDate(), 23, 59, 0);
     } else {
-      targetDate = new Date(orderDateStr + 'T' + order.time_slot + ':00');
+      targetDate = new Date(orderDate.getFullYear(), orderDate.getMonth(), orderDate.getDate(), hours, minutes, 0);
     }
     const minutesLeft = (targetDate - now) / 60000;
 
+    // Créneau dépassé ou imminent (≤15 min) = IMMÉDIAT → passe devant TOUT
+    if (minutesLeft <= 15) {
+      return { level: 0, label: `IMMÉDIAT (${order.time_slot})`, emoji: '⚡' };
+    }
     if (minutesLeft <= 30) {
       return { level: 1, label: `URGENT (${order.time_slot})`, emoji: '🔴' };
     }
