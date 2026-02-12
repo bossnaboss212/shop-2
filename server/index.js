@@ -668,6 +668,9 @@ async function initDB() {
   try {
     await db.run("ALTER TABLE orders ADD COLUMN reminder_sent INTEGER DEFAULT 0");
   } catch (e) { /* colonne existe déjà */ }
+  try {
+    await db.run("ALTER TABLE orders ADD COLUMN customer_description TEXT DEFAULT ''");
+  } catch (e) { /* colonne existe déjà */ }
 
   await db.run(`
     INSERT OR IGNORE INTO settings (key, value) VALUES
@@ -1854,6 +1857,7 @@ async function notifyNewCustomerOrder(order, items, customerRecord) {
 📍 Type: ${order.type}
 🏠 Adresse: ${order.address || 'Sur place'}
 🕐 Créneau: ${getTimeSlotLabel(order.time_slot)}
+${order.customer_description ? `🧍 Description: ${order.customer_description}` : ''}
 
 📦 <b>Articles:</b>
 ${items.map(item => `• ${item.name} - ${item.variant} ×${item.qty} = ${item.lineTotal}€`).join('\n')}
@@ -1903,7 +1907,7 @@ async function notifyNewOrder(order, items) {
 📍 Type: ${order.type}
 🏠 Adresse: ${order.address || 'Sur place'}
 🕐 Créneau: ${getTimeSlotLabel(order.time_slot)}
-💰 Total: ${order.total}€
+${order.customer_description ? `🧍 Description: ${order.customer_description}\n` : ''}💰 Total: ${order.total}€
 📦 Articles: ${items.length} produit(s)
 
 ⚡ Contacter le client si besoin`;
@@ -1944,7 +1948,9 @@ async function notifyNewOrder(order, items) {
 
     adminMessage += `\n\n📍 Type: ${order.type}
 🏠 Adresse: ${order.address || 'Sur place'}
-🕐 Créneau: ${getTimeSlotLabel(order.time_slot)}
+🕐 Créneau: ${getTimeSlotLabel(order.time_slot)}`;
+    if (order.customer_description) adminMessage += `\n🧍 Description: ${order.customer_description}`;
+    adminMessage += `
 
 📦 Articles:
 ${items.map(item => `• ${item.name} - ${item.variant} ×${item.qty} = ${item.lineTotal}€`).join('\n')}
@@ -2413,7 +2419,7 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
 
     validateOrderInput(req.body);
 
-    const { customer, customerName, type, address, items, total, referralCode, useCredit, telegramId, timeSlot } = req.body;
+    const { customer, customerName, type, address, items, total, referralCode, useCredit, telegramId, timeSlot, customerDescription } = req.body;
 
     const sanitizedCustomer = sanitizeString(customer, 100);
     const sanitizedType = sanitizeString(type, 50);
@@ -2427,6 +2433,7 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
       sanitizedTimeSlot = '00:00';
     }
     const sanitizedAddress = sanitizeString(address, 200);
+    const sanitizedDescription = sanitizeString(customerDescription || '', 200);
 
     const blockedCustomer = await isCustomerBlocked(sanitizedCustomer);
     if (blockedCustomer) {
@@ -2541,9 +2548,9 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
 
       // 4. Créer la commande
       const result = await db.run(
-        `INSERT INTO orders (customer, type, address, items, total, discount, status, client_telegram_id, time_slot)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [sanitizedCustomer, sanitizedType, sanitizedAddress, JSON.stringify(items), finalTotal, discount, orderStatus, clientTelegramId, sanitizedTimeSlot]
+        `INSERT INTO orders (customer, type, address, items, total, discount, status, client_telegram_id, time_slot, customer_description)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [sanitizedCustomer, sanitizedType, sanitizedAddress, JSON.stringify(items), finalTotal, discount, orderStatus, clientTelegramId, sanitizedTimeSlot, sanitizedDescription]
       );
       orderId = result.lastID;
 
@@ -5198,7 +5205,7 @@ async function checkDeliveryReminders() {
 
 📍 ${order.type}
 🏠 ${order.address || 'Sur place'}
-
+${order.customer_description ? `🧍 Description: ${order.customer_description}\n` : ''}
 ${itemsList}
 
 💰 Total: ${order.total}€`;

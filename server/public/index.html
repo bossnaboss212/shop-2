@@ -3735,6 +3735,7 @@ let selectedDelivery = 'millau';
 let selectedHousingType = '';
 let selectedTimeSlot = '';
 let selectedDeliveryTime = '12:00';
+let customerDescription = '';
 
 // Configuration des zones de livraison
 const DELIVERY_ZONES = {
@@ -4692,6 +4693,7 @@ function renderCart() {
   const totalBeforeCredit = subtotal + deliveryFee;
   const creditToApply = useCreditEnabled ? Math.min(userCreditBalance, totalBeforeCredit) : 0;
   const total = totalBeforeCredit - creditToApply;
+  const customerDescValue = customerDescription || '';
 
   content.innerHTML = `
     ${CartManager.items.map((item, idx) => `
@@ -4798,6 +4800,12 @@ function renderCart() {
     </div>
 
     <div class="referral-input-section" style="margin-top:20px">
+      <div class="cart-section-title">🧍 Description client (optionnel)</div>
+      <p style="font-size:12px;color:#aaa;margin:4px 0 8px">Pour vous identifier à la livraison (voiture, vêtements, etc.)</p>
+      <input type="text" class="input-field" id="customerDescInput" placeholder="Ex: Peugeot bleue, pull vert" maxlength="200" style="width:100%;box-sizing:border-box" value="${customerDescValue}">
+    </div>
+
+    <div class="referral-input-section" style="margin-top:20px">
       <div class="cart-section-title">🎁 Code de parrainage (optionnel)</div>
       <div class="promo-input-wrapper">
         <input type="text" class="promo-input" id="referralInput" placeholder="Entrez un code ami" maxlength="20">
@@ -4863,6 +4871,14 @@ function renderCart() {
   if (hourSelect) {
     hourSelect.onchange = function() {
       selectedDeliveryTime = this.value;
+    };
+  }
+
+  // Customer description input
+  const descInput = content.querySelector('#customerDescInput');
+  if (descInput) {
+    descInput.oninput = function() {
+      customerDescription = this.value;
     };
   }
 
@@ -5111,7 +5127,8 @@ async function validateOrder() {
       total: total,
       referralCode: referralCode,
       useCredit: useCreditEnabled,
-      timeSlot: selectedTimeSlot === 'custom' ? selectedDeliveryTime : 'asap'
+      timeSlot: selectedTimeSlot === 'custom' ? selectedDeliveryTime : 'asap',
+      customerDescription: customerDescription.trim() || ''
     };
 
     // Créer la commande via SyncManager (attend la réponse serveur)
