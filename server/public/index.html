@@ -2200,7 +2200,7 @@ body.modal-open{overflow:hidden;position:fixed;width:100%;max-width:100vw;overfl
       <!-- Mon code de parrainage -->
       <div style="background:linear-gradient(135deg,var(--accent),#0099cc);border-radius:20px;padding:24px;margin-bottom:24px;box-shadow:0 10px 30px rgba(0,212,255,0.3)">
         <div style="text-align:center;color:white">
-          <div style="font-size:14px;opacity:0.9;margin-bottom:8px">🎁 Votre code de parrainage</div>
+          <div style="font-size:14px;opacity:0.9;margin-bottom:8px">🎁 Votre ID de parrainage</div>
           <div id="referralCodeDisplay" style="font-size:32px;font-weight:900;letter-spacing:4px;margin:12px 0">XXXXX</div>
           <div style="font-size:13px;opacity:0.8;margin-bottom:16px">Partagez ce code et gagnez des crédits !</div>
           <div style="display:flex;gap:12px;justify-content:center">
@@ -4204,14 +4204,14 @@ async function openReferralSheet() {
               <div style="min-width:28px;height:28px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px">1</div>
               <div style="flex:1">
                 <div style="font-weight:600;margin-bottom:4px">Vous parrainez un ami</div>
-                <div style="font-size:13px;color:var(--text-muted)">Partagez votre code personnel</div>
+                <div style="font-size:13px;color:var(--text-muted)">Partagez votre ID Telegram</div>
               </div>
             </div>
             <div style="display:flex;gap:12px;align-items:start">
               <div style="min-width:28px;height:28px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px">2</div>
               <div style="flex:1">
                 <div style="font-weight:600;margin-bottom:4px">Votre ami commande</div>
-                <div style="font-size:13px;color:var(--text-muted)">Il utilise votre code de parrainage</div>
+                <div style="font-size:13px;color:var(--text-muted)">Il entre votre ID lors de sa commande</div>
               </div>
             </div>
             <div style="display:flex;gap:12px;align-items:start">
@@ -4484,12 +4484,12 @@ async function shareProduct(productId) {
 
     ${referralCode ? `
     <div style="padding:12px;background:linear-gradient(135deg,rgba(255,215,0,0.1) 0%,rgba(255,165,0,0.1) 100%);border-radius:8px;border:1px solid #ffd700;text-align:center">
-      <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">Votre code: <strong style="color:var(--accent)">${referralCode}</strong></div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">Votre ID: <strong style="color:var(--accent)">${referralCode}</strong></div>
       <div style="font-size:11px;color:var(--text-muted)">💰 1 parrainage = 10€ de crédit !</div>
     </div>
     ` : `
     <div style="padding:12px;background:var(--bg-tertiary);border-radius:8px;text-align:center">
-      <div style="font-size:12px;color:var(--text-muted)">💡 Passez une commande pour obtenir votre code de parrainage !</div>
+      <div style="font-size:12px;color:var(--text-muted)">💡 Passez une commande pour activer votre parrainage !</div>
     </div>
     `}
   `;
@@ -4799,7 +4799,7 @@ function renderCart() {
     <div class="referral-input-section" style="margin-top:20px">
       <div class="cart-section-title">🎁 Code de parrainage (optionnel)</div>
       <div class="promo-input-wrapper">
-        <input type="text" class="promo-input" id="referralInput" placeholder="Entrez un code ami" maxlength="20">
+        <input type="text" class="promo-input" id="referralInput" placeholder="Entrez l'ID Telegram d'un ami" maxlength="20">
         <button class="promo-btn" id="applyReferral">Vérifier</button>
       </div>
       <div id="referralStatus" style="margin-top:8px;font-size:13px"></div>
@@ -4886,7 +4886,7 @@ function renderCart() {
   if (applyReferralBtn) {
     applyReferralBtn.onclick = async () => {
       const input = content.querySelector('#referralInput');
-      const code = input.value.trim().toUpperCase();
+      const code = input.value.trim();
       const statusDiv = content.querySelector('#referralStatus');
 
       if (!code) {
@@ -5104,7 +5104,7 @@ async function validateOrder() {
     const total = subtotalWithDelivery;
 
     const referralInput = document.getElementById('referralInput');
-    const referralCode = referralInput?.value.trim().toUpperCase() || '';
+    const referralCode = referralInput?.value.trim() || '';
 
     const fullAddress = selectedHousingType ? `[${selectedHousingType}] ${address}` : address;
 
@@ -5250,9 +5250,9 @@ function showOrderSummary(orderData, orderId, discount = 0, notificationSent = f
           </div>
 
           <div style="background:rgba(255,255,255,0.2);border:2px dashed #fff;border-radius:12px;padding:16px;text-align:center;margin-bottom:16px;backdrop-filter:blur(10px)">
-            <div style="color:rgba(255,255,255,0.8);font-size:13px;margin-bottom:8px">Votre code personnel</div>
-            <div id="referralCode" style="font-size:32px;font-weight:800;color:#fff;letter-spacing:2px;text-shadow:2px 2px 4px rgba(0,0,0,0.2)">${orderData.customer.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 6)}${orderId}</div>
-            <button onclick="copyReferralCode('${orderData.customer.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 6)}${orderId}')" style="margin-top:12px;padding:10px 20px;background:#fff;border:none;border-radius:8px;font-weight:600;color:#f5576c;cursor:pointer;transition:all 0.2s">
+            <div style="color:rgba(255,255,255,0.8);font-size:13px;margin-bottom:8px">Votre ID de parrainage</div>
+            <div id="referralCode" style="font-size:32px;font-weight:800;color:#fff;letter-spacing:2px;text-shadow:2px 2px 4px rgba(0,0,0,0.2)">${orderData.customer}</div>
+            <button onclick="copyReferralCode('${orderData.customer}')" style="margin-top:12px;padding:10px 20px;background:#fff;border:none;border-radius:8px;font-weight:600;color:#f5576c;cursor:pointer;transition:all 0.2s">
               📋 Copier le code
             </button>
           </div>
@@ -5287,12 +5287,12 @@ function showOrderSummary(orderData, orderId, discount = 0, notificationSent = f
         </div>
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          <button onclick="shareToWhatsApp('${orderData.customer.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 6)}${orderId}')" style="background:#25D366;border:none;border-radius:12px;padding:14px;color:#fff;font-weight:700;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;box-shadow:0 4px 12px rgba(37,211,102,0.3)">
+          <button onclick="shareToWhatsApp('${orderData.customer}')" style="background:#25D366;border:none;border-radius:12px;padding:14px;color:#fff;font-weight:700;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;box-shadow:0 4px 12px rgba(37,211,102,0.3)">
             <span style="font-size:20px">📱</span>
             WhatsApp
           </button>
 
-          <button onclick="shareToTelegram('${orderData.customer.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 6)}${orderId}')" style="background:#0088cc;border:none;border-radius:12px;padding:14px;color:#fff;font-weight:700;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;box-shadow:0 4px 12px rgba(0,136,204,0.3)">
+          <button onclick="shareToTelegram('${orderData.customer}')" style="background:#0088cc;border:none;border-radius:12px;padding:14px;color:#fff;font-weight:700;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;box-shadow:0 4px 12px rgba(0,136,204,0.3)">
             <span style="font-size:20px">✈️</span>
             Telegram
           </button>
@@ -5302,7 +5302,7 @@ function showOrderSummary(orderData, orderId, discount = 0, notificationSent = f
             Snapchat
           </button>
 
-          <button onclick="copyShareLink('${orderData.customer.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 6)}${orderId}')" style="background:#667eea;border:none;border-radius:12px;padding:14px;color:#fff;font-weight:700;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;box-shadow:0 4px 12px rgba(102,126,234,0.3)">
+          <button onclick="copyShareLink('${orderData.customer}')" style="background:#667eea;border:none;border-radius:12px;padding:14px;color:#fff;font-weight:700;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;box-shadow:0 4px 12px rgba(102,126,234,0.3)">
             <span style="font-size:20px">🔗</span>
             Copier lien
           </button>
@@ -6561,7 +6561,8 @@ async function loadReferralPage() {
       if (data.exists && data.code) {
         codeDisplay.textContent = data.code;
       } else {
-        codeDisplay.textContent = 'AUCUN';
+        // Utiliser le Telegram ID comme code
+        codeDisplay.textContent = String(telegramUser.id);
       }
       totalReferralsEl.textContent = data.totalReferrals || 0;
       totalCreditsEl.textContent = (data.creditBalance || 0) + ' €';
@@ -6675,7 +6676,7 @@ document.getElementById('copyReferralCode')?.addEventListener('click', () => {
   const code = document.getElementById('referralCodeDisplay').textContent;
   if (code && code !== 'XXXXX') {
     navigator.clipboard.writeText(code).then(() => {
-      showToast('✅ Code copié dans le presse-papier !');
+      showToast('✅ ID copié dans le presse-papier !');
     }).catch(() => {
       showToast('❌ Erreur de copie');
     });
@@ -6685,12 +6686,12 @@ document.getElementById('copyReferralCode')?.addEventListener('click', () => {
 document.getElementById('shareReferralCode')?.addEventListener('click', () => {
   const code = document.getElementById('referralCodeDisplay').textContent;
   if (code && code !== 'XXXXX') {
-    const text = `🎁 Rejoins DROGUA CENTER avec mon code de parrainage: ${code}\n\n👉 ${window.location.origin}`;
+    const text = `🎁 Rejoins DROGUA CENTER ! Mon ID de parrainage: ${code}\n\n👉 ${window.location.origin}`;
     const url = `${window.location.origin}?ref=${code}`;
 
     if (navigator.share) {
       navigator.share({
-        title: 'Code de parrainage DROGUA CENTER',
+        title: 'Parrainage DROGUA CENTER',
         text: text
       }).catch(() => {});
     } else {

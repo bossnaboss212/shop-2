@@ -1599,45 +1599,36 @@ async function restoreStockForOrder(items, orderId) {
 }
 
 // ==================== REFERRAL SYSTEM ====================
-async function generateReferralCode() {
-  // Générer un code unique aléatoire de 8 caractères
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let code;
-  let attempts = 0;
-  do {
-    const bytes = crypto.randomBytes(6);
-    code = 'DC';
-    for (let i = 0; i < 6; i++) {
-      code += chars[bytes[i] % chars.length];
-    }
-    const existing = await db.get('SELECT 1 FROM referrals WHERE referral_code = ?', [code]);
-    if (!existing) break;
-    attempts++;
-  } while (attempts < 10);
-  return code;
-}
+// Le code de parrainage = le Telegram user ID du client
 
 async function getOrCreateReferralCode(customer) {
-  // Vérifier si le client a déjà un code
+  // Le code de parrainage est directement le Telegram user ID
   const existing = await db.get(
     'SELECT * FROM referrals WHERE customer_contact = ?',
     [customer]
   );
-  if (existing) return existing;
+  if (existing) {
+    // Mettre à jour le code si c'est un ancien code aléatoire
+    if (existing.referral_code !== customer) {
+      await db.run(
+        'UPDATE referrals SET referral_code = ? WHERE customer_contact = ?',
+        [customer, customer]
+      );
+      existing.referral_code = customer;
+    }
+    return existing;
+  }
 
-  // Générer et insérer un nouveau code unique
-  const code = await generateReferralCode();
+  // Créer avec le Telegram ID comme code
   await db.run(
     'INSERT OR IGNORE INTO referrals (referral_code, customer_contact) VALUES (?, ?)',
-    [code, customer]
+    [customer, customer]
   );
 
-  const referral = await db.get(
+  return await db.get(
     'SELECT * FROM referrals WHERE customer_contact = ?',
     [customer]
   );
-
-  return referral;
 }
 
 async function validateReferralCode(code) {
@@ -1700,14 +1691,13 @@ async function applyReferralCredits(referrerCode, newCustomer, orderId) {
            total_referrals = total_referrals + 1,
            total_earned = total_earned + ?
        WHERE referral_code = ?`,
-      [newBalance, referrerCredit, referrerCode]
+      [referrerCredit, referrerCredit, referrerCode]
     );
 
-    // Créer le code de parrainage pour le nouveau client (pour qu'il puisse parrainer à son tour)
-    const code = await generateReferralCode();
+    // Créer le code de parrainage pour le nouveau client (son Telegram ID)
     await db.run(
       'INSERT OR IGNORE INTO referrals (referral_code, customer_contact) VALUES (?, ?)',
-      [code, newCustomer]
+      [newCustomer, newCustomer]
     );
 
     // Enregistrer dans l'historique (0€ pour le filleul)
