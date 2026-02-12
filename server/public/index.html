@@ -4981,6 +4981,11 @@ function openCart() {
 }
 
 async function validateOrder() {
+  if (!telegramUser || !telegramUser.id) {
+    showToast('⚠️ Ouvrez la boutique depuis Telegram pour commander');
+    return;
+  }
+
   if (CartManager.items.length === 0) {
     showToast('⚠️ Votre panier est vide');
     return;

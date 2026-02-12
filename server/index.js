@@ -879,6 +879,10 @@ function validateOrderInput(data) {
   if (!customer || typeof customer !== 'string' || customer.trim().length < 2) {
     throw new ValidationError('Contact client invalide');
   }
+
+  if (customer.trim().toLowerCase() === 'client web') {
+    throw new ValidationError('Commande uniquement via Telegram');
+  }
   
   if (!type || typeof type !== 'string') {
     throw new ValidationError('Type de livraison invalide');
