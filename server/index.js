@@ -4460,9 +4460,12 @@ function getPermanentKeyboard(chatId) {
   if (isDriver) {
     return {
       keyboard: [
-        [{ text: '📋 Mes Livraisons' }, { text: '🔄 Actualiser' }],
-        [{ text: '📊 Mes Stats' }, { text: '💰 Caisse' }],
-        [{ text: '💬 Support' }, { text: '❓ Aide' }]
+        [{ text: '📋 Mes Livraisons' }],
+        [{ text: '🔄 Actualiser' }],
+        [{ text: '📊 Mes Stats' }],
+        [{ text: '💰 Caisse' }],
+        [{ text: '💬 Support' }],
+        [{ text: '❓ Aide' }]
       ],
       resize_keyboard: true,
       persistent: true,
