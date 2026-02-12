@@ -2900,7 +2900,7 @@ const SyncManager = {
           total: orderData.total,
           referralCode: orderData.referralCode || '',
           useCredit: orderData.useCredit || false,
-          telegramId: telegramUser ? String(telegramUser.id) : ''
+          telegramId: String(telegramUser?.id || '')
         })
       });
 
@@ -5055,9 +5055,10 @@ async function validateOrder() {
 
     const fullAddress = selectedHousingType ? `[${selectedHousingType}] ${address}` : address;
 
+    const tgName = telegramUser.first_name + (telegramUser.last_name ? ' ' + telegramUser.last_name : '');
     const orderData = {
-      customer: telegramUser ? String(telegramUser.id) : 'Client Web',
-      customerName: telegramUser ? (telegramUser.first_name + (telegramUser.last_name ? ' ' + telegramUser.last_name : '')) : 'Client Web',
+      customer: String(telegramUser.id),
+      customerName: telegramUser.username ? `@${telegramUser.username} (${tgName})` : tgName,
       type: deliveryType,
       address: fullAddress,
       items: items,
