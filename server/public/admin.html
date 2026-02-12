@@ -3144,25 +3144,119 @@ function loadStock() {
 
 function loadCustomers() {
   const tbody = document.getElementById('customersTable');
-  if (state.data.customers.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px">Aucun client</td></tr>';
-    return;
+
+  // Fetch les clients depuis le serveur
+  if (state.apiToken) {
+    fetch('/api/admin/customers', {
+      headers: { 'x-admin-token': state.apiToken }
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (!data.ok || !data.customers) return;
+
+      const customers = data.customers;
+      document.getElementById('totalCustomersQuick').textContent = customers.length;
+
+      if (customers.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px">Aucun client</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = customers.map(c => {
+        const statusBadge = c.status === 'approved'
+          ? '<span class="badge" style="background:var(--success);color:#fff">Approuvé</span>'
+          : c.status === 'blocked'
+          ? '<span class="badge" style="background:var(--danger);color:#fff">Bloqué</span>'
+          : '<span class="badge" style="background:var(--warning);color:#000">En attente</span>';
+
+        return `<tr>
+          <td><strong>${c.contact || c.id}</strong></td>
+          <td>${c.name || c.contact || '-'}</td>
+          <td>${statusBadge}</td>
+          <td>${c.total_orders || 0}</td>
+          <td><strong>${fc(c.total_spent || 0)}</strong></td>
+          <td>${c.created_at ? new Date(c.created_at).toLocaleDateString('fr-FR') : '-'}</td>
+          <td>
+            ${c.status === 'pending' ? `<button class="btn-sm btn-success" onclick="approveCustomer('${(c.contact||'').replace(/'/g,"\\'")}')">✅</button>` : ''}
+            ${c.status !== 'blocked' ? `<button class="btn-sm btn-danger" onclick="blockCustomer('${(c.contact||'').replace(/'/g,"\\'")}')">🚫</button>` : ''}
+            <button class="btn-sm btn-primary" onclick="viewCustomerDetail('${(c.contact||'').replace(/'/g,"\\'")}')">👁️</button>
+          </td>
+        </tr>`;
+      }).join('');
+    })
+    .catch(err => {
+      console.warn('⚠️ Erreur chargement clients:', err);
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--danger)">Erreur de chargement</td></tr>';
+    });
+  } else {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px">Connectez-vous pour voir les clients</td></tr>';
   }
-  
-  tbody.innerHTML = state.data.customers.map(c => `
-    <tr>
-      <td><strong>#${c.id}</strong></td>
-      <td>${c.name}</td>
-      <td>${c.email}</td>
-      <td>${c.phone}</td>
-      <td>${c.orders}</td>
-      <td><strong>${fc(c.total)}</strong></td>
-      <td>
-        <button class="btn-sm btn-primary" onclick="viewCustomer(${c.id})">👁️</button>
-        <button class="btn-sm btn-danger" onclick="deleteCustomer(${c.id})">🗑️</button>
-      </td>
-    </tr>
-  `).join('');
+}
+
+function approveCustomer(contact) {
+  if (!confirm('Approuver ce client ?')) return;
+  fetch(`/api/admin/customers/${encodeURIComponent(contact)}/approve`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-admin-token': state.apiToken }
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.ok) {
+      showToast('✅ Client approuvé', 'success');
+      loadCustomers();
+    } else {
+      showToast('❌ ' + (data.error || 'Erreur'), 'error');
+    }
+  })
+  .catch(() => showToast('❌ Erreur de connexion', 'error'));
+}
+
+function blockCustomer(contact) {
+  const reason = prompt('Raison du blocage :');
+  if (reason === null) return;
+  fetch(`/api/admin/customers/${encodeURIComponent(contact)}/block`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-admin-token': state.apiToken },
+    body: JSON.stringify({ reason: reason || 'Bloqué par admin' })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.ok) {
+      showToast('🚫 Client bloqué', 'success');
+      loadCustomers();
+    } else {
+      showToast('❌ ' + (data.error || 'Erreur'), 'error');
+    }
+  })
+  .catch(() => showToast('❌ Erreur de connexion', 'error'));
+}
+
+function viewCustomerDetail(contact) {
+  fetch(`/api/admin/customers/${encodeURIComponent(contact)}`, {
+    headers: { 'x-admin-token': state.apiToken }
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (!data.ok) return showToast('❌ Client introuvable', 'error');
+    const c = data.customer;
+    const orders = data.orders || [];
+    showModal('Client: ' + (c.name || c.contact), `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">
+        <div><strong>Contact:</strong> ${c.contact}</div>
+        <div><strong>Statut:</strong> ${c.status}</div>
+        <div><strong>Commandes:</strong> ${orders.length}</div>
+        <div><strong>Total dépensé:</strong> ${fc(orders.reduce((s,o) => s + (o.total||0), 0))}</div>
+        <div><strong>Inscrit le:</strong> ${c.created_at ? new Date(c.created_at).toLocaleDateString('fr-FR') : '-'}</div>
+      </div>
+      <h4>Dernières commandes</h4>
+      ${orders.length === 0 ? '<p style="color:var(--muted)">Aucune commande</p>' :
+        '<table class="data-table" style="width:100%"><thead><tr><th>#</th><th>Date</th><th>Total</th><th>Statut</th></tr></thead><tbody>' +
+        orders.slice(0, 10).map(o => `<tr><td>${o.id}</td><td>${new Date(o.created_at).toLocaleDateString('fr-FR')}</td><td>${fc(o.total)}</td><td>${o.status}</td></tr>`).join('') +
+        '</tbody></table>'
+      }
+    `);
+  })
+  .catch(() => showToast('❌ Erreur de connexion', 'error'));
 }
 
 function loadCashier() {
