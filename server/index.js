@@ -1965,74 +1965,23 @@ ${order.discount > 0 ? `🎁 Remise fidélité: -${order.discount}€\n` : ''}�
     await notifyAdmins(adminMessage);
   }
   
-  // ==================== NOTIFICATIONS LIVREUR DÉSACTIVÉES ====================
-  // Le livreur doit recevoir les commandes UNIQUEMENT via le bot (bot.js)
-  // Les notifications directes sont désactivées ci-dessous
-
+  // ==================== NOTIFICATION LIVREUR AUTO ====================
   if (driverInfo.driverId) {
-    // ⚠️ NOTIFICATION DIRECTE DÉSACTIVÉE - Le livreur reçoit via bot.js uniquement
-    /*
-    const allPendingOrders = await db.all(
-      "SELECT * FROM orders WHERE status = 'pending' AND assigned_driver_zone = ? ORDER BY created_at ASC",
-      [driverInfo.zone]
-    );
-
-    const orderPosition = allPendingOrders.findIndex(o => o.id === order.id) + 1;
-    const totalPending = allPendingOrders.length;
-
-    let driverMessage = `🚚 <b>NOUVELLE COMMANDE #${order.id}</b>
-
-🔢 <b>Position: ${orderPosition}/${totalPending}</b> ${orderPosition === 1 ? '⚡ PRIORITÉ' : ''}
-
-📍 Type: ${order.type}
-🏠 Adresse: ${order.address || 'Sur place'}
-💰 Total à encaisser: ${order.total}€
-📦 ${items.length} article(s)
-
-${items.map(item => `• ${item.name} - ${item.variant} ×${item.qty}`).join('\n')}
-
-🎭 <b>Client: Anonyme</b>
-💬 <b>Communication: Via le bot uniquement</b>
-
-⏰ Reçue: ${new Date(order.created_at).toLocaleString('fr-FR')}`;
-
-    if (totalPending > 1) {
-      driverMessage += `\n\n━━━━━━━━━━━━━━━━━━━
-📋 <b>TOUTES VOS COMMANDES (${totalPending})</b>\n`;
-
-      allPendingOrders.forEach((o, index) => {
-        const emoji = index === 0 ? '⚡' : (index + 1).toString() + '️⃣';
-        const highlight = o.id === order.id ? ' 🆕' : '';
-        driverMessage += `\n${emoji} #${o.id} - ${o.total}€${highlight}`;
-      });
-    }
-
-    const keyboard = {
-      inline_keyboard: [
-        [{ text: '🚀 START - DÉMARRER', callback_data: `start_delivery_${order.id}` }],
-        [{ text: '💬 Contacter le client', callback_data: `contact_client_${order.id}` }],
-        [{ text: '📋 Voir toutes mes livraisons', callback_data: `my_deliveries_${driverInfo.zone}` }],
-        [{ text: '❌ Refuser', callback_data: `refuse_delivery_${order.id}` }]
-      ]
-    };
-
-    await telegram.sendMessage(driverInfo.driverId, driverMessage, { reply_markup: keyboard });
-
-    // Créer la conversation (sans l'activer encore)
-    const clientTelegramId = order.client_telegram_id || await getClientTelegramId(order.customer);
-    if (clientTelegramId) {
-      chatManager.createConversation(order.id, driverInfo.driverId, clientTelegramId);
-    }
-    */
-
-    // Mise à jour de la zone du livreur (conservée)
+    // Assigner la zone
     await db.run(
       'UPDATE orders SET assigned_driver_zone = ? WHERE id = ?',
       [driverInfo.zone, order.id]
     );
 
-    console.log(`📦 Commande #${order.id} assignée à ${driverInfo.driverName} (${driverInfo.zone})`);
-    console.log(`ℹ️  Le livreur recevra la notification via le bot uniquement`);
+    // Envoyer la liste actualisée au livreur automatiquement
+    try {
+      await telegram.sendMessage(driverInfo.driverId, `🔔 <b>NOUVELLE COMMANDE #${order.id}</b> reçue !`);
+      await sendDetailedDriverDeliveries(driverInfo.driverId, driverInfo.zone);
+    } catch (err) {
+      console.error(`❌ Erreur notification livreur:`, err.message);
+    }
+
+    console.log(`📦 Commande #${order.id} assignée à ${driverInfo.driverName} (${driverInfo.zone}) - livreur notifié`);
   }
 }
 
@@ -7287,11 +7236,26 @@ Le client ne peut plus commander.`;
     
     if (config.telegram.supportChatId) {
       await telegram.sendMessage(
-        config.telegram.supportChatId, 
+        config.telegram.supportChatId,
         `🚫 Client ${contact} bloqué par l'admin`
       );
     }
-    
+
+    // Actualiser la liste des livreurs concernés
+    if (cancelledOrders.length > 0) {
+      const zones = [...new Set(cancelledOrders.map(o => o.assigned_driver_zone).filter(Boolean))];
+      for (const zone of zones) {
+        const driverIdKey = zone === 'millau' ? 'driverMillauId' : 'driverExterieurId';
+        const driverId = config.telegram[driverIdKey];
+        if (driverId) {
+          try {
+            await telegram.sendMessage(driverId, `🚫 ${cancelledOrders.length} commande(s) annulée(s) (client bloqué)`);
+            await sendDetailedDriverDeliveries(driverId, zone);
+          } catch (err) { console.error('Driver refresh error:', err.message); }
+        }
+      }
+    }
+
     console.log(`🚫 Customer ${contact} blocked from Telegram (order #${orderId})`);
   } catch (error) {
     console.error('Block customer error:', error);
