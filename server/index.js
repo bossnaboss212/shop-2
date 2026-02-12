@@ -687,61 +687,61 @@ async function initDB() {
       id: 1, name: 'AMNESIA', category: 'weed',
       description: "Venu tout droit des Coffee BARCELONAIS \u{1F1EA}\u{1F1F8} cette variété tans convoité il y a 3-4ans maintenant devenu très rares à trouver dans les grands points de ventes nous l'avons trouvé la VRAI LA VÉRITABLE pas la commercial que certain croient goûter depuis sa disparition.",
       video: '/videos/amnesia.MP4',
-      variants: { '3.33G': { price: 20, grams: 3.33, stock: 0 }, '5G': { price: 30, grams: 5, stock: 0 }, '10G': { price: 60, grams: 10, stock: 0 }, '50G': { price: 250, grams: 50, stock: 0 }, '100G': { price: 450, grams: 100, stock: 0 } }
+      variants: { '3.33G': { price: 20, grams: 3.33, stock: 999 }, '5G': { price: 30, grams: 5, stock: 999 }, '10G': { price: 60, grams: 10, stock: 999 }, '50G': { price: 250, grams: 50, stock: 999 }, '100G': { price: 450, grams: 100, stock: 999 } }
     },
     {
       id: 2, name: 'NEEDLES KETA', category: 'keta',
       description: "Cela procure un profond sentiment d'euphorie et de légèreté.\n\nDes éclats de rire spontanés ou un sentiment d'émerveillement peuvent survenir.\n\nLes couleurs, les sons et les sensations peuvent sembler plus intenses et agréables.",
       video: '/videos/needles.MP4',
-      variants: { '1G': { price: 20, grams: 1, stock: 0 }, '2G': { price: 40, grams: 2, stock: 0 }, '3G': { price: 50, grams: 3, stock: 0 }, '5G': { price: 80, grams: 5, stock: 0 }, '10G': { price: 150, grams: 10, stock: 0 }, '50G': { price: 450, grams: 50, stock: 0 }, '100G': { price: 870, grams: 100, stock: 0 } }
+      variants: { '1G': { price: 20, grams: 1, stock: 999 }, '2G': { price: 40, grams: 2, stock: 999 }, '3G': { price: 50, grams: 3, stock: 999 }, '5G': { price: 80, grams: 5, stock: 999 }, '10G': { price: 150, grams: 10, stock: 999 }, '50G': { price: 450, grams: 50, stock: 999 }, '100G': { price: 870, grams: 100, stock: 999 } }
     },
     {
       id: 3, name: 'CANADIENNE', category: 'cali',
       description: "Ultra puissante. Ultra raffinée.\nUne claque élégante, effet velvet, présence impossible à ignorer \u2728\nDu haut de gamme qui fait sourire… puis lâcher un WOW \u{1F60C}\u{1F525}\n\u{1F341} Made in Canada — pour palais exigeants only \u{1F451}\u{1F48E}",
       video: '/videos/canadienne.MP4',
-      variants: { '1.6G': { price: 20, grams: 1.6, stock: 0 }, '3.2G': { price: 40, grams: 3.2, stock: 0 }, '5G': { price: 60, grams: 5, stock: 0 }, '10G': { price: 110, grams: 10, stock: 0 } }
+      variants: { '1.6G': { price: 20, grams: 1.6, stock: 999 }, '3.2G': { price: 40, grams: 3.2, stock: 999 }, '5G': { price: 60, grams: 5, stock: 999 }, '10G': { price: 110, grams: 10, stock: 999 } }
     },
     {
       id: 4, name: 'BLACK PURPLE', category: 'cali',
       description: "Une frappe nette et élégante, effet velvet, présence impossible à ignorer \u2728\nDu premium qui fait sourire… puis lâcher un WOW \u{1F60C}\u{1F525}\n\u{1F1FA}\u{1F1F8} Made in USA — pour palais élites only \u{1F451}\u{1F48E}",
       video: '/videos/black_purple.MP4',
-      variants: { '2.2G': { price: 20, grams: 2.2, stock: 0 }, '5G': { price: 40, grams: 5, stock: 0 }, '10G': { price: 80, grams: 10, stock: 0 }, '100G': { price: 500, grams: 100, stock: 0 } }
+      variants: { '2.2G': { price: 20, grams: 2.2, stock: 999 }, '5G': { price: 40, grams: 5, stock: 999 }, '10G': { price: 80, grams: 10, stock: 999 }, '100G': { price: 500, grams: 100, stock: 999 } }
     },
     {
       id: 5, name: 'MIMOSA PIE', category: 'cali',
       description: "Une frappe nette et élégante, effet velvet, présence impossible à ignorer \u2728\nDu premium qui fait sourire… puis lâcher un WOW \u{1F60C}\u{1F525}\n\u{1F1FA}\u{1F1F8} Made in USA — pour palais élites only \u{1F451}\u{1F48E}",
       video: '/videos/mimosa_pie.MP4',
-      variants: { '1.8G': { price: 20, grams: 1.8, stock: 0 }, '3.6G': { price: 40, grams: 3.6, stock: 0 }, '5G': { price: 50, grams: 5, stock: 0 }, '10G': { price: 100, grams: 10, stock: 0 } }
+      variants: { '1.8G': { price: 20, grams: 1.8, stock: 999 }, '3.6G': { price: 40, grams: 3.6, stock: 999 }, '5G': { price: 50, grams: 5, stock: 999 }, '10G': { price: 100, grams: 10, stock: 999 } }
     },
     {
       id: 6, name: 'GEORGIA PIE', category: 'cali',
       description: "Une frappe nette et élégante, effet velvet, présence impossible à ignorer \u2728\nDu premium qui fait sourire… puis lâcher un WOW \u{1F60C}\u{1F525}\n\u{1F1FA}\u{1F1F8} Made in USA — pour palais élites only \u{1F451}\u{1F48E}",
       video: '/videos/gorgia_pie.MP4',
-      variants: { '1.8G': { price: 20, grams: 1.8, stock: 0 }, '3.6G': { price: 40, grams: 3.6, stock: 0 }, '5G': { price: 50, grams: 5, stock: 0 }, '10G': { price: 100, grams: 10, stock: 0 } }
+      variants: { '1.8G': { price: 20, grams: 1.8, stock: 999 }, '3.6G': { price: 40, grams: 3.6, stock: 999 }, '5G': { price: 50, grams: 5, stock: 999 }, '10G': { price: 100, grams: 10, stock: 999 } }
     },
     {
       id: 7, name: 'BLACK CHEESE', category: 'cali',
       description: "Une frappe nette et élégante, effet velvet, présence impossible à ignorer \u2728\nDu premium qui fait sourire… puis lâcher un WOW \u{1F60C}\u{1F525}\n\u{1F1FA}\u{1F1F8} Made in USA — pour palais élites only \u{1F451}\u{1F48E}",
       video: '/videos/black_cheese.MP4',
-      variants: { '1.8G': { price: 20, grams: 1.8, stock: 0 }, '3.6G': { price: 40, grams: 3.6, stock: 0 }, '5G': { price: 50, grams: 5, stock: 0 }, '10G': { price: 100, grams: 10, stock: 0 } }
+      variants: { '1.8G': { price: 20, grams: 1.8, stock: 999 }, '3.6G': { price: 40, grams: 3.6, stock: 999 }, '5G': { price: 50, grams: 5, stock: 999 }, '10G': { price: 100, grams: 10, stock: 999 } }
     },
     {
       id: 8, name: 'FAST BOY 120u', category: 'filtre',
       description: "Ce produit d'une qualité RARISSIME, un goût INOUBLIABLE vous procurera des effets MÉMORABLES.\n\nCurer a 100% muter à 100% qualités Universal \u{1F440}",
       video: '/videos/morroco2025-compressed.mov',
-      variants: { '2G': { price: 20, grams: 2, stock: 0 }, '5G': { price: 40, grams: 5, stock: 0 }, '10G': { price: 70, grams: 10, stock: 0 }, '50G': { price: 260, grams: 50, stock: 0 }, '100G': { price: 490, grams: 100, stock: 0 } }
+      variants: { '2G': { price: 20, grams: 2, stock: 999 }, '5G': { price: 40, grams: 5, stock: 999 }, '10G': { price: 70, grams: 10, stock: 999 }, '50G': { price: 260, grams: 50, stock: 999 }, '100G': { price: 490, grams: 100, stock: 999 } }
     },
     {
       id: 9, name: 'COURCHEVEL', category: 'blanche',
       description: "Origine : COLOMBIE \u{1F1E8}\u{1F1F4}\n\nQUALITY'S: \u2B50\u2B50\u2B50\u2B50\u2B50\n\nNotre produit est pure\nSa texture est comme de la neige \u{1F60B}\n\nElle procure un sentiment de puissance, d'euphorie et de bonheur \u{1F525}\n\nAinsi qu'un besoin irrépressible de parler, danser \u{1F5E3}\u{1F483}\nou même faire l'amour \u{1F609}\u{1F975}",
       video: '/videos/courchevel2.MOV',
-      variants: { '0.5G': { price: 30, grams: 0.5, stock: 0 }, '1G': { price: 50, grams: 1, stock: 0 }, '2G': { price: 80, grams: 2, stock: 0 }, '5G': { price: 190, grams: 5, stock: 0 }, '10G': { price: 340, grams: 10, stock: 0 }, '50G': { price: 1200, grams: 50, stock: 0 } }
+      variants: { '0.5G': { price: 30, grams: 0.5, stock: 999 }, '1G': { price: 50, grams: 1, stock: 999 }, '2G': { price: 80, grams: 2, stock: 999 }, '5G': { price: 190, grams: 5, stock: 999 }, '10G': { price: 340, grams: 10, stock: 999 }, '50G': { price: 1200, grams: 50, stock: 999 } }
     },
     {
       id: 10, name: 'PIINK KUSH', category: 'mousseux',
       description: "Direct du Maroc \u{1F1F2}\u{1F1E6}, pure et puissante \u{1F48E}\nCouleur dorée, texture mousseuse, effet smooth et velouté \u{1F60C}\nChaque bouffée frappe fort… intense, raffinée, et 100 % WOW \u2728\nPour les connaisseurs qui veulent du haut de gamme qui se remarque \u{1F451}\u{1F49B}",
       video: '/videos/piink_kush.MOV',
-      variants: { '4G': { price: 20, grams: 4, stock: 0 }, '6.5G': { price: 30, grams: 6.5, stock: 0 }, '12G': { price: 50, grams: 12, stock: 0 }, '50G': { price: 180, grams: 50, stock: 0 }, '100G': { price: 350, grams: 100, stock: 0 } }
+      variants: { '4G': { price: 20, grams: 4, stock: 999 }, '6.5G': { price: 30, grams: 6.5, stock: 999 }, '12G': { price: 50, grams: 12, stock: 999 }, '50G': { price: 180, grams: 50, stock: 999 }, '100G': { price: 350, grams: 100, stock: 999 } }
     }
   ];
 
@@ -790,6 +790,15 @@ async function initDB() {
             if (defaultProduct.video && existing.video !== defaultProduct.video) {
               existing.video = defaultProduct.video;
               changed = true;
+            }
+            // Mettre à jour les stocks depuis les defaults
+            if (defaultProduct.variants && existing.variants) {
+              for (const [varName, varData] of Object.entries(defaultProduct.variants)) {
+                if (existing.variants[varName] && existing.variants[varName].stock !== varData.stock) {
+                  existing.variants[varName].stock = varData.stock;
+                  changed = true;
+                }
+              }
             }
             if (changed) {
               updated++;
