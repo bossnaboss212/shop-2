@@ -2808,22 +2808,62 @@ app.post('/api/admin/login', authLimiter, async (req, res) => {
 app.get('/api/admin/stats', requireAdmin, async (req, res) => {
   try {
     const stats = {};
-    
+
     const revenue = await db.get(
       "SELECT SUM(total) as total FROM orders WHERE status != 'cancelled'"
     );
     stats.totalCA = revenue?.total || 0;
-    
+
     const orders = await db.get(
       "SELECT COUNT(*) as count FROM orders WHERE status != 'cancelled'"
     );
     stats.totalOrders = orders?.count || 0;
-    
+
     stats.avgOrder = stats.totalOrders > 0 ? stats.totalCA / stats.totalOrders : 0;
-    
+
+    // Revenus aujourd'hui / semaine / mois
+    const todayRev = await db.get(
+      "SELECT COALESCE(SUM(total),0) as total FROM orders WHERE status != 'cancelled' AND DATE(created_at) = DATE('now')"
+    );
+    stats.todayCA = todayRev?.total || 0;
+
+    const weekRev = await db.get(
+      "SELECT COALESCE(SUM(total),0) as total FROM orders WHERE status != 'cancelled' AND created_at >= DATE('now', '-7 days')"
+    );
+    stats.weekCA = weekRev?.total || 0;
+
+    const monthRev = await db.get(
+      "SELECT COALESCE(SUM(total),0) as total FROM orders WHERE status != 'cancelled' AND created_at >= DATE('now', '-30 days')"
+    );
+    stats.monthCA = monthRev?.total || 0;
+
+    // Commandes en cours
+    const pending = await db.get(
+      "SELECT COUNT(*) as count FROM orders WHERE status IN ('pending', 'pending_approval')"
+    );
+    stats.pendingOrders = pending?.count || 0;
+
+    // Évolution des ventes (7 derniers jours)
+    const dailySales = await db.all(
+      `SELECT DATE(created_at) as day, COALESCE(SUM(total),0) as total
+       FROM orders WHERE status != 'cancelled' AND created_at >= DATE('now', '-6 days')
+       GROUP BY DATE(created_at) ORDER BY day ASC`
+    );
+    // Remplir les jours manquants
+    stats.dailySales = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(); d.setDate(d.getDate() - i);
+      const dayStr = d.toISOString().split('T')[0];
+      const found = dailySales.find(r => r.day === dayStr);
+      const dayNames = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+      stats.dailySales.push({ day: dayNames[d.getDay()], total: found?.total || 0 });
+    }
+
+    // Top produits (vraies ventes)
     const allOrders = await db.all("SELECT items FROM orders WHERE status != 'cancelled'");
     const productCounts = {};
-    
+    const categoryRevenue = {};
+
     allOrders.forEach(order => {
       try {
         const items = JSON.parse(order.items);
@@ -2832,14 +2872,39 @@ app.get('/api/admin/stats', requireAdmin, async (req, res) => {
         });
       } catch (e) {}
     });
-    
+
     const sorted = Object.entries(productCounts).sort((a, b) => b[1] - a[1]);
     stats.topProduct = sorted[0]?.[0] || '-';
-    
+    stats.topProducts = sorted.slice(0, 5).map(([name, qty]) => ({ name, qty }));
+
+    // Catégories (depuis les produits stockés en settings + ventes)
+    const productsData = await db.get("SELECT value FROM settings WHERE key = 'products'");
+    const products = productsData?.value ? JSON.parse(productsData.value) : [];
+    const productCategories = {};
+    products.forEach(p => { productCategories[p.name] = (p.category || 'autres').toLowerCase(); });
+
+    allOrders.forEach(order => {
+      try {
+        const items = JSON.parse(order.items);
+        items.forEach(item => {
+          const cat = productCategories[item.name] || 'autres';
+          categoryRevenue[cat] = (categoryRevenue[cat] || 0) + (item.lineTotal || item.qty * (item.price || 0));
+        });
+      } catch (e) {}
+    });
+    stats.categories = Object.entries(categoryRevenue)
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, revenue]) => ({ name, revenue }));
+
+    // Stock
     const stock = await db.all('SELECT * FROM stock');
     stats.stockOut = stock.filter(s => s.qty === 0).length;
     stats.stockLow = stock.filter(s => s.qty > 0 && s.qty < 10).length;
-    
+
+    // Clients
+    const customers = await db.get("SELECT COUNT(*) as count FROM customers");
+    stats.totalCustomers = customers?.count || 0;
+
     res.json({ ok: true, stats });
   } catch (error) {
     console.error('Stats error:', error);

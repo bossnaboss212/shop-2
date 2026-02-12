@@ -2024,9 +2024,9 @@ const state = {
       { id: 3, type: 'cart', condition: 'below', value: 30, active: true, name: 'Panier moyen faible' }
     ],
     goals: [
-      { id: 1, name: 'CA Mensuel', target: 20000, current: 15450, unit: '€', active: true },
-      { id: 2, name: 'Commandes', target: 200, current: 142, unit: '', active: true },
-      { id: 3, name: 'Nouveaux Clients', target: 50, current: 38, unit: '', active: true }
+      { id: 1, name: 'CA Mensuel', target: 20000, current: 0, unit: '€', active: true },
+      { id: 2, name: 'Commandes', target: 200, current: 0, unit: '', active: true },
+      { id: 3, name: 'Clients', target: 50, current: 0, unit: '', active: true }
     ]
   },
   
@@ -2744,40 +2744,20 @@ function calculateStorageSize() {
 }
 
 function generateDemoData() {
-  if (state.data.orders.length === 0) {
-    state.data.orders = [
-      { id: 1, date: '20/01/2026', customer: 'Client A', products: 'AMNESIA 5G', total: 30, status: 'delivered', payment: 'Espèces' },
-      { id: 2, date: '19/01/2026', customer: 'Client B', products: 'COURCHEVEL 1G', total: 50, status: 'pending', payment: 'Espèces' },
-      { id: 3, date: '18/01/2026', customer: 'Client C', products: 'CANADIENNE 5G', total: 60, status: 'delivered', payment: 'Carte' },
-      { id: 4, date: '17/01/2026', customer: 'Client D', products: 'NEEDLES KETA 5G', total: 80, status: 'delivered', payment: 'Espèces' },
-      { id: 5, date: '16/01/2026', customer: 'Client E', products: 'BLACK PURPLE 10G', total: 80, status: 'delivered', payment: 'Espèces' }
-    ];
-  }
-  
-  if (state.data.customers.length === 0) {
-    state.data.customers = [
-      { id: 1, name: 'Client A', email: 'a@test.com', phone: '0601020304', orders: 5, total: 350 },
-      { id: 2, name: 'Client B', email: 'b@test.com', phone: '0605060708', orders: 3, total: 220 },
-      { id: 3, name: 'Client C', email: 'c@test.com', phone: '0609101112', orders: 2, total: 180 }
-    ];
-  }
+  // Plus de données demo - tout vient du serveur via syncOrders() et fetchServerStats()
 }
 
 function updateAllStats() {
+  // Données locales en attendant la réponse serveur
   const orders = state.data.orders;
-  const totalRevenue = orders.reduce((sum, o) => sum + o.total, 0);
-  const avgCart = orders.length ? totalRevenue / orders.length : 0;
-  
-  document.getElementById('totalRevenue').textContent = fc(totalRevenue);
+  const localRevenue = orders.reduce((sum, o) => sum + o.total, 0);
+  const localAvg = orders.length ? localRevenue / orders.length : 0;
+
+  document.getElementById('totalRevenue').textContent = fc(localRevenue);
   document.getElementById('totalOrders').textContent = orders.length;
-  document.getElementById('avgCart').textContent = fc(avgCart);
-  document.getElementById('totalCustomersQuick').textContent = state.data.customers.length;
-  
-  document.getElementById('todayRevenue').textContent = fc(totalRevenue * 0.2);
-  document.getElementById('weekRevenue').textContent = fc(totalRevenue * 0.5);
-  document.getElementById('monthRevenue').textContent = fc(totalRevenue);
+  document.getElementById('avgCart').textContent = fc(localAvg);
   document.getElementById('activeOrders').textContent = orders.filter(o => o.status === 'pending').length;
-  
+
   const activeProducts = state.data.products.filter(p => !p.archived);
   let stockValue = 0, lowStock = 0;
   activeProducts.forEach(p => {
@@ -2786,23 +2766,86 @@ function updateAllStats() {
       if (v.stock < 10) lowStock++;
     });
   });
-  
   document.getElementById('stockValue').textContent = fc(stockValue);
   document.getElementById('lowStock').textContent = lowStock;
   document.getElementById('stockAlerts').textContent = lowStock;
   document.getElementById('cashTotal').textContent = fc(state.cash.total || 0);
-  
-  const monthEl = document.getElementById('monthlyRevenue');
-  if (monthEl) monthEl.textContent = fc(totalRevenue);
-  
-  const expenseEl = document.getElementById('monthlyExpenses');
-  if (expenseEl) expenseEl.textContent = fc(totalRevenue * 0.35);
-  
-  const profitEl = document.getElementById('netProfit');
-  if (profitEl) profitEl.textContent = fc(totalRevenue * 0.65);
-  
   const cashierEl = document.getElementById('cashierTotal');
   if (cashierEl) cashierEl.textContent = fc(state.cash.total || 0);
+
+  // Fetch vraies stats depuis le serveur
+  if (state.apiToken) {
+    fetchServerStats();
+  }
+}
+
+async function fetchServerStats() {
+  try {
+    const res = await fetch('/api/admin/stats', {
+      headers: { 'x-admin-token': state.apiToken }
+    });
+    const data = await res.json();
+    if (!data.ok) return;
+
+    const s = data.stats;
+
+    // Stats principales (données serveur = source de vérité)
+    document.getElementById('totalRevenue').textContent = fc(s.totalCA);
+    document.getElementById('totalOrders').textContent = s.totalOrders;
+    document.getElementById('avgCart').textContent = fc(s.avgOrder);
+    document.getElementById('totalCustomersQuick').textContent = s.totalCustomers || 0;
+
+    // Revenus par période (vraies données)
+    document.getElementById('todayRevenue').textContent = fc(s.todayCA);
+    document.getElementById('weekRevenue').textContent = fc(s.weekCA);
+    document.getElementById('monthRevenue').textContent = fc(s.monthCA);
+    document.getElementById('activeOrders').textContent = s.pendingOrders;
+
+    const monthEl = document.getElementById('monthlyRevenue');
+    if (monthEl) monthEl.textContent = fc(s.monthCA);
+
+    document.getElementById('lowStock').textContent = s.stockLow;
+    document.getElementById('stockAlerts').textContent = s.stockLow;
+
+    // Graphique évolution des ventes (vraies données)
+    if (s.dailySales && state.charts.sales) {
+      state.charts.sales.data.labels = s.dailySales.map(d => d.day);
+      state.charts.sales.data.datasets[0].data = s.dailySales.map(d => d.total);
+      state.charts.sales.update();
+    }
+
+    // Graphique top produits (vraies données)
+    if (s.topProducts && s.topProducts.length > 0 && state.charts.topProducts) {
+      state.charts.topProducts.data.labels = s.topProducts.map(p => p.name);
+      state.charts.topProducts.data.datasets[0].data = s.topProducts.map(p => p.qty);
+      const colors = ['#667eea', '#764ba2', '#10b981', '#f59e0b', '#ef4444'];
+      state.charts.topProducts.data.datasets[0].backgroundColor = s.topProducts.map((_, i) => colors[i % colors.length]);
+      state.charts.topProducts.update();
+    }
+
+    // Graphique catégories (vraies données)
+    if (s.categories && s.categories.length > 0 && state.charts.category) {
+      state.charts.category.data.labels = s.categories.map(c => c.name);
+      state.charts.category.data.datasets[0].data = s.categories.map(c => c.revenue);
+      const catColors = ['#667eea', '#764ba2', '#f59e0b', '#10b981', '#ef4444', '#06b6d4', '#8b5cf6'];
+      state.charts.category.data.datasets[0].backgroundColor = s.categories.map((_, i) => catColors[i % catColors.length]);
+      state.charts.category.update();
+    }
+
+    // Objectifs (basés sur les vraies données, garder les targets personnalisés)
+    const existingGoals = state.analytics.goals;
+    if (existingGoals[0]) { existingGoals[0].current = Math.round(s.monthCA); }
+    if (existingGoals[1]) { existingGoals[1].current = s.totalOrders; }
+    if (existingGoals[2]) { existingGoals[2].current = s.totalCustomers || 0; }
+
+    // Mettre à jour l'affichage des objectifs
+    if (typeof updateGoalsTracking === 'function') updateGoalsTracking();
+    if (typeof updateActivityFeed === 'function') updateActivityFeed();
+
+    console.log('✅ Stats serveur chargées');
+  } catch (err) {
+    console.warn('⚠️ Erreur chargement stats serveur:', err);
+  }
 }
 
 function initCharts() {
@@ -2814,7 +2857,7 @@ function initCharts() {
         labels: ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'],
         datasets: [{
           label: 'Ventes (€)',
-          data: [60, 120, 80, 150, 90, 200, 110],
+          data: [0, 0, 0, 0, 0, 0, 0],
           borderColor: '#667eea',
           backgroundColor: 'rgba(102, 126, 234, 0.1)',
           tension: 0.4,
@@ -2836,10 +2879,10 @@ function initCharts() {
     state.charts.topProducts = new Chart(topCtx, {
       type: 'bar',
       data: {
-        labels: ['AMNESIA', 'NEEDLES KETA', 'CANADIENNE', 'COURCHEVEL', 'BLACK PURPLE'],
+        labels: [],
         datasets: [{
           label: 'Ventes',
-          data: [45, 32, 28, 20, 15],
+          data: [],
           backgroundColor: ['#667eea', '#764ba2', '#10b981', '#f59e0b', '#ef4444'],
           borderRadius: 8
         }]
@@ -2856,10 +2899,10 @@ function initCharts() {
     state.charts.category = new Chart(catCtx, {
       type: 'doughnut',
       data: {
-        labels: ['Weed', 'Hash', 'Blanche', 'Autres'],
+        labels: [],
         datasets: [{
-          data: [40, 30, 20, 10],
-          backgroundColor: ['#667eea', '#764ba2', '#f59e0b', '#10b981']
+          data: [],
+          backgroundColor: ['#667eea', '#764ba2', '#f59e0b', '#10b981', '#ef4444', '#06b6d4']
         }]
       },
       options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
@@ -5934,36 +5977,39 @@ function updateAnalytics() {
 }
 
 function updateMainKPIs() {
-  const conversionRate = (24.5 + Math.random() * 5 - 2.5).toFixed(1);
-  const conversionTrend = Math.random() > 0.5 ? 'success' : 'danger';
-  const conversionChange = (Math.random() * 5).toFixed(1);
-  
+  // Utiliser les vraies données des commandes
+  const orders = state.data.orders;
+  const totalOrders = orders.length;
+  const totalCustomers = new Set(orders.map(o => o.customer)).size;
+  const returningCustomers = Object.values(
+    orders.reduce((acc, o) => { acc[o.customer] = (acc[o.customer] || 0) + 1; return acc; }, {})
+  ).filter(c => c > 1).length;
+
+  const conversionRate = totalCustomers > 0 ? ((totalOrders / Math.max(totalCustomers, 1)) * 10).toFixed(1) : '0.0';
+  const retentionRate = totalCustomers > 0 ? ((returningCustomers / totalCustomers) * 100).toFixed(0) : '0';
+
   const convEl = document.getElementById('conversionRate');
   const convTrendEl = document.getElementById('conversionTrend');
   if (convEl) convEl.textContent = `${conversionRate}%`;
   if (convTrendEl) {
-    convTrendEl.textContent = `${conversionTrend === 'success' ? '↗' : '↘'} ${conversionTrend === 'success' ? '+' : '-'}${conversionChange}% vs période précédente`;
-    convTrendEl.style.color = `var(--${conversionTrend})`;
+    convTrendEl.textContent = `${totalOrders} commandes / ${totalCustomers} clients`;
+    convTrendEl.style.color = 'var(--muted)';
   }
-  
-  const retentionRate = (67 + Math.random() * 10 - 5).toFixed(0);
-  const retentionTrend = Math.random() > 0.4 ? 'success' : 'danger';
-  const retentionChange = (Math.random() * 8).toFixed(1);
-  
+
   const retEl = document.getElementById('retentionRate');
   const retTrendEl = document.getElementById('retentionTrend');
   if (retEl) retEl.textContent = `${retentionRate}%`;
   if (retTrendEl) {
-    retTrendEl.textContent = `${retentionTrend === 'success' ? '↗' : '↘'} ${retentionTrend === 'success' ? '+' : '-'}${retentionChange}% vs période précédente`;
-    retTrendEl.style.color = `var(--${retentionTrend})`;
+    retTrendEl.textContent = `${returningCustomers} client(s) fidèle(s) sur ${totalCustomers}`;
+    retTrendEl.style.color = 'var(--muted)';
   }
-  
-  const turnover = (3.2 + Math.random() * 1 - 0.5).toFixed(1);
+
+  const turnover = totalOrders > 0 ? (totalOrders / 30).toFixed(1) : '0.0';
   const turnoverEl = document.getElementById('stockTurnover');
   const turnoverTrendEl = document.getElementById('turnoverTrend');
   if (turnoverEl) turnoverEl.textContent = `${turnover}x`;
   if (turnoverTrendEl) {
-    const isStable = Math.abs(turnover - 3.2) < 0.3;
+    const isStable = true;
     turnoverTrendEl.textContent = isStable ? '→ Stable' : turnover > 3.2 ? '↗ En hausse' : '↘ En baisse';
     turnoverTrendEl.style.color = isStable ? 'var(--muted)' : turnover > 3.2 ? 'var(--success)' : 'var(--warning)';
   }
@@ -5986,21 +6032,36 @@ function setTrendView(view) {
 function updateTrendChart() {
   const ctx = document.getElementById('trendChart');
   if (!ctx) return;
-  
+
   const days = 30;
   const labels = [];
   const data = [];
-  
+
+  // Calculer les vraies données par jour depuis les commandes
+  const dailyData = {};
+  state.data.orders.forEach(o => {
+    const dateStr = o.timestamp ? new Date(o.timestamp).toISOString().split('T')[0] :
+                    o.date ? o.date.split(' ')[0].split('/').reverse().join('-') : null;
+    if (!dateStr) return;
+    if (!dailyData[dateStr]) dailyData[dateStr] = { revenue: 0, orders: 0, customers: new Set() };
+    dailyData[dateStr].revenue += o.total || 0;
+    dailyData[dateStr].orders += 1;
+    dailyData[dateStr].customers.add(o.customer);
+  });
+
   for (let i = days - 1; i >= 0; i--) {
     const date = new Date();
     date.setDate(date.getDate() - i);
     labels.push(date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }));
-    
-    const base = currentTrendView === 'revenue' ? 150 : 
-                 currentTrendView === 'orders' ? 8 : 25;
-    const trend = (days - i) * (currentTrendView === 'revenue' ? 2 : 0.1);
-    const random = Math.random() * base * 0.3;
-    data.push(Math.round(base + trend + random));
+    const dayStr = date.toISOString().split('T')[0];
+    const dayData = dailyData[dayStr];
+    if (currentTrendView === 'revenue') {
+      data.push(dayData ? Math.round(dayData.revenue) : 0);
+    } else if (currentTrendView === 'orders') {
+      data.push(dayData ? dayData.orders : 0);
+    } else {
+      data.push(dayData ? dayData.customers.size : 0);
+    }
   }
   
   if (analyticsCharts.trend) {
@@ -6057,13 +6118,23 @@ function updateABCAnalysis() {
   const legend = document.getElementById('abcLegend');
   if (!ctx || !legend) return;
   
+  // Calculer le CA réel par produit depuis les commandes
   const productRevenue = {};
-  state.data.products.forEach(p => {
-    const sales = Math.floor(Math.random() * 50) + 10;
-    const avgPrice = Object.values(p.variants).reduce((sum, v) => sum + v.price, 0) / Object.keys(p.variants).length;
-    const displayName = p.archived ? `${p.name} (Archivé)` : p.name;
-    productRevenue[displayName] = sales * avgPrice;
+  state.data.orders.forEach(o => {
+    if (o.items && Array.isArray(o.items)) {
+      o.items.forEach(item => {
+        const name = item.name || 'Inconnu';
+        productRevenue[name] = (productRevenue[name] || 0) + (item.lineTotal || item.qty * (item.price || 0));
+      });
+    }
   });
+  // Si aucune commande, utiliser les produits locaux avec CA = 0
+  if (Object.keys(productRevenue).length === 0) {
+    state.data.products.forEach(p => {
+      const displayName = p.archived ? `${p.name} (Archivé)` : p.name;
+      productRevenue[displayName] = 0;
+    });
+  }
   
   const sorted = Object.entries(productRevenue).sort((a, b) => b[1] - a[1]);
   const totalRevenue = sorted.reduce((sum, [, rev]) => sum + rev, 0);
