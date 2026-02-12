@@ -2885,31 +2885,10 @@ const SyncManager = {
   },
 
   // Créer une commande
-  createOrder(orderData) {
+  async createOrder(orderData) {
     try {
-      const orders = JSON.parse(localStorage.getItem('shop_orders') || '[]');
-
-      const order = {
-        id: 'DC' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substr(2, 4).toUpperCase(),
-        timestamp: new Date().toISOString(),
-        name: orderData.customerName || orderData.customer,
-        items: orderData.items,
-        total: orderData.total,
-        paymentMethod: 'Espèces',
-        email: '',
-        phone: '',
-        deliveryAddress: orderData.address,
-        deliveryType: orderData.type,
-        status: 'pending'
-      };
-
-      orders.push(order);
-      localStorage.setItem('shop_orders', JSON.stringify(orders));
-
-      console.log('✅ Commande créée localement:', order.id);
-
-      // Envoyer la commande au serveur pour sync avec l'admin
-      fetch('/api/create-order', {
+      // Envoyer la commande au serveur en priorité
+      const response = await fetch('/api/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -2923,31 +2902,53 @@ const SyncManager = {
           useCredit: orderData.useCredit || false,
           telegramId: telegramUser ? String(telegramUser.id) : ''
         })
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.ok) {
-          console.log('✅ Commande envoyée au serveur:', data.orderId);
-        } else {
-          console.warn('⚠️ Erreur serveur (commande locale OK):', data.error);
-        }
-      })
-      .catch(err => {
-        console.warn('⚠️ Impossible de contacter le serveur (commande locale OK):', err);
       });
 
-      // Mettre à jour les stocks
+      const data = await response.json();
+
+      if (!response.ok || !data.ok) {
+        const errorMsg = data.error || 'Erreur serveur';
+        console.error('❌ Erreur serveur:', errorMsg);
+        return { ok: false, error: errorMsg };
+      }
+
+      console.log('✅ Commande créée sur le serveur:', data.orderId);
+
+      // Sauvegarder localement avec l'ID du serveur
+      const orders = JSON.parse(localStorage.getItem('shop_orders') || '[]');
+      const order = {
+        id: data.orderId,
+        timestamp: new Date().toISOString(),
+        name: orderData.customerName || orderData.customer,
+        items: orderData.items,
+        total: orderData.total,
+        paymentMethod: 'Espèces',
+        email: '',
+        phone: '',
+        deliveryAddress: orderData.address,
+        deliveryType: orderData.type,
+        status: data.requiresApproval ? 'pending_approval' : 'pending',
+        discount: data.discount || 0,
+        creditUsed: data.creditUsed || 0,
+        remainingCredit: data.remainingCredit || 0,
+        referralCode: data.referralCode || ''
+      };
+
+      orders.push(order);
+      localStorage.setItem('shop_orders', JSON.stringify(orders));
+
+      // Mettre à jour les stocks locaux
       orderData.items.forEach(item => {
         this.updateStock(item.product_id, item.variant, item.qty);
       });
 
       // Mettre à jour le chiffre d'affaires et incrémenter le compteur
       this.updateRevenue(orderData.total, true);
-      
-      return order;
+
+      return { ok: true, order, serverData: data };
     } catch (e) {
       console.error('❌ Erreur création commande:', e);
-      return null;
+      return { ok: false, error: 'Impossible de contacter le serveur. Vérifiez votre connexion.' };
     }
   },
 
@@ -5039,16 +5040,10 @@ async function validateOrder() {
     }
 
     const subtotalWithDelivery = subtotal + deliveryFee;
-    const nextOrderNumber = LoyaltyManager.totalOrders + 1;
-    const willGetReward = nextOrderNumber % 10 === 0;
-    let loyaltyDiscount = 0;
 
-    if (willGetReward) {
-      loyaltyDiscount = Math.min(subtotalWithDelivery * 0.1, 20);
-      showToast('🎁 Félicitations ! Remise fidélité appliquée !');
-    }
-
-    const total = subtotalWithDelivery - loyaltyDiscount;
+    // La remise fidélité est calculée côté serveur (10€ fixe tous les 10 achats)
+    // On envoie le total brut, le serveur applique la remise si éligible
+    const total = subtotalWithDelivery;
 
     const referralInput = document.getElementById('referralInput');
     const referralCode = referralInput?.value.trim().toUpperCase() || '';
@@ -5065,11 +5060,16 @@ async function validateOrder() {
       referralCode: referralCode,
       useCredit: useCreditEnabled
     };
-    
-    // Créer la commande via SyncManager
-    const order = SyncManager.createOrder(orderData);
-    
-    if (order) {
+
+    // Créer la commande via SyncManager (attend la réponse serveur)
+    const result = await SyncManager.createOrder(orderData);
+
+    if (result.ok) {
+      const { order, serverData } = result;
+
+      // Utiliser la remise réelle du serveur
+      const serverDiscount = serverData.discount || 0;
+
       OrdersManager.add(order);
       LoyaltyManager.addOrder(order.id, total);
 
@@ -5077,20 +5077,24 @@ async function validateOrder() {
 
       document.getElementById('cartSheet').classList.add('hidden');
 
-      // Ouvrir Telegram
-      const message = createOrderMessage(orderData, order.id, total);
+      // Ouvrir Telegram avec l'ID serveur
+      const message = createOrderMessage(orderData, order.id, total - serverDiscount);
       const encodedMessage = encodeURIComponent(message);
       const telegramUrl = `https://t.me/${TELEGRAM_CONFIG.SUPPORT_USERNAME}?text=${encodedMessage}`;
       window.open(telegramUrl, '_blank');
 
-      showOrderSummary(orderData, order.id, loyaltyDiscount, true);
-      
+      showOrderSummary(orderData, order.id, serverDiscount, true);
+
       // Recharger les produits pour afficher les nouveaux stocks
       loadProducts();
-      
+
       console.log('✅ Commande créée:', order.id);
+
+      if (serverData.requiresApproval) {
+        showToast('Votre commande est en attente de validation.');
+      }
     } else {
-      throw new Error('Impossible de créer la commande');
+      showToast('❌ ' + (result.error || 'Impossible de créer la commande'));
     }
     
   } catch (error) {

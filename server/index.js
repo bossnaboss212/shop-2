@@ -2446,6 +2446,22 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
 
     await db.run('BEGIN IMMEDIATE');
     try {
+      // 0. Vérifier la disponibilité du stock avant de procéder
+      for (const item of items) {
+        const stockRow = await db.get(
+          'SELECT qty FROM stock WHERE product_id = ? AND variant = ?',
+          [item.product_id, item.variant]
+        );
+        if (!stockRow || stockRow.qty < item.qty) {
+          const available = stockRow?.qty || 0;
+          await db.run('ROLLBACK');
+          return res.status(400).json({
+            ok: false,
+            error: `Stock insuffisant pour "${item.name} ${item.variant}". Disponible: ${available}, demandé: ${item.qty}`
+          });
+        }
+      }
+
       // 1. Déduire le crédit si demandé
       if (useCredit === true || useCredit === 'true') {
         const totalAfterDiscount = total - discount;
