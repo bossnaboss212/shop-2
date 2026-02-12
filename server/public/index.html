@@ -4231,7 +4231,15 @@ async function openReferralSheet() {
               <span>🤝 1 parrainage</span>
               <span style="font-weight:700">10€ de crédit</span>
             </div>
-            <div style="font-size:12px;opacity:0.8;text-align:center;margin-top:4px">⚠️ Non cumulable : max 10€ de crédit à la fois</div>
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span>🤝 2 parrainages</span>
+              <span style="font-weight:700">20€ de crédit</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span>🤝 3 parrainages</span>
+              <span style="font-weight:700">30€ de crédit</span>
+            </div>
+            <div style="font-size:12px;opacity:0.8;text-align:center;margin-top:4px">🔄 Cumulable : plus vous parrainez, plus vous gagnez !</div>
           </div>
         </div>
 
@@ -5540,10 +5548,8 @@ async function fetchAndDisplayReferralProgress(customerContact) {
       // Update progress text
       const progressText = document.getElementById('referralProgressText');
       if (progressText) {
-        if (creditBalance > 0) {
-          progressText.textContent = `🎉 Vous avez ${creditBalance}€ de crédit disponible !`;
-        } else if (totalReferrals > 0) {
-          progressText.textContent = `✅ ${totalReferrals} parrainage${totalReferrals > 1 ? 's' : ''} effectué${totalReferrals > 1 ? 's' : ''} — Parrainez pour gagner 10€ !`;
+        if (totalReferrals > 0) {
+          progressText.textContent = `🎉 ${totalReferrals} parrainage${totalReferrals > 1 ? 's' : ''} = ${totalReferrals * 10}€ gagnés ! Solde : ${creditBalance}€`;
         } else {
           progressText.textContent = `Parrainez 1 ami = 10€ de crédit !`;
         }

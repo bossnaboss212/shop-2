@@ -1690,15 +1690,13 @@ async function applyReferralCredits(referrerCode, newCustomer, orderId) {
     const totalReferrals = referrer.total_referrals || 0;
     const newTotalReferrals = totalReferrals + 1;
 
-    // Chaque parrainage donne 10€ de crédit (non cumulable, max 10€)
-    const currentBalance = referrer.credit_balance || 0;
-    const referrerCredit = currentBalance >= REFERRAL_REWARD ? 0 : REFERRAL_REWARD;
-    const newBalance = Math.min(currentBalance + referrerCredit, REFERRAL_REWARD);
+    // Chaque parrainage donne 10€ de crédit (cumulable)
+    const referrerCredit = REFERRAL_REWARD;
 
     // Incrémenter le compteur de parrainages
     await db.run(
       `UPDATE referrals
-       SET credit_balance = ?,
+       SET credit_balance = credit_balance + ?,
            total_referrals = total_referrals + 1,
            total_earned = total_earned + ?
        WHERE referral_code = ?`,
