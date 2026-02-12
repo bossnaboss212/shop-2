@@ -460,6 +460,24 @@
       color: var(--danger);
     }
 
+    .badge.priority-urgent {
+      background: rgba(255, 59, 48, 0.2);
+      color: #ff3b30;
+      animation: pulse-urgent 1.5s infinite;
+      font-weight: bold;
+    }
+
+    .badge.priority-high {
+      background: rgba(255, 149, 0, 0.2);
+      color: #ff9500;
+      font-weight: bold;
+    }
+
+    @keyframes pulse-urgent {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+
     .live-indicator {
       display: inline-flex;
       align-items: center;
@@ -2991,14 +3009,21 @@ function loadOrders() {
     return;
   }
   
-  tbody.innerHTML = state.data.orders.map(o => `
-    <tr>
-      <td><strong>#${o.id}</strong></td>
+  tbody.innerHTML = state.data.orders.map(o => {
+    const p = o.priority || { level: 3, label: '', emoji: '' };
+    const priorityClass = p.level === 1 ? 'priority-urgent' : p.level === 2 ? 'priority-high' : '';
+    const isActive = (o.status === 'pending' || o.status === 'pending_approval' || o.status === 'en_route');
+    const priorityBadge = isActive ? `<span class="badge ${priorityClass}" title="${p.label}">${p.emoji} ${p.label}</span>` : '';
+    const descBadge = o.customer_description ? `<br><small style="color:#aaa">🧍 ${o.customer_description}</small>` : '';
+    const slotBadge = (o.time_slot && o.time_slot !== 'asap' && isActive) ? `<br><small>🕐 ${o.time_slot}</small>` : '';
+
+    return `<tr style="${p.level === 1 && isActive ? 'background:rgba(255,59,48,0.08);' : p.level === 2 && isActive ? 'background:rgba(255,149,0,0.06);' : ''}">
+      <td><strong>#${o.id}</strong>${slotBadge}</td>
       <td>${o.date}</td>
-      <td>${o.customer}</td>
+      <td>${o.customer}${descBadge}</td>
       <td>${o.products}</td>
       <td><strong>${fc(o.total)}</strong></td>
-      <td>${getStatusBadge(o.status)}</td>
+      <td>${getStatusBadge(o.status)}<br>${priorityBadge}</td>
       <td><span class="badge">${o.payment || 'Espèces'}</span></td>
       <td>
         ${o.status === 'pending' ? `<button class="btn-sm btn-success" onclick="validateOrder('${o.id}')" title="Valider">✅</button>` : ''}
@@ -3006,8 +3031,8 @@ function loadOrders() {
         <button class="btn-sm btn-warning" onclick="editOrder('${o.id}')">✏️</button>
         <button class="btn-sm btn-danger" onclick="deleteOrder('${o.id}')">🗑️</button>
       </td>
-    </tr>
-  `).join('');
+    </tr>`;
+  }).join('');
 }
 
 function getStatusBadge(s) {
@@ -5959,8 +5984,20 @@ function syncOrders(manual = false) {
         delivery: order.type || '',
         address: order.address || '',
         timestamp: order.created_at,
-        items: order.items
+        items: order.items,
+        priority: order.priority || { level: 3, label: 'Normale', emoji: '🟢' },
+        customer_description: order.customer_description || '',
+        time_slot: order.time_slot || 'asap'
       }));
+
+      // Trier : commandes actives par priorité en premier, puis livrées/annulées
+      serverOrders.sort((a, b) => {
+        const activeA = (a.status === 'pending' || a.status === 'pending_approval' || a.status === 'en_route') ? 0 : 1;
+        const activeB = (b.status === 'pending' || b.status === 'pending_approval' || b.status === 'en_route') ? 0 : 1;
+        if (activeA !== activeB) return activeA - activeB;
+        if (activeA === 0 && activeB === 0) return a.priority.level - b.priority.level;
+        return new Date(b.timestamp) - new Date(a.timestamp);
+      });
 
       console.log(`✅ ${serverOrders.length} commande(s) reçue(s) du serveur`);
 

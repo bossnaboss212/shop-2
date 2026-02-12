@@ -3090,30 +3090,83 @@ app.get('/api/customer/orders', customerOrdersLimiter, async (req, res) => {
   }
 });
 
+// ═══════════════════════════════════════════════════════════════════════════
+// SYSTÈME DE PRIORITÉ DES COMMANDES
+// 1 = URGENT (rouge)  : programmé < 30 min OU ASAP > 45 min d'attente
+// 2 = HAUTE  (orange) : programmé < 1h OU ASAP > 20 min d'attente
+// 3 = NORMALE (bleu)  : commandes récentes
+// 4 = BASSE  (gris)   : déjà livrées / annulées / programmées loin
+// ═══════════════════════════════════════════════════════════════════════════
+function calculateOrderPriority(order) {
+  // Commandes terminées = priorité basse
+  if (order.status === 'delivered' || order.status === 'cancelled') {
+    return { level: 4, label: 'Terminée', emoji: '✅' };
+  }
+
+  const now = new Date();
+  const orderDate = new Date(order.created_at);
+  const waitingMinutes = (now - orderDate) / 60000;
+
+  // Commande en cours de livraison
+  if (order.status === 'en_route') {
+    return { level: 2, label: 'En route', emoji: '🚚' };
+  }
+
+  // Commandes programmées (pas ASAP)
+  if (order.time_slot && order.time_slot !== 'asap') {
+    const orderDateStr = orderDate.toISOString().split('T')[0];
+    let targetDate;
+    if (order.time_slot === '00:00') {
+      targetDate = new Date(orderDateStr + 'T23:59:00');
+    } else {
+      targetDate = new Date(orderDateStr + 'T' + order.time_slot + ':00');
+    }
+    const minutesLeft = (targetDate - now) / 60000;
+
+    if (minutesLeft <= 30) {
+      return { level: 1, label: `URGENT (${order.time_slot})`, emoji: '🔴' };
+    }
+    if (minutesLeft <= 60) {
+      return { level: 2, label: `Bientôt (${order.time_slot})`, emoji: '🟠' };
+    }
+    return { level: 3, label: `Programmé ${order.time_slot}`, emoji: '🔵' };
+  }
+
+  // Commandes ASAP
+  if (waitingMinutes > 45) {
+    return { level: 1, label: `URGENT (${Math.round(waitingMinutes)} min)`, emoji: '🔴' };
+  }
+  if (waitingMinutes > 20) {
+    return { level: 2, label: `${Math.round(waitingMinutes)} min`, emoji: '🟠' };
+  }
+  return { level: 3, label: 'Récente', emoji: '🟢' };
+}
+
 app.get('/api/admin/orders', requireAdmin, async (req, res) => {
   try {
     const { status, limit = 100 } = req.query;
     let query = 'SELECT * FROM orders';
     const params = [];
-    
+
     if (status && status !== 'all') {
       query += ' WHERE status = ?';
       params.push(status);
     }
-    
+
     query += ' ORDER BY created_at DESC LIMIT ?';
     params.push(Math.min(parseInt(limit), 500));
-    
+
     const orders = await db.all(query, params);
-    
+
     orders.forEach(order => {
       try {
         order.items = JSON.parse(order.items);
       } catch (e) {
         order.items = [];
       }
+      order.priority = calculateOrderPriority(order);
     });
-    
+
     res.json({ ok: true, orders });
   } catch (error) {
     console.error('Orders error:', error);
@@ -6496,81 +6549,88 @@ async function sendDetailedDriverDeliveries(chatId, driverZone) {
     "SELECT * FROM orders WHERE status = 'pending' AND assigned_driver_zone = ? ORDER BY created_at ASC",
     [driverZone]
   );
-  
+
   const enRouteOrders = await db.all(
     "SELECT * FROM orders WHERE status = 'en_route' AND assigned_driver_zone = ? ORDER BY created_at ASC",
     [driverZone]
   );
-  
+
   const totalOrders = pendingOrders.length + enRouteOrders.length;
-  
+
   if (totalOrders === 0) {
     await telegram.sendMessage(chatId, `📭 <b>Aucune livraison en cours</b>\n\nZone : ${driverZone.toUpperCase()}\n\nProfitez de votre pause ! 😎`);
     return;
   }
-  
+
+  // Trier les commandes en attente par priorité
+  pendingOrders.forEach(o => { o.priority = calculateOrderPriority(o); });
+  pendingOrders.sort((a, b) => a.priority.level - b.priority.level || new Date(a.created_at) - new Date(b.created_at));
+
   let message = `🚚 <b>VOS LIVRAISONS (${driverZone.toUpperCase()})</b>\n`;
   message += `📊 Total: ${totalOrders} commande(s)\n`;
   message += `━━━━━━━━━━━━━━━━━━━\n\n`;
-  
+
   if (enRouteOrders.length > 0) {
     message += `🚀 <b>EN COURS DE LIVRAISON (${enRouteOrders.length})</b>\n\n`;
-    
+
     enRouteOrders.forEach((order, index) => {
       const items = JSON.parse(order.items || '[]');
       const timeAgo = getTimeAgo(order.created_at);
-      
+
       message += `🚀 <b>#${order.id}</b> ${index === 0 ? '⚡ PRIORITÉ' : ''}\n`;
       message += `📍 ${order.address}\n`;
+      if (order.customer_description) message += `🧍 ${order.customer_description}\n`;
       message += `💰 ${order.total}€ | 📦 ${items.length} article(s)\n`;
       if (order.delivery_time) {
         message += `⏱️ ETA: ${order.delivery_time} min\n`;
       }
       message += `🕐 ${timeAgo}\n\n`;
     });
-    
+
     message += `━━━━━━━━━━━━━━━━━━━\n\n`;
   }
-  
+
   if (pendingOrders.length > 0) {
     message += `⏳ <b>EN ATTENTE (${pendingOrders.length})</b>\n`;
-    message += `<i>Ordre de priorité (du plus ancien au plus récent)</i>\n\n`;
-    
+    message += `<i>Trié par priorité : 🔴 urgent → 🟢 normal</i>\n\n`;
+
     pendingOrders.forEach((order, index) => {
       const items = JSON.parse(order.items || '[]');
       const timeAgo = getTimeAgo(order.created_at);
-      const priorityEmoji = index === 0 ? '⚡' : (index + 1).toString() + '️⃣';
-      
-      message += `${priorityEmoji} <b>#${order.id}</b>${index === 0 ? ' ⚡ À FAIRE EN PREMIER' : ''}\n`;
+      const p = order.priority;
+
+      message += `${p.emoji} <b>#${order.id}</b> - ${p.label}${index === 0 ? ' ⚡ À FAIRE EN PREMIER' : ''}\n`;
       message += `📍 ${order.address}\n`;
+      if (order.customer_description) message += `🧍 ${order.customer_description}\n`;
       message += `💰 ${order.total}€ | 📦 ${items.length} article(s)\n`;
-      message += `🕐 ${timeAgo}\n\n`;
+      if (order.time_slot && order.time_slot !== 'asap') message += `🕐 Prévu à ${order.time_slot}\n`;
+      message += `⏳ ${timeAgo}\n\n`;
     });
   }
-  
+
   message += `━━━━━━━━━━━━━━━━━━━\n`;
-  message += `💡 <i>Les commandes les plus anciennes sont prioritaires</i>`;
-  
+  message += `💡 <i>🔴 Urgent  🟠 Bientôt  🟢 Normal</i>`;
+
   const keyboard = {
     inline_keyboard: []
   };
-  
+
   if (pendingOrders.length > 0) {
     keyboard.inline_keyboard.push([
-      { text: `🚀 START #${pendingOrders[0].id}`, callback_data: `start_delivery_${pendingOrders[0].id}` }
+      { text: `🚀 START #${pendingOrders[0].id} (${pendingOrders[0].priority.emoji})`, callback_data: `start_delivery_${pendingOrders[0].id}` }
     ]);
   }
-  
+
   if (enRouteOrders.length > 0) {
     keyboard.inline_keyboard.push([
       { text: `✅ TERMINER #${enRouteOrders[0].id}`, callback_data: `complete_delivery_${enRouteOrders[0].id}` }
     ]);
   }
-  
+
   keyboard.inline_keyboard.push([
     { text: '🔄 Actualiser', callback_data: `my_deliveries_${driverZone}` }
   ]);
-  
+
   await telegram.sendMessage(chatId, message, { reply_markup: keyboard });
 }
 
@@ -6822,21 +6882,25 @@ async function startDelivery(chatId, orderId, estimatedTime) {
 
 ⏱️ Temps estimé : ${estimatedTime} minutes
 📍 ${order.address}
-💰 ${order.total}€
+${order.customer_description ? `🧍 ${order.customer_description}\n` : ''}💰 ${order.total}€
 
 🎭 <b>Client : Anonyme</b>
 💬 Utilisez le bouton "Contacter" pour envoyer un message`;
 
+  // Trier les commandes restantes par priorité
+  remainingOrders.forEach(o => { o.priority = calculateOrderPriority(o); });
+  remainingOrders.sort((a, b) => a.priority.level - b.priority.level || new Date(a.created_at) - new Date(b.created_at));
+
   if (remainingOrders.length > 0) {
     message += `\n\n━━━━━━━━━━━━━━━━━━━
 📋 <b>COMMANDES EN ATTENTE (${remainingOrders.length})</b>
-<i>À faire après celle-ci :</i>\n`;
-    
+<i>Par priorité :</i>\n`;
+
     remainingOrders.slice(0, 5).forEach((o, index) => {
-      const emoji = index === 0 ? '⚡' : (index + 1).toString() + '️⃣';
-      message += `\n${emoji} #${o.id} - ${o.total}€`;
+      const p = o.priority;
+      message += `\n${p.emoji} #${o.id} - ${o.total}€ - ${p.label}`;
     });
-    
+
     if (remainingOrders.length > 5) {
       message += `\n\n... et ${remainingOrders.length - 5} autre(s)`;
     }
