@@ -4460,10 +4460,9 @@ function getPermanentKeyboard(chatId) {
   if (isDriver) {
     return {
       keyboard: [
-        [{ text: '📋 Mes Livraisons' }],
+        [{ text: '📋 Mes Livraisons' }, { text: '🔄 Actualiser' }],
         [{ text: '📊 Mes Stats' }, { text: '💰 Caisse' }],
-        [{ text: '🛍️ Boutique', web_app: { url: `${config.webapp.url}/clear-cache.html` } }],
-        [{ text: '❓ Aide' }]
+        [{ text: '💬 Support' }, { text: '❓ Aide' }]
       ],
       resize_keyboard: true,
       persistent: true,
@@ -5329,7 +5328,7 @@ async function handleTelegramMessage(message) {
   } else if (text === '🔐 Admin') {
     await sendAdminMessage(chatId);
     return;
-  } else if (text === '📋 Mes Livraisons') {
+  } else if (text === '📋 Mes Livraisons' || text === '🔄 Actualiser') {
     await sendDriverDeliveries(chatId);
     return;
   } else if (text === '📊 Mes Stats') {
@@ -5337,6 +5336,9 @@ async function handleTelegramMessage(message) {
     return;
   } else if (text === '💰 Caisse') {
     await sendDriverCaisse(chatId);
+    return;
+  } else if (text === '💬 Support') {
+    await sendSupportMessage(chatId);
     return;
   } else if (text === '❓ Aide') {
     await sendHelpMessage(chatId);
