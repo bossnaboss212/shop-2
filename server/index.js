@@ -750,7 +750,7 @@ async function initDB() {
       variants: { '1.5G': { price: 20, grams: 1.5, stock: 999 }, '3G': { price: 40, grams: 3, stock: 999 }, '5G': { price: 60, grams: 5, stock: 999 }, '10G': { price: 110, grams: 10, stock: 999 } }
     },
     {
-      id: 12, name: 'PANDA KAKE \u{1F43C}', category: 'cali',
+      id: 12, name: 'PANDA CAKE \u{1F43C}', category: 'cali',
       description: "\u{1F43C}\u{1F370}     PANDA-CAKE     \u{1F370}\u{1F43C}\n\n\u{1F1FA}\u{1F1F8} CALI-US \u{1F1FA}\u{1F1F8}\n\nQuality's : \u{1F31F}\u{1F31F}\u{1F31F}\u{1F31F}\u{1F31F}\n\nVenu tout droit de Californie notre PANDA-CAKE fait son apparition dans notre shop.",
       video: '/videos/panda-kake.mp4',
       variants: { '1.8G': { price: 20, grams: 1.8, stock: 999 }, '3.6G': { price: 40, grams: 3.6, stock: 999 }, '5G': { price: 50, grams: 5, stock: 999 }, '10G': { price: 100, grams: 10, stock: 999 } }
@@ -765,7 +765,8 @@ async function initDB() {
 
       // Renommages de produits (ancien nom → nouveau nom)
       const RENAMES = {
-        "ZOUR'S 120U": "FAST BOY 120u"
+        "ZOUR'S 120U": "FAST BOY 120u",
+        "PANDA KAKE \u{1F43C}": "PANDA CAKE \u{1F43C}"
       };
       for (const p of existingProducts) {
         const newName = RENAMES[p.name.toUpperCase()];
