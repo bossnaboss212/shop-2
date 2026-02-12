@@ -84,6 +84,7 @@ app.use(helmet({
     directives: {
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'", "'unsafe-inline'", "https://api.mapbox.com", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "https://telegram.org"],
+      scriptSrcAttr: ["'unsafe-inline'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://api.mapbox.com", "https://fonts.googleapis.com"],
       imgSrc: ["'self'", "data:", "blob:", "https://api.mapbox.com", "https://api.telegram.org"],
       connectSrc: ["'self'", "https://api.mapbox.com", "https://events.mapbox.com"],
