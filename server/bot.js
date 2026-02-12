@@ -870,9 +870,10 @@ Parrainez vos amis et gagnez du crédit !
 
 <b>💰 1 parrainage = 10€ de réduction !</b>
 
-<b>💡 Le filleul ne gagne rien</b>, sauf s'il parraine à son tour.
+<b>⚠️ Non cumulable :</b> max 10€ de crédit à la fois.
+Utilisez votre crédit avant de parrainer à nouveau !
 
-<b>🔄 Cumulable :</b> 2 parrainages = 20€, 3 = 30€, etc.
+<b>💡 Le filleul ne gagne rien</b>, sauf s'il parraine à son tour.
 
 <i>Partagez votre code pour commencer à gagner !</i>`,
 
