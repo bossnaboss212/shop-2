@@ -4016,7 +4016,7 @@ function openProduct(id) {
         <div style="font-size:32px">🎁</div>
         <div style="flex:1">
           <div style="font-weight:700;font-size:14px;color:var(--accent);margin-bottom:2px">Partagez et gagnez !</div>
-          <div style="font-size:12px;color:var(--text-muted)">5 parrainages = 10€ de crédit</div>
+          <div style="font-size:12px;color:var(--text-muted)">1 parrainage = 10€ de crédit</div>
         </div>
         <button onclick="shareProduct(${id})" style="padding:10px 16px;background:var(--accent);border:none;border-radius:8px;color:var(--bg-primary);font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap">
           📤 Partager
@@ -4228,18 +4228,18 @@ async function openReferralSheet() {
           <div style="font-weight:700;font-size:16px;margin-bottom:12px">🎁 Récompenses Parrainage</div>
           <div style="display:flex;flex-direction:column;gap:8px;font-size:14px">
             <div style="display:flex;justify-content:space-between;align-items:center">
-              <span>🤝 5 parrainages</span>
+              <span>🤝 1 parrainage</span>
               <span style="font-weight:700">10€ de crédit</span>
             </div>
             <div style="display:flex;justify-content:space-between;align-items:center">
-              <span>🤝 10 parrainages</span>
+              <span>🤝 2 parrainages</span>
               <span style="font-weight:700">20€ de crédit</span>
             </div>
             <div style="display:flex;justify-content:space-between;align-items:center">
-              <span>🤝 15 parrainages</span>
+              <span>🤝 3 parrainages</span>
               <span style="font-weight:700">30€ de crédit</span>
             </div>
-            <div style="font-size:12px;opacity:0.8;text-align:center;margin-top:4px">Cumulable tous les 5 parrainages !</div>
+            <div style="font-size:12px;opacity:0.8;text-align:center;margin-top:4px">🔄 Cumulable : plus vous parrainez, plus vous gagnez !</div>
           </div>
         </div>
 
@@ -4485,7 +4485,7 @@ async function shareProduct(productId) {
     ${referralCode ? `
     <div style="padding:12px;background:linear-gradient(135deg,rgba(255,215,0,0.1) 0%,rgba(255,165,0,0.1) 100%);border-radius:8px;border:1px solid #ffd700;text-align:center">
       <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">Votre code: <strong style="color:var(--accent)">${referralCode}</strong></div>
-      <div style="font-size:11px;color:var(--text-muted)">💰 5 parrainages = 10€ de crédit !</div>
+      <div style="font-size:11px;color:var(--text-muted)">💰 1 parrainage = 10€ de crédit !</div>
     </div>
     ` : `
     <div style="padding:12px;background:var(--bg-tertiary);border-radius:8px;text-align:center">
@@ -5319,7 +5319,7 @@ function showOrderSummary(orderData, orderId, discount = 0, notificationSent = f
               🎁 RÉCOMPENSES PARRAINAGE 🎁
             </h3>
             <p style="color:rgba(255,255,255,0.9);font-size:15px;margin-top:8px">
-              Tous les <strong>5 parrainages</strong> = <strong>10€</strong> de crédit !
+              <strong>1 parrainage</strong> = <strong>10€</strong> de crédit !
             </p>
           </div>
 
@@ -5328,7 +5328,7 @@ function showOrderSummary(orderData, orderId, discount = 0, notificationSent = f
           </div>
 
           <div id="referralProgressText" style="text-align:center;font-size:13px;color:rgba(255,255,255,0.9)">
-            0/5 parrainages pour le prochain bonus
+            Parrainez 1 ami = 10€ de crédit !
           </div>
         </div>
       </div>
@@ -5537,22 +5537,21 @@ async function fetchAndDisplayReferralProgress(customerContact) {
 
     if (data.ok && data.exists) {
       const totalReferrals = data.totalReferrals || 0;
-      const progressInCycle = totalReferrals % 5;
-      const progressPercent = (progressInCycle / 5) * 100;
+      const creditBalance = data.creditBalance || 0;
 
-      // Update progress bar
+      // Update progress bar (100% si au moins 1 parrainage)
       const progressBar = document.querySelector('#referralProgressBar > div');
       if (progressBar) {
-        progressBar.style.width = `${progressPercent}%`;
+        progressBar.style.width = totalReferrals > 0 ? '100%' : '0%';
       }
 
       // Update progress text
       const progressText = document.getElementById('referralProgressText');
       if (progressText) {
-        if (progressInCycle === 0 && totalReferrals > 0) {
-          progressText.textContent = `🎉 Bonus débloqué ! Prochain à ${totalReferrals + 5} parrainages`;
+        if (totalReferrals > 0) {
+          progressText.textContent = `🎉 ${totalReferrals} parrainage${totalReferrals > 1 ? 's' : ''} = ${totalReferrals * 10}€ gagnés ! Solde : ${creditBalance}€`;
         } else {
-          progressText.textContent = `${progressInCycle}/5 parrainages pour le prochain bonus de 10€`;
+          progressText.textContent = `Parrainez 1 ami = 10€ de crédit !`;
         }
       }
     }

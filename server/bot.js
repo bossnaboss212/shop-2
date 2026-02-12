@@ -865,12 +865,14 @@ Parrainez vos amis et gagnez du crédit !
 
 <b>🎯 Comment ça marche :</b>
 1. Partagez votre code de parrainage
-2. Vos amis passent commande avec votre code
-3. Au bout de <b>5 parrainages</b>, vous gagnez <b>10€</b> de crédit !
+2. Votre ami passe commande avec votre code
+3. Vous gagnez <b>10€</b> de crédit sur votre prochaine commande !
+
+<b>💰 1 parrainage = 10€ de réduction !</b>
+
+<b>🔄 Cumulable :</b> 2 parrainages = 20€, 3 = 30€, etc.
 
 <b>💡 Le filleul ne gagne rien</b>, sauf s'il parraine à son tour.
-
-<b>🔄 Cumulable :</b> 10 parrainages = 20€, 15 = 30€, etc.
 
 <i>Partagez votre code pour commencer à gagner !</i>`,
 
@@ -1259,12 +1261,7 @@ const MessageHandlers = {
         text += `\n• Crédits gagnés : ${data.totalEarned || 0}€`;
         text += `\n• Solde actuel : ${data.creditBalance || 0}€`;
 
-        const refs = data.totalReferrals || 0;
-        const remaining = 5 - (refs % 5);
-        const progressText = remaining === 5 && refs > 0
-          ? 'Bonus débloqué !'
-          : `${refs % 5}/5 pour le prochain bonus`;
-        text += `\n• Progression : ${progressText}`;
+        text += `\n• Prochain parrainage : +10€ de crédit`;
       }
 
       await TelegramAPI.sendMessage(chatId, text, Keyboards.parrainage);

@@ -1669,9 +1669,8 @@ async function applyReferralCredits(referrerCode, newCustomer, orderId) {
     return { referrerCredit: 0, referredCredit: 0 };
   }
 
-  // Système : 10€ pour le parrain tous les 5 filleuls, 0€ pour le filleul
-  const REFERRAL_MILESTONE = 5;
-  const MILESTONE_REWARD = 10; // 10€
+  // Système : 10€ pour le parrain à chaque filleul parrainé
+  const REFERRAL_REWARD = 10; // 10€ par parrainage
 
   // Transaction IMMEDIATE pour empêcher les doublons de parrainage en cas de requêtes concurrentes
   await db.run('BEGIN IMMEDIATE');
@@ -1691,9 +1690,8 @@ async function applyReferralCredits(referrerCode, newCustomer, orderId) {
     const totalReferrals = referrer.total_referrals || 0;
     const newTotalReferrals = totalReferrals + 1;
 
-    // Vérifier si le parrain atteint un palier de 5 filleuls
-    const hitMilestone = newTotalReferrals % REFERRAL_MILESTONE === 0;
-    const referrerCredit = hitMilestone ? MILESTONE_REWARD : 0;
+    // Chaque parrainage donne 10€ de crédit (cumulable)
+    const referrerCredit = REFERRAL_REWARD;
 
     // Incrémenter le compteur de parrainages
     await db.run(
@@ -1702,7 +1700,7 @@ async function applyReferralCredits(referrerCode, newCustomer, orderId) {
            total_referrals = total_referrals + 1,
            total_earned = total_earned + ?
        WHERE referral_code = ?`,
-      [referrerCredit, referrerCredit, referrerCode]
+      [newBalance, referrerCredit, referrerCode]
     );
 
     // Créer le code de parrainage pour le nouveau client (pour qu'il puisse parrainer à son tour)
@@ -1724,18 +1722,16 @@ async function applyReferralCredits(referrerCode, newCustomer, orderId) {
 
     console.log(`✅ Referral applied: ${referrer.customer_contact} → ${newCustomer} (parrain: ${referrerCredit}€, filleul: 0€, total: ${newTotalReferrals})`);
 
-    // Notification de palier atteint (hors transaction)
-    if (hitMilestone) {
-      await notifyReferralMilestone(referrer.customer_contact, newTotalReferrals, MILESTONE_REWARD).catch(err =>
-        console.error('Referral milestone notification error:', err.message)
-      );
-    }
+    // Notification au parrain (hors transaction)
+    await notifyReferralMilestone(referrer.customer_contact, newTotalReferrals, REFERRAL_REWARD).catch(err =>
+      console.error('Referral notification error:', err.message)
+    );
 
     return {
       referrerCredit,
       referredCredit: 0,
       referrerContact: referrer.customer_contact,
-      hitMilestone,
+      hitMilestone: true,
       newTotalReferrals
     };
   } catch (err) {
