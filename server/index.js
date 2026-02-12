@@ -1965,74 +1965,23 @@ ${order.discount > 0 ? `🎁 Remise fidélité: -${order.discount}€\n` : ''}�
     await notifyAdmins(adminMessage);
   }
   
-  // ==================== NOTIFICATIONS LIVREUR DÉSACTIVÉES ====================
-  // Le livreur doit recevoir les commandes UNIQUEMENT via le bot (bot.js)
-  // Les notifications directes sont désactivées ci-dessous
-
+  // ==================== NOTIFICATION LIVREUR AUTO ====================
   if (driverInfo.driverId) {
-    // ⚠️ NOTIFICATION DIRECTE DÉSACTIVÉE - Le livreur reçoit via bot.js uniquement
-    /*
-    const allPendingOrders = await db.all(
-      "SELECT * FROM orders WHERE status = 'pending' AND assigned_driver_zone = ? ORDER BY created_at ASC",
-      [driverInfo.zone]
-    );
-
-    const orderPosition = allPendingOrders.findIndex(o => o.id === order.id) + 1;
-    const totalPending = allPendingOrders.length;
-
-    let driverMessage = `🚚 <b>NOUVELLE COMMANDE #${order.id}</b>
-
-🔢 <b>Position: ${orderPosition}/${totalPending}</b> ${orderPosition === 1 ? '⚡ PRIORITÉ' : ''}
-
-📍 Type: ${order.type}
-🏠 Adresse: ${order.address || 'Sur place'}
-💰 Total à encaisser: ${order.total}€
-📦 ${items.length} article(s)
-
-${items.map(item => `• ${item.name} - ${item.variant} ×${item.qty}`).join('\n')}
-
-🎭 <b>Client: Anonyme</b>
-💬 <b>Communication: Via le bot uniquement</b>
-
-⏰ Reçue: ${new Date(order.created_at).toLocaleString('fr-FR')}`;
-
-    if (totalPending > 1) {
-      driverMessage += `\n\n━━━━━━━━━━━━━━━━━━━
-📋 <b>TOUTES VOS COMMANDES (${totalPending})</b>\n`;
-
-      allPendingOrders.forEach((o, index) => {
-        const emoji = index === 0 ? '⚡' : (index + 1).toString() + '️⃣';
-        const highlight = o.id === order.id ? ' 🆕' : '';
-        driverMessage += `\n${emoji} #${o.id} - ${o.total}€${highlight}`;
-      });
-    }
-
-    const keyboard = {
-      inline_keyboard: [
-        [{ text: '🚀 START - DÉMARRER', callback_data: `start_delivery_${order.id}` }],
-        [{ text: '💬 Contacter le client', callback_data: `contact_client_${order.id}` }],
-        [{ text: '📋 Voir toutes mes livraisons', callback_data: `my_deliveries_${driverInfo.zone}` }],
-        [{ text: '❌ Refuser', callback_data: `refuse_delivery_${order.id}` }]
-      ]
-    };
-
-    await telegram.sendMessage(driverInfo.driverId, driverMessage, { reply_markup: keyboard });
-
-    // Créer la conversation (sans l'activer encore)
-    const clientTelegramId = order.client_telegram_id || await getClientTelegramId(order.customer);
-    if (clientTelegramId) {
-      chatManager.createConversation(order.id, driverInfo.driverId, clientTelegramId);
-    }
-    */
-
-    // Mise à jour de la zone du livreur (conservée)
+    // Assigner la zone
     await db.run(
       'UPDATE orders SET assigned_driver_zone = ? WHERE id = ?',
       [driverInfo.zone, order.id]
     );
 
-    console.log(`📦 Commande #${order.id} assignée à ${driverInfo.driverName} (${driverInfo.zone})`);
-    console.log(`ℹ️  Le livreur recevra la notification via le bot uniquement`);
+    // Envoyer la liste actualisée au livreur automatiquement
+    try {
+      await telegram.sendMessage(driverInfo.driverId, `🔔 <b>NOUVELLE COMMANDE #${order.id}</b> reçue !`);
+      await sendDetailedDriverDeliveries(driverInfo.driverId, driverInfo.zone);
+    } catch (err) {
+      console.error(`❌ Erreur notification livreur:`, err.message);
+    }
+
+    console.log(`📦 Commande #${order.id} assignée à ${driverInfo.driverName} (${driverInfo.zone}) - livreur notifié`);
   }
 }
 
@@ -3090,30 +3039,87 @@ app.get('/api/customer/orders', customerOrdersLimiter, async (req, res) => {
   }
 });
 
+// ═══════════════════════════════════════════════════════════════════════════
+// SYSTÈME DE PRIORITÉ DES COMMANDES
+// 1 = URGENT (rouge)  : programmé < 30 min OU ASAP > 45 min d'attente
+// 2 = HAUTE  (orange) : programmé < 1h OU ASAP > 20 min d'attente
+// 3 = NORMALE (bleu)  : commandes récentes
+// 4 = BASSE  (gris)   : déjà livrées / annulées / programmées loin
+// ═══════════════════════════════════════════════════════════════════════════
+function calculateOrderPriority(order) {
+  // Commandes terminées = priorité basse
+  if (order.status === 'delivered' || order.status === 'cancelled') {
+    return { level: 4, label: 'Terminée', emoji: '✅' };
+  }
+
+  const now = new Date();
+  const orderDate = new Date(order.created_at);
+  const waitingMinutes = (now - orderDate) / 60000;
+
+  // Commande en cours de livraison
+  if (order.status === 'en_route') {
+    return { level: 2, label: 'En route', emoji: '🚚' };
+  }
+
+  // Commandes programmées (pas ASAP)
+  if (order.time_slot && order.time_slot !== 'asap') {
+    const [hours, minutes] = order.time_slot.split(':').map(Number);
+    let targetDate;
+    if (order.time_slot === '00:00') {
+      targetDate = new Date(orderDate.getFullYear(), orderDate.getMonth(), orderDate.getDate(), 23, 59, 0);
+    } else {
+      targetDate = new Date(orderDate.getFullYear(), orderDate.getMonth(), orderDate.getDate(), hours, minutes, 0);
+    }
+    const minutesLeft = (targetDate - now) / 60000;
+
+    // Créneau dépassé ou imminent (≤15 min) = IMMÉDIAT → passe devant TOUT
+    if (minutesLeft <= 15) {
+      return { level: 0, label: `IMMÉDIAT (${order.time_slot})`, emoji: '⚡' };
+    }
+    if (minutesLeft <= 30) {
+      return { level: 1, label: `URGENT (${order.time_slot})`, emoji: '🔴' };
+    }
+    if (minutesLeft <= 60) {
+      return { level: 2, label: `Bientôt (${order.time_slot})`, emoji: '🟠' };
+    }
+    return { level: 3, label: `Programmé ${order.time_slot}`, emoji: '🔵' };
+  }
+
+  // Commandes ASAP
+  if (waitingMinutes > 45) {
+    return { level: 1, label: `URGENT (${Math.round(waitingMinutes)} min)`, emoji: '🔴' };
+  }
+  if (waitingMinutes > 20) {
+    return { level: 2, label: `${Math.round(waitingMinutes)} min`, emoji: '🟠' };
+  }
+  return { level: 3, label: 'Récente', emoji: '🟢' };
+}
+
 app.get('/api/admin/orders', requireAdmin, async (req, res) => {
   try {
     const { status, limit = 100 } = req.query;
     let query = 'SELECT * FROM orders';
     const params = [];
-    
+
     if (status && status !== 'all') {
       query += ' WHERE status = ?';
       params.push(status);
     }
-    
+
     query += ' ORDER BY created_at DESC LIMIT ?';
     params.push(Math.min(parseInt(limit), 500));
-    
+
     const orders = await db.all(query, params);
-    
+
     orders.forEach(order => {
       try {
         order.items = JSON.parse(order.items);
       } catch (e) {
         order.items = [];
       }
+      order.priority = calculateOrderPriority(order);
     });
-    
+
     res.json({ ok: true, orders });
   } catch (error) {
     console.error('Orders error:', error);
@@ -4408,8 +4414,10 @@ function getPermanentKeyboard(chatId) {
     return {
       keyboard: [
         [{ text: '📋 Mes Livraisons' }],
-        [{ text: '📊 Mes Stats' }, { text: '💰 Caisse' }],
+        [{ text: '📊 Mes Stats' }],
+        [{ text: '💰 Caisse' }],
         [{ text: '🛍️ Boutique', web_app: { url: `${config.webapp.url}/clear-cache.html` } }],
+        [{ text: '💬 Support' }],
         [{ text: '❓ Aide' }]
       ],
       resize_keyboard: true,
@@ -5284,6 +5292,9 @@ async function handleTelegramMessage(message) {
     return;
   } else if (text === '💰 Caisse') {
     await sendDriverCaisse(chatId);
+    return;
+  } else if (text === '💬 Support') {
+    await sendSupportMessage(chatId);
     return;
   } else if (text === '❓ Aide') {
     await sendHelpMessage(chatId);
@@ -6496,81 +6507,88 @@ async function sendDetailedDriverDeliveries(chatId, driverZone) {
     "SELECT * FROM orders WHERE status = 'pending' AND assigned_driver_zone = ? ORDER BY created_at ASC",
     [driverZone]
   );
-  
+
   const enRouteOrders = await db.all(
     "SELECT * FROM orders WHERE status = 'en_route' AND assigned_driver_zone = ? ORDER BY created_at ASC",
     [driverZone]
   );
-  
+
   const totalOrders = pendingOrders.length + enRouteOrders.length;
-  
+
   if (totalOrders === 0) {
     await telegram.sendMessage(chatId, `📭 <b>Aucune livraison en cours</b>\n\nZone : ${driverZone.toUpperCase()}\n\nProfitez de votre pause ! 😎`);
     return;
   }
-  
+
+  // Trier les commandes en attente par priorité
+  pendingOrders.forEach(o => { o.priority = calculateOrderPriority(o); });
+  pendingOrders.sort((a, b) => a.priority.level - b.priority.level || new Date(a.created_at) - new Date(b.created_at));
+
   let message = `🚚 <b>VOS LIVRAISONS (${driverZone.toUpperCase()})</b>\n`;
   message += `📊 Total: ${totalOrders} commande(s)\n`;
   message += `━━━━━━━━━━━━━━━━━━━\n\n`;
-  
+
   if (enRouteOrders.length > 0) {
     message += `🚀 <b>EN COURS DE LIVRAISON (${enRouteOrders.length})</b>\n\n`;
-    
+
     enRouteOrders.forEach((order, index) => {
       const items = JSON.parse(order.items || '[]');
       const timeAgo = getTimeAgo(order.created_at);
-      
+
       message += `🚀 <b>#${order.id}</b> ${index === 0 ? '⚡ PRIORITÉ' : ''}\n`;
       message += `📍 ${order.address}\n`;
+      if (order.customer_description) message += `🧍 ${order.customer_description}\n`;
       message += `💰 ${order.total}€ | 📦 ${items.length} article(s)\n`;
       if (order.delivery_time) {
         message += `⏱️ ETA: ${order.delivery_time} min\n`;
       }
       message += `🕐 ${timeAgo}\n\n`;
     });
-    
+
     message += `━━━━━━━━━━━━━━━━━━━\n\n`;
   }
-  
+
   if (pendingOrders.length > 0) {
     message += `⏳ <b>EN ATTENTE (${pendingOrders.length})</b>\n`;
-    message += `<i>Ordre de priorité (du plus ancien au plus récent)</i>\n\n`;
-    
+    message += `<i>Trié par priorité : 🔴 urgent → 🟢 normal</i>\n\n`;
+
     pendingOrders.forEach((order, index) => {
       const items = JSON.parse(order.items || '[]');
       const timeAgo = getTimeAgo(order.created_at);
-      const priorityEmoji = index === 0 ? '⚡' : (index + 1).toString() + '️⃣';
-      
-      message += `${priorityEmoji} <b>#${order.id}</b>${index === 0 ? ' ⚡ À FAIRE EN PREMIER' : ''}\n`;
+      const p = order.priority;
+
+      message += `${p.emoji} <b>#${order.id}</b> - ${p.label}${index === 0 ? ' ⚡ À FAIRE EN PREMIER' : ''}\n`;
       message += `📍 ${order.address}\n`;
+      if (order.customer_description) message += `🧍 ${order.customer_description}\n`;
       message += `💰 ${order.total}€ | 📦 ${items.length} article(s)\n`;
-      message += `🕐 ${timeAgo}\n\n`;
+      if (order.time_slot && order.time_slot !== 'asap') message += `🕐 Prévu à ${order.time_slot}\n`;
+      message += `⏳ ${timeAgo}\n\n`;
     });
   }
-  
+
   message += `━━━━━━━━━━━━━━━━━━━\n`;
-  message += `💡 <i>Les commandes les plus anciennes sont prioritaires</i>`;
-  
+  message += `💡 <i>🔴 Urgent  🟠 Bientôt  🟢 Normal</i>`;
+
   const keyboard = {
     inline_keyboard: []
   };
-  
+
   if (pendingOrders.length > 0) {
     keyboard.inline_keyboard.push([
-      { text: `🚀 START #${pendingOrders[0].id}`, callback_data: `start_delivery_${pendingOrders[0].id}` }
+      { text: `🚀 START #${pendingOrders[0].id} (${pendingOrders[0].priority.emoji})`, callback_data: `start_delivery_${pendingOrders[0].id}` }
     ]);
   }
-  
+
   if (enRouteOrders.length > 0) {
     keyboard.inline_keyboard.push([
       { text: `✅ TERMINER #${enRouteOrders[0].id}`, callback_data: `complete_delivery_${enRouteOrders[0].id}` }
     ]);
   }
-  
+
   keyboard.inline_keyboard.push([
     { text: '🔄 Actualiser', callback_data: `my_deliveries_${driverZone}` }
   ]);
-  
+
   await telegram.sendMessage(chatId, message, { reply_markup: keyboard });
 }
 
@@ -6822,21 +6840,25 @@ async function startDelivery(chatId, orderId, estimatedTime) {
 
 ⏱️ Temps estimé : ${estimatedTime} minutes
 📍 ${order.address}
-💰 ${order.total}€
+${order.customer_description ? `🧍 ${order.customer_description}\n` : ''}💰 ${order.total}€
 
 🎭 <b>Client : Anonyme</b>
 💬 Utilisez le bouton "Contacter" pour envoyer un message`;
 
+  // Trier les commandes restantes par priorité
+  remainingOrders.forEach(o => { o.priority = calculateOrderPriority(o); });
+  remainingOrders.sort((a, b) => a.priority.level - b.priority.level || new Date(a.created_at) - new Date(b.created_at));
+
   if (remainingOrders.length > 0) {
     message += `\n\n━━━━━━━━━━━━━━━━━━━
 📋 <b>COMMANDES EN ATTENTE (${remainingOrders.length})</b>
-<i>À faire après celle-ci :</i>\n`;
-    
+<i>Par priorité :</i>\n`;
+
     remainingOrders.slice(0, 5).forEach((o, index) => {
-      const emoji = index === 0 ? '⚡' : (index + 1).toString() + '️⃣';
-      message += `\n${emoji} #${o.id} - ${o.total}€`;
+      const p = o.priority;
+      message += `\n${p.emoji} #${o.id} - ${o.total}€ - ${p.label}`;
     });
-    
+
     if (remainingOrders.length > 5) {
       message += `\n\n... et ${remainingOrders.length - 5} autre(s)`;
     }
@@ -7218,11 +7240,26 @@ Le client ne peut plus commander.`;
     
     if (config.telegram.supportChatId) {
       await telegram.sendMessage(
-        config.telegram.supportChatId, 
+        config.telegram.supportChatId,
         `🚫 Client ${contact} bloqué par l'admin`
       );
     }
-    
+
+    // Actualiser la liste des livreurs concernés
+    if (cancelledOrders.length > 0) {
+      const zones = [...new Set(cancelledOrders.map(o => o.assigned_driver_zone).filter(Boolean))];
+      for (const zone of zones) {
+        const driverIdKey = zone === 'millau' ? 'driverMillauId' : 'driverExterieurId';
+        const driverId = config.telegram[driverIdKey];
+        if (driverId) {
+          try {
+            await telegram.sendMessage(driverId, `🚫 ${cancelledOrders.length} commande(s) annulée(s) (client bloqué)`);
+            await sendDetailedDriverDeliveries(driverId, zone);
+          } catch (err) { console.error('Driver refresh error:', err.message); }
+        }
+      }
+    }
+
     console.log(`🚫 Customer ${contact} blocked from Telegram (order #${orderId})`);
   } catch (error) {
     console.error('Block customer error:', error);
