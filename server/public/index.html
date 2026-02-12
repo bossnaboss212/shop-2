@@ -2900,7 +2900,8 @@ const SyncManager = {
           total: orderData.total,
           referralCode: orderData.referralCode || '',
           useCredit: orderData.useCredit || false,
-          telegramId: String(telegramUser?.id || '')
+          telegramId: String(telegramUser?.id || ''),
+          timeSlot: orderData.timeSlot || 'asap'
         })
       });
 
@@ -3732,6 +3733,8 @@ let selectedVariant = null;
 let quantity = 1;
 let selectedDelivery = 'millau';
 let selectedHousingType = '';
+let selectedTimeSlot = '';
+let selectedDeliveryTime = '12:00';
 
 // Configuration des zones de livraison
 const DELIVERY_ZONES = {
@@ -4768,6 +4771,32 @@ function renderCart() {
       </label>
     </div>
 
+    <div style="margin-top:20px">
+      <div class="cart-section-title">🕐 Heure de livraison souhaitée</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">Livraisons disponibles de 12h à 00h</div>
+      <label class="cart-radio-option">
+        <input type="radio" name="timeSlot" value="asap" ${selectedTimeSlot === 'asap' || !selectedTimeSlot ? 'checked' : ''}>
+        <span>⚡ Dès que possible</span>
+      </label>
+      <label class="cart-radio-option">
+        <input type="radio" name="timeSlot" value="custom" ${selectedTimeSlot === 'custom' ? 'checked' : ''}>
+        <span>🕐 Choisir une heure</span>
+      </label>
+      <div id="customTimeBlock" style="display:${selectedTimeSlot === 'custom' ? 'block' : 'none'};margin-top:10px;padding:0 8px">
+        <select class="input-field" id="deliveryHourSelect" style="margin:0">
+          ${(() => {
+            let opts = '';
+            for (let h = 12; h <= 23; h++) {
+              opts += '<option value="' + String(h).padStart(2,'0') + ':00"' + (selectedDeliveryTime === String(h).padStart(2,'0') + ':00' ? ' selected' : '') + '>' + String(h).padStart(2,'0') + ':00</option>';
+              opts += '<option value="' + String(h).padStart(2,'0') + ':30"' + (selectedDeliveryTime === String(h).padStart(2,'0') + ':30' ? ' selected' : '') + '>' + String(h).padStart(2,'0') + ':30</option>';
+            }
+            opts += '<option value="00:00"' + (selectedDeliveryTime === '00:00' ? ' selected' : '') + '>00:00</option>';
+            return opts;
+          })()}
+        </select>
+      </div>
+    </div>
+
     <div class="referral-input-section" style="margin-top:20px">
       <div class="cart-section-title">🎁 Code de parrainage (optionnel)</div>
       <div class="promo-input-wrapper">
@@ -4819,6 +4848,23 @@ function renderCart() {
       selectedHousingType = this.value;
     };
   });
+
+  // Time slot radios
+  content.querySelectorAll('input[name="timeSlot"]').forEach(radio => {
+    radio.onchange = function() {
+      selectedTimeSlot = this.value;
+      const customBlock = document.getElementById('customTimeBlock');
+      if (customBlock) customBlock.style.display = this.value === 'custom' ? 'block' : 'none';
+    };
+  });
+
+  // Delivery hour select
+  const hourSelect = content.querySelector('#deliveryHourSelect');
+  if (hourSelect) {
+    hourSelect.onchange = function() {
+      selectedDeliveryTime = this.value;
+    };
+  }
 
   // Credit checkbox
   const useCreditCheckbox = content.querySelector('#useCreditCheckbox');
@@ -5064,7 +5110,8 @@ async function validateOrder() {
       items: items,
       total: total,
       referralCode: referralCode,
-      useCredit: useCreditEnabled
+      useCredit: useCreditEnabled,
+      timeSlot: selectedTimeSlot === 'custom' ? selectedDeliveryTime : 'asap'
     };
 
     // Créer la commande via SyncManager (attend la réponse serveur)
@@ -5119,13 +5166,18 @@ async function validateOrder() {
   }
 }
 
+function getTimeSlotLabel(slot) {
+  if (slot === 'asap' || !slot) return '⚡ Dès que possible';
+  return '🕐 ' + slot;
+}
+
 function createOrderMessage(orderData, orderId, totalAmount) {
   const deliveryEmoji = orderData.type === 'Meetup' ? '🤝' : '🚚';
-  
-  const items = orderData.items.map(item => 
+
+  const items = orderData.items.map(item =>
     `${item.qty}x ${item.name} ${item.variant}`
   ).join('\n');
-  
+
   const message = `🆕 COMMANDE DROGUA CENTER
 
 📋 N° de commande: #${orderId}
@@ -5140,6 +5192,8 @@ ${orderData.type}
 
 📍 ADRESSE:
 ${orderData.address}
+
+🕐 CRÉNEAU: ${getTimeSlotLabel(orderData.timeSlot)}
 
 💰 MONTANT TOTAL: ${fmt(totalAmount)}
 
