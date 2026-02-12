@@ -137,10 +137,24 @@ app.use((req, res, next) => {
 // Pas de cache pour les fichiers HTML (éviter les versions périmées dans Telegram WebApp)
 app.use((req, res, next) => {
   if (req.path.endsWith('.html') || req.path === '/') {
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('Surrogate-Control', 'no-store');
   }
   next();
 });
+
+// Route dédiée pour admin.html avec cache-busting (Telegram WebApp cache agressivement)
+app.get('/admin.html', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.setHeader('Surrogate-Control', 'no-store');
+  res.setHeader('ETag', `"${Date.now()}"`);
+  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
@@ -4314,7 +4328,7 @@ function getPermanentKeyboard(chatId) {
         ],
         [
           { text: '📖 Comment Commander' },
-          { text: '🔐 Admin', web_app: { url: `${config.webapp.url}/admin.html` } }
+          { text: '🔐 Admin', web_app: { url: `${config.webapp.url}/admin.html?v=${Date.now()}` } }
         ]
       ],
       resize_keyboard: true,
@@ -5644,7 +5658,7 @@ async function sendAdminMessage(chatId) {
   const keyboard = {
     inline_keyboard: [
       [{ text: '🤖 Admin Bot (Annonces)', callback_data: 'adm_botpanel' }],
-      [{ text: '🔐 Dashboard Web (Stats, Stock)', web_app: { url: `${config.webapp.url}/admin.html` } }]
+      [{ text: '🔐 Dashboard Web (Stats, Stock)', web_app: { url: `${config.webapp.url}/admin.html?v=${Date.now()}` } }]
     ]
   };
   await telegram.sendMessage(chatId, text, { reply_markup: JSON.stringify(keyboard) });
