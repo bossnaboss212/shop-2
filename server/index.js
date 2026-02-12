@@ -4464,6 +4464,7 @@ function getPermanentKeyboard(chatId) {
         [{ text: '🔄 Actualiser' }],
         [{ text: '📊 Mes Stats' }],
         [{ text: '💰 Caisse' }],
+        [{ text: '🛍️ Boutique', web_app: { url: `${config.webapp.url}/clear-cache.html` } }],
         [{ text: '💬 Support' }],
         [{ text: '❓ Aide' }]
       ],
