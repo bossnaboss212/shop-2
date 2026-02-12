@@ -799,13 +799,25 @@ async function initDB() {
         }
       }
 
-      if (added > 0 || updated > 0) {
+      // Supprimer les produits qui ne sont plus dans DEFAULT_PRODUCTS
+      const defaultNames = DEFAULT_PRODUCTS.map(p => p.name.toUpperCase());
+      const beforeCount = existingProducts.length;
+      const cleanedProducts = existingProducts.filter(p => defaultNames.includes(p.name.toUpperCase()));
+      const removed = beforeCount - cleanedProducts.length;
+      if (removed > 0) {
+        existingProducts.length = 0;
+        cleanedProducts.forEach(p => existingProducts.push(p));
+        console.log(`🗑️ ${removed} ancien(s) produit(s) supprimé(s) de la base`);
+      }
+
+      if (added > 0 || updated > 0 || removed > 0) {
         await db.run(
           "UPDATE settings SET value = ? WHERE key = 'products'",
           JSON.stringify(existingProducts)
         );
         if (added > 0) console.log(`✅ ${added} nouveau(x) produit(s) ajouté(s) à la base`);
         if (updated > 0) console.log(`✅ ${updated} produit(s) mis à jour dans la base`);
+        if (removed > 0) console.log(`✅ Anciens produits nettoyés`);
       }
     } else {
       // No products in DB - seed with defaults
