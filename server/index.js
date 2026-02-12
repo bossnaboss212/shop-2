@@ -1834,14 +1834,8 @@ Tapez /parrainage pour voir vos stats 📈`;
 }
 
 function getTimeSlotLabel(slot) {
-  const labels = {
-    'asap': '⚡ Dès que possible',
-    'matin': '🌅 Matin (9h - 12h)',
-    'midi': '☀️ Midi (12h - 14h)',
-    'aprem': '🌤️ Après-midi (14h - 18h)',
-    'soir': '🌙 Soir (18h - 21h)'
-  };
-  return labels[slot] || labels['asap'];
+  if (slot === 'asap' || !slot) return '⚡ Dès que possible';
+  return '🕐 ' + slot;
 }
 
 async function notifyNewCustomerOrder(order, items, customerRecord) {
@@ -2420,8 +2414,15 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
 
     const sanitizedCustomer = sanitizeString(customer, 100);
     const sanitizedType = sanitizeString(type, 50);
-    const validSlots = ['asap', 'matin', 'midi', 'aprem', 'soir'];
-    const sanitizedTimeSlot = validSlots.includes(timeSlot) ? timeSlot : 'asap';
+    let sanitizedTimeSlot = 'asap';
+    if (timeSlot === 'asap') {
+      sanitizedTimeSlot = 'asap';
+    } else if (typeof timeSlot === 'string' && /^([01]\d|2[0-3]):(00|30)$/.test(timeSlot)) {
+      const h = parseInt(timeSlot.split(':')[0]);
+      if (h >= 12 || h === 0) sanitizedTimeSlot = timeSlot;
+    } else if (timeSlot === '00:00') {
+      sanitizedTimeSlot = '00:00';
+    }
     const sanitizedAddress = sanitizeString(address, 200);
 
     const blockedCustomer = await isCustomerBlocked(sanitizedCustomer);
