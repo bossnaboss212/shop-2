@@ -661,6 +661,11 @@ async function initDB() {
     CREATE INDEX IF NOT EXISTS idx_referral_history_order ON referral_history(order_id);
   `);
 
+  // Migration: ajouter time_slot aux commandes (idempotent)
+  try {
+    await db.run("ALTER TABLE orders ADD COLUMN time_slot TEXT DEFAULT 'asap'");
+  } catch (e) { /* colonne existe déjà */ }
+
   await db.run(`
     INSERT OR IGNORE INTO settings (key, value) VALUES
     ('shop_name', 'DROGUA CENTER'),
@@ -1828,6 +1833,17 @@ Tapez /parrainage pour voir vos stats 📈`;
   }
 }
 
+function getTimeSlotLabel(slot) {
+  const labels = {
+    'asap': '⚡ Dès que possible',
+    'matin': '🌅 Matin (9h - 12h)',
+    'midi': '☀️ Midi (12h - 14h)',
+    'aprem': '🌤️ Après-midi (14h - 18h)',
+    'soir': '🌙 Soir (18h - 21h)'
+  };
+  return labels[slot] || labels['asap'];
+}
+
 async function notifyNewCustomerOrder(order, items, customerRecord) {
   const displayName = await getCustomerDisplayName(order.customer);
   if (getAdminChatIds().length > 0) {
@@ -1840,6 +1856,7 @@ async function notifyNewCustomerOrder(order, items, customerRecord) {
 
 📍 Type: ${order.type}
 🏠 Adresse: ${order.address || 'Sur place'}
+🕐 Créneau: ${getTimeSlotLabel(order.time_slot)}
 
 📦 <b>Articles:</b>
 ${items.map(item => `• ${item.name} - ${item.variant} ×${item.qty} = ${item.lineTotal}€`).join('\n')}
@@ -1870,6 +1887,7 @@ ${items.map(item => `• ${item.name} - ${item.variant} ×${item.qty} = ${item.l
 📦 Commande #${order.id}
 👤 Client: ${displayName}
 💰 Total: ${order.total}€
+🕐 Créneau: ${getTimeSlotLabel(order.time_slot)}
 
 ⏳ En attente de validation admin`;
 
@@ -1887,6 +1905,7 @@ async function notifyNewOrder(order, items) {
 👤 Client: ${displayName}
 📍 Type: ${order.type}
 🏠 Adresse: ${order.address || 'Sur place'}
+🕐 Créneau: ${getTimeSlotLabel(order.time_slot)}
 💰 Total: ${order.total}€
 📦 Articles: ${items.length} produit(s)
 
@@ -1928,6 +1947,7 @@ async function notifyNewOrder(order, items) {
 
     adminMessage += `\n\n📍 Type: ${order.type}
 🏠 Adresse: ${order.address || 'Sur place'}
+🕐 Créneau: ${getTimeSlotLabel(order.time_slot)}
 
 📦 Articles:
 ${items.map(item => `• ${item.name} - ${item.variant} ×${item.qty} = ${item.lineTotal}€`).join('\n')}
@@ -2396,10 +2416,12 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
 
     validateOrderInput(req.body);
 
-    const { customer, customerName, type, address, items, total, referralCode, useCredit, telegramId } = req.body;
-    
+    const { customer, customerName, type, address, items, total, referralCode, useCredit, telegramId, timeSlot } = req.body;
+
     const sanitizedCustomer = sanitizeString(customer, 100);
     const sanitizedType = sanitizeString(type, 50);
+    const validSlots = ['asap', 'matin', 'midi', 'aprem', 'soir'];
+    const sanitizedTimeSlot = validSlots.includes(timeSlot) ? timeSlot : 'asap';
     const sanitizedAddress = sanitizeString(address, 200);
 
     const blockedCustomer = await isCustomerBlocked(sanitizedCustomer);
@@ -2515,9 +2537,9 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
 
       // 4. Créer la commande
       const result = await db.run(
-        `INSERT INTO orders (customer, type, address, items, total, discount, status, client_telegram_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [sanitizedCustomer, sanitizedType, sanitizedAddress, JSON.stringify(items), finalTotal, discount, orderStatus, clientTelegramId]
+        `INSERT INTO orders (customer, type, address, items, total, discount, status, client_telegram_id, time_slot)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [sanitizedCustomer, sanitizedType, sanitizedAddress, JSON.stringify(items), finalTotal, discount, orderStatus, clientTelegramId, sanitizedTimeSlot]
       );
       orderId = result.lastID;
 

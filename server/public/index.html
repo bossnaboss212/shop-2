@@ -2900,7 +2900,8 @@ const SyncManager = {
           total: orderData.total,
           referralCode: orderData.referralCode || '',
           useCredit: orderData.useCredit || false,
-          telegramId: String(telegramUser?.id || '')
+          telegramId: String(telegramUser?.id || ''),
+          timeSlot: orderData.timeSlot || 'asap'
         })
       });
 
@@ -3732,6 +3733,7 @@ let selectedVariant = null;
 let quantity = 1;
 let selectedDelivery = 'millau';
 let selectedHousingType = '';
+let selectedTimeSlot = '';
 
 // Configuration des zones de livraison
 const DELIVERY_ZONES = {
@@ -4768,6 +4770,30 @@ function renderCart() {
       </label>
     </div>
 
+    <div style="margin-top:20px">
+      <div class="cart-section-title">🕐 Créneau de livraison souhaité</div>
+      <label class="cart-radio-option">
+        <input type="radio" name="timeSlot" value="asap" ${selectedTimeSlot === 'asap' || !selectedTimeSlot ? 'checked' : ''}>
+        <span>⚡ Dès que possible</span>
+      </label>
+      <label class="cart-radio-option">
+        <input type="radio" name="timeSlot" value="matin" ${selectedTimeSlot === 'matin' ? 'checked' : ''}>
+        <span>🌅 Matin (9h - 12h)</span>
+      </label>
+      <label class="cart-radio-option">
+        <input type="radio" name="timeSlot" value="midi" ${selectedTimeSlot === 'midi' ? 'checked' : ''}>
+        <span>☀️ Midi (12h - 14h)</span>
+      </label>
+      <label class="cart-radio-option">
+        <input type="radio" name="timeSlot" value="aprem" ${selectedTimeSlot === 'aprem' ? 'checked' : ''}>
+        <span>🌤️ Après-midi (14h - 18h)</span>
+      </label>
+      <label class="cart-radio-option">
+        <input type="radio" name="timeSlot" value="soir" ${selectedTimeSlot === 'soir' ? 'checked' : ''}>
+        <span>🌙 Soir (18h - 21h)</span>
+      </label>
+    </div>
+
     <div class="referral-input-section" style="margin-top:20px">
       <div class="cart-section-title">🎁 Code de parrainage (optionnel)</div>
       <div class="promo-input-wrapper">
@@ -4817,6 +4843,13 @@ function renderCart() {
   content.querySelectorAll('input[name="housingType"]').forEach(radio => {
     radio.onchange = function() {
       selectedHousingType = this.value;
+    };
+  });
+
+  // Time slot radios
+  content.querySelectorAll('input[name="timeSlot"]').forEach(radio => {
+    radio.onchange = function() {
+      selectedTimeSlot = this.value;
     };
   });
 
@@ -5064,7 +5097,8 @@ async function validateOrder() {
       items: items,
       total: total,
       referralCode: referralCode,
-      useCredit: useCreditEnabled
+      useCredit: useCreditEnabled,
+      timeSlot: selectedTimeSlot || 'asap'
     };
 
     // Créer la commande via SyncManager (attend la réponse serveur)
@@ -5119,13 +5153,24 @@ async function validateOrder() {
   }
 }
 
+function getTimeSlotLabel(slot) {
+  const labels = {
+    'asap': '⚡ Dès que possible',
+    'matin': '🌅 Matin (9h - 12h)',
+    'midi': '☀️ Midi (12h - 14h)',
+    'aprem': '🌤️ Après-midi (14h - 18h)',
+    'soir': '🌙 Soir (18h - 21h)'
+  };
+  return labels[slot] || labels['asap'];
+}
+
 function createOrderMessage(orderData, orderId, totalAmount) {
   const deliveryEmoji = orderData.type === 'Meetup' ? '🤝' : '🚚';
-  
-  const items = orderData.items.map(item => 
+
+  const items = orderData.items.map(item =>
     `${item.qty}x ${item.name} ${item.variant}`
   ).join('\n');
-  
+
   const message = `🆕 COMMANDE DROGUA CENTER
 
 📋 N° de commande: #${orderId}
@@ -5140,6 +5185,8 @@ ${orderData.type}
 
 📍 ADRESSE:
 ${orderData.address}
+
+🕐 CRÉNEAU: ${getTimeSlotLabel(orderData.timeSlot)}
 
 💰 MONTANT TOTAL: ${fmt(totalAmount)}
 
