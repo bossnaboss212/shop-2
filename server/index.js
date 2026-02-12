@@ -661,9 +661,12 @@ async function initDB() {
     CREATE INDEX IF NOT EXISTS idx_referral_history_order ON referral_history(order_id);
   `);
 
-  // Migration: ajouter time_slot aux commandes (idempotent)
+  // Migrations (idempotent)
   try {
     await db.run("ALTER TABLE orders ADD COLUMN time_slot TEXT DEFAULT 'asap'");
+  } catch (e) { /* colonne existe déjà */ }
+  try {
+    await db.run("ALTER TABLE orders ADD COLUMN reminder_sent INTEGER DEFAULT 0");
   } catch (e) { /* colonne existe déjà */ }
 
   await db.run(`
@@ -5134,6 +5137,95 @@ async function runAnnouncementScheduler() {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// RAPPELS DE LIVRAISON PROGRAMMÉE (30 min avant l'heure choisie)
+// ═══════════════════════════════════════════════════════════════════════════
+async function checkDeliveryReminders() {
+  try {
+    // Récupérer les commandes programmées (pas 'asap') non livrées, rappel pas encore envoyé
+    const orders = await db.all(`
+      SELECT o.*, c.contact as customer_contact
+      FROM orders o
+      LEFT JOIN customers c ON c.contact = o.customer
+      WHERE o.time_slot != 'asap'
+        AND o.time_slot IS NOT NULL
+        AND o.reminder_sent = 0
+        AND o.status IN ('pending', 'pending_approval')
+    `);
+
+    if (orders.length === 0) return;
+
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
+
+    for (const order of orders) {
+      // Construire la date/heure de livraison prévue (aujourd'hui à l'heure choisie)
+      const orderDate = new Date(order.created_at);
+      const orderDateStr = orderDate.toISOString().split('T')[0];
+
+      // L'heure de livraison est pour le jour de la commande
+      // Si 00:00, c'est minuit (fin de journée de commande)
+      let targetDate;
+      if (order.time_slot === '00:00') {
+        targetDate = new Date(orderDateStr + 'T23:59:00');
+      } else {
+        targetDate = new Date(orderDateStr + 'T' + order.time_slot + ':00');
+      }
+
+      // Si la date cible est déjà passée de plus de 2h, marquer comme envoyé pour ne pas spammer
+      const diffMs = targetDate - now;
+      if (diffMs < -2 * 60 * 60 * 1000) {
+        await db.run('UPDATE orders SET reminder_sent = 1 WHERE id = ?', [order.id]);
+        continue;
+      }
+
+      // Envoyer le rappel 30 minutes avant
+      const thirtyMinMs = 30 * 60 * 1000;
+      if (diffMs <= thirtyMinMs && diffMs > -5 * 60 * 1000) {
+        // Envoyer le rappel
+        const displayName = await getCustomerDisplayName(order.customer);
+        const items = JSON.parse(order.items || '[]');
+        const itemsList = items.map(i => `• ${i.qty}x ${i.name} ${i.variant}`).join('\n');
+
+        const minutesLeft = Math.max(0, Math.round(diffMs / 60000));
+
+        const reminderMsg = `⏰ <b>RAPPEL LIVRAISON</b>
+
+📦 <b>Commande #${order.id}</b>
+👤 Client: ${displayName}
+🕐 Heure prévue: <b>${order.time_slot}</b>
+⏳ Dans <b>${minutesLeft} min</b>
+
+📍 ${order.type}
+🏠 ${order.address || 'Sur place'}
+
+${itemsList}
+
+💰 Total: ${order.total}€`;
+
+        await notifyAdmins(reminderMsg);
+
+        // Marquer le rappel comme envoyé
+        await db.run('UPDATE orders SET reminder_sent = 1 WHERE id = ?', [order.id]);
+        console.log(`⏰ Rappel envoyé pour commande #${order.id} (livraison à ${order.time_slot})`);
+      }
+    }
+  } catch (err) {
+    console.error('❌ Delivery reminder error:', err.message);
+  }
+}
+
+function startDeliveryReminderScheduler() {
+  setInterval(async () => {
+    try {
+      await checkDeliveryReminders();
+    } catch (err) {
+      console.error('❌ Delivery reminder scheduler error:', err.message);
+    }
+  }, 60 * 1000); // Vérifie toutes les minutes
+  console.log('⏰ Delivery reminder scheduler started (60s interval)');
+}
+
 // Démarrer le scheduler (vérifie toutes les 30 secondes)
 function startAnnouncementScheduler() {
   setInterval(async () => {
@@ -7533,8 +7625,9 @@ async function start() {
       console.log(`   Canal Secours: ${config.telegram.secoursChannelId ? '✅' : '❌'}`);
       console.log('💬 Chat System: ✅ Enabled');
 
-      // Démarrer le scheduler d'annonces
+      // Démarrer les schedulers
       startAnnouncementScheduler();
+      startDeliveryReminderScheduler();
 
       console.log('🚀 ================================');
     });
