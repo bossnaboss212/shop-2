@@ -864,8 +864,8 @@ Passez commande en ligne, elle sera traitée dès l'ouverture !`,
 Parrainez vos amis et gagnez du crédit !
 
 <b>🎯 Comment ça marche :</b>
-1. Partagez votre code de parrainage
-2. Votre ami passe commande avec votre code
+1. Partagez votre <b>ID Telegram</b> (votre code de parrainage)
+2. Votre ami entre votre ID lors de sa commande
 3. Vous gagnez <b>10€</b> de crédit sur votre prochaine commande !
 
 <b>💰 1 parrainage = 10€ de réduction !</b>
@@ -874,7 +874,7 @@ Parrainez vos amis et gagnez du crédit !
 
 <b>💡 Le filleul ne gagne rien</b>, sauf s'il parraine à son tour.
 
-<i>Partagez votre code pour commencer à gagner !</i>`,
+<i>Partagez votre ID pour commencer à gagner !</i>`,
 
   fidelite: `🎁 <b>PROGRAMME DE FIDÉLITÉ</b>
 
@@ -1256,7 +1256,7 @@ const MessageHandlers = {
       if (data && data.ok && data.exists) {
         text += `\n\n━━━━━━━━━━━━━━━━━━━━━━`;
         text += `\n\n<b>📊 Vos stats de parrainage :</b>`;
-        text += `\n• Code : <code>${data.code}</code>`;
+        text += `\n• Votre ID : <code>${telegramId}</code>`;
         text += `\n• Parrainages : ${data.totalReferrals || 0}`;
         text += `\n• Crédits gagnés : ${data.totalEarned || 0}€`;
         text += `\n• Solde actuel : ${data.creditBalance || 0}€`;
