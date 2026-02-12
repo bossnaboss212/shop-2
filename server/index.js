@@ -4461,7 +4461,6 @@ function getPermanentKeyboard(chatId) {
     return {
       keyboard: [
         [{ text: '📋 Mes Livraisons' }],
-        [{ text: '🔄 Actualiser' }],
         [{ text: '📊 Mes Stats' }],
         [{ text: '💰 Caisse' }],
         [{ text: '🛍️ Boutique', web_app: { url: `${config.webapp.url}/clear-cache.html` } }],
@@ -5332,7 +5331,7 @@ async function handleTelegramMessage(message) {
   } else if (text === '🔐 Admin') {
     await sendAdminMessage(chatId);
     return;
-  } else if (text === '📋 Mes Livraisons' || text === '🔄 Actualiser') {
+  } else if (text === '📋 Mes Livraisons') {
     await sendDriverDeliveries(chatId);
     return;
   } else if (text === '📊 Mes Stats') {
