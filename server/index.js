@@ -742,6 +742,18 @@ async function initDB() {
       description: "Direct du Maroc \u{1F1F2}\u{1F1E6}, pure et puissante \u{1F48E}\nCouleur dorée, texture mousseuse, effet smooth et velouté \u{1F60C}\nChaque bouffée frappe fort… intense, raffinée, et 100 % WOW \u2728\nPour les connaisseurs qui veulent du haut de gamme qui se remarque \u{1F451}\u{1F49B}",
       video: '/videos/piink_kush.MOV',
       variants: { '4G': { price: 20, grams: 4, stock: 999 }, '6.5G': { price: 30, grams: 6.5, stock: 999 }, '12G': { price: 50, grams: 12, stock: 999 }, '50G': { price: 180, grams: 50, stock: 999 }, '100G': { price: 350, grams: 100, stock: 999 } }
+    },
+    {
+      id: 11, name: 'ORIGINAL STATIC', category: 'frozen',
+      description: "Ce produit d'une qualité RARISSIME, un goût INOUBLIABLE vous procurera des effets MÉMORABLES.\n\nCurer a 100% muter à 100% qualités Universal \u{1F440}",
+      video: '/videos/original_static.MP4',
+      variants: { '1.5G': { price: 20, grams: 1.5, stock: 999 }, '3G': { price: 40, grams: 3, stock: 999 }, '5G': { price: 60, grams: 5, stock: 999 }, '10G': { price: 110, grams: 10, stock: 999 } }
+    },
+    {
+      id: 12, name: 'PANDA KAKE \u{1F43C}', category: 'cali',
+      description: "\u{1F43C}\u{1F370}     PANDA-CAKE     \u{1F370}\u{1F43C}\n\n\u{1F1FA}\u{1F1F8} CALI-US \u{1F1FA}\u{1F1F8}\n\nQuality's : \u{1F31F}\u{1F31F}\u{1F31F}\u{1F31F}\u{1F31F}\n\nVenu tout droit de Californie notre PANDA-CAKE fait son apparition dans notre shop.",
+      video: '/videos/panda_kake.MP4',
+      variants: { '1.8G': { price: 20, grams: 1.8, stock: 999 }, '3.6G': { price: 40, grams: 3.6, stock: 999 }, '5G': { price: 50, grams: 5, stock: 999 }, '10G': { price: 100, grams: 10, stock: 999 } }
     }
   ];
 
