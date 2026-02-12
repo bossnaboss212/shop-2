@@ -1581,6 +1581,43 @@ const CallbackHandlers = {
 };
 
 // ============================================================
+// NORMALISATION DES COMMANDES
+// ============================================================
+// Gère les variantes de saisie : accents, majuscules, singulier/pluriel
+function normalizeCommand(text) {
+  if (!text.startsWith('/')) return text;
+
+  const cmd = text.toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // supprime les accents
+    .replace(/[^a-z/]/g, ''); // garde que lettres et /
+
+  // Mapping des variantes vers les commandes exactes
+  const aliases = {
+    '/fidelite': '/fidelite',
+    '/fidélité': '/fidelite',
+    '/horaire': '/horaires',
+    '/horaires': '/horaires',
+    '/tuto': '/tuto',
+    '/tutoriel': '/tutoriel',
+    '/catalogue': '/catalogue',
+    '/catalog': '/catalogue',
+    '/status': '/status',
+    '/statut': '/status',
+    '/parrainage': '/parrainage',
+    '/boutique': '/boutique',
+    '/shop': '/shop',
+    '/start': '/start',
+    '/help': '/help',
+    '/aide': '/aide',
+    '/admin': '/admin',
+    '/keyboard': '/keyboard',
+    '/orders': '/orders',
+  };
+
+  return aliases[cmd] || cmd;
+}
+
+// ============================================================
 // WEBHOOK ENDPOINT
 // ============================================================
 app.post(`/bot${CONFIG.BOT_TOKEN}`, async (req, res) => {
@@ -1594,7 +1631,7 @@ app.post(`/bot${CONFIG.BOT_TOKEN}`, async (req, res) => {
       const firstName = message.from.first_name || 'Client';
       const telegramId = String(message.from.id);
 
-      const handler = MessageHandlers[text];
+      const handler = MessageHandlers[text] || MessageHandlers[normalizeCommand(text)];
       if (handler) {
         await handler(chatId, firstName, telegramId);
       } else {
