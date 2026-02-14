@@ -5773,6 +5773,8 @@ async function sendWelcomeMessage(chatId, firstName) {
 
 Votre boutique premium accessible directement depuis Telegram.
 
+<b>🆔 Votre ID Telegram :</b> <code>${chatId}</code>
+
 <b>🛍️ Utilisez le menu en bas pour naviguer</b>
 
 <b>🎁 PROGRAMME DE PARRAINAGE :</b>
