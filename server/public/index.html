@@ -2910,7 +2910,8 @@ const SyncManager = {
           referralCode: orderData.referralCode || '',
           useCredit: orderData.useCredit || false,
           telegramId: String(telegramUser?.id || ''),
-          timeSlot: orderData.timeSlot || 'asap'
+          timeSlot: orderData.timeSlot || 'asap',
+          customerDescription: orderData.customerDescription || ''
         })
       });
 
@@ -5310,10 +5311,20 @@ async function validateOrder() {
       document.getElementById('cartSheet').classList.add('hidden');
 
       // Ouvrir Telegram avec l'ID serveur
-      const message = createOrderMessage(orderData, order.id, total - serverDiscount);
-      const encodedMessage = encodeURIComponent(message);
-      const telegramUrl = `https://t.me/${TELEGRAM_CONFIG.SUPPORT_USERNAME}?text=${encodedMessage}`;
-      window.open(telegramUrl, '_blank');
+      try {
+        const message = createOrderMessage(orderData, order.id, total - serverDiscount);
+        const encodedMessage = encodeURIComponent(message);
+        const telegramUrl = `https://t.me/${TELEGRAM_CONFIG.SUPPORT_USERNAME}?text=${encodedMessage}`;
+
+        // Utiliser l'API Telegram WebApp si disponible (plus fiable dans les Mini Apps)
+        if (window.Telegram?.WebApp?.openTelegramLink) {
+          window.Telegram.WebApp.openTelegramLink(telegramUrl);
+        } else {
+          window.open(telegramUrl, '_blank');
+        }
+      } catch (linkErr) {
+        console.warn('⚠️ Impossible d\'ouvrir le lien Telegram:', linkErr);
+      }
 
       showOrderSummary(orderData, order.id, serverDiscount, true);
 
@@ -6018,8 +6029,17 @@ function shareToWhatsApp(code) {
 // Partage Telegram
 function shareToTelegram(code) {
   const text = encodeURIComponent(`🎉 Commande sur DROGUA CENTER !\n\n🎁 Code parrainage : ${code}\n\n👉 ${window.location.origin}`);
+  const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(window.location.origin)}&text=${text}`;
 
-  window.open(`https://t.me/share/url?url=${encodeURIComponent(window.location.origin)}&text=${text}`, '_blank');
+  try {
+    if (window.Telegram?.WebApp?.openTelegramLink) {
+      window.Telegram.WebApp.openTelegramLink(shareUrl);
+    } else {
+      window.open(shareUrl, '_blank');
+    }
+  } catch (e) {
+    window.open(shareUrl, '_blank');
+  }
   showToast('✈️ Partage Telegram ouvert !');
 }
 
@@ -6184,8 +6204,16 @@ Merci de confirmer la prise en compte.`;
 
     const encodedMessage = encodeURIComponent(cancelMessage);
     const telegramUrl = `https://t.me/${TELEGRAM_CONFIG.SUPPORT_USERNAME}?text=${encodedMessage}`;
-    
-    window.open(telegramUrl, '_blank');
+
+    try {
+      if (window.Telegram?.WebApp?.openTelegramLink) {
+        window.Telegram.WebApp.openTelegramLink(telegramUrl);
+      } else {
+        window.open(telegramUrl, '_blank');
+      }
+    } catch (e) {
+      console.warn('⚠️ Impossible d\'ouvrir le lien Telegram:', e);
+    }
     
     showToast('✅ Annulation effectuée - Stocks et CA ajustés');
     
@@ -6868,7 +6896,15 @@ document.getElementById('shareReferralCode')?.addEventListener('click', () => {
     } else {
       // Fallback: Partager sur Telegram
       const telegramUrl = `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`;
-      window.open(telegramUrl, '_blank');
+      try {
+        if (window.Telegram?.WebApp?.openTelegramLink) {
+          window.Telegram.WebApp.openTelegramLink(telegramUrl);
+        } else {
+          window.open(telegramUrl, '_blank');
+        }
+      } catch (e) {
+        window.open(telegramUrl, '_blank');
+      }
     }
   }
 });
