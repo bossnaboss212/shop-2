@@ -3774,22 +3774,6 @@ let useCreditEnabled = false;
 let discount = 0;
 let telegramUser = null;
 
-// Fonction pour enregistrer le user Telegram
-function registerTelegramUser(user) {
-  telegramUser = user;
-  console.log('Telegram user capturé:', telegramUser.first_name, telegramUser.id);
-  fetch('/api/register-telegram', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      telegram_id: telegramUser.id,
-      first_name: telegramUser.first_name,
-      last_name: telegramUser.last_name,
-      username: telegramUser.username
-    })
-  }).catch(() => {});
-}
-
 // Fonction pour détecter le Telegram user (multiples méthodes)
 function detectTelegramUser() {
   if (telegramUser && telegramUser.id) return true;
@@ -3808,29 +3792,38 @@ function detectTelegramUser() {
           const params = new URLSearchParams(_tg.initData);
           const userStr = params.get('user');
           if (userStr) user = JSON.parse(decodeURIComponent(userStr));
-        } catch(e) { console.warn('Parse initData failed:', e); }
-      }
-
-      // Méthode 3: Parser le hash URL (tgWebAppData)
-      if (!user && window.location.hash) {
-        try {
-          const hash = window.location.hash.substring(1);
-          const params = new URLSearchParams(hash);
-          const tgData = params.get('tgWebAppData');
-          if (tgData) {
-            const dataParams = new URLSearchParams(tgData);
-            const userStr = dataParams.get('user');
-            if (userStr) user = JSON.parse(decodeURIComponent(userStr));
-          }
-        } catch(e) { console.warn('Parse hash failed:', e); }
+        } catch(e) {}
       }
 
       if (user && user.id) {
-        registerTelegramUser(user);
+        telegramUser = user;
+        console.log('Telegram user capturé via SDK:', user.first_name, user.id);
+        fetch('/api/register-telegram', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            telegram_id: user.id,
+            first_name: user.first_name,
+            last_name: user.last_name,
+            username: user.username
+          })
+        }).catch(() => {});
         return true;
       }
     }
-  } catch (e) { console.warn('Telegram WebApp non disponible:', e); }
+  } catch (e) {}
+
+  // Méthode fallback: lire tg_id depuis l'URL (passé par le bot)
+  try {
+    const urlParams = new URLSearchParams(window.location.search);
+    const tgId = urlParams.get('tg_id');
+    if (tgId && /^\d{5,15}$/.test(tgId)) {
+      telegramUser = { id: Number(tgId), first_name: 'Client' };
+      console.log('Telegram user capturé via URL tg_id:', tgId);
+      return true;
+    }
+  } catch(e) {}
+
   return false;
 }
 
@@ -3843,7 +3836,6 @@ if (!telegramUser) {
     if (!telegramUser) detectTelegramUser();
   });
   setTimeout(() => { if (!telegramUser) detectTelegramUser(); }, 500);
-  setTimeout(() => { if (!telegramUser) detectTelegramUser(); }, 1500);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -4765,14 +4757,6 @@ function renderCart() {
   const customerDescValue = customerDescription || '';
 
   content.innerHTML = `
-    ${!telegramUser || !telegramUser.id ? `
-    <div style="padding:14px;margin-bottom:12px;background:linear-gradient(135deg,#ff6b6b,#ee5a24);border-radius:12px;text-align:center">
-      <div style="color:#fff;font-weight:700;font-size:14px;margin-bottom:6px">⚠️ Entrez votre ID Telegram</div>
-      <p style="color:rgba(255,255,255,0.85);font-size:12px;margin-bottom:10px">Envoyez /start au bot pour voir votre ID</p>
-      <input type="text" id="manualTelegramId" placeholder="Votre ID (ex: 123456789)" maxlength="20" inputmode="numeric"
-        style="width:90%;padding:12px;border:2px solid rgba(255,255,255,0.3);border-radius:10px;background:rgba(0,0,0,0.3);color:#fff;font-size:16px;text-align:center;font-weight:600">
-    </div>
-    ` : ''}
     ${CartManager.items.map((item, idx) => `
       <div class="cart-item-row">
         <div class="cart-item-left">
@@ -5123,17 +5107,9 @@ async function validateOrder() {
   // Re-tenter la détection Telegram
   if (!telegramUser || !telegramUser.id) detectTelegramUser();
 
-  // Si toujours pas détecté, utiliser l'ID saisi manuellement
   if (!telegramUser || !telegramUser.id) {
-    const manualInput = document.getElementById('manualTelegramId');
-    const manualId = manualInput?.value.trim();
-    if (manualId && /^\d{5,15}$/.test(manualId)) {
-      telegramUser = { id: manualId, first_name: 'Client ' + manualId };
-    } else {
-      showToast('⚠️ Entrez votre ID Telegram (chiffres uniquement)');
-      manualInput?.focus();
-      return;
-    }
+    showToast('⚠️ Ouvrez la boutique depuis Telegram pour commander');
+    return;
   }
 
   if (CartManager.items.length === 0) {
