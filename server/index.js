@@ -4423,17 +4423,18 @@ if (config.telegram.token) {
 
 // ==================== CLAVIER PERMANENT POUR CHAQUE UTILISATEUR ====================
 function getPermanentKeyboard(chatId) {
-  const isDriver = chatId.toString() === config.telegram.driverMillauId || 
+  const isDriver = chatId.toString() === config.telegram.driverMillauId ||
                    chatId.toString() === config.telegram.driverExterieurId;
   const userIsAdmin = isAdmin(chatId);
-  
+  const shopUrl = `${config.webapp.url}?tg_id=${chatId}`;
+
   if (isDriver) {
     return {
       keyboard: [
         [{ text: '📋 Mes Livraisons' }],
         [{ text: '📊 Mes Stats' }],
         [{ text: '💰 Caisse' }],
-        [{ text: '🛍️ Boutique', web_app: { url: `${config.webapp.url}` } }],
+        [{ text: '🛍️ Boutique', web_app: { url: shopUrl } }],
         [{ text: '💬 Support' }],
         [{ text: '❓ Aide' }]
       ],
@@ -4444,7 +4445,7 @@ function getPermanentKeyboard(chatId) {
   } else if (userIsAdmin) {
     return {
       keyboard: [
-        [{ text: '🛒 Ouvrir la Boutique', web_app: { url: `${config.webapp.url}` } }],
+        [{ text: '🛒 Ouvrir la Boutique', web_app: { url: shopUrl } }],
         [
           { text: 'ℹ️ Info' },
           { text: '📞 Contact' }
@@ -4461,7 +4462,7 @@ function getPermanentKeyboard(chatId) {
   } else {
     return {
       keyboard: [
-        [{ text: '🛒 Ouvrir la Boutique', web_app: { url: `${config.webapp.url}` } }],
+        [{ text: '🛒 Ouvrir la Boutique', web_app: { url: shopUrl } }],
         [
           { text: '💰 Mon Crédit' },
           { text: '🎁 Parrainage' }
@@ -5773,6 +5774,8 @@ async function sendWelcomeMessage(chatId, firstName) {
 
 Votre boutique premium accessible directement depuis Telegram.
 
+<b>🆔 Votre ID Telegram :</b> <code>${chatId}</code>
+
 <b>🛍️ Utilisez le menu en bas pour naviguer</b>
 
 <b>🎁 PROGRAMME DE PARRAINAGE :</b>
@@ -5861,7 +5864,7 @@ Cliquez sur le bouton ci-dessous pour accéder à notre catalogue complet.
 
   const keyboard = {
     inline_keyboard: [
-      [{ text: '🛒 Ouvrir la Boutique', web_app: { url: `${config.webapp.url}` } }]
+      [{ text: '🛒 Ouvrir la Boutique', web_app: { url: `${config.webapp.url}?tg_id=${chatId}` } }]
     ]
   };
 
@@ -6264,7 +6267,7 @@ Merci de votre confiance ! 💚`;
 
   const keyboard = {
     inline_keyboard: [
-      [{ text: '🛒 Commander Maintenant', web_app: { url: config.webapp.url } }]
+      [{ text: '🛒 Commander Maintenant', web_app: { url: `${config.webapp.url}?tg_id=${chatId}` } }]
     ]
   };
   
@@ -6307,7 +6310,7 @@ Des questions ? Contactez le support ! 💬`;
 
   const keyboard = {
     inline_keyboard: [
-      [{ text: '🛒 Commander Maintenant', web_app: { url: config.webapp.url } }],
+      [{ text: '🛒 Commander Maintenant', web_app: { url: `${config.webapp.url}?tg_id=${chatId}` } }],
       [
         { text: '💬 Support', url: 'https://t.me/newassistance4' },
         { text: 'ℹ️ Plus d\'infos', callback_data: 'show_info' }
@@ -6374,7 +6377,7 @@ Votre crédit sera automatiquement proposé lors de votre prochaine commande sur
     const keyboard = {
       inline_keyboard: [
         [{ text: '🎁 Voir Mon Code Parrainage', callback_data: 'show_referral_code' }],
-        [{ text: '🛒 Commander', web_app: { url: config.webapp.url } }]
+        [{ text: '🛒 Commander', web_app: { url: `${config.webapp.url}?tg_id=${chatId}` } }]
       ]
     };
 
@@ -6405,7 +6408,7 @@ Commandez maintenant pour débloquer votre code ! 🚀`;
 
       const keyboard = {
         inline_keyboard: [
-          [{ text: '🛒 Commander', web_app: { url: config.webapp.url } }]
+          [{ text: '🛒 Commander', web_app: { url: `${config.webapp.url}?tg_id=${chatId}` } }]
         ]
       };
 
