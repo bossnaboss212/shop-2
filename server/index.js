@@ -4433,7 +4433,7 @@ function getPermanentKeyboard(chatId) {
         [{ text: '📋 Mes Livraisons' }],
         [{ text: '📊 Mes Stats' }],
         [{ text: '💰 Caisse' }],
-        [{ text: '🛍️ Boutique', web_app: { url: `${config.webapp.url}/clear-cache.html` } }],
+        [{ text: '🛍️ Boutique', web_app: { url: `${config.webapp.url}` } }],
         [{ text: '💬 Support' }],
         [{ text: '❓ Aide' }]
       ],
@@ -4444,7 +4444,7 @@ function getPermanentKeyboard(chatId) {
   } else if (userIsAdmin) {
     return {
       keyboard: [
-        [{ text: '🛒 Ouvrir la Boutique', web_app: { url: `${config.webapp.url}/clear-cache.html` } }],
+        [{ text: '🛒 Ouvrir la Boutique', web_app: { url: `${config.webapp.url}` } }],
         [
           { text: 'ℹ️ Info' },
           { text: '📞 Contact' }
@@ -4461,7 +4461,7 @@ function getPermanentKeyboard(chatId) {
   } else {
     return {
       keyboard: [
-        [{ text: '🛒 Ouvrir la Boutique', web_app: { url: `${config.webapp.url}/clear-cache.html` } }],
+        [{ text: '🛒 Ouvrir la Boutique', web_app: { url: `${config.webapp.url}` } }],
         [
           { text: '💰 Mon Crédit' },
           { text: '🎁 Parrainage' }
@@ -5861,7 +5861,7 @@ Cliquez sur le bouton ci-dessous pour accéder à notre catalogue complet.
 
   const keyboard = {
     inline_keyboard: [
-      [{ text: '🛒 Ouvrir la Boutique', web_app: { url: `${config.webapp.url}/clear-cache.html` } }]
+      [{ text: '🛒 Ouvrir la Boutique', web_app: { url: `${config.webapp.url}` } }]
     ]
   };
 
