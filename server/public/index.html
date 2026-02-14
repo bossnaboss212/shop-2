@@ -3773,31 +3773,37 @@ let userCreditBalance = 0;
 let useCreditEnabled = false;
 let discount = 0;
 let telegramUser = null;
+let _tgDebug = [];
 
-// Fonction pour détecter le Telegram user (multiples méthodes)
+// Fonction pour détecter le Telegram user (multiples méthodes avec fallbacks)
 function detectTelegramUser() {
   if (telegramUser && telegramUser.id) return true;
+  _tgDebug = [];
+
+  // === Méthode 1: Telegram WebApp SDK ===
   try {
     const _tg = window.Telegram?.WebApp;
     if (_tg) {
+      _tgDebug.push('SDK: present');
       _tg.ready();
       _tg.expand();
 
-      // Méthode 1: initDataUnsafe (standard)
       let user = _tg.initDataUnsafe?.user || null;
+      _tgDebug.push('initDataUnsafe.user: ' + (user ? JSON.stringify(user) : 'null'));
+      _tgDebug.push('initData: ' + (_tg.initData ? _tg.initData.substring(0, 80) : 'vide'));
 
-      // Méthode 2: Parser initData manuellement
       if (!user && _tg.initData) {
         try {
           const params = new URLSearchParams(_tg.initData);
           const userStr = params.get('user');
           if (userStr) user = JSON.parse(decodeURIComponent(userStr));
-        } catch(e) {}
+        } catch(e) { _tgDebug.push('parse initData err: ' + e.message); }
       }
 
       if (user && user.id) {
         telegramUser = user;
-        console.log('Telegram user capturé via SDK:', user.first_name, user.id);
+        localStorage.setItem('tg_user_id', String(user.id));
+        localStorage.setItem('tg_user_name', user.first_name || 'Client');
         fetch('/api/register-telegram', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -3808,22 +3814,63 @@ function detectTelegramUser() {
             username: user.username
           })
         }).catch(() => {});
+        _tgDebug.push('DETECTE via SDK: ' + user.id);
         return true;
       }
+    } else {
+      _tgDebug.push('SDK: absent');
     }
-  } catch (e) {}
+  } catch (e) { _tgDebug.push('SDK err: ' + e.message); }
 
-  // Méthode fallback: lire tg_id depuis l'URL (passé par le bot)
+  // === Méthode 2: Query param ?tg_id= ===
   try {
     const urlParams = new URLSearchParams(window.location.search);
     const tgId = urlParams.get('tg_id');
+    _tgDebug.push('URL search: ' + window.location.search);
     if (tgId && /^\d{5,15}$/.test(tgId)) {
       telegramUser = { id: Number(tgId), first_name: 'Client' };
-      console.log('Telegram user capturé via URL tg_id:', tgId);
+      localStorage.setItem('tg_user_id', tgId);
+      _tgDebug.push('DETECTE via URL: ' + tgId);
       return true;
     }
-  } catch(e) {}
+  } catch(e) { _tgDebug.push('URL err: ' + e.message); }
 
+  // === Méthode 3: Hash fragment #tgWebAppData ===
+  try {
+    if (window.location.hash) {
+      _tgDebug.push('hash: ' + window.location.hash.substring(0, 80));
+      const hash = window.location.hash.substring(1);
+      const params = new URLSearchParams(hash);
+      const tgData = params.get('tgWebAppData');
+      if (tgData) {
+        const dataParams = new URLSearchParams(tgData);
+        const userStr = dataParams.get('user');
+        if (userStr) {
+          const user = JSON.parse(decodeURIComponent(userStr));
+          if (user && user.id) {
+            telegramUser = user;
+            localStorage.setItem('tg_user_id', String(user.id));
+            localStorage.setItem('tg_user_name', user.first_name || 'Client');
+            _tgDebug.push('DETECTE via hash: ' + user.id);
+            return true;
+          }
+        }
+      }
+    }
+  } catch(e) { _tgDebug.push('hash err: ' + e.message); }
+
+  // === Méthode 4: localStorage (sauvegardé d'une session précédente) ===
+  try {
+    const savedId = localStorage.getItem('tg_user_id');
+    if (savedId && /^\d{5,15}$/.test(savedId)) {
+      const savedName = localStorage.getItem('tg_user_name') || 'Client';
+      telegramUser = { id: Number(savedId), first_name: savedName };
+      _tgDebug.push('DETECTE via localStorage: ' + savedId);
+      return true;
+    }
+  } catch(e) { _tgDebug.push('localStorage err: ' + e.message); }
+
+  _tgDebug.push('fullURL: ' + window.location.href);
   return false;
 }
 
@@ -3836,6 +3883,7 @@ if (!telegramUser) {
     if (!telegramUser) detectTelegramUser();
   });
   setTimeout(() => { if (!telegramUser) detectTelegramUser(); }, 500);
+  setTimeout(() => { if (!telegramUser) detectTelegramUser(); }, 1500);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -4765,7 +4813,10 @@ function renderCart() {
     ${!userDetected ? `
     <div style="padding:12px;margin-bottom:12px;background:linear-gradient(135deg,#ff6b6b,#ee5a24);border-radius:12px;text-align:center">
       <div style="color:#fff;font-weight:700;font-size:14px">Utilisateur non detecte</div>
-      <p style="color:rgba(255,255,255,0.85);font-size:12px;margin-top:4px">Ouvrez la boutique depuis le bouton Telegram pour commander.</p>
+      <p style="color:rgba(255,255,255,0.85);font-size:12px;margin-top:4px">Tapez /start sur le bot puis cliquez sur "Ouvrir la Boutique"</p>
+      <div style="margin-top:8px;padding:8px;background:rgba(0,0,0,0.3);border-radius:8px;text-align:left;font-size:10px;color:rgba(255,255,255,0.7);word-break:break-all;max-height:100px;overflow-y:auto">
+        DEBUG: ${_tgDebug.join(' | ')}
+      </div>
     </div>
     ` : `
     <div style="padding:8px 12px;margin-bottom:12px;background:rgba(46,204,113,0.15);border:1px solid rgba(46,204,113,0.3);border-radius:10px;display:flex;align-items:center;gap:8px">
