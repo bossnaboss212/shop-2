@@ -289,6 +289,14 @@ class ServerAPI {
 // ============================================================
 // KEYBOARDS (CLAVIERS)
 // ============================================================
+// Helper: URL boutique avec tg_id pour fallback de détection
+function shopUrl(chatId) {
+  return chatId ? `${CONFIG.WEBAPP_URL}?tg_id=${chatId}` : CONFIG.WEBAPP_URL;
+}
+function ordersUrl(chatId) {
+  return chatId ? `${CONFIG.WEBAPP_URL}?tg_id=${chatId}#orders` : `${CONFIG.WEBAPP_URL}#orders`;
+}
+
 const Keyboards = {
   // Clavier de réponse persistant (toujours visible)
   replyKeyboard: {
@@ -321,12 +329,12 @@ const Keyboards = {
     persistent: true
   },
 
-  welcome: {
+  welcome(chatId) { return {
     inline_keyboard: [
       [
         {
           text: '🛍️ Accéder à la Boutique',
-          web_app: { url: CONFIG.WEBAPP_URL }
+          web_app: { url: shopUrl(chatId) }
         }
       ],
       [
@@ -370,14 +378,14 @@ const Keyboards = {
         }
       ]
     ]
-  },
+  }; },
 
-  shop: {
+  shop(chatId) { return {
     inline_keyboard: [
       [
         {
           text: '🛒 Ouvrir la Boutique',
-          web_app: { url: CONFIG.WEBAPP_URL }
+          web_app: { url: shopUrl(chatId) }
         }
       ],
       [
@@ -387,7 +395,7 @@ const Keyboards = {
         }
       ]
     ]
-  },
+  }; },
 
   admin: {
     inline_keyboard: [
@@ -472,12 +480,12 @@ const Keyboards = {
     ]
   },
 
-  info: {
+  info(chatId) { return {
     inline_keyboard: [
       [
         {
           text: '🛒 Commander Maintenant',
-          web_app: { url: CONFIG.WEBAPP_URL }
+          web_app: { url: shopUrl(chatId) }
         }
       ],
       [
@@ -497,20 +505,20 @@ const Keyboards = {
         }
       ]
     ]
-  },
+  }; },
 
-  orders: {
+  orders(chatId) { return {
     inline_keyboard: [
       [
         {
           text: '📱 Voir Mes Commandes',
-          web_app: { url: `${CONFIG.WEBAPP_URL}#orders` }
+          web_app: { url: ordersUrl(chatId) }
         }
       ],
       [
         {
           text: '🛒 Nouvelle Commande',
-          web_app: { url: CONFIG.WEBAPP_URL }
+          web_app: { url: shopUrl(chatId) }
         }
       ],
       [
@@ -524,14 +532,14 @@ const Keyboards = {
         }
       ]
     ]
-  },
+  }; },
 
-  status: {
+  status(chatId) { return {
     inline_keyboard: [
       [
         {
           text: '📱 Voir Toutes Mes Commandes',
-          web_app: { url: `${CONFIG.WEBAPP_URL}#orders` }
+          web_app: { url: ordersUrl(chatId) }
         }
       ],
       [
@@ -545,14 +553,14 @@ const Keyboards = {
         }
       ]
     ]
-  },
+  }; },
 
-  parrainage: {
+  parrainage(chatId) { return {
     inline_keyboard: [
       [
         {
           text: '🛍️ Inviter via la Boutique',
-          web_app: { url: CONFIG.WEBAPP_URL }
+          web_app: { url: shopUrl(chatId) }
         }
       ],
       [
@@ -568,14 +576,14 @@ const Keyboards = {
         }
       ]
     ]
-  },
+  }; },
 
-  fidelite: {
+  fidelite(chatId) { return {
     inline_keyboard: [
       [
         {
           text: '🛒 Commander Maintenant',
-          web_app: { url: CONFIG.WEBAPP_URL }
+          web_app: { url: shopUrl(chatId) }
         }
       ],
       [
@@ -589,14 +597,14 @@ const Keyboards = {
         }
       ]
     ]
-  },
+  }; },
 
-  horaires: {
+  horaires(chatId) { return {
     inline_keyboard: [
       [
         {
           text: '🛒 Commander Maintenant',
-          web_app: { url: CONFIG.WEBAPP_URL }
+          web_app: { url: shopUrl(chatId) }
         }
       ],
       [
@@ -610,14 +618,14 @@ const Keyboards = {
         }
       ]
     ]
-  },
+  }; },
 
-  catalogue: {
+  catalogue(chatId) { return {
     inline_keyboard: [
       [
         {
           text: '🛍️ Voir Tout le Catalogue',
-          web_app: { url: CONFIG.WEBAPP_URL }
+          web_app: { url: shopUrl(chatId) }
         }
       ],
       [
@@ -627,9 +635,9 @@ const Keyboards = {
         }
       ]
     ]
-  },
+  }; },
 
-  tuto: {
+  tuto(chatId) { return {
     inline_keyboard: [
       [
         {
@@ -640,7 +648,7 @@ const Keyboards = {
       [
         {
           text: '🛍️ Commander Maintenant',
-          web_app: { url: CONFIG.WEBAPP_URL }
+          web_app: { url: shopUrl(chatId) }
         }
       ],
       [
@@ -654,7 +662,7 @@ const Keyboards = {
         }
       ]
     ]
-  },
+  }; },
 
   tutoStep2: {
     inline_keyboard: [
@@ -698,12 +706,12 @@ const Keyboards = {
     ]
   },
 
-  tutoStep4: {
+  tutoStep4(chatId) { return {
     inline_keyboard: [
       [
         {
           text: '🛍️ Commander Maintenant',
-          web_app: { url: CONFIG.WEBAPP_URL }
+          web_app: { url: shopUrl(chatId) }
         }
       ],
       [
@@ -717,7 +725,7 @@ const Keyboards = {
         }
       ]
     ]
-  }
+  }; }
 };
 
 // ============================================================
@@ -1115,9 +1123,9 @@ const MessageHandlers = {
       await TelegramAPI.sendMessage(
         chatId,
         Messages.welcome(firstName),
-        Keyboards.welcome
+        Keyboards.welcome(chatId)
       );
-      
+
       // Si c'est la première fois, envoyer aussi le clavier persistant
       if (!keyboardState.has(chatId)) {
         await TelegramAPI.sendMessage(
@@ -1140,7 +1148,7 @@ const MessageHandlers = {
 
   '/shop': async (chatId) => {
     try {
-      await TelegramAPI.sendMessage(chatId, Messages.shop, Keyboards.shop);
+      await TelegramAPI.sendMessage(chatId, Messages.shop, Keyboards.shop(chatId));
       console.log(`✅ Shop message sent to ${chatId}`);
     } catch (error) {
       console.error(`❌ Error in /shop handler:`, error);
@@ -1157,7 +1165,7 @@ const MessageHandlers = {
 
   '/tuto': async (chatId) => {
     try {
-      await TelegramAPI.sendMessage(chatId, Messages.tuto, Keyboards.tuto);
+      await TelegramAPI.sendMessage(chatId, Messages.tuto, Keyboards.tuto(chatId));
       console.log(`✅ Tuto message sent to ${chatId}`);
     } catch (error) {
       console.error(`❌ Error in /tuto handler:`, error);
@@ -1213,7 +1221,7 @@ const MessageHandlers = {
 
   '/orders': async (chatId) => {
     try {
-      await TelegramAPI.sendMessage(chatId, Messages.orders, Keyboards.orders);
+      await TelegramAPI.sendMessage(chatId, Messages.orders, Keyboards.orders(chatId));
       console.log(`✅ Orders message sent to ${chatId}`);
     } catch (error) {
       console.error(`❌ Error in /orders handler:`, error);
@@ -1229,18 +1237,18 @@ const MessageHandlers = {
       const data = await ServerAPI.getCustomerOrders(telegramId);
 
       if (!data || !data.ok || !data.orders || data.orders.length === 0) {
-        await TelegramAPI.sendMessage(chatId, Messages.statusNoOrders, Keyboards.status);
+        await TelegramAPI.sendMessage(chatId, Messages.statusNoOrders, Keyboards.status(chatId));
       } else {
         await TelegramAPI.sendMessage(
           chatId,
           Messages.statusOrders(data.orders),
-          Keyboards.status
+          Keyboards.status(chatId)
         );
       }
       console.log(`✅ Status message sent to ${chatId}`);
     } catch (error) {
       console.error(`❌ Error in /status handler:`, error);
-      await TelegramAPI.sendMessage(chatId, Messages.statusNoOrders, Keyboards.status);
+      await TelegramAPI.sendMessage(chatId, Messages.statusNoOrders, Keyboards.status(chatId));
     }
   },
 
@@ -1264,11 +1272,11 @@ const MessageHandlers = {
         text += `\n• Prochain parrainage : +10€ de crédit`;
       }
 
-      await TelegramAPI.sendMessage(chatId, text, Keyboards.parrainage);
+      await TelegramAPI.sendMessage(chatId, text, Keyboards.parrainage(chatId));
       console.log(`✅ Parrainage message sent to ${chatId}`);
     } catch (error) {
       console.error(`❌ Error in /parrainage handler:`, error);
-      await TelegramAPI.sendMessage(chatId, Messages.parrainage, Keyboards.parrainage);
+      await TelegramAPI.sendMessage(chatId, Messages.parrainage, Keyboards.parrainage(chatId));
     }
   },
 
@@ -1278,7 +1286,7 @@ const MessageHandlers = {
 
   '/fidelite': async (chatId) => {
     try {
-      await TelegramAPI.sendMessage(chatId, Messages.fidelite, Keyboards.fidelite);
+      await TelegramAPI.sendMessage(chatId, Messages.fidelite, Keyboards.fidelite(chatId));
       console.log(`✅ Fidelite message sent to ${chatId}`);
     } catch (error) {
       console.error(`❌ Error in /fidelite handler:`, error);
@@ -1291,7 +1299,7 @@ const MessageHandlers = {
 
   '/horaires': async (chatId) => {
     try {
-      await TelegramAPI.sendMessage(chatId, Messages.horaires, Keyboards.horaires);
+      await TelegramAPI.sendMessage(chatId, Messages.horaires, Keyboards.horaires(chatId));
       console.log(`✅ Horaires message sent to ${chatId}`);
     } catch (error) {
       console.error(`❌ Error in /horaires handler:`, error);
@@ -1307,11 +1315,11 @@ const MessageHandlers = {
       const data = await ServerAPI.getProducts();
       const products = (data && data.ok) ? data.products : [];
       const text = Messages.catalogue(products);
-      await TelegramAPI.sendMessage(chatId, text, Keyboards.catalogue);
+      await TelegramAPI.sendMessage(chatId, text, Keyboards.catalogue(chatId));
       console.log(`✅ Catalogue message sent to ${chatId}`);
     } catch (error) {
       console.error(`❌ Error in /catalogue handler:`, error);
-      await TelegramAPI.sendMessage(chatId, Messages.catalogue([]), Keyboards.catalogue);
+      await TelegramAPI.sendMessage(chatId, Messages.catalogue([]), Keyboards.catalogue(chatId));
     }
   },
 
@@ -1376,7 +1384,7 @@ const CallbackHandlers = {
         chatId,
         messageId,
         Messages.welcome(firstName),
-        Keyboards.welcome
+        Keyboards.welcome(chatId)
       );
     } catch (error) {
       // Si l'édition échoue, envoyer un nouveau message
@@ -1390,7 +1398,7 @@ const CallbackHandlers = {
         chatId,
         messageId,
         Messages.shop,
-        Keyboards.shop
+        Keyboards.shop(chatId)
       );
     } catch (error) {
       await MessageHandlers['/shop'](chatId);
@@ -1442,7 +1450,7 @@ const CallbackHandlers = {
         chatId,
         messageId,
         Messages.orders,
-        Keyboards.orders
+        Keyboards.orders(chatId)
       );
     } catch (error) {
       await MessageHandlers['/orders'](chatId);
@@ -1455,10 +1463,10 @@ const CallbackHandlers = {
         chatId,
         messageId,
         Messages.info,
-        Keyboards.info
+        Keyboards.info(chatId)
       );
     } catch (error) {
-      await TelegramAPI.sendMessage(chatId, Messages.info, Keyboards.info);
+      await TelegramAPI.sendMessage(chatId, Messages.info, Keyboards.info(chatId));
     }
   },
 
@@ -1468,10 +1476,10 @@ const CallbackHandlers = {
         chatId,
         messageId,
         Messages.parrainage,
-        Keyboards.parrainage
+        Keyboards.parrainage(chatId)
       );
     } catch (error) {
-      await TelegramAPI.sendMessage(chatId, Messages.parrainage, Keyboards.parrainage);
+      await TelegramAPI.sendMessage(chatId, Messages.parrainage, Keyboards.parrainage(chatId));
     }
   },
 
@@ -1481,10 +1489,10 @@ const CallbackHandlers = {
         chatId,
         messageId,
         Messages.fidelite,
-        Keyboards.fidelite
+        Keyboards.fidelite(chatId)
       );
     } catch (error) {
-      await TelegramAPI.sendMessage(chatId, Messages.fidelite, Keyboards.fidelite);
+      await TelegramAPI.sendMessage(chatId, Messages.fidelite, Keyboards.fidelite(chatId));
     }
   },
 
@@ -1494,10 +1502,10 @@ const CallbackHandlers = {
         chatId,
         messageId,
         Messages.horaires,
-        Keyboards.horaires
+        Keyboards.horaires(chatId)
       );
     } catch (error) {
-      await TelegramAPI.sendMessage(chatId, Messages.horaires, Keyboards.horaires);
+      await TelegramAPI.sendMessage(chatId, Messages.horaires, Keyboards.horaires(chatId));
     }
   },
 
@@ -1506,7 +1514,7 @@ const CallbackHandlers = {
       const data = await ServerAPI.getProducts();
       const products = (data && data.ok) ? data.products : [];
       const text = Messages.catalogue(products);
-      await TelegramAPI.editMessageText(chatId, messageId, text, Keyboards.catalogue);
+      await TelegramAPI.editMessageText(chatId, messageId, text, Keyboards.catalogue(chatId));
     } catch (error) {
       await MessageHandlers['/catalogue'](chatId);
     }
@@ -1514,9 +1522,9 @@ const CallbackHandlers = {
 
   'tuto_step1': async (chatId, messageId) => {
     try {
-      await TelegramAPI.editMessageText(chatId, messageId, Messages.tuto, Keyboards.tuto);
+      await TelegramAPI.editMessageText(chatId, messageId, Messages.tuto, Keyboards.tuto(chatId));
     } catch (error) {
-      await TelegramAPI.sendMessage(chatId, Messages.tuto, Keyboards.tuto);
+      await TelegramAPI.sendMessage(chatId, Messages.tuto, Keyboards.tuto(chatId));
     }
   },
 
@@ -1538,9 +1546,9 @@ const CallbackHandlers = {
 
   'tuto_step4': async (chatId, messageId) => {
     try {
-      await TelegramAPI.editMessageText(chatId, messageId, Messages.tutoStep4, Keyboards.tutoStep4);
+      await TelegramAPI.editMessageText(chatId, messageId, Messages.tutoStep4, Keyboards.tutoStep4(chatId));
     } catch (error) {
-      await TelegramAPI.sendMessage(chatId, Messages.tutoStep4, Keyboards.tutoStep4);
+      await TelegramAPI.sendMessage(chatId, Messages.tutoStep4, Keyboards.tutoStep4(chatId));
     }
   },
 
