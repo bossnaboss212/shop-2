@@ -4756,7 +4756,23 @@ function renderCart() {
   const total = totalBeforeCredit - creditToApply;
   const customerDescValue = customerDescription || '';
 
+  // Re-tenter la détection si pas encore fait
+  if (!telegramUser || !telegramUser.id) detectTelegramUser();
+
+  const userDetected = telegramUser && telegramUser.id;
+
   content.innerHTML = `
+    ${!userDetected ? `
+    <div style="padding:12px;margin-bottom:12px;background:linear-gradient(135deg,#ff6b6b,#ee5a24);border-radius:12px;text-align:center">
+      <div style="color:#fff;font-weight:700;font-size:14px">Utilisateur non detecte</div>
+      <p style="color:rgba(255,255,255,0.85);font-size:12px;margin-top:4px">Ouvrez la boutique depuis le bouton Telegram pour commander.</p>
+    </div>
+    ` : `
+    <div style="padding:8px 12px;margin-bottom:12px;background:rgba(46,204,113,0.15);border:1px solid rgba(46,204,113,0.3);border-radius:10px;display:flex;align-items:center;gap:8px">
+      <span style="font-size:14px">&#10003;</span>
+      <span style="font-size:13px;color:var(--success);font-weight:600">Connecte : ID ${telegramUser.id}</span>
+    </div>
+    `}
     ${CartManager.items.map((item, idx) => `
       <div class="cart-item-row">
         <div class="cart-item-left">
