@@ -1380,6 +1380,25 @@ class TelegramService {
     }
   }
 
+  async setChatMenuButton(chatId, url, text = '🛒 Boutique') {
+    if (!this.token) return null;
+    try {
+      const payload = {
+        chat_id: chatId,
+        menu_button: {
+          type: 'web_app',
+          text: text,
+          web_app: { url }
+        }
+      };
+      const response = await axios.post(`${this.baseUrl}/setChatMenuButton`, payload, { timeout: 5000 });
+      return response.data?.ok;
+    } catch (error) {
+      console.error(`❌ setChatMenuButton error (${chatId}):`, error.message);
+      return null;
+    }
+  }
+
   async sendPhoto(chatId, photo, caption = '', options = {}) {
     if (!this.token || !chatId) return null;
 
@@ -5785,6 +5804,10 @@ Votre boutique premium accessible directement depuis Telegram.
 Bénéficiez d'une remise tous les ${config.loyalty.defaultThreshold} achats.
 
 Tapez sur les boutons ci-dessous pour commencer ! 👇`;
+
+  // Configurer le Menu Button personnalisé avec tg_id pour cet utilisateur
+  const shopUrl = `${config.webapp.url}?tg_id=${chatId}`;
+  telegram.setChatMenuButton(chatId, shopUrl).catch(() => {});
 
   const keyboard = getPermanentKeyboard(chatId);
   const result = await telegram.sendMessage(chatId, text, { reply_markup: keyboard });
