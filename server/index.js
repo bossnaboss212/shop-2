@@ -1786,10 +1786,7 @@ async function notifyReferralSuccess(referrerContact, newCustomerContact, orderI
   const newCustomerName = await getCustomerDisplayName(newCustomerContact);
 
   if (referrerTelegramId && config.telegram.botToken) {
-    const remaining = 5 - (referralInfo.newTotalReferrals % 5);
-    const progressText = remaining === 5
-      ? `🎉 Vous avez débloqué <b>10€ de crédit</b> !`
-      : `📊 Encore <b>${remaining}</b> parrainage(s) pour débloquer <b>10€</b>`;
+    const progressText = `🎉 Vous avez débloqué <b>10€ de crédit</b> !`;
 
     const message = `🤝 <b>NOUVEAU PARRAINAGE ENREGISTRÉ !</b>
 
@@ -1835,7 +1832,7 @@ async function notifyReferralMilestone(referrerContact, totalReferrals, reward) 
 
 💳 Votre crédit est disponible immédiatement pour votre prochaine commande.
 
-🚀 Continuez à parrainer, prochain bonus à ${totalReferrals + 5} parrainages !
+🚀 Continuez à parrainer, chaque ami parrainé = 10€ de crédit !
 
 Tapez /parrainage pour voir vos stats 📈`;
 
@@ -4102,17 +4099,17 @@ app.get('/api/admin/referrals', requireAdmin, async (req, res) => {
       ORDER BY r.total_earned DESC
     `);
 
-    // Calculer les bonus de parrainage (10€ tous les 5 parrainages)
+    // Calculer les bonus de parrainage (10€ par parrainage)
     const referralsWithInfo = referrals.map(ref => {
       const totalReferrals = ref.total_referrals || 0;
-      const milestonesReached = Math.floor(totalReferrals / 5);
-      const nextMilestone = (milestonesReached + 1) * 5;
+      const milestonesReached = totalReferrals;
+      const nextMilestone = totalReferrals + 1;
 
       return {
         ...ref,
         milestonesReached,
         nextMilestone,
-        totalBonusEarned: milestonesReached * 10
+        totalBonusEarned: totalReferrals * 10
       };
     });
 
@@ -4140,7 +4137,7 @@ app.get('/api/admin/referrals/export', requireAdmin, async (req, res) => {
 
     referrals.forEach(ref => {
       const totalReferrals = ref.total_referrals || 0;
-      const milestonesReached = Math.floor(totalReferrals / 5);
+      const milestonesReached = totalReferrals;
 
       csv += `${ref.referral_code},${ref.customer_contact},${ref.credit_balance},${ref.total_referrals},${ref.total_earned},${milestonesReached}x10€,${ref.created_at}\n`;
     });
@@ -5779,7 +5776,7 @@ Votre boutique premium accessible directement depuis Telegram.
 <b>🛍️ Utilisez le menu en bas pour naviguer</b>
 
 <b>🎁 PROGRAMME DE PARRAINAGE :</b>
-🤝 Parrainez 5 amis = 10€ de crédit !
+🤝 Parrainez 1 ami = 10€ de crédit !
 
 ✨ <i>Programme de fidélité actif !</i>
 Bénéficiez d'une remise tous les ${config.loyalty.defaultThreshold} achats.
@@ -6335,7 +6332,7 @@ async function sendCreditBalance(chatId) {
 Pour obtenir du crédit, parrainez vos amis !
 
 <b>🎁 Comment ça marche ?</b>
-Parrainez 5 amis → Gagnez <b>10€</b> de crédit !
+Parrainez 1 ami → Gagnez <b>10€</b> de crédit !
 
 Tapez /parrainage pour voir votre code personnel 🚀`;
 
@@ -6352,7 +6349,7 @@ Tapez /parrainage pour voir votre code personnel 🚀`;
 <b>Solde actuel :</b> 0€
 
 Pour obtenir du crédit, parrainez vos amis !
-5 parrainages = 10€ de crédit
+1 parrainage = 10€ de crédit
 
 Tapez /parrainage pour voir votre code personnel 🚀`;
 
@@ -6361,11 +6358,6 @@ Tapez /parrainage pour voir votre code personnel 🚀`;
     }
 
     const totalReferrals = stats.totalReferrals || 0;
-    const remaining = 5 - (totalReferrals % 5);
-    const progressText = remaining === 5 && totalReferrals > 0
-      ? '🎉 Bonus débloqué ! Prochain à ' + (totalReferrals + 5) + ' parrainages'
-      : `${totalReferrals % 5}/5 pour le prochain bonus de 10€`;
-
     const text = `💰 <b>MON CRÉDIT</b>
 
 <b>💵 Solde disponible :</b> <b>${stats.creditBalance.toFixed(0)}€</b>
@@ -6373,12 +6365,11 @@ Tapez /parrainage pour voir votre code personnel 🚀`;
 <b>📊 Statistiques :</b>
 • Total gagné : ${stats.totalEarned.toFixed(0)}€
 • Parrainages réussis : ${totalReferrals}
-• Progression : ${progressText}
 
 <b>💡 Utilisation :</b>
 Votre crédit sera automatiquement proposé lors de votre prochaine commande sur la boutique !
 
-🎁 Parrainez 5 amis = 10€ de crédit !`;
+🎁 1 ami parrainé = 10€ de crédit !`;
 
     const keyboard = {
       inline_keyboard: [
@@ -6407,7 +6398,7 @@ async function sendReferralStats(chatId) {
 Pour obtenir votre code personnel, passez votre première commande sur la boutique !
 
 <b>💰 Comment ça marche ?</b>
-Parrainez <b>5 amis</b> → Gagnez <b>10€</b> de crédit !
+Parrainez <b>1 ami</b> → Gagnez <b>10€</b> de crédit !
 Le filleul ne gagne rien, sauf s'il parraine à son tour.
 
 Commandez maintenant pour débloquer votre code ! 🚀`;
@@ -6431,11 +6422,6 @@ Commandez maintenant pour débloquer votre code ! 🚀`;
     }
 
     const totalReferrals = stats.totalReferrals || 0;
-    const remaining = 5 - (totalReferrals % 5);
-    const progressText = remaining === 5 && totalReferrals > 0
-      ? `🎉 Bonus débloqué ! Prochain à ${totalReferrals + 5} parrainages`
-      : `${totalReferrals % 5}/5 pour le prochain bonus de 10€`;
-
     const text = `🎁 <b>MON PARRAINAGE</b>
 
 <b>🔑 Votre code personnel :</b>
@@ -6445,10 +6431,9 @@ Commandez maintenant pour débloquer votre code ! 🚀`;
 • Parrainages réussis : ${totalReferrals}
 • Total gagné : ${stats.totalEarned.toFixed(0)}€
 • Crédit disponible : ${stats.creditBalance.toFixed(0)}€
-• Progression : ${progressText}
 
 <b>💰 Récompense :</b>
-5 parrainages = <b>10€ de crédit</b>
+1 parrainage = <b>10€ de crédit</b>
 
 <b>🚀 Partagez votre code :</b>
 Invitez vos amis à commander avec votre code !`;
@@ -6489,7 +6474,7 @@ async function sendMyReferralCode(chatId) {
 <code>${referral.referral_code}</code>
 
 <b>💰 Parrainez et gagnez :</b>
-5 amis parrainés = <b>10€ de crédit</b> !
+1 ami parrainé = <b>10€ de crédit</b> !
 
 Partagez dès maintenant ! 🚀`;
 
