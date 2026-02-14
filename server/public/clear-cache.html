@@ -83,7 +83,7 @@
       // Rediriger vers la boutique avec force reload
       setTimeout(() => {
         // Ajouter un timestamp pour forcer le rechargement
-        window.location.href = '/?v=' + Date.now();
+        window.location.href = '/?v=' + Date.now() + (window.location.hash || '');
       }, 2000);
     }, 1000);
   </script>
