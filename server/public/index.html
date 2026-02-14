@@ -3776,27 +3776,81 @@ let telegramUser = null;
 
 // Capturer Telegram user IMMÉDIATEMENT au chargement du script
 // (le script telegram-web-app.js est chargé en synchrone dans <head>)
-try {
-  const _tg = window.Telegram?.WebApp;
-  if (_tg) {
+function captureTelegramUser() {
+  try {
+    const _tg = window.Telegram?.WebApp;
+    if (!_tg) return null;
     _tg.ready();
-    telegramUser = _tg.initDataUnsafe?.user || null;
-    if (telegramUser) {
-      console.log('Telegram user capturé:', telegramUser.first_name, telegramUser.id);
-      // Enregistrer le visiteur pour pouvoir lui envoyer des broadcasts
-      fetch('/api/register-telegram', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          telegram_id: telegramUser.id,
-          first_name: telegramUser.first_name,
-          last_name: telegramUser.last_name,
-          username: telegramUser.username
-        })
-      }).catch(() => {});
+
+    // Méthode 1: initDataUnsafe.user (fonctionne sur mobile)
+    let user = _tg.initDataUnsafe?.user || null;
+
+    // Méthode 2: parser initData manuellement (fallback Desktop)
+    if (!user && _tg.initData) {
+      try {
+        const params = new URLSearchParams(_tg.initData);
+        const userStr = params.get('user');
+        if (userStr) {
+          user = JSON.parse(decodeURIComponent(userStr));
+        }
+      } catch (e) { console.warn('Parse initData fallback échoué:', e); }
     }
+
+    // Méthode 3: parser le hash de l'URL (fallback si redirigé depuis clear-cache)
+    if (!user && window.location.hash) {
+      try {
+        const hash = window.location.hash.substring(1);
+        const params = new URLSearchParams(hash);
+        const tgData = params.get('tgWebAppData');
+        if (tgData) {
+          const dataParams = new URLSearchParams(tgData);
+          const userStr = dataParams.get('user');
+          if (userStr) {
+            user = JSON.parse(decodeURIComponent(userStr));
+          }
+        }
+      } catch (e) { console.warn('Parse hash fallback échoué:', e); }
+    }
+
+    return user;
+  } catch (e) {
+    console.warn('Telegram WebApp non disponible:', e);
+    return null;
   }
-} catch (e) { console.warn('Telegram WebApp non disponible:', e); }
+}
+
+telegramUser = captureTelegramUser();
+
+// Retry après un court délai si pas capturé immédiatement (Desktop peut être lent)
+if (!telegramUser) {
+  setTimeout(() => {
+    if (!telegramUser) {
+      telegramUser = captureTelegramUser();
+      if (telegramUser) {
+        console.log('Telegram user capturé (retry):', telegramUser.first_name, telegramUser.id);
+        registerTelegramUser(telegramUser);
+      }
+    }
+  }, 500);
+}
+
+function registerTelegramUser(user) {
+  fetch('/api/register-telegram', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      telegram_id: user.id,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      username: user.username
+    })
+  }).catch(() => {});
+}
+
+if (telegramUser) {
+  console.log('Telegram user capturé:', telegramUser.first_name, telegramUser.id);
+  registerTelegramUser(telegramUser);
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CHARGEMENT INSTANTANÉ DES PRODUITS AU DÉMARRAGE
