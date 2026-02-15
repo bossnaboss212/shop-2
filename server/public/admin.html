@@ -6129,7 +6129,7 @@ function syncOrders(manual = false) {
             return {
               id: order.id,
               date: order.created_at ? new Date(order.created_at).toLocaleString('fr-FR') : 'N/A',
-              customer: order.customer || 'Client',
+              customer: order.customer_name || order.customer || 'Client',
               products: Array.isArray(order.items) ? order.items.filter(item => item).map(item => `${item.qty || 0}x ${item.name || '?'}`).join(', ') : '',
               total: order.total || 0,
               status: order.status || 'pending',
@@ -6147,7 +6147,7 @@ function syncOrders(manual = false) {
             return {
               id: order.id || '?',
               date: 'Erreur',
-              customer: order.customer || 'Client',
+              customer: order.customer_name || order.customer || 'Client',
               products: '',
               total: order.total || 0,
               status: order.status || 'pending',
