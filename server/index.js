@@ -677,6 +677,9 @@ async function initDB() {
   try {
     await db.run("ALTER TABLE orders ADD COLUMN delivery_fee REAL DEFAULT 0");
   } catch (e) { /* colonne existe déjà */ }
+  try {
+    await db.run("ALTER TABLE orders ADD COLUMN customer_name TEXT DEFAULT ''");
+  } catch (e) { /* colonne existe déjà */ }
 
   await db.run(`
     INSERT OR IGNORE INTO settings (key, value) VALUES
@@ -2641,9 +2644,9 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
 
       // 4. Créer la commande
       const result = await db.run(
-        `INSERT INTO orders (customer, type, address, items, total, discount, status, client_telegram_id, time_slot, customer_description, credit_used, delivery_fee)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [sanitizedCustomer, sanitizedType, sanitizedAddress, JSON.stringify(items), finalTotal, discount, orderStatus, clientTelegramId, sanitizedTimeSlot, sanitizedDescription, creditUsed, deliveryFee]
+        `INSERT INTO orders (customer, type, address, items, total, discount, status, client_telegram_id, time_slot, customer_description, credit_used, delivery_fee, customer_name)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [sanitizedCustomer, sanitizedType, sanitizedAddress, JSON.stringify(items), finalTotal, discount, orderStatus, clientTelegramId, sanitizedTimeSlot, sanitizedDescription, creditUsed, deliveryFee, sanitizedName]
       );
       orderId = result.lastID;
 
