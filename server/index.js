@@ -921,11 +921,11 @@ class ValidationError extends Error {
 
 function sanitizeString(str, maxLength = 500) {
   if (typeof str !== 'string') return '';
-  return str.trim().slice(0, maxLength);
+  return str.trim().slice(0, maxLength).replace(/[<>]/g, '');
 }
 
 function validateOrderInput(data) {
-  const { customer, type, items, total, address, deliveryFee } = data;
+  const { customer, type, items, total, address } = data;
   
   if (!customer || typeof customer !== 'string' || customer.trim().length < 2) {
     throw new ValidationError('Contact client invalide');
@@ -976,12 +976,8 @@ function validateOrderInput(data) {
     }
   }
 
-  // Vérifier que le total correspond à la somme des articles + frais de livraison
-  const fee = (typeof deliveryFee === 'number' && deliveryFee >= 0) ? deliveryFee : 0;
-  const calculatedTotal = items.reduce((sum, item) => sum + item.lineTotal, 0) + fee;
-  if (Math.abs(total - calculatedTotal) > 0.01) {
-    throw new ValidationError('Le total ne correspond pas à la somme des articles');
-  }
+  // Note : le total final est recalculé côté serveur (items + frais de livraison serveur)
+  // La validation du total se fait après le calcul des frais de zone
 
   return true;
 }
@@ -1833,7 +1829,7 @@ async function notifyReferralSuccess(referrerContact, newCustomerContact, orderI
   const referrerName = await getCustomerDisplayName(referrerContact);
   const newCustomerName = await getCustomerDisplayName(newCustomerContact);
 
-  if (referrerTelegramId && config.telegram.botToken) {
+  if (referrerTelegramId && config.telegram.token) {
     const progressText = `🎉 Vous avez débloqué <b>10€ de crédit</b> !`;
 
     const message = `🤝 <b>NOUVEAU PARRAINAGE ENREGISTRÉ !</b>
@@ -1871,7 +1867,7 @@ async function notifyReferralMilestone(referrerContact, totalReferrals, reward) 
   const referrerTelegramId = await getClientTelegramId(referrerContact);
   const referrerName = await getCustomerDisplayName(referrerContact);
 
-  if (referrerTelegramId && config.telegram.botToken) {
+  if (referrerTelegramId && config.telegram.token) {
     const message = `🎉 <b>FÉLICITATIONS ${referrerName} !</b>
 
 🏆 Vous avez atteint <b>${totalReferrals} parrainages</b> !
@@ -2205,7 +2201,7 @@ app.get('/api/stock/:productId/:variant', apiLimiter, async (req, res) => {
 // ==================== NOUVEAU : ANNULATION COMMANDE ====================
 app.post('/api/cancel-order', apiLimiter, async (req, res) => {
   try {
-    const { orderId, reason } = req.body;
+    const { orderId, reason, telegramId } = req.body;
 
     if (!orderId) {
       return res.status(400).json({ ok: false, error: 'ID commande manquant' });
@@ -2215,6 +2211,11 @@ app.post('/api/cancel-order', apiLimiter, async (req, res) => {
 
     if (!order) {
       return res.status(404).json({ ok: false, error: 'Commande introuvable' });
+    }
+
+    // Vérifier que le demandeur est le propriétaire de la commande
+    if (!telegramId || (order.client_telegram_id !== String(telegramId) && order.customer !== String(telegramId))) {
+      return res.status(403).json({ ok: false, error: 'Non autorisé' });
     }
 
     if (order.status === 'cancelled') {
@@ -2287,7 +2288,7 @@ app.post('/api/cancel-order', apiLimiter, async (req, res) => {
 // ==================== ANNULATION PARTIELLE ====================
 app.post('/api/cancel-order-items', apiLimiter, async (req, res) => {
   try {
-    const { orderId, itemsToCancel, reason } = req.body;
+    const { orderId, itemsToCancel, reason, telegramId } = req.body;
 
     if (!orderId || !itemsToCancel || !Array.isArray(itemsToCancel) || itemsToCancel.length === 0) {
       return res.status(400).json({ ok: false, error: 'Données invalides' });
@@ -2297,6 +2298,11 @@ app.post('/api/cancel-order-items', apiLimiter, async (req, res) => {
 
     if (!order) {
       return res.status(404).json({ ok: false, error: 'Commande introuvable' });
+    }
+
+    // Vérifier que le demandeur est le propriétaire de la commande
+    if (!telegramId || (order.client_telegram_id !== String(telegramId) && order.customer !== String(telegramId))) {
+      return res.status(403).json({ ok: false, error: 'Non autorisé' });
     }
 
     if (order.status === 'cancelled') {
@@ -2363,7 +2369,8 @@ app.post('/api/cancel-order-items', apiLimiter, async (req, res) => {
         if (remainingQty > 0) {
           remainingItems.push({
             ...item,
-            qty: remainingQty
+            qty: remainingQty,
+            lineTotal: item.price * remainingQty
           });
         }
       } else {
@@ -2478,7 +2485,27 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
     validateOrderInput(req.body);
 
     const { customer, customerName, type, address, items, total, referralCode, useCredit, telegramId, timeSlot, customerDescription, deliveryFee: rawDeliveryFee } = req.body;
-    const deliveryFee = (typeof rawDeliveryFee === 'number' && rawDeliveryFee >= 0) ? rawDeliveryFee : 0;
+
+    // Valider les frais de livraison côté serveur (ne pas faire confiance au client)
+    const deliveryZoneRules = {
+      'millau': { fee: 0, min: 0 },
+      'zone 1': { fee: 10, min: 50 },
+      'zone 2': { fee: 20, min: 80 },
+      'zone 3': { fee: 30, min: 100 },
+      'zone 4': { fee: 40, min: 150 },
+    };
+    const typeLower = (type || '').toLowerCase();
+    let serverZone = null;
+    for (const [zone, rules] of Object.entries(deliveryZoneRules)) {
+      if (typeLower.includes(zone)) { serverZone = rules; break; }
+    }
+    const deliveryFee = serverZone ? serverZone.fee : 0;
+
+    // Vérifier le minimum de commande pour la zone
+    const itemsSubtotal = items.reduce((sum, item) => sum + (item.price * item.qty), 0);
+    if (serverZone && serverZone.min > 0 && itemsSubtotal < serverZone.min) {
+      return res.status(400).json({ ok: false, error: `Minimum ${serverZone.min}€ requis pour cette zone de livraison` });
+    }
 
     const sanitizedCustomer = sanitizeString(customer, 100);
     const sanitizedType = sanitizeString(type, 50);
@@ -2588,7 +2615,9 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
         }
       }
 
-      const finalTotal = total - discount - creditUsed;
+      // Recalculer le total côté serveur (ne pas faire confiance au client)
+      const serverItemsTotal = items.reduce((sum, item) => sum + (item.price * item.qty), 0);
+      const finalTotal = serverItemsTotal + deliveryFee - discount - creditUsed;
 
       // 2. Lier telegram_id au contact
       if (telegramId) {
@@ -3257,10 +3286,33 @@ app.put('/api/admin/orders/:id', requireAdmin, async (req, res) => {
     // Récupérer l'ancien statut avant mise à jour
     const oldOrder = await db.get('SELECT status, client_telegram_id, customer FROM orders WHERE id = ?', [id]);
 
-    const fields = Object.keys(updates).map(key => `${key} = ?`).join(', ');
-    const values = [...Object.values(updates), id];
-
-    await db.run(`UPDATE orders SET ${fields} WHERE id = ?`, values);
+    // Si passage en 'cancelled', restaurer stock/revenu/crédit dans une transaction atomique
+    if (updates.status === 'cancelled' && oldOrder && oldOrder.status !== 'cancelled') {
+      const order = await db.get('SELECT * FROM orders WHERE id = ?', [id]);
+      const items = JSON.parse(order.items);
+      await db.run('BEGIN IMMEDIATE');
+      try {
+        await restoreStockForOrder(items, id, { inTransaction: true });
+        await db.run('DELETE FROM transactions WHERE description = ?', [`Commande #${id}`]);
+        if (order.credit_used > 0) {
+          await db.run(
+            'UPDATE referrals SET credit_balance = credit_balance + ? WHERE customer_contact = ?',
+            [order.credit_used, order.customer]
+          );
+        }
+        const fields = Object.keys(updates).map(key => `${key} = ?`).join(', ');
+        const values = [...Object.values(updates), id];
+        await db.run(`UPDATE orders SET ${fields}, cancel_reason = 'Annulée par admin', cancelled_at = CURRENT_TIMESTAMP WHERE id = ?`, values);
+        await db.run('COMMIT');
+      } catch (txErr) {
+        await db.run('ROLLBACK');
+        throw txErr;
+      }
+    } else {
+      const fields = Object.keys(updates).map(key => `${key} = ?`).join(', ');
+      const values = [...Object.values(updates), id];
+      await db.run(`UPDATE orders SET ${fields} WHERE id = ?`, values);
+    }
 
     // Notification Telegram au client si le statut a changé
     if (updates.status && oldOrder && updates.status !== oldOrder.status) {
@@ -3301,18 +3353,27 @@ app.delete('/api/admin/orders/:id', requireAdmin, async (req, res) => {
       return res.status(404).json({ ok: false, error: 'Commande introuvable' });
     }
 
-    // Restaurer le stock si la commande n'était pas déjà annulée
-    if (order.status !== 'cancelled') {
-      try {
+    // Transaction atomique : restauration stock/revenu/crédit + suppression
+    await db.run('BEGIN IMMEDIATE');
+    try {
+      if (order.status !== 'cancelled') {
         const items = JSON.parse(order.items);
-        await restoreStockForOrder(items, id);
-        console.log(`📦 Stock restauré pour commande #${id} supprimée`);
-      } catch (stockErr) {
-        console.error(`⚠️ Stock restore failed for order #${id}:`, stockErr.message);
+        await restoreStockForOrder(items, id, { inTransaction: true });
+        await db.run('DELETE FROM transactions WHERE description = ?', [`Commande #${id}`]);
+        if (order.credit_used > 0) {
+          await db.run(
+            'UPDATE referrals SET credit_balance = credit_balance + ? WHERE customer_contact = ?',
+            [order.credit_used, order.customer]
+          );
+        }
       }
+      await db.run('DELETE FROM orders WHERE id = ?', [id]);
+      await db.run('COMMIT');
+    } catch (txErr) {
+      await db.run('ROLLBACK');
+      throw txErr;
     }
 
-    await db.run('DELETE FROM orders WHERE id = ?', [id]);
     res.json({ ok: true });
   } catch (error) {
     console.error('Delete order error:', error);
@@ -7184,13 +7245,37 @@ N'hésitez pas à recommander ! 🛒`
 }
 
 async function refuseDelivery(chatId, orderId) {
-  await db.run('UPDATE orders SET status = ? WHERE id = ?', ['cancelled', orderId]);
+  const order = await db.get('SELECT * FROM orders WHERE id = ?', [orderId]);
+  if (!order) {
+    await telegram.sendMessage(chatId, '❌ Commande introuvable');
+    return;
+  }
+
+  const items = JSON.parse(order.items);
+  await db.run('BEGIN IMMEDIATE');
+  try {
+    await restoreStockForOrder(items, orderId, { inTransaction: true });
+    await db.run('DELETE FROM transactions WHERE description = ?', [`Commande #${orderId}`]);
+    if (order.credit_used > 0) {
+      await db.run(
+        'UPDATE referrals SET credit_balance = credit_balance + ? WHERE customer_contact = ?',
+        [order.credit_used, order.customer]
+      );
+    }
+    await db.run('UPDATE orders SET status = ?, cancel_reason = ?, cancelled_at = CURRENT_TIMESTAMP WHERE id = ?',
+      ['cancelled', 'Refusée par le livreur', orderId]);
+    await db.run('COMMIT');
+  } catch (txErr) {
+    await db.run('ROLLBACK');
+    throw txErr;
+  }
+
   chatManager.closeConversation(parseInt(orderId));
-  
+
   if (getAdminChatIds().length > 0) {
     await notifyAdmins(`❌ Livraison #${orderId} refusée par le livreur`);
   }
-  
+
   await telegram.sendMessage(chatId, '❌ Livraison refusée');
 }
 
