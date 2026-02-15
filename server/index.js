@@ -671,6 +671,9 @@ async function initDB() {
   try {
     await db.run("ALTER TABLE orders ADD COLUMN customer_description TEXT DEFAULT ''");
   } catch (e) { /* colonne existe déjà */ }
+  try {
+    await db.run("ALTER TABLE orders ADD COLUMN credit_used REAL DEFAULT 0");
+  } catch (e) { /* colonne existe déjà */ }
 
   await db.run(`
     INSERT OR IGNORE INTO settings (key, value) VALUES
@@ -940,20 +943,42 @@ function validateOrderInput(data) {
   if (!Array.isArray(items) || items.length === 0) {
     throw new ValidationError('Panier vide');
   }
-  
+
+  if (items.length > 50) {
+    throw new ValidationError('Trop d\'articles dans le panier (max 50)');
+  }
+
   if (typeof total !== 'number' || total < 0) {
     throw new ValidationError('Montant invalide');
   }
-  
+
+  if (total > 100000) {
+    throw new ValidationError('Montant total trop élevé');
+  }
+
   for (const item of items) {
     if (!item.product_id || !item.name || !item.variant || !item.qty || !item.lineTotal) {
       throw new ValidationError('Données article invalides');
     }
+    if (typeof item.price !== 'number' || item.price < 0) {
+      throw new ValidationError('Prix article invalide');
+    }
     if (item.qty < 1 || item.lineTotal < 0) {
       throw new ValidationError('Quantité ou prix invalide');
     }
+    // Vérifier l'intégrité du lineTotal (protection contre la manipulation de prix)
+    const expectedLineTotal = item.price * item.qty;
+    if (Math.abs(item.lineTotal - expectedLineTotal) > 0.01) {
+      throw new ValidationError('Calcul du total article incorrect');
+    }
   }
-  
+
+  // Vérifier que le total correspond à la somme des articles
+  const calculatedTotal = items.reduce((sum, item) => sum + item.lineTotal, 0);
+  if (Math.abs(total - calculatedTotal) > 0.01) {
+    throw new ValidationError('Le total ne correspond pas à la somme des articles');
+  }
+
   return true;
 }
 
@@ -1612,8 +1637,8 @@ async function updateStockForOrder(items, orderId, { inTransaction = false } = {
   }
 }
 
-async function restoreStockForOrder(items, orderId) {
-  await db.run('BEGIN IMMEDIATE');
+async function restoreStockForOrder(items, orderId, { inTransaction = false } = {}) {
+  if (!inTransaction) await db.run('BEGIN IMMEDIATE');
   try {
     for (const item of items) {
       await db.run(
@@ -1632,9 +1657,9 @@ async function restoreStockForOrder(items, orderId) {
         [item.product_id, item.variant, item.qty, stockAfter?.qty || 0, `Annulation commande #${orderId}`]
       );
     }
-    await db.run('COMMIT');
+    if (!inTransaction) await db.run('COMMIT');
   } catch (err) {
-    await db.run('ROLLBACK');
+    if (!inTransaction) await db.run('ROLLBACK');
     throw err;
   }
 }
@@ -2209,21 +2234,35 @@ app.post('/api/cancel-order', apiLimiter, async (req, res) => {
       });
     }
 
-    // Restaurer les stocks
+    // Transaction atomique : restauration stock + suppression revenu + remboursement crédit + annulation commande
     const items = JSON.parse(order.items);
-    await restoreStockForOrder(items, orderId);
+    await db.run('BEGIN IMMEDIATE');
+    try {
+      await restoreStockForOrder(items, orderId, { inTransaction: true });
 
-    // Supprimer la transaction
-    await db.run(
-      'DELETE FROM transactions WHERE description = ?',
-      [`Commande #${orderId}`]
-    );
+      await db.run(
+        'DELETE FROM transactions WHERE description = ?',
+        [`Commande #${orderId}`]
+      );
 
-    // Marquer comme annulée
-    await db.run(
-      'UPDATE orders SET status = ?, cancel_reason = ?, cancelled_at = CURRENT_TIMESTAMP WHERE id = ?',
-      ['cancelled', reason || 'Annulée par le client', orderId]
-    );
+      // Rembourser le crédit utilisé si applicable
+      if (order.credit_used > 0) {
+        await db.run(
+          'UPDATE referrals SET credit_balance = credit_balance + ? WHERE customer_contact = ?',
+          [order.credit_used, order.customer]
+        );
+      }
+
+      await db.run(
+        'UPDATE orders SET status = ?, cancel_reason = ?, cancelled_at = CURRENT_TIMESTAMP WHERE id = ?',
+        ['cancelled', reason || 'Annulée par le client', orderId]
+      );
+
+      await db.run('COMMIT');
+    } catch (txErr) {
+      await db.run('ROLLBACK');
+      throw txErr;
+    }
 
     // Fermer les conversations liées
     chatManager.closeConversation(parseInt(orderId));
@@ -2281,7 +2320,6 @@ app.post('/api/cancel-order-items', apiLimiter, async (req, res) => {
 
     // Vérifier que tous les articles à annuler existent dans la commande
     const itemsToRemove = [];
-    let amountToRefund = 0;
 
     for (const cancelItem of itemsToCancel) {
       const foundItem = allItems.find(item =>
@@ -2307,13 +2345,7 @@ app.post('/api/cancel-order-items', apiLimiter, async (req, res) => {
         ...foundItem,
         qty: cancelItem.qty
       });
-
-      // Calculer le montant à rembourser
-      amountToRefund += foundItem.price * cancelItem.qty;
     }
-
-    // Restaurer le stock pour les articles annulés
-    await restoreStockForOrder(itemsToRemove, orderId);
 
     // Mettre à jour la commande
     const remainingItems = [];
@@ -2337,15 +2369,34 @@ app.post('/api/cancel-order-items', apiLimiter, async (req, res) => {
 
     // Si tous les articles sont annulés, annuler complètement la commande
     if (remainingItems.length === 0) {
-      await db.run(
-        'DELETE FROM transactions WHERE description = ?',
-        [`Commande #${orderId}`]
-      );
+      // Transaction atomique : restauration stock + annulation commande + suppression revenu + remboursement crédit
+      await db.run('BEGIN IMMEDIATE');
+      try {
+        await restoreStockForOrder(itemsToRemove, orderId, { inTransaction: true });
 
-      await db.run(
-        'UPDATE orders SET status = ?, cancel_reason = ?, cancelled_at = CURRENT_TIMESTAMP WHERE id = ?',
-        ['cancelled', reason || 'Annulation totale des articles', orderId]
-      );
+        await db.run(
+          'DELETE FROM transactions WHERE description = ?',
+          [`Commande #${orderId}`]
+        );
+
+        // Rembourser le crédit utilisé si applicable
+        if (order.credit_used > 0) {
+          await db.run(
+            'UPDATE referrals SET credit_balance = credit_balance + ? WHERE customer_contact = ?',
+            [order.credit_used, order.customer]
+          );
+        }
+
+        await db.run(
+          'UPDATE orders SET status = ?, cancel_reason = ?, cancelled_at = CURRENT_TIMESTAMP WHERE id = ?',
+          ['cancelled', reason || 'Annulation totale des articles', orderId]
+        );
+
+        await db.run('COMMIT');
+      } catch (txErr) {
+        await db.run('ROLLBACK');
+        throw txErr;
+      }
 
       chatManager.closeConversation(parseInt(orderId));
 
@@ -2355,7 +2406,7 @@ app.post('/api/cancel-order-items', apiLimiter, async (req, res) => {
         ok: true,
         message: 'Tous les articles annulés - Commande complètement annulée',
         fullyCancelled: true,
-        refundAmount: amountToRefund
+        refundAmount: order.total
       });
     }
 
@@ -2365,22 +2416,36 @@ app.post('/api/cancel-order-items', apiLimiter, async (req, res) => {
       newTotal += item.price * item.qty;
     }
 
-    // Appliquer la réduction si elle existe
+    // Appliquer la réduction si elle existe (discount est une valeur absolue, pas un pourcentage)
     if (order.discount > 0) {
-      newTotal = newTotal * (1 - order.discount / 100);
+      newTotal = Math.max(0, newTotal - order.discount);
     }
 
-    // Mettre à jour la commande avec les articles restants
-    await db.run(
-      'UPDATE orders SET items = ?, total = ? WHERE id = ?',
-      [JSON.stringify(remainingItems), newTotal, orderId]
-    );
+    // Calculer le remboursement réel (basé sur ce que le client a payé)
+    const actualRefund = order.total - newTotal;
 
-    // Mettre à jour la transaction
-    await db.run(
-      'UPDATE transactions SET amount = ? WHERE description = ?',
-      [newTotal, `Commande #${orderId}`]
-    );
+    // Transaction atomique : restauration stock + mise à jour commande + mise à jour revenu
+    await db.run('BEGIN IMMEDIATE');
+    try {
+      await restoreStockForOrder(itemsToRemove, orderId, { inTransaction: true });
+
+      // Mettre à jour la commande avec les articles restants
+      await db.run(
+        'UPDATE orders SET items = ?, total = ? WHERE id = ?',
+        [JSON.stringify(remainingItems), newTotal, orderId]
+      );
+
+      // Mettre à jour la transaction
+      await db.run(
+        'UPDATE transactions SET amount = ? WHERE description = ?',
+        [newTotal, `Commande #${orderId}`]
+      );
+
+      await db.run('COMMIT');
+    } catch (txErr) {
+      await db.run('ROLLBACK');
+      throw txErr;
+    }
 
     console.log(`✅ Order #${orderId} partially cancelled. ${itemsToRemove.length} item(s) removed.`);
 
@@ -2388,7 +2453,7 @@ app.post('/api/cancel-order-items', apiLimiter, async (req, res) => {
       ok: true,
       message: 'Articles annulés avec succès',
       fullyCancelled: false,
-      refundAmount: amountToRefund,
+      refundAmount: actualRefund,
       newTotal: newTotal,
       remainingItems: remainingItems.length
     });
@@ -2409,13 +2474,12 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
     const sanitizedCustomer = sanitizeString(customer, 100);
     const sanitizedType = sanitizeString(type, 50);
     let sanitizedTimeSlot = 'asap';
-    if (timeSlot === 'asap') {
+    if (!timeSlot || timeSlot === 'asap') {
       sanitizedTimeSlot = 'asap';
     } else if (typeof timeSlot === 'string' && /^([01]\d|2[0-3]):(00|30)$/.test(timeSlot)) {
-      const h = parseInt(timeSlot.split(':')[0]);
-      if (h >= 12 || h === 0) sanitizedTimeSlot = timeSlot;
-    } else if (timeSlot === '00:00') {
-      sanitizedTimeSlot = '00:00';
+      sanitizedTimeSlot = timeSlot;
+    } else {
+      throw new ValidationError('Créneau de livraison invalide');
     }
     const sanitizedAddress = sanitizeString(address, 200);
     const sanitizedDescription = sanitizeString(customerDescription || '', 200);
@@ -2533,9 +2597,9 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
 
       // 4. Créer la commande
       const result = await db.run(
-        `INSERT INTO orders (customer, type, address, items, total, discount, status, client_telegram_id, time_slot, customer_description)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [sanitizedCustomer, sanitizedType, sanitizedAddress, JSON.stringify(items), finalTotal, discount, orderStatus, clientTelegramId, sanitizedTimeSlot, sanitizedDescription]
+        `INSERT INTO orders (customer, type, address, items, total, discount, status, client_telegram_id, time_slot, customer_description, credit_used)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [sanitizedCustomer, sanitizedType, sanitizedAddress, JSON.stringify(items), finalTotal, discount, orderStatus, clientTelegramId, sanitizedTimeSlot, sanitizedDescription, creditUsed]
       );
       orderId = result.lastID;
 
