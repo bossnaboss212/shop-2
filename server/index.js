@@ -2677,9 +2677,17 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
     const customerReferral = await getOrCreateReferralCode(sanitizedCustomer);
     let referralResult = null;
 
-    // Appliquer les crédits de parrainage si un code a été fourni
+    // Appliquer les crédits de parrainage uniquement pour la première commande d'un nouveau client
     if (referralCode && referralCode.trim().length > 0) {
-      referralResult = await applyReferralCredits(referralCode.trim(), sanitizedCustomer, orderId);
+      const previousOrderCount = await db.get(
+        'SELECT COUNT(*) as count FROM orders WHERE customer = ? AND id != ?',
+        [sanitizedCustomer, orderId]
+      );
+      if (previousOrderCount && previousOrderCount.count > 0) {
+        console.log(`⚠️ Referral code ignored: ${sanitizedCustomer} already has ${previousOrderCount.count} previous orders`);
+      } else {
+        referralResult = await applyReferralCredits(referralCode.trim(), sanitizedCustomer, orderId);
+      }
     }
 
     // Notification Telegram pour le parrain si un code a été utilisé
