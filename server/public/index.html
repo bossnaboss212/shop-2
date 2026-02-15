@@ -4829,7 +4829,7 @@ function renderCart() {
 
   const subtotal = CartManager.getTotal();
   const zone = DELIVERY_ZONES[selectedDelivery] || DELIVERY_ZONES.millau;
-  const deliveryFee = zone.fee;
+  const deliveryFee = zone ? zone.fee : 0;
 
   const totalBeforeCredit = subtotal + deliveryFee;
   const creditToApply = useCreditEnabled ? Math.min(userCreditBalance, totalBeforeCredit) : 0;
@@ -5221,7 +5221,17 @@ async function validateOrder() {
   
   try {
     const clientId = generateClientId();
-    const zone = DELIVERY_ZONES[selectedDelivery] || DELIVERY_ZONES.millau;
+    if (!selectedDelivery || !DELIVERY_ZONES[selectedDelivery]) {
+      showToast('⚠️ Sélectionnez une zone de livraison');
+      btn.disabled = false;
+      btn.classList.remove('loading');
+      btn.innerHTML = `<svg style="width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2" viewBox="0 0 24 24">
+        <line x1="22" y1="2" x2="11" y2="13"></line>
+        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+      </svg> Valider ma commande`;
+      return;
+    }
+    const zone = DELIVERY_ZONES[selectedDelivery];
     const deliveryFee = zone.fee;
     const deliveryType = zone.fee === 0
       ? zone.name

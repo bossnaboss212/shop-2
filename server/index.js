@@ -671,6 +671,9 @@ async function initDB() {
   try {
     await db.run("ALTER TABLE orders ADD COLUMN customer_description TEXT DEFAULT ''");
   } catch (e) { /* colonne existe déjà */ }
+  try {
+    await db.run("ALTER TABLE orders ADD COLUMN credit_used REAL DEFAULT 0");
+  } catch (e) { /* colonne existe déjà */ }
 
   await db.run(`
     INSERT OR IGNORE INTO settings (key, value) VALUES
@@ -948,6 +951,9 @@ function validateOrderInput(data) {
   for (const item of items) {
     if (!item.product_id || !item.name || !item.variant || !item.qty || !item.lineTotal) {
       throw new ValidationError('Données article invalides');
+    }
+    if (typeof item.price !== 'number' || item.price < 0) {
+      throw new ValidationError('Prix article invalide');
     }
     if (item.qty < 1 || item.lineTotal < 0) {
       throw new ValidationError('Quantité ou prix invalide');
@@ -2209,7 +2215,7 @@ app.post('/api/cancel-order', apiLimiter, async (req, res) => {
       });
     }
 
-    // Transaction atomique : restauration stock + suppression revenu + annulation commande
+    // Transaction atomique : restauration stock + suppression revenu + remboursement crédit + annulation commande
     const items = JSON.parse(order.items);
     await db.run('BEGIN IMMEDIATE');
     try {
@@ -2219,6 +2225,14 @@ app.post('/api/cancel-order', apiLimiter, async (req, res) => {
         'DELETE FROM transactions WHERE description = ?',
         [`Commande #${orderId}`]
       );
+
+      // Rembourser le crédit utilisé si applicable
+      if (order.credit_used > 0) {
+        await db.run(
+          'UPDATE referrals SET credit_balance = credit_balance + ? WHERE customer_contact = ?',
+          [order.credit_used, order.customer]
+        );
+      }
 
       await db.run(
         'UPDATE orders SET status = ?, cancel_reason = ?, cancelled_at = CURRENT_TIMESTAMP WHERE id = ?',
@@ -2287,7 +2301,6 @@ app.post('/api/cancel-order-items', apiLimiter, async (req, res) => {
 
     // Vérifier que tous les articles à annuler existent dans la commande
     const itemsToRemove = [];
-    let amountToRefund = 0;
 
     for (const cancelItem of itemsToCancel) {
       const foundItem = allItems.find(item =>
@@ -2313,9 +2326,6 @@ app.post('/api/cancel-order-items', apiLimiter, async (req, res) => {
         ...foundItem,
         qty: cancelItem.qty
       });
-
-      // Calculer le montant à rembourser
-      amountToRefund += foundItem.price * cancelItem.qty;
     }
 
     // Mettre à jour la commande
@@ -2340,7 +2350,7 @@ app.post('/api/cancel-order-items', apiLimiter, async (req, res) => {
 
     // Si tous les articles sont annulés, annuler complètement la commande
     if (remainingItems.length === 0) {
-      // Transaction atomique : restauration stock + annulation commande + suppression revenu
+      // Transaction atomique : restauration stock + annulation commande + suppression revenu + remboursement crédit
       await db.run('BEGIN IMMEDIATE');
       try {
         await restoreStockForOrder(itemsToRemove, orderId, { inTransaction: true });
@@ -2349,6 +2359,14 @@ app.post('/api/cancel-order-items', apiLimiter, async (req, res) => {
           'DELETE FROM transactions WHERE description = ?',
           [`Commande #${orderId}`]
         );
+
+        // Rembourser le crédit utilisé si applicable
+        if (order.credit_used > 0) {
+          await db.run(
+            'UPDATE referrals SET credit_balance = credit_balance + ? WHERE customer_contact = ?',
+            [order.credit_used, order.customer]
+          );
+        }
 
         await db.run(
           'UPDATE orders SET status = ?, cancel_reason = ?, cancelled_at = CURRENT_TIMESTAMP WHERE id = ?',
@@ -2437,13 +2455,12 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
     const sanitizedCustomer = sanitizeString(customer, 100);
     const sanitizedType = sanitizeString(type, 50);
     let sanitizedTimeSlot = 'asap';
-    if (timeSlot === 'asap') {
+    if (!timeSlot || timeSlot === 'asap') {
       sanitizedTimeSlot = 'asap';
     } else if (typeof timeSlot === 'string' && /^([01]\d|2[0-3]):(00|30)$/.test(timeSlot)) {
-      const h = parseInt(timeSlot.split(':')[0]);
-      if (h >= 12 || h === 0) sanitizedTimeSlot = timeSlot;
-    } else if (timeSlot === '00:00') {
-      sanitizedTimeSlot = '00:00';
+      sanitizedTimeSlot = timeSlot;
+    } else {
+      throw new ValidationError('Créneau de livraison invalide');
     }
     const sanitizedAddress = sanitizeString(address, 200);
     const sanitizedDescription = sanitizeString(customerDescription || '', 200);
@@ -2561,9 +2578,9 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
 
       // 4. Créer la commande
       const result = await db.run(
-        `INSERT INTO orders (customer, type, address, items, total, discount, status, client_telegram_id, time_slot, customer_description)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [sanitizedCustomer, sanitizedType, sanitizedAddress, JSON.stringify(items), finalTotal, discount, orderStatus, clientTelegramId, sanitizedTimeSlot, sanitizedDescription]
+        `INSERT INTO orders (customer, type, address, items, total, discount, status, client_telegram_id, time_slot, customer_description, credit_used)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [sanitizedCustomer, sanitizedType, sanitizedAddress, JSON.stringify(items), finalTotal, discount, orderStatus, clientTelegramId, sanitizedTimeSlot, sanitizedDescription, creditUsed]
       );
       orderId = result.lastID;
 
