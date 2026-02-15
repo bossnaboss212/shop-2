@@ -2992,7 +2992,7 @@ function loadOrders() {
   tbody.innerHTML = state.data.orders.map(o => {
     const p = o.priority || { level: 3, label: '', emoji: '' };
     const priorityClass = p.level === 1 ? 'priority-urgent' : p.level === 2 ? 'priority-high' : '';
-    const isActive = (o.status === 'pending' || o.status === 'pending_approval' || o.status === 'en_route');
+    const isActive = ['pending', 'pending_approval', 'confirmed', 'preparing', 'en_route'].includes(o.status);
     const priorityBadge = isActive ? `<span class="badge ${priorityClass}" title="${p.label}">${p.emoji} ${p.label}</span>` : '';
     const descBadge = o.customer_description ? `<br><small style="color:#aaa">🧍 ${o.customer_description}</small>` : '';
     const slotBadge = (o.time_slot && o.time_slot !== 'asap' && isActive) ? `<br><small>🕐 ${o.time_slot}</small>` : '';
@@ -6040,6 +6040,21 @@ function syncOrders(manual = false) {
     }
   })
   .then(res => {
+    if (res.status === 401) {
+      console.error('🔒 Session expirée - reconnexion nécessaire');
+      state.apiToken = null;
+      localStorage.removeItem('admin_auth');
+      localStorage.removeItem('session_expiry');
+      localStorage.removeItem('admin_token');
+      if (state.syncInterval) {
+        clearInterval(state.syncInterval);
+        state.syncInterval = null;
+      }
+      showToast('🔒 Session expirée - reconnectez-vous', 'error');
+      document.getElementById('loginScreen').style.display = 'flex';
+      document.getElementById('dashboard').style.display = 'none';
+      return Promise.reject(new Error('Session expirée'));
+    }
     if (!res.ok) {
       throw new Error(`HTTP ${res.status}`);
     }
@@ -6069,8 +6084,9 @@ function syncOrders(manual = false) {
 
       // Trier : commandes actives par priorité en premier, puis livrées/annulées
       serverOrders.sort((a, b) => {
-        const activeA = (a.status === 'pending' || a.status === 'pending_approval' || a.status === 'en_route') ? 0 : 1;
-        const activeB = (b.status === 'pending' || b.status === 'pending_approval' || b.status === 'en_route') ? 0 : 1;
+        const activeStatuses = ['pending', 'pending_approval', 'confirmed', 'preparing', 'en_route'];
+        const activeA = activeStatuses.includes(a.status) ? 0 : 1;
+        const activeB = activeStatuses.includes(b.status) ? 0 : 1;
         if (activeA !== activeB) return activeA - activeB;
         if (activeA === 0 && activeB === 0) return a.priority.level - b.priority.level;
         return new Date(b.timestamp) - new Date(a.timestamp);
