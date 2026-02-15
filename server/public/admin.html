@@ -2754,7 +2754,7 @@ function updateAllStats() {
   document.getElementById('totalRevenue').textContent = fc(localRevenue);
   document.getElementById('totalOrders').textContent = orders.length;
   document.getElementById('avgCart').textContent = fc(localAvg);
-  document.getElementById('activeOrders').textContent = orders.filter(o => o.status === 'pending').length;
+  document.getElementById('activeOrders').textContent = orders.filter(o => ['pending', 'pending_approval', 'confirmed', 'preparing', 'en_route'].includes(o.status)).length;
 
   const activeProducts = state.data.products.filter(p => !p.archived);
   let stockValue = 0, lowStock = 0;
@@ -2952,6 +2952,11 @@ function showTab(name, evt) {
     }, 100);
   }
   
+  if (name === 'orders') {
+    syncOrders(false);
+    loadOrders();
+  }
+
   if (name === 'products') {
     loadProducts();
   }
@@ -3007,6 +3012,7 @@ function loadOrders() {
       <td><span class="badge">${o.payment || 'Espèces'}</span></td>
       <td>
         ${o.status === 'pending' ? `<button class="btn-sm btn-success" onclick="validateOrder('${o.id}')" title="Valider">✅</button>` : ''}
+        ${o.status === 'pending_approval' ? `<button class="btn-sm btn-success" onclick="approveAndValidateOrder('${o.id}', '${(o.customer || '').replace(/'/g, "\\'")}')" title="Approuver le client et valider" style="background:#667eea">🔓 Approuver</button>` : ''}
         <button class="btn-sm btn-primary" onclick="viewOrder('${o.id}')">👁️</button>
         <button class="btn-sm btn-warning" onclick="editOrder('${o.id}')">✏️</button>
         <button class="btn-sm btn-danger" onclick="deleteOrder('${o.id}')">🗑️</button>
@@ -3781,6 +3787,58 @@ function validateOrder(id) {
 function confirmValidateOrder(id) {
   updateOrderStatus(id, 'delivered');
   showToast('✅ Commande validée !', 'success');
+}
+
+async function approveAndValidateOrder(orderId, customerContact) {
+  const token = localStorage.getItem('admin_token');
+  if (!token) {
+    showToast('❌ Non connecté', 'error');
+    return;
+  }
+
+  showModal('Approuver le client', `
+    <div style="text-align:center;padding:20px">
+      <div style="font-size:64px;margin-bottom:16px">🔓</div>
+      <h3 style="margin-bottom:12px">Nouveau client: ${customerContact}</h3>
+      <p style="color:var(--text-secondary);margin-bottom:20px">Approuver ce client et valider sa commande #${orderId} ?</p>
+      <div style="display:flex;gap:12px;justify-content:center">
+        <button onclick="confirmApproveOrder('${orderId}', '${customerContact.replace(/'/g, "\\'")}')" style="background:var(--success);padding:12px 32px">🔓 Approuver</button>
+        <button onclick="closeModal()" style="background:var(--muted);padding:12px 32px">Annuler</button>
+      </div>
+    </div>
+  `);
+}
+
+async function confirmApproveOrder(orderId, customerContact) {
+  const token = localStorage.getItem('admin_token');
+  if (!token) {
+    showToast('❌ Non connecté', 'error');
+    return;
+  }
+
+  try {
+    // 1. Approuver le client
+    const approveRes = await fetch(`/api/admin/customers/${encodeURIComponent(customerContact)}/approve`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-token': token
+      }
+    });
+    const approveData = await approveRes.json();
+
+    if (approveData.ok) {
+      showToast(`✅ Client approuvé ! ${approveData.ordersApproved || 0} commande(s) activée(s)`, 'success');
+      closeModal();
+      // Resync pour voir les changements
+      syncOrders(false);
+    } else {
+      showToast('❌ Erreur: ' + (approveData.error || 'Échec approbation'), 'error');
+    }
+  } catch (err) {
+    console.error('Erreur approbation:', err);
+    showToast('❌ Erreur réseau: ' + err.message, 'error');
+  }
 }
 
 function deleteOrder(id) {
@@ -6064,49 +6122,88 @@ function syncOrders(manual = false) {
     console.log('📦 Réponse serveur:', data);
 
     if (data.ok && data.orders) {
-      // Convertir format API vers format admin
-      const serverOrders = data.orders.map(order => ({
-        id: order.id,
-        date: new Date(order.created_at).toLocaleString('fr-FR'),
-        customer: order.customer || 'Client',
-        products: Array.isArray(order.items) ? order.items.map(item => `${item.qty}x ${item.name}`).join(', ') : '',
-        total: order.total,
-        status: order.status || 'pending',
-        payment: order.payment_method || 'Espèces',
-        delivery: order.type || '',
-        address: order.address || '',
-        timestamp: order.created_at,
-        items: order.items,
-        priority: order.priority || { level: 3, label: 'Normale', emoji: '🟢' },
-        customer_description: order.customer_description || '',
-        time_slot: order.time_slot || 'asap'
-      }));
+      try {
+        // Convertir format API vers format admin
+        const serverOrders = data.orders.map(order => {
+          try {
+            return {
+              id: order.id,
+              date: order.created_at ? new Date(order.created_at).toLocaleString('fr-FR') : 'N/A',
+              customer: order.customer || 'Client',
+              products: Array.isArray(order.items) ? order.items.filter(item => item).map(item => `${item.qty || 0}x ${item.name || '?'}`).join(', ') : '',
+              total: order.total || 0,
+              status: order.status || 'pending',
+              payment: order.payment_method || 'Espèces',
+              delivery: order.type || '',
+              address: order.address || '',
+              timestamp: order.created_at,
+              items: order.items || [],
+              priority: order.priority || { level: 3, label: 'Normale', emoji: '🟢' },
+              customer_description: order.customer_description || '',
+              time_slot: order.time_slot || 'asap'
+            };
+          } catch (mapErr) {
+            console.error('❌ Erreur mapping commande:', order.id, mapErr);
+            return {
+              id: order.id || '?',
+              date: 'Erreur',
+              customer: order.customer || 'Client',
+              products: '',
+              total: order.total || 0,
+              status: order.status || 'pending',
+              payment: 'N/A',
+              delivery: '',
+              address: '',
+              timestamp: order.created_at,
+              items: [],
+              priority: { level: 3, label: 'Normale', emoji: '🟢' },
+              customer_description: '',
+              time_slot: 'asap'
+            };
+          }
+        });
 
-      // Trier : commandes actives par priorité en premier, puis livrées/annulées
-      serverOrders.sort((a, b) => {
-        const activeStatuses = ['pending', 'pending_approval', 'confirmed', 'preparing', 'en_route'];
-        const activeA = activeStatuses.includes(a.status) ? 0 : 1;
-        const activeB = activeStatuses.includes(b.status) ? 0 : 1;
-        if (activeA !== activeB) return activeA - activeB;
-        if (activeA === 0 && activeB === 0) return a.priority.level - b.priority.level;
-        return new Date(b.timestamp) - new Date(a.timestamp);
-      });
+        // Trier : commandes actives par priorité en premier, puis livrées/annulées
+        serverOrders.sort((a, b) => {
+          const activeStatuses = ['pending', 'pending_approval', 'confirmed', 'preparing', 'en_route'];
+          const activeA = activeStatuses.includes(a.status) ? 0 : 1;
+          const activeB = activeStatuses.includes(b.status) ? 0 : 1;
+          if (activeA !== activeB) return activeA - activeB;
+          if (activeA === 0 && activeB === 0) {
+            const levelA = (a.priority && a.priority.level) || 3;
+            const levelB = (b.priority && b.priority.level) || 3;
+            return levelA - levelB;
+          }
+          return new Date(b.timestamp || 0) - new Date(a.timestamp || 0);
+        });
 
-      console.log(`✅ ${serverOrders.length} commande(s) reçue(s) du serveur`);
+        console.log(`✅ ${serverOrders.length} commande(s) reçue(s) du serveur`);
+        const pendingApproval = serverOrders.filter(o => o.status === 'pending_approval').length;
+        if (pendingApproval > 0) {
+          console.log(`🔍 ${pendingApproval} commande(s) en attente d'approbation`);
+        }
 
-      // REMPLACER toutes les commandes par celles du serveur
-      state.data.orders = serverOrders;
-      saveData();
-      loadOrders();
-      updateAllStats();
+        // REMPLACER toutes les commandes par celles du serveur
+        state.data.orders = serverOrders;
+        saveData();
+        loadOrders();
+        updateAllStats();
 
-      if (manual) {
-        showToast(`✅ ${serverOrders.length} commande(s) synchronisée(s)`, 'success');
-      }
+        if (manual) {
+          let msg = `✅ ${serverOrders.length} commande(s) synchronisée(s)`;
+          if (pendingApproval > 0) {
+            msg += ` (${pendingApproval} en approbation)`;
+          }
+          showToast(msg, 'success');
+        }
 
-      const lastSyncEl = document.getElementById('lastSyncTime');
-      if (lastSyncEl) {
-        lastSyncEl.textContent = new Date().toLocaleTimeString('fr-FR');
+        const lastSyncEl = document.getElementById('lastSyncTime');
+        if (lastSyncEl) {
+          lastSyncEl.textContent = new Date().toLocaleTimeString('fr-FR');
+        }
+      } catch (processError) {
+        console.error('❌ Erreur traitement commandes:', processError);
+        showToast('❌ Erreur traitement des commandes: ' + processError.message, 'error');
       }
     } else {
       console.warn('⚠️ Erreur API:', data.error || 'Erreur inconnue');
@@ -6117,9 +6214,7 @@ function syncOrders(manual = false) {
   })
   .catch(error => {
     console.error('❌ Erreur sync serveur:', error);
-    if (manual) {
-      showToast('❌ Erreur: ' + error.message, 'error');
-    }
+    showToast('❌ Sync échouée: ' + error.message, 'error');
   });
 }
 
