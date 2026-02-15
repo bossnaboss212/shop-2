@@ -4844,11 +4844,10 @@ function renderCart() {
   content.innerHTML = `
     ${!userDetected ? `
     <div style="padding:12px;margin-bottom:12px;background:linear-gradient(135deg,#ff6b6b,#ee5a24);border-radius:12px;text-align:center">
-      <div style="color:#fff;font-weight:700;font-size:14px">Utilisateur non detecte</div>
-      <p style="color:rgba(255,255,255,0.85);font-size:12px;margin-top:4px">Tapez /start sur le bot puis cliquez sur "Ouvrir la Boutique"</p>
-      <div style="margin-top:8px;padding:8px;background:rgba(0,0,0,0.3);border-radius:8px;text-align:left;font-size:10px;color:rgba(255,255,255,0.7);word-break:break-all;max-height:100px;overflow-y:auto">
-        DEBUG: ${_tgDebug.join(' | ')}
-      </div>
+      <div style="color:#fff;font-weight:700;font-size:14px">⚠️ Connexion requise</div>
+      <p style="color:rgba(255,255,255,0.85);font-size:12px;margin-top:4px">Votre ID Telegram n'a pas été détecté automatiquement.</p>
+      <p style="color:rgba(255,255,255,0.85);font-size:12px;margin-top:6px"><b>Solution :</b> Retournez sur le bot, tapez <b>/start</b>, puis cliquez sur le bouton <b>"🛒 Ouvrir la Boutique"</b> du clavier en bas.</p>
+      <button onclick="detectTelegramUser();renderCart();" style="margin-top:10px;padding:8px 20px;background:#fff;border:none;border-radius:8px;font-weight:600;color:#ee5a24;cursor:pointer;font-size:13px">🔄 Réessayer la détection</button>
     </div>
     ` : `
     <div style="padding:8px 12px;margin-bottom:12px;background:rgba(46,204,113,0.15);border:1px solid rgba(46,204,113,0.3);border-radius:10px;display:flex;align-items:center;gap:8px">
@@ -5207,7 +5206,7 @@ async function validateOrder() {
   if (!telegramUser || !telegramUser.id) detectTelegramUser();
 
   if (!telegramUser || !telegramUser.id) {
-    showToast('⚠️ Ouvrez la boutique depuis Telegram pour commander');
+    showToast('⚠️ ID non détecté. Tapez /start sur le bot puis réouvrez la boutique.');
     return;
   }
 
