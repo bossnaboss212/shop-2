@@ -943,11 +943,19 @@ function validateOrderInput(data) {
   if (!Array.isArray(items) || items.length === 0) {
     throw new ValidationError('Panier vide');
   }
-  
+
+  if (items.length > 50) {
+    throw new ValidationError('Trop d\'articles dans le panier (max 50)');
+  }
+
   if (typeof total !== 'number' || total < 0) {
     throw new ValidationError('Montant invalide');
   }
-  
+
+  if (total > 100000) {
+    throw new ValidationError('Montant total trop élevé');
+  }
+
   for (const item of items) {
     if (!item.product_id || !item.name || !item.variant || !item.qty || !item.lineTotal) {
       throw new ValidationError('Données article invalides');
@@ -958,8 +966,19 @@ function validateOrderInput(data) {
     if (item.qty < 1 || item.lineTotal < 0) {
       throw new ValidationError('Quantité ou prix invalide');
     }
+    // Vérifier l'intégrité du lineTotal (protection contre la manipulation de prix)
+    const expectedLineTotal = item.price * item.qty;
+    if (Math.abs(item.lineTotal - expectedLineTotal) > 0.01) {
+      throw new ValidationError('Calcul du total article incorrect');
+    }
   }
-  
+
+  // Vérifier que le total correspond à la somme des articles
+  const calculatedTotal = items.reduce((sum, item) => sum + item.lineTotal, 0);
+  if (Math.abs(total - calculatedTotal) > 0.01) {
+    throw new ValidationError('Le total ne correspond pas à la somme des articles');
+  }
+
   return true;
 }
 

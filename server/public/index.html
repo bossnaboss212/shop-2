@@ -2926,7 +2926,8 @@ const SyncManager = {
       console.log('✅ Commande créée sur le serveur:', data.orderId);
 
       // Sauvegarder localement avec l'ID du serveur
-      const orders = JSON.parse(localStorage.getItem('shop_orders') || '[]');
+      let orders = [];
+      try { orders = JSON.parse(localStorage.getItem('shop_orders') || '[]'); } catch (e) { orders = []; }
       const order = {
         id: data.orderId,
         timestamp: new Date().toISOString(),
@@ -5276,12 +5277,13 @@ async function validateOrder() {
       customer: telegramUser ? String(telegramUser.id) : 'Client Web',
       customerName: telegramUser?.username ? `@${telegramUser.username} (${tgName})` : tgName,
       type: deliveryType,
+      deliveryFee: deliveryFee,
       address: fullAddress,
       items: items,
       total: total,
       referralCode: referralCode,
       useCredit: useCreditEnabled,
-      timeSlot: selectedTimeSlot === 'custom' ? selectedDeliveryTime : 'asap',
+      timeSlot: selectedTimeSlot === 'custom' && /^([01]\d|2[0-3]):(00|30)$/.test(selectedDeliveryTime) ? selectedDeliveryTime : 'asap',
       customerDescription: customerDescription.trim() || ''
     };
 
@@ -5385,9 +5387,7 @@ ${orderData.address}
 
 function showOrderSummary(orderData, orderId, discount = 0, notificationSent = false) {
   const content = document.getElementById('orderSummaryContent');
-  // Extraire les frais de livraison du type de commande (ex: "+10€", "+20€", etc.)
-  const feeMatch = orderData.type.match(/\+(\d+)€/);
-  const deliveryFee = feeMatch ? parseInt(feeMatch[1]) : 0;
+  const deliveryFee = orderData.deliveryFee || 0;
   const subtotal = orderData.items.reduce((sum, item) => sum + item.lineTotal, 0);
   const totalWithDiscount = orderData.total;
   
@@ -6917,7 +6917,7 @@ const NotificationManager = {
   notifications: [],
 
   init() {
-    this.notifications = JSON.parse(localStorage.getItem('notifications') || '[]');
+    try { this.notifications = JSON.parse(localStorage.getItem('notifications') || '[]'); } catch (e) { this.notifications = []; }
     this.updateBadge();
     this.renderNotifications();
   },
@@ -7075,7 +7075,7 @@ const BrowseHistoryManager = {
   history: [],
 
   init() {
-    this.history = JSON.parse(localStorage.getItem('browse_history') || '[]');
+    try { this.history = JSON.parse(localStorage.getItem('browse_history') || '[]'); } catch (e) { this.history = []; }
     this.render();
   },
 
