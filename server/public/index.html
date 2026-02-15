@@ -2784,7 +2784,14 @@ function generateClientId() {
 function showToast(msg) {
   const toast = document.createElement('div');
   toast.className = 'toast';
-  toast.innerHTML = `<span class="toast-icon">✓</span><span class="toast-text">${msg}</span>`;
+  const icon = document.createElement('span');
+  icon.className = 'toast-icon';
+  icon.textContent = '\u2713';
+  const text = document.createElement('span');
+  text.className = 'toast-text';
+  text.textContent = msg;
+  toast.appendChild(icon);
+  toast.appendChild(text);
   document.body.appendChild(toast);
   setTimeout(() => toast.classList.add('show'), 10);
   setTimeout(() => {
@@ -5744,7 +5751,7 @@ function startCancellationTimer(orderId) {
   const order = SyncManager.getOrderById(orderId);
   if (!order || !order.timestamp) return;
 
-  const orderTime = order.timestamp;
+  const orderTime = new Date(order.timestamp).getTime();
   const THIRTY_MINUTES = 30 * 60 * 1000; // 30 minutes en millisecondes
 
   function updateTimer() {
@@ -5967,7 +5974,7 @@ function showPartialCancellationDialog(orderId, orderData) {
       const response = await fetch('/api/cancel-order-items', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId, itemsToCancel, reason })
+        body: JSON.stringify({ orderId, itemsToCancel, reason, telegramId: telegramUser ? String(telegramUser.id) : null })
       });
 
       const data = await response.json();
@@ -6138,90 +6145,77 @@ function cancelOrder(orderId, customerName) {
   };
   
   // Bouton Confirmer
-  document.getElementById('confirmCancelBtn').onclick = () => {
+  document.getElementById('confirmCancelBtn').onclick = async () => {
     const selectedReason = cancelDialog.querySelector('input[name="cancelReason"]:checked');
-    
+
     if (!selectedReason) {
-      showToast('⚠️ Veuillez sélectionner un motif');
+      showToast('Veuillez selectionner un motif');
       return;
     }
-    
+
     let reason = selectedReason.value;
-    
+
     // Si "Autre" est sélectionné, récupérer le texte personnalisé
     if (reason === 'Autre') {
       const otherText = document.getElementById('otherReasonText').value.trim();
       if (!otherText) {
-        showToast('⚠️ Veuillez préciser votre motif');
+        showToast('Veuillez preciser votre motif');
         document.getElementById('otherReasonText').focus();
         return;
       }
       reason = otherText;
     }
-    
-    // Récupérer le montant de la commande avant annulation
-    const orderToCancel = SyncManager.getOrderById(orderId);
-    const orderAmount = orderToCancel ? orderToCancel.total : 0;
-    
-    // Annuler la commande et restaurer les stocks
-    const success = SyncManager.cancelOrder(orderId, reason);
 
-    if (!success) {
-      showToast('❌ Erreur lors de l\'annulation');
-      return;
-    }
-
-    // Mettre à jour aussi dans OrdersManager pour l'affichage historique
-    OrdersManager.updateStatus(orderId, 'cancelled', reason);
-
-    // Créer le message d'annulation avec le motif
-    const cancelMessage = `🚫 ANNULATION DE COMMANDE
-
-📋 N° de commande: #${orderId}
-🎭 Client: ${customerName}
-
-❌ MOTIF D'ANNULATION:
-${reason}
-
-💰 MONTANT ANNULÉ: ${fmt(orderAmount)}
-
-⏰ ${new Date().toLocaleString('fr-FR')}
-
-✅ Stocks restaurés automatiquement
-✅ Chiffre d'affaires mis à jour (-${fmt(orderAmount)})
-✅ Commande marquée comme annulée
-
-Merci de confirmer la prise en compte.`;
-
-    const encodedMessage = encodeURIComponent(cancelMessage);
-    const telegramUrl = `https://t.me/${TELEGRAM_CONFIG.SUPPORT_USERNAME}?text=${encodedMessage}`;
+    const confirmBtn = document.getElementById('confirmCancelBtn');
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Annulation en cours...';
 
     try {
-      if (window.Telegram?.WebApp?.openTelegramLink) {
-        window.Telegram.WebApp.openTelegramLink(telegramUrl);
-      } else {
-        window.open(telegramUrl, '_blank');
+      // Appeler l'API serveur pour annuler la commande
+      const response = await fetch('/api/cancel-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId,
+          reason,
+          telegramId: telegramUser ? String(telegramUser.id) : null
+        })
+      });
+      const data = await response.json();
+
+      if (!data.ok) {
+        showToast('Erreur: ' + (data.error || 'Impossible d\'annuler'));
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Confirmer l\'annulation';
+        return;
       }
-    } catch (e) {
-      console.warn('⚠️ Impossible d\'ouvrir le lien Telegram:', e);
+
+      // Mettre à jour le localStorage
+      SyncManager.cancelOrder(orderId, reason);
+      OrdersManager.updateStatus(orderId, 'cancelled', reason);
+
+      showToast('Annulation effectuee');
+
+      // Fermer les fenêtres
+      cancelDialog.remove();
+
+      // Recharger les produits et les commandes
+      loadProducts();
+      renderOrders();
+
+      setTimeout(() => {
+        const summarySheet = document.getElementById('orderSummarySheet');
+        if (summarySheet && !summarySheet.classList.contains('hidden')) {
+          summarySheet.classList.add('hidden');
+          document.body.classList.remove('modal-open');
+        }
+      }, 1000);
+    } catch (err) {
+      console.error('Cancel error:', err);
+      showToast('Erreur de connexion');
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = 'Confirmer l\'annulation';
     }
-    
-    showToast('✅ Annulation effectuée - Stocks et CA ajustés');
-    
-    // Fermer les fenêtres
-    cancelDialog.remove();
-    
-    // Recharger les produits et les commandes
-    loadProducts();
-    renderOrders();
-    
-    setTimeout(() => {
-      const summarySheet = document.getElementById('orderSummarySheet');
-      if (summarySheet && !summarySheet.classList.contains('hidden')) {
-        summarySheet.classList.add('hidden');
-        document.body.classList.remove('modal-open');
-      }
-    }, 1000);
   };
 }
 
@@ -6717,7 +6711,10 @@ function renderFilteredProducts(products, query) {
   }
 
   document.getElementById('resultsCount').textContent = `${products.length} résultat${products.length > 1 ? 's' : ''}`;
+  const savedProducts = PRODUCTS;
+  PRODUCTS = products;
   renderProducts('all', 'default');
+  PRODUCTS = savedProducts;
 }
 
 // ================================================
