@@ -2299,13 +2299,13 @@ body.modal-open{overflow:hidden;position:fixed;width:100%;max-width:100vw;overfl
         <button class="history-filter active" data-period="all" onclick="filterHistory('all', this)" style="padding:10px 20px;background:var(--accent);color:var(--bg-primary);border:none;border-radius:12px;font-weight:600;white-space:nowrap;cursor:pointer">
           Tout
         </button>
-        <button class="history-filter" data-period="today" onclick="filterHistory('today', this)" style="padding:10px 20px;background:var(--bg-secondary);color:var(--text);border:2px solid var(--border);border-radius:12px;font-weight:600;white-space:nowrap;cursor:pointer">
+        <button class="history-filter" data-period="today" onclick="filterHistory('today', this)" style="padding:10px 20px;background:var(--bg-secondary);color:var(--text-primary);border:2px solid var(--border);border-radius:12px;font-weight:600;white-space:nowrap;cursor:pointer">
           Aujourd'hui
         </button>
-        <button class="history-filter" data-period="week" onclick="filterHistory('week', this)" style="padding:10px 20px;background:var(--bg-secondary);color:var(--text);border:2px solid var(--border);border-radius:12px;font-weight:600;white-space:nowrap;cursor:pointer">
+        <button class="history-filter" data-period="week" onclick="filterHistory('week', this)" style="padding:10px 20px;background:var(--bg-secondary);color:var(--text-primary);border:2px solid var(--border);border-radius:12px;font-weight:600;white-space:nowrap;cursor:pointer">
           Cette semaine
         </button>
-        <button class="history-filter" data-period="month" onclick="filterHistory('month', this)" style="padding:10px 20px;background:var(--bg-secondary);color:var(--text);border:2px solid var(--border);border-radius:12px;font-weight:600;white-space:nowrap;cursor:pointer">
+        <button class="history-filter" data-period="month" onclick="filterHistory('month', this)" style="padding:10px 20px;background:var(--bg-secondary);color:var(--text-primary);border:2px solid var(--border);border-radius:12px;font-weight:600;white-space:nowrap;cursor:pointer">
           Ce mois
         </button>
       </div>
@@ -4145,7 +4145,8 @@ const searchProducts = debounce((query) => {
 function openProduct(id) {
   currentProduct = PRODUCTS.find(p => p.id === id);
   if (!currentProduct) return;
-  
+
+  BrowseHistoryManager.addProduct(currentProduct);
   selectedVariant = null;
   quantity = 1;
   
@@ -4355,7 +4356,7 @@ async function openReferralSheet() {
         <h3 style="font-size:22px;font-weight:700;margin-bottom:12px">Programme de Parrainage</h3>
         <p style="color:var(--text-muted);margin-bottom:24px">Passez une commande pour obtenir votre code personnel !</p>
 
-        <div style="background:var(--card-bg);border-radius:16px;padding:20px;text-align:left;margin-bottom:20px">
+        <div style="background:var(--bg-secondary);border-radius:16px;padding:20px;text-align:left;margin-bottom:20px">
           <div style="font-weight:700;font-size:16px;margin-bottom:16px;color:var(--accent)">💰 Comment ça marche ?</div>
           <div style="display:flex;flex-direction:column;gap:12px">
             <div style="display:flex;gap:12px;align-items:start">
@@ -4497,7 +4498,7 @@ async function showLeaderboard() {
         ` : ''}
 
         <!-- Liste complète -->
-        <div style="background:var(--card-bg);border-radius:16px;padding:16px">
+        <div style="background:var(--bg-secondary);border-radius:16px;padding:16px">
           <div style="font-weight:700;font-size:16px;margin-bottom:16px;color:var(--accent)">📋 Classement Complet</div>
           <div style="display:flex;flex-direction:column;gap:8px;max-height:400px;overflow-y:auto">
             ${data.leaderboard.map((user, index) => {
@@ -4604,7 +4605,7 @@ async function shareProduct(productId) {
     bottom: 0;
     left: 0;
     right: 0;
-    background: var(--card-bg);
+    background: var(--bg-secondary);
     border-radius: 20px 20px 0 0;
     padding: 24px;
     z-index: 10001;
@@ -5053,7 +5054,7 @@ function renderCart() {
       const statusDiv = content.querySelector('#referralStatus');
 
       if (!code) {
-        statusDiv.innerHTML = '<span style="color:var(--error)">❌ Entrez un code</span>';
+        statusDiv.innerHTML = '<span style="color:var(--danger)">❌ Entrez un code</span>';
         return;
       }
 
@@ -5072,10 +5073,10 @@ function renderCart() {
           applyReferralBtn.textContent = 'Validé';
           applyReferralBtn.style.background = 'var(--success)';
         } else {
-          statusDiv.innerHTML = '<span style="color:var(--error)">❌ Code invalide</span>';
+          statusDiv.innerHTML = '<span style="color:var(--danger)">❌ Code invalide</span>';
         }
       } catch (error) {
-        statusDiv.innerHTML = '<span style="color:var(--error)">❌ Erreur de vérification</span>';
+        statusDiv.innerHTML = '<span style="color:var(--danger)">❌ Erreur de vérification</span>';
       }
     };
   }
@@ -5396,7 +5397,7 @@ function showOrderSummary(orderData, orderId, discount = 0, notificationSent = f
   const content = document.getElementById('orderSummaryContent');
   const deliveryFee = orderData.deliveryFee || 0;
   const subtotal = orderData.items.reduce((sum, item) => sum + item.lineTotal, 0);
-  const totalWithDiscount = orderData.total;
+  const totalWithDiscount = orderData.total - discount;
   
   content.innerHTML = `
     <div style="text-align:center;padding:20px 0">
@@ -6353,7 +6354,7 @@ async function renderReviews() {
     const date = new Date(r.date);
     const now = new Date();
     const diffTime = Math.abs(now - date);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
     let timeStr = '';
     if (diffDays === 0) timeStr = "Aujourd'hui";
@@ -6514,14 +6515,29 @@ function initEventListeners() {
     document.getElementById('cartSheet').classList.add('hidden');
     document.body.classList.remove('modal-open');
   };
+  document.getElementById('cartSheet').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('cartSheet')) {
+      document.getElementById('cartSheet').classList.add('hidden');
+      document.body.classList.remove('modal-open');
+    }
+  });
   
   document.getElementById('closeProduct').onclick = closeProduct;
+  document.getElementById('productSheet').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('productSheet')) closeProduct();
+  });
   document.getElementById('validateOrder').onclick = validateOrder;
   
   document.getElementById('closeOrderSummary').onclick = () => {
     document.getElementById('orderSummarySheet').classList.add('hidden');
     document.body.classList.remove('modal-open');
   };
+  document.getElementById('orderSummarySheet').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('orderSummarySheet')) {
+      document.getElementById('orderSummarySheet').classList.add('hidden');
+      document.body.classList.remove('modal-open');
+    }
+  });
   
   document.getElementById('closeOrderSummaryBtn').onclick = () => {
     document.getElementById('orderSummarySheet').classList.add('hidden');
@@ -6551,7 +6567,18 @@ function initEventListeners() {
   });
   
   document.getElementById('searchInput').addEventListener('input', (e) => {
-    searchProducts(e.target.value.toLowerCase());
+    const query = e.target.value.trim().toLowerCase();
+    const clearBtn = document.getElementById('searchClear');
+    if (clearBtn) clearBtn.style.display = query ? 'block' : 'none';
+    searchProducts(query);
+  });
+
+  document.getElementById('searchClear')?.addEventListener('click', () => {
+    const input = document.getElementById('searchInput');
+    if (input) { input.value = ''; input.focus(); }
+    const clearBtn = document.getElementById('searchClear');
+    if (clearBtn) clearBtn.style.display = 'none';
+    renderProducts(currentCategory, currentSort);
   });
   
   document.getElementById('submitReview')?.addEventListener('click', async () => {
@@ -6656,66 +6683,6 @@ window.addEventListener('load', () => {
     }
   }
 });
-
-// ================================================
-// RECHERCHE DE PRODUITS
-// ================================================
-const searchInput = document.getElementById('searchInput');
-const searchClear = document.getElementById('searchClear');
-
-if (searchInput) {
-  searchInput.addEventListener('input', async (e) => {
-    const query = e.target.value.trim().toLowerCase();
-
-    // Afficher/masquer le bouton clear
-    searchClear.style.display = query ? 'block' : 'none';
-
-    if (!query) {
-      renderProducts(); // Afficher tous les produits
-      return;
-    }
-
-    // Filtrer les produits
-    const allProducts = await SyncManager.loadProducts();
-    const filtered = allProducts.filter(p =>
-      p.name.toLowerCase().includes(query) ||
-      p.category.toLowerCase().includes(query) ||
-      (p.farm && p.farm.toLowerCase().includes(query))
-    );
-
-    // Afficher les résultats
-    renderFilteredProducts(filtered, query);
-  });
-
-  searchClear.addEventListener('click', () => {
-    searchInput.value = '';
-    searchClear.style.display = 'none';
-    renderProducts();
-    searchInput.focus();
-  });
-}
-
-function renderFilteredProducts(products, query) {
-  const grid = document.getElementById('productGrid');
-
-  if (products.length === 0) {
-    grid.innerHTML = `
-      <div style="grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--text-muted)">
-        <div style="font-size:48px;margin-bottom:16px;opacity:0.3">🔍</div>
-        <p style="font-size:18px;margin-bottom:8px">Aucun résultat pour "${sanitizeInput(query)}"</p>
-        <p style="font-size:14px">Essayez avec un autre mot-clé</p>
-      </div>
-    `;
-    document.getElementById('resultsCount').textContent = '0 article';
-    return;
-  }
-
-  document.getElementById('resultsCount').textContent = `${products.length} résultat${products.length > 1 ? 's' : ''}`;
-  const savedProducts = PRODUCTS;
-  PRODUCTS = products;
-  renderProducts('all', 'default');
-  PRODUCTS = savedProducts;
-}
 
 // ================================================
 // PAGE PARRAINAGE
@@ -7033,10 +7000,10 @@ function openSheet(type) {
   let content = '';
   if (type === 'notifications') {
     content = `
-      <div style="background:var(--bg);width:100%;max-height:80vh;border-radius:24px 24px 0 0;overflow:hidden;display:flex;flex-direction:column">
+      <div style="background:var(--bg-secondary);width:100%;max-height:80vh;border-radius:24px 24px 0 0;overflow:hidden;display:flex;flex-direction:column">
         <div style="padding:20px;border-bottom:2px solid var(--border);display:flex;justify-content:space-between;align-items:center">
           <h2 style="font-size:20px;font-weight:700;margin:0">🔔 Notifications</h2>
-          <button onclick="this.closest('.sheet').remove()" style="background:transparent;border:none;font-size:24px;cursor:pointer;color:var(--text)">×</button>
+          <button onclick="this.closest('.sheet').remove()" style="background:transparent;border:none;font-size:24px;cursor:pointer;color:var(--text-primary)">×</button>
         </div>
         <div id="notificationsList" style="flex:1;overflow-y:auto;padding:16px"></div>
         <div style="padding:16px;border-top:2px solid var(--border)">
@@ -7207,7 +7174,7 @@ function filterHistory(period, btn) {
   document.querySelectorAll('.history-filter').forEach(b => {
     b.classList.remove('active');
     b.style.background = 'var(--bg-secondary)';
-    b.style.color = 'var(--text)';
+    b.style.color = 'var(--text-primary)';
     b.style.border = '2px solid var(--border)';
   });
   btn.classList.add('active');
