@@ -1612,8 +1612,8 @@ async function updateStockForOrder(items, orderId, { inTransaction = false } = {
   }
 }
 
-async function restoreStockForOrder(items, orderId) {
-  await db.run('BEGIN IMMEDIATE');
+async function restoreStockForOrder(items, orderId, { inTransaction = false } = {}) {
+  if (!inTransaction) await db.run('BEGIN IMMEDIATE');
   try {
     for (const item of items) {
       await db.run(
@@ -1632,9 +1632,9 @@ async function restoreStockForOrder(items, orderId) {
         [item.product_id, item.variant, item.qty, stockAfter?.qty || 0, `Annulation commande #${orderId}`]
       );
     }
-    await db.run('COMMIT');
+    if (!inTransaction) await db.run('COMMIT');
   } catch (err) {
-    await db.run('ROLLBACK');
+    if (!inTransaction) await db.run('ROLLBACK');
     throw err;
   }
 }
@@ -2209,21 +2209,27 @@ app.post('/api/cancel-order', apiLimiter, async (req, res) => {
       });
     }
 
-    // Restaurer les stocks
+    // Transaction atomique : restauration stock + suppression revenu + annulation commande
     const items = JSON.parse(order.items);
-    await restoreStockForOrder(items, orderId);
+    await db.run('BEGIN IMMEDIATE');
+    try {
+      await restoreStockForOrder(items, orderId, { inTransaction: true });
 
-    // Supprimer la transaction
-    await db.run(
-      'DELETE FROM transactions WHERE description = ?',
-      [`Commande #${orderId}`]
-    );
+      await db.run(
+        'DELETE FROM transactions WHERE description = ?',
+        [`Commande #${orderId}`]
+      );
 
-    // Marquer comme annulée
-    await db.run(
-      'UPDATE orders SET status = ?, cancel_reason = ?, cancelled_at = CURRENT_TIMESTAMP WHERE id = ?',
-      ['cancelled', reason || 'Annulée par le client', orderId]
-    );
+      await db.run(
+        'UPDATE orders SET status = ?, cancel_reason = ?, cancelled_at = CURRENT_TIMESTAMP WHERE id = ?',
+        ['cancelled', reason || 'Annulée par le client', orderId]
+      );
+
+      await db.run('COMMIT');
+    } catch (txErr) {
+      await db.run('ROLLBACK');
+      throw txErr;
+    }
 
     // Fermer les conversations liées
     chatManager.closeConversation(parseInt(orderId));
@@ -2312,9 +2318,6 @@ app.post('/api/cancel-order-items', apiLimiter, async (req, res) => {
       amountToRefund += foundItem.price * cancelItem.qty;
     }
 
-    // Restaurer le stock pour les articles annulés
-    await restoreStockForOrder(itemsToRemove, orderId);
-
     // Mettre à jour la commande
     const remainingItems = [];
     for (const item of allItems) {
@@ -2337,15 +2340,26 @@ app.post('/api/cancel-order-items', apiLimiter, async (req, res) => {
 
     // Si tous les articles sont annulés, annuler complètement la commande
     if (remainingItems.length === 0) {
-      await db.run(
-        'DELETE FROM transactions WHERE description = ?',
-        [`Commande #${orderId}`]
-      );
+      // Transaction atomique : restauration stock + annulation commande + suppression revenu
+      await db.run('BEGIN IMMEDIATE');
+      try {
+        await restoreStockForOrder(itemsToRemove, orderId, { inTransaction: true });
 
-      await db.run(
-        'UPDATE orders SET status = ?, cancel_reason = ?, cancelled_at = CURRENT_TIMESTAMP WHERE id = ?',
-        ['cancelled', reason || 'Annulation totale des articles', orderId]
-      );
+        await db.run(
+          'DELETE FROM transactions WHERE description = ?',
+          [`Commande #${orderId}`]
+        );
+
+        await db.run(
+          'UPDATE orders SET status = ?, cancel_reason = ?, cancelled_at = CURRENT_TIMESTAMP WHERE id = ?',
+          ['cancelled', reason || 'Annulation totale des articles', orderId]
+        );
+
+        await db.run('COMMIT');
+      } catch (txErr) {
+        await db.run('ROLLBACK');
+        throw txErr;
+      }
 
       chatManager.closeConversation(parseInt(orderId));
 
@@ -2355,7 +2369,7 @@ app.post('/api/cancel-order-items', apiLimiter, async (req, res) => {
         ok: true,
         message: 'Tous les articles annulés - Commande complètement annulée',
         fullyCancelled: true,
-        refundAmount: amountToRefund
+        refundAmount: order.total
       });
     }
 
@@ -2365,22 +2379,36 @@ app.post('/api/cancel-order-items', apiLimiter, async (req, res) => {
       newTotal += item.price * item.qty;
     }
 
-    // Appliquer la réduction si elle existe
+    // Appliquer la réduction si elle existe (discount est une valeur absolue, pas un pourcentage)
     if (order.discount > 0) {
-      newTotal = newTotal * (1 - order.discount / 100);
+      newTotal = Math.max(0, newTotal - order.discount);
     }
 
-    // Mettre à jour la commande avec les articles restants
-    await db.run(
-      'UPDATE orders SET items = ?, total = ? WHERE id = ?',
-      [JSON.stringify(remainingItems), newTotal, orderId]
-    );
+    // Calculer le remboursement réel (basé sur ce que le client a payé)
+    const actualRefund = order.total - newTotal;
 
-    // Mettre à jour la transaction
-    await db.run(
-      'UPDATE transactions SET amount = ? WHERE description = ?',
-      [newTotal, `Commande #${orderId}`]
-    );
+    // Transaction atomique : restauration stock + mise à jour commande + mise à jour revenu
+    await db.run('BEGIN IMMEDIATE');
+    try {
+      await restoreStockForOrder(itemsToRemove, orderId, { inTransaction: true });
+
+      // Mettre à jour la commande avec les articles restants
+      await db.run(
+        'UPDATE orders SET items = ?, total = ? WHERE id = ?',
+        [JSON.stringify(remainingItems), newTotal, orderId]
+      );
+
+      // Mettre à jour la transaction
+      await db.run(
+        'UPDATE transactions SET amount = ? WHERE description = ?',
+        [newTotal, `Commande #${orderId}`]
+      );
+
+      await db.run('COMMIT');
+    } catch (txErr) {
+      await db.run('ROLLBACK');
+      throw txErr;
+    }
 
     console.log(`✅ Order #${orderId} partially cancelled. ${itemsToRemove.length} item(s) removed.`);
 
@@ -2388,7 +2416,7 @@ app.post('/api/cancel-order-items', apiLimiter, async (req, res) => {
       ok: true,
       message: 'Articles annulés avec succès',
       fullyCancelled: false,
-      refundAmount: amountToRefund,
+      refundAmount: actualRefund,
       newTotal: newTotal,
       remainingItems: remainingItems.length
     });
