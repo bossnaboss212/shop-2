@@ -4960,6 +4960,7 @@ function renderCart() {
       <input type="text" class="input-field" id="customerDescInput" placeholder="Ex: Peugeot bleue, pull vert" maxlength="200" style="width:100%;box-sizing:border-box" value="${customerDescValue}">
     </div>
 
+    ${OrdersManager.orders.length === 0 ? `
     <div class="referral-input-section" style="margin-top:20px">
       <div class="cart-section-title">🎁 Code de parrainage (optionnel)</div>
       <div class="promo-input-wrapper">
@@ -4968,6 +4969,7 @@ function renderCart() {
       </div>
       <div id="referralStatus" style="margin-top:8px;font-size:13px"></div>
     </div>
+    ` : ''}
 
     <div style="padding-bottom:40px"></div>
   `;
