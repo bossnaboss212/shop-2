@@ -2938,7 +2938,8 @@ const SyncManager = {
           useCredit: orderData.useCredit || false,
           telegramId: telegramUser ? String(telegramUser.id) : '',
           timeSlot: orderData.timeSlot || 'asap',
-          customerDescription: orderData.customerDescription || ''
+          customerDescription: orderData.customerDescription || '',
+          deliveryFee: orderData.deliveryFee || 0
         })
       });
 
