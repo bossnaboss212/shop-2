@@ -150,20 +150,3 @@ module.exports = {
   validateContentType,
   rateLimiter
 };
-```
-
-✅ **Sauvegarde ce fichier**
-
----
-
-## ✅ **Vérification rapide**
-
-Tu devrais maintenant avoir :
-```
-server/
-  ├── utils/
-  │   ├── logger.js      ✅
-  │   ├── validation.js  ✅
-  │   └── middleware.js  ✅
-  ├── index.js           (on va le modifier après)
-  └── bot.js             (on touche pas)
