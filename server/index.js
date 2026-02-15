@@ -2567,6 +2567,12 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
       discount = loyaltyResult.discount;
     }
 
+    // Remise automatique : -10€ dès 100€ de commande (pour tout le monde)
+    if (total >= 100) {
+      discount += 10;
+      console.log(`🎉 Remise 10€ appliquée (commande de ${total}€ >= 100€)`);
+    }
+
     // ==================== TRANSACTION ATOMIQUE ====================
     // Tout dans une seule transaction : crédit + commande + stock + fidélité + revenu
     let creditUsed = 0;

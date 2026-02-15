@@ -4840,7 +4840,8 @@ function renderCart() {
   const zone = DELIVERY_ZONES[selectedDelivery] || DELIVERY_ZONES.millau;
   const deliveryFee = zone ? zone.fee : 0;
 
-  const totalBeforeCredit = subtotal + deliveryFee;
+  const orderDiscount = subtotal >= 100 ? 10 : 0;
+  const totalBeforeCredit = subtotal + deliveryFee - orderDiscount;
   const creditToApply = useCreditEnabled ? Math.min(userCreditBalance, totalBeforeCredit) : 0;
   const total = totalBeforeCredit - creditToApply;
   const customerDescValue = customerDescription || '';
@@ -4871,6 +4872,17 @@ function renderCart() {
       <span class="cart-total-label">Total :</span>
       <span class="cart-total-value">${fmt(total)}</span>
     </div>
+
+    ${orderDiscount > 0 ? `
+    <div style="background:linear-gradient(135deg,rgba(76,175,80,0.15),rgba(76,175,80,0.05));border-radius:12px;padding:12px 14px;margin-top:12px;border:1px solid rgba(76,175,80,0.3);display:flex;align-items:center;justify-content:space-between">
+      <span style="font-size:14px;font-weight:600;color:var(--success)">🎉 Remise dès 100€</span>
+      <span style="font-size:16px;font-weight:800;color:var(--success)">-10,00€</span>
+    </div>
+    ` : `
+    <div style="background:var(--bg-tertiary);border-radius:12px;padding:12px 14px;margin-top:12px;border:1px dashed var(--border);display:flex;align-items:center;justify-content:space-between">
+      <span style="font-size:13px;color:var(--text-muted)">🎁 Plus que <strong style="color:var(--accent)">${fmt(100 - subtotal)}</strong> pour obtenir <strong>-10€</strong></span>
+    </div>
+    `}
 
     ${userCreditBalance > 0 ? `
     <div style="background:var(--bg-tertiary);border-radius:12px;padding:14px;margin-top:16px;border:1px solid var(--border)">
