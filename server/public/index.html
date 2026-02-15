@@ -2909,7 +2909,7 @@ const SyncManager = {
           total: orderData.total,
           referralCode: orderData.referralCode || '',
           useCredit: orderData.useCredit || false,
-          telegramId: telegramUser ? String(telegramUser.id) : '',
+          telegramId: String(telegramUser?.id || ''),
           timeSlot: orderData.timeSlot || 'asap',
           customerDescription: orderData.customerDescription || ''
         })
@@ -4842,6 +4842,15 @@ function renderCart() {
   const userDetected = telegramUser && telegramUser.id;
 
   content.innerHTML = `
+    ${!userDetected ? `
+    <div style="padding:10px 12px;margin-bottom:12px;background:var(--bg-tertiary);border:1px solid var(--border);border-radius:10px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="font-size:13px;color:var(--text-muted)">ID non détecté</span>
+        <button onclick="detectTelegramUser();renderCart();" style="padding:4px 10px;background:var(--accent);border:none;border-radius:6px;color:#fff;font-size:11px;cursor:pointer">Réessayer</button>
+      </div>
+      <input type="text" id="manualTelegramId" class="input-field" placeholder="Collez votre ID Telegram (visible dans /start)" maxlength="15" style="width:100%;box-sizing:border-box;font-size:13px" oninput="this.value=this.value.replace(/[^0-9]/g,'')">
+    </div>
+    ` : ``}
     ${CartManager.items.map((item, idx) => `
       <div class="cart-item-row">
         <div class="cart-item-left">
@@ -5189,8 +5198,21 @@ function openCart() {
 }
 
 async function validateOrder() {
-  // Tenter la détection Telegram
+  // Re-tenter la détection Telegram
   if (!telegramUser || !telegramUser.id) detectTelegramUser();
+
+  // Fallback: si pas détecté automatiquement, utiliser l'ID saisi manuellement
+  if (!telegramUser || !telegramUser.id) {
+    const manualId = document.getElementById('manualTelegramId')?.value.trim();
+    if (manualId && /^\d{5,15}$/.test(manualId)) {
+      telegramUser = { id: Number(manualId), first_name: 'Client' };
+      localStorage.setItem('tg_user_id', manualId);
+    } else {
+      showToast('⚠️ Entrez votre ID Telegram dans le champ en haut du panier');
+      document.getElementById('manualTelegramId')?.focus();
+      return;
+    }
+  }
 
   if (CartManager.items.length === 0) {
     showToast('⚠️ Votre panier est vide');
@@ -5261,10 +5283,10 @@ async function validateOrder() {
 
     const fullAddress = selectedHousingType ? `[${selectedHousingType}] ${address}` : address;
 
-    const tgName = telegramUser ? (telegramUser.first_name + (telegramUser.last_name ? ' ' + telegramUser.last_name : '')) : 'Client Web';
+    const tgName = telegramUser.first_name + (telegramUser.last_name ? ' ' + telegramUser.last_name : '');
     const orderData = {
-      customer: telegramUser ? String(telegramUser.id) : 'Client Web',
-      customerName: telegramUser?.username ? `@${telegramUser.username} (${tgName})` : tgName,
+      customer: String(telegramUser.id),
+      customerName: telegramUser.username ? `@${telegramUser.username} (${tgName})` : tgName,
       type: deliveryType,
       address: fullAddress,
       items: items,
