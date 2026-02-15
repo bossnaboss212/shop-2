@@ -4843,18 +4843,14 @@ function renderCart() {
 
   content.innerHTML = `
     ${!userDetected ? `
-    <div style="padding:12px;margin-bottom:12px;background:linear-gradient(135deg,#ff6b6b,#ee5a24);border-radius:12px;text-align:center">
-      <div style="color:#fff;font-weight:700;font-size:14px">⚠️ Connexion requise</div>
-      <p style="color:rgba(255,255,255,0.85);font-size:12px;margin-top:4px">Votre ID Telegram n'a pas été détecté automatiquement.</p>
-      <p style="color:rgba(255,255,255,0.85);font-size:12px;margin-top:6px"><b>Solution :</b> Retournez sur le bot, tapez <b>/start</b>, puis cliquez sur le bouton <b>"🛒 Ouvrir la Boutique"</b> du clavier en bas.</p>
-      <button onclick="detectTelegramUser();renderCart();" style="margin-top:10px;padding:8px 20px;background:#fff;border:none;border-radius:8px;font-weight:600;color:#ee5a24;cursor:pointer;font-size:13px">🔄 Réessayer la détection</button>
+    <div style="padding:10px 12px;margin-bottom:12px;background:var(--bg-tertiary);border:1px solid var(--border);border-radius:10px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="font-size:13px;color:var(--text-muted)">ID non détecté</span>
+        <button onclick="detectTelegramUser();renderCart();" style="padding:4px 10px;background:var(--accent);border:none;border-radius:6px;color:#fff;font-size:11px;cursor:pointer">Réessayer</button>
+      </div>
+      <input type="text" id="manualTelegramId" class="input-field" placeholder="Collez votre ID Telegram (visible dans /start)" maxlength="15" style="width:100%;box-sizing:border-box;font-size:13px" oninput="this.value=this.value.replace(/[^0-9]/g,'')">
     </div>
-    ` : `
-    <div style="padding:8px 12px;margin-bottom:12px;background:rgba(46,204,113,0.15);border:1px solid rgba(46,204,113,0.3);border-radius:10px;display:flex;align-items:center;gap:8px">
-      <span style="font-size:14px">&#10003;</span>
-      <span style="font-size:13px;color:var(--success);font-weight:600">Connecte : ID ${telegramUser.id}</span>
-    </div>
-    `}
+    ` : ``}
     ${CartManager.items.map((item, idx) => `
       <div class="cart-item-row">
         <div class="cart-item-left">
@@ -5205,9 +5201,17 @@ async function validateOrder() {
   // Re-tenter la détection Telegram
   if (!telegramUser || !telegramUser.id) detectTelegramUser();
 
+  // Fallback: si pas détecté automatiquement, utiliser l'ID saisi manuellement
   if (!telegramUser || !telegramUser.id) {
-    showToast('⚠️ ID non détecté. Tapez /start sur le bot puis réouvrez la boutique.');
-    return;
+    const manualId = document.getElementById('manualTelegramId')?.value.trim();
+    if (manualId && /^\d{5,15}$/.test(manualId)) {
+      telegramUser = { id: Number(manualId), first_name: 'Client' };
+      localStorage.setItem('tg_user_id', manualId);
+    } else {
+      showToast('⚠️ Entrez votre ID Telegram dans le champ en haut du panier');
+      document.getElementById('manualTelegramId')?.focus();
+      return;
+    }
   }
 
   if (CartManager.items.length === 0) {
