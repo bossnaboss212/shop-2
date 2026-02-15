@@ -674,6 +674,9 @@ async function initDB() {
   try {
     await db.run("ALTER TABLE orders ADD COLUMN credit_used REAL DEFAULT 0");
   } catch (e) { /* colonne existe déjà */ }
+  try {
+    await db.run("ALTER TABLE orders ADD COLUMN delivery_fee REAL DEFAULT 0");
+  } catch (e) { /* colonne existe déjà */ }
 
   await db.run(`
     INSERT OR IGNORE INTO settings (key, value) VALUES
@@ -922,7 +925,7 @@ function sanitizeString(str, maxLength = 500) {
 }
 
 function validateOrderInput(data) {
-  const { customer, type, items, total, address } = data;
+  const { customer, type, items, total, address, deliveryFee } = data;
   
   if (!customer || typeof customer !== 'string' || customer.trim().length < 2) {
     throw new ValidationError('Contact client invalide');
@@ -973,8 +976,9 @@ function validateOrderInput(data) {
     }
   }
 
-  // Vérifier que le total correspond à la somme des articles
-  const calculatedTotal = items.reduce((sum, item) => sum + item.lineTotal, 0);
+  // Vérifier que le total correspond à la somme des articles + frais de livraison
+  const fee = (typeof deliveryFee === 'number' && deliveryFee >= 0) ? deliveryFee : 0;
+  const calculatedTotal = items.reduce((sum, item) => sum + item.lineTotal, 0) + fee;
   if (Math.abs(total - calculatedTotal) > 0.01) {
     throw new ValidationError('Le total ne correspond pas à la somme des articles');
   }
@@ -2416,6 +2420,10 @@ app.post('/api/cancel-order-items', apiLimiter, async (req, res) => {
       newTotal += item.price * item.qty;
     }
 
+    // Ajouter les frais de livraison (ne sont pas remboursés lors d'une annulation partielle)
+    const orderDeliveryFee = order.delivery_fee || 0;
+    newTotal += orderDeliveryFee;
+
     // Appliquer la réduction si elle existe (discount est une valeur absolue, pas un pourcentage)
     if (order.discount > 0) {
       newTotal = Math.max(0, newTotal - order.discount);
@@ -2469,7 +2477,8 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
 
     validateOrderInput(req.body);
 
-    const { customer, customerName, type, address, items, total, referralCode, useCredit, telegramId, timeSlot, customerDescription } = req.body;
+    const { customer, customerName, type, address, items, total, referralCode, useCredit, telegramId, timeSlot, customerDescription, deliveryFee: rawDeliveryFee } = req.body;
+    const deliveryFee = (typeof rawDeliveryFee === 'number' && rawDeliveryFee >= 0) ? rawDeliveryFee : 0;
 
     const sanitizedCustomer = sanitizeString(customer, 100);
     const sanitizedType = sanitizeString(type, 50);
@@ -2597,9 +2606,9 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
 
       // 4. Créer la commande
       const result = await db.run(
-        `INSERT INTO orders (customer, type, address, items, total, discount, status, client_telegram_id, time_slot, customer_description, credit_used)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [sanitizedCustomer, sanitizedType, sanitizedAddress, JSON.stringify(items), finalTotal, discount, orderStatus, clientTelegramId, sanitizedTimeSlot, sanitizedDescription, creditUsed]
+        `INSERT INTO orders (customer, type, address, items, total, discount, status, client_telegram_id, time_slot, customer_description, credit_used, delivery_fee)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [sanitizedCustomer, sanitizedType, sanitizedAddress, JSON.stringify(items), finalTotal, discount, orderStatus, clientTelegramId, sanitizedTimeSlot, sanitizedDescription, creditUsed, deliveryFee]
       );
       orderId = result.lastID;
 
