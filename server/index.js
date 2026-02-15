@@ -3526,6 +3526,24 @@ app.post('/api/admin/transactions', requireAdmin, async (req, res) => {
 
 app.delete('/api/admin/transactions/:id', requireAdmin, async (req, res) => {
   try {
+    const transaction = await db.get('SELECT * FROM transactions WHERE id = ?', [req.params.id]);
+    if (!transaction) {
+      return res.status(404).json({ ok: false, error: 'Transaction introuvable' });
+    }
+
+    // Reverser le cash_balance si la transaction était en espèces
+    if (transaction.payment_method === 'especes') {
+      const cashBalance = await db.get("SELECT value FROM settings WHERE key = 'cash_balance'");
+      const currentBalance = parseFloat(cashBalance?.value || 0);
+      const newBalance = transaction.type === 'revenue'
+        ? currentBalance - transaction.amount
+        : currentBalance + transaction.amount;
+      await db.run(
+        "UPDATE settings SET value = ? WHERE key = 'cash_balance'",
+        [newBalance.toString()]
+      );
+    }
+
     await db.run('DELETE FROM transactions WHERE id = ?', [req.params.id]);
     res.json({ ok: true });
   } catch (error) {

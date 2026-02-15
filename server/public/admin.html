@@ -781,21 +781,21 @@
     </div>
 
     <div class="tabs">
-      <button class="tab-btn active" onclick="showTab('dashboard')">📊 Dashboard</button>
-      <button class="tab-btn" onclick="showTab('orders')">📦 Commandes</button>
-      <button class="tab-btn" onclick="showTab('products')">🛍 Produits</button>
-      <button class="tab-btn" onclick="showTab('stock')">📈 Stock</button>
-      <button class="tab-btn" onclick="showTab('customers')">👥 Clients</button>
-      <button class="tab-btn" onclick="showTab('finances')">💰 Finances</button>
-      <button class="tab-btn" onclick="showTab('cashier')">💶 Caisse</button>
-      <button class="tab-btn" onclick="showTab('analytics')">📊 Analytics</button>
-      <button class="tab-btn" onclick="showTab('nourrice')">🏦 Nourrice</button>
-      <button class="tab-btn" onclick="showTab('gerant')">👔 Gérant</button>
-      <button class="tab-btn" onclick="showTab('livreur')">🚗 Livreur</button>
-      <button class="tab-btn" onclick="showTab('employees')">👷 Employés</button>
-      <button class="tab-btn" onclick="showTab('reports')">📋 Rapports</button>
-      <button class="tab-btn" onclick="showTab('settings')">⚙️ Paramètres</button>
-      <button class="tab-btn" onclick="showTab('backup')">💾 Backup</button>
+      <button class="tab-btn active" onclick="showTab('dashboard', event)">📊 Dashboard</button>
+      <button class="tab-btn" onclick="showTab('orders', event)">📦 Commandes</button>
+      <button class="tab-btn" onclick="showTab('products', event)">🛍 Produits</button>
+      <button class="tab-btn" onclick="showTab('stock', event)">📈 Stock</button>
+      <button class="tab-btn" onclick="showTab('customers', event)">👥 Clients</button>
+      <button class="tab-btn" onclick="showTab('finances', event)">💰 Finances</button>
+      <button class="tab-btn" onclick="showTab('cashier', event)">💶 Caisse</button>
+      <button class="tab-btn" onclick="showTab('analytics', event)">📊 Analytics</button>
+      <button class="tab-btn" onclick="showTab('nourrice', event)">🏦 Nourrice</button>
+      <button class="tab-btn" onclick="showTab('gerant', event)">👔 Gérant</button>
+      <button class="tab-btn" onclick="showTab('livreur', event)">🚗 Livreur</button>
+      <button class="tab-btn" onclick="showTab('employees', event)">👷 Employés</button>
+      <button class="tab-btn" onclick="showTab('reports', event)">📋 Rapports</button>
+      <button class="tab-btn" onclick="showTab('settings', event)">⚙️ Paramètres</button>
+      <button class="tab-btn" onclick="showTab('backup', event)">💾 Backup</button>
     </div>
 
     <div class="tab-content active" id="tab-dashboard">
@@ -899,7 +899,10 @@
         <select id="filterStatus" onchange="filterOrders()">
           <option value="all">Tous</option>
           <option value="pending">⏳ En attente</option>
-          <option value="delivered">✅ Livré</option>
+          <option value="pending_approval">🔍 Approbation</option>
+          <option value="en_route">🚗 En route</option>
+          <option value="delivered">✅ Livre</option>
+          <option value="cancelled">❌ Annule</option>
         </select>
         <button onclick="addOrder()" style="background:var(--success)">➕ Nouveau</button>
         <button onclick="exportData('orders')">📥 Export</button>
@@ -1504,10 +1507,10 @@
       <div class="chart-container">
         <h3>📋 Historique Nourrice</h3>
         <div style="display:flex;gap:8px;margin-bottom:12px">
-          <button onclick="nourriceFilterHistory('all')" class="tab-btn active" style="font-size:12px;padding:6px 12px">Tout</button>
-          <button onclick="nourriceFilterHistory('stock')" class="tab-btn" style="font-size:12px;padding:6px 12px">Stock Gros</button>
-          <button onclick="nourriceFilterHistory('variant')" class="tab-btn" style="font-size:12px;padding:6px 12px">Variants</button>
-          <button onclick="nourriceFilterHistory('cash')" class="tab-btn" style="font-size:12px;padding:6px 12px">Caisse</button>
+          <button onclick="nourriceFilterHistory('all', event)" class="tab-btn active" style="font-size:12px;padding:6px 12px">Tout</button>
+          <button onclick="nourriceFilterHistory('stock', event)" class="tab-btn" style="font-size:12px;padding:6px 12px">Stock Gros</button>
+          <button onclick="nourriceFilterHistory('variant', event)" class="tab-btn" style="font-size:12px;padding:6px 12px">Variants</button>
+          <button onclick="nourriceFilterHistory('cash', event)" class="tab-btn" style="font-size:12px;padding:6px 12px">Caisse</button>
         </div>
         <div class="table-container" style="max-height:300px;overflow-y:auto">
           <table>
@@ -1576,10 +1579,10 @@
       <div class="chart-container">
         <h3>📋 Historique Gérant</h3>
         <div style="display:flex;gap:8px;margin-bottom:12px">
-          <button onclick="staffFilterHistory('gerant','all')" class="tab-btn active" style="font-size:12px;padding:6px 12px">Tout</button>
-          <button onclick="staffFilterHistory('gerant','gros')" class="tab-btn" style="font-size:12px;padding:6px 12px">Gros</button>
-          <button onclick="staffFilterHistory('gerant','variant')" class="tab-btn" style="font-size:12px;padding:6px 12px">Variants</button>
-          <button onclick="staffFilterHistory('gerant','cash')" class="tab-btn" style="font-size:12px;padding:6px 12px">Caisse</button>
+          <button onclick="staffFilterHistory('gerant','all', event)" class="tab-btn active" style="font-size:12px;padding:6px 12px">Tout</button>
+          <button onclick="staffFilterHistory('gerant','gros', event)" class="tab-btn" style="font-size:12px;padding:6px 12px">Gros</button>
+          <button onclick="staffFilterHistory('gerant','variant', event)" class="tab-btn" style="font-size:12px;padding:6px 12px">Variants</button>
+          <button onclick="staffFilterHistory('gerant','cash', event)" class="tab-btn" style="font-size:12px;padding:6px 12px">Caisse</button>
         </div>
         <div class="table-container" style="max-height:300px;overflow-y:auto">
           <table><thead><tr><th>Date</th><th>Type</th><th>Détail</th><th>Montant/Qt</th></tr></thead>
@@ -1674,10 +1677,10 @@
       <div class="chart-container">
         <h3>📋 Historique Livreur</h3>
         <div style="display:flex;gap:8px;margin-bottom:12px">
-          <button onclick="staffFilterHistory('livreur','all')" class="tab-btn active" style="font-size:12px;padding:6px 12px">Tout</button>
-          <button onclick="staffFilterHistory('livreur','gros')" class="tab-btn" style="font-size:12px;padding:6px 12px">Gros</button>
-          <button onclick="staffFilterHistory('livreur','variant')" class="tab-btn" style="font-size:12px;padding:6px 12px">Variants</button>
-          <button onclick="staffFilterHistory('livreur','cash')" class="tab-btn" style="font-size:12px;padding:6px 12px">Caisse</button>
+          <button onclick="staffFilterHistory('livreur','all', event)" class="tab-btn active" style="font-size:12px;padding:6px 12px">Tout</button>
+          <button onclick="staffFilterHistory('livreur','gros', event)" class="tab-btn" style="font-size:12px;padding:6px 12px">Gros</button>
+          <button onclick="staffFilterHistory('livreur','variant', event)" class="tab-btn" style="font-size:12px;padding:6px 12px">Variants</button>
+          <button onclick="staffFilterHistory('livreur','cash', event)" class="tab-btn" style="font-size:12px;padding:6px 12px">Caisse</button>
         </div>
         <div class="table-container" style="max-height:300px;overflow-y:auto">
           <table><thead><tr><th>Date</th><th>Type</th><th>Détail</th><th>Montant/Qt</th></tr></thead>
@@ -2344,10 +2347,7 @@ function loadData() {
     }
   });
   
-  const pass = localStorage.getItem('admin_password');
-  if (pass) {
-    state.currentPassword = pass;
-  }
+  // Note: mot de passe n'est plus stocke en localStorage pour des raisons de securite
   
   const savedAnalytics = localStorage.getItem('admin_analytics');
   if (savedAnalytics) {
@@ -2579,31 +2579,11 @@ async function loadStaffFromServer() {
 async function checkAuth() {
   const auth = localStorage.getItem('admin_auth');
   const expiry = localStorage.getItem('session_expiry');
-  const savedPassword = localStorage.getItem('admin_password');
+  const token = localStorage.getItem('admin_token');
 
-  if (auth === 'true' && expiry && Date.now() < parseInt(expiry)) {
-    // Session valide, obtenir un nouveau token du serveur
-    if (savedPassword) {
-      try {
-        const response = await fetch('/api/admin/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password: savedPassword })
-        });
-        const data = await response.json();
-
-        if (data.ok && data.token) {
-          state.apiToken = data.token;
-          localStorage.setItem('admin_token', data.token);
-          console.log('✅ Nouveau token obtenu');
-        } else {
-          console.warn('⚠️ Impossible de rafraîchir le token');
-        }
-      } catch (err) {
-        console.warn('⚠️ Erreur connexion serveur:', err);
-      }
-    }
-
+  if (auth === 'true' && expiry && Date.now() < parseInt(expiry) && token) {
+    // Session valide, utiliser le token existant
+    state.apiToken = token;
     showDashboard();
 
     // Synchroniser les commandes et staff data après affichage
@@ -2653,7 +2633,7 @@ async function login() {
       state.lockoutUntil = null;
       state.apiToken = data.token;
       localStorage.setItem('admin_token', data.token);
-      localStorage.setItem('admin_password', pass);
+      localStorage.removeItem('admin_password');
 
       const expiry = Date.now() + (24 * 60 * 60 * 1000);
       localStorage.setItem('admin_auth', 'true');
@@ -2948,11 +2928,11 @@ function updateActivityFeed() {
   `).join('');
 }
 
-function showTab(name) {
+function showTab(name, evt) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-  
-  event.target.classList.add('active');
+
+  if (evt && evt.currentTarget) evt.currentTarget.classList.add('active');
   document.getElementById(`tab-${name}`).classList.add('active');
   
   if (name === 'reports') {
@@ -3038,8 +3018,12 @@ function loadOrders() {
 function getStatusBadge(s) {
   const badges = {
     pending: '<span class="badge warning">⏳ Attente</span>',
-    delivered: '<span class="badge success">✅ Livré</span>',
-    cancelled: '<span class="badge danger">❌ Annulé</span>'
+    pending_approval: '<span class="badge info">🔍 Approbation</span>',
+    confirmed: '<span class="badge success">✅ Confirmee</span>',
+    preparing: '<span class="badge warning">👨‍🍳 Preparation</span>',
+    en_route: '<span class="badge info">🚗 En route</span>',
+    delivered: '<span class="badge success">✅ Livre</span>',
+    cancelled: '<span class="badge danger">❌ Annule</span>'
   };
   return badges[s] || badges.pending;
 }
@@ -3264,7 +3248,7 @@ function viewCustomerDetail(contact) {
   .then(data => {
     if (!data.ok) return showToast('❌ Client introuvable', 'error');
     const c = data.customer;
-    const orders = data.orders || [];
+    const orders = c.orders || [];
     showModal('Client: ' + (c.name || c.contact), `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">
         <div><strong>Contact:</strong> ${c.contact}</div>
@@ -3328,82 +3312,156 @@ function loadCashier() {
 function loadProfitTable() {
   const tbody = document.getElementById('profitTable');
   if (!tbody) return;
-  
+
+  // Calculer les ventes reelles a partir des commandes
+  const productSales = {};
+  state.data.orders.forEach(o => {
+    if (o.status === 'cancelled') return;
+    if (o.items && Array.isArray(o.items)) {
+      o.items.forEach(item => {
+        const name = item.name || 'Inconnu';
+        if (!productSales[name]) productSales[name] = { qty: 0, revenue: 0 };
+        productSales[name].qty += item.qty || 1;
+        productSales[name].revenue += item.lineTotal || ((item.qty || 1) * (item.price || 0));
+      });
+    }
+  });
+
   let html = '';
   state.data.products.forEach(p => {
-    const sales = 12;
-    const revenue = sales * 50;
-    const cost = sales * p.buyPrice * 10;
-    const profit = revenue - cost;
-    const margin = ((profit / revenue) * 100).toFixed(1);
-    
+    const salesData = productSales[p.name] || { qty: 0, revenue: 0 };
+    const cost = salesData.qty * (p.buyPrice || 0);
+    const profit = salesData.revenue - cost;
+    const margin = salesData.revenue > 0 ? ((profit / salesData.revenue) * 100).toFixed(1) : '0.0';
+
     html += `
       <tr>
         <td><strong>${p.name}</strong></td>
-        <td>${sales}</td>
-        <td>${fc(revenue)}</td>
+        <td>${salesData.qty}</td>
+        <td>${fc(salesData.revenue)}</td>
         <td>${fc(cost)}</td>
-        <td style="color:var(--success)">${fc(profit)}</td>
+        <td style="color:${profit >= 0 ? 'var(--success)' : 'var(--danger)'}">${fc(profit)}</td>
         <td><strong>${margin}%</strong></td>
       </tr>
     `;
   });
-  
+
   tbody.innerHTML = html;
 }
 
 function updateWeekCashSummary() {
   const el = document.getElementById('weekCashSummary');
   if (!el) return;
-  
-  const days = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
-  const data = days.map((day, i) => ({
-    day,
-    amount: Math.random() * 200 + 50
-  }));
-  
-  el.innerHTML = data.map(d => `
+
+  const dayNames = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+  const dailyTotals = [];
+
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    dailyTotals.push({ day: dayNames[d.getDay()], dateStr: d.toDateString(), amount: 0 });
+  }
+
+  state.cash.transactions.forEach(t => {
+    const tDateStr = new Date(t.date).toDateString();
+    const match = dailyTotals.find(d => d.dateStr === tDateStr);
+    if (match) {
+      match.amount += t.type === 'income' ? t.amount : -t.amount;
+    }
+  });
+
+  el.innerHTML = dailyTotals.map(d => `
     <div style="padding:8px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between">
       <span>${d.day}</span>
-      <strong style="color:var(--success)">${fc(d.amount)}</strong>
+      <strong style="color:${d.amount >= 0 ? 'var(--success)' : 'var(--danger)'}">${fc(d.amount)}</strong>
     </div>
   `).join('');
 }
 
-function addTransaction() {
+async function addTransaction() {
   const type = document.getElementById('transType').value;
   const amount = parseFloat(document.getElementById('transAmount').value);
   const desc = document.getElementById('transDescription').value;
-  
+  const category = document.getElementById('transCategory').value;
+
   if (!amount || amount <= 0) {
     showToast('Montant invalide', 'error');
     return;
   }
-  
+
+  // Sync vers le serveur
+  const token = localStorage.getItem('admin_token');
+  if (token) {
+    try {
+      const res = await fetch('/api/admin/transactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': token },
+        body: JSON.stringify({
+          type: type === 'income' ? 'revenue' : 'expense',
+          category,
+          description: desc || 'Transaction manuelle',
+          amount,
+          payment_method: 'especes'
+        })
+      });
+      const data = await res.json();
+      if (!data.ok) {
+        showToast('Erreur serveur: ' + (data.error || ''), 'error');
+        return;
+      }
+    } catch (e) {
+      showToast('Erreur de connexion', 'error');
+      return;
+    }
+  }
+
   const transaction = {
     id: Date.now(),
     date: new Date().toISOString(),
-    type,
-    amount,
-    category: document.getElementById('transCategory').value,
+    type, amount, category,
     description: desc || 'Transaction manuelle',
     balanceAfter: state.cash.total + (type === 'income' ? amount : -amount)
   };
-  
+
   state.cash.total += (type === 'income' ? amount : -amount);
   state.cash.transactions.push(transaction);
-  
+
   saveData();
   loadCashier();
   updateAllStats();
-  
+
   document.getElementById('transAmount').value = '';
   document.getElementById('transDescription').value = '';
-  
-  showToast('Transaction enregistrée', 'success');
+
+  showToast('Transaction enregistree', 'success');
 }
 
-function quickSale(amount) {
+async function quickSale(amount) {
+  const token = localStorage.getItem('admin_token');
+  if (token) {
+    try {
+      const res = await fetch('/api/admin/transactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': token },
+        body: JSON.stringify({
+          type: 'revenue',
+          category: 'sale',
+          description: `Vente rapide ${fc(amount)}`,
+          amount,
+          payment_method: 'especes'
+        })
+      });
+      const data = await res.json();
+      if (!data.ok) {
+        showToast('Erreur serveur', 'error');
+        return;
+      }
+    } catch (e) {
+      showToast('Erreur de connexion', 'error');
+      return;
+    }
+  }
+
   state.cash.total += amount;
   state.cash.transactions.push({
     id: Date.now(),
@@ -3414,11 +3472,11 @@ function quickSale(amount) {
     description: `Vente rapide ${fc(amount)}`,
     balanceAfter: state.cash.total
   });
-  
+
   saveData();
   loadCashier();
   updateAllStats();
-  showToast(`Vente de ${fc(amount)} enregistrée`, 'success');
+  showToast(`Vente de ${fc(amount)} enregistree`, 'success');
 }
 
 function countCash() {
@@ -3740,14 +3798,14 @@ function deleteOrder(id) {
       .then(res => res.json())
       .then(data => {
         if (data.ok) {
-          state.data.orders = state.data.orders.filter(o => o.id !== id);
+          state.data.orders = state.data.orders.filter(o => String(o.id) !== String(id));
           saveData();
           loadOrders();
           updateAllStats();
           updateActivityFeed();
-          showToast('Supprimé', 'success');
+          showToast('Supprime', 'success');
         } else {
-          showToast('Erreur: ' + (data.error || 'Suppression échouée'), 'error');
+          showToast('Erreur: ' + (data.error || 'Suppression echouee'), 'error');
         }
       })
       .catch(err => {
@@ -3755,7 +3813,7 @@ function deleteOrder(id) {
         showToast('Erreur de connexion', 'error');
       });
     } else {
-      state.data.orders = state.data.orders.filter(o => o.id !== id);
+      state.data.orders = state.data.orders.filter(o => String(o.id) !== String(id));
       saveData();
       loadOrders();
       updateAllStats();
@@ -5001,9 +5059,9 @@ function loadNourriceHistory(filter) {
   }).join('');
 }
 
-function nourriceFilterHistory(filter) {
+function nourriceFilterHistory(filter, evt) {
   document.querySelectorAll('#tab-nourrice .chart-container:last-child .tab-btn').forEach(b => b.classList.remove('active'));
-  event.target.classList.add('active');
+  if (evt && evt.currentTarget) evt.currentTarget.classList.add('active');
   loadNourriceHistory(filter);
 }
 
@@ -5411,10 +5469,10 @@ function staffLoadHistory(role, filter) {
   }).join('');
 }
 
-function staffFilterHistory(role, filter) {
+function staffFilterHistory(role, filter, evt) {
   const container = document.querySelector(`#tab-${role} .chart-container:last-child`);
   if (container) container.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  event.target.classList.add('active');
+  if (evt && evt.currentTarget) evt.currentTarget.classList.add('active');
   staffLoadHistory(role, filter);
 }
 
@@ -5859,19 +5917,38 @@ function saveSettings() {
   }
 }
 
-function changePassword() {
+async function changePassword() {
   const newPass = document.getElementById('newPassword').value;
-  const confirm = document.getElementById('confirmPassword').value;
-  
-  if (!newPass || newPass !== confirm) {
-    showToast('Mots de passe différents', 'error');
+  const confirmPass = document.getElementById('confirmPassword').value;
+
+  if (!newPass || newPass !== confirmPass) {
+    showToast('Mots de passe differents', 'error');
     return;
   }
-  
-  state.currentPassword = newPass;
-  localStorage.setItem('admin_password', newPass);
-  
-  showToast('Mot de passe modifié', 'success');
+
+  const token = localStorage.getItem('admin_token');
+  if (!token) {
+    showToast('Non authentifie', 'error');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/admin/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'x-admin-token': token },
+      body: JSON.stringify({ settings: { admin_password: newPass } })
+    });
+    const data = await res.json();
+    if (!data.ok) {
+      showToast('Erreur: ' + (data.error || 'Modification echouee'), 'error');
+      return;
+    }
+  } catch (e) {
+    showToast('Erreur de connexion au serveur', 'error');
+    return;
+  }
+
+  showToast('Mot de passe modifie sur le serveur', 'success');
   document.getElementById('newPassword').value = '';
   document.getElementById('confirmPassword').value = '';
 }
@@ -7127,7 +7204,12 @@ function deleteAlert(id) {
 }
 
 function resolveAlert(id) {
-  showToast('Alerte marquée comme résolue', 'success');
+  const alert = state.analytics.alerts.find(a => a.id === id);
+  if (alert) {
+    alert.active = false;
+    localStorage.setItem('admin_analytics', JSON.stringify(state.analytics));
+  }
+  showToast('Alerte marquee comme resolue', 'success');
   updateActiveAlerts();
 }
 
@@ -7324,8 +7406,12 @@ function collectReportData(startDate, endDate) {
   
   const productSales = {};
   orders.forEach(o => {
-    const productName = o.products.split(' ')[0];
-    productSales[productName] = (productSales[productName] || 0) + 1;
+    if (o.items && Array.isArray(o.items)) {
+      o.items.forEach(item => {
+        const name = item.name || 'Inconnu';
+        productSales[name] = (productSales[name] || 0) + (item.qty || 1);
+      });
+    }
   });
   
   const topProducts = Object.entries(productSales)
@@ -7388,8 +7474,13 @@ function collectReportData(startDate, endDate) {
 }
 
 function parseDate(dateStr) {
-  const [d, m, y] = dateStr.split('/');
-  return new Date(y, m - 1, d);
+  if (!dateStr) return new Date(0);
+  const datePart = dateStr.split(' ')[0];
+  const parts = datePart.split('/');
+  if (parts.length === 3) {
+    return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+  }
+  return new Date(dateStr);
 }
 
 function exportReportPDF(type, title, data) {
