@@ -6109,9 +6109,9 @@ function syncOrders(manual = false) {
         state.syncInterval = null;
       }
       showToast('🔒 Session expirée - reconnectez-vous', 'error');
-      document.getElementById('loginScreen').style.display = 'flex';
-      document.getElementById('dashboard').style.display = 'none';
-      return Promise.reject(new Error('Session expirée'));
+      document.getElementById('auth').style.display = 'block';
+      document.getElementById('dash').style.display = 'none';
+      return Promise.reject(new Error('SESSION_EXPIRED'));
     }
     if (!res.ok) {
       throw new Error(`HTTP ${res.status}`);
@@ -6213,8 +6213,11 @@ function syncOrders(manual = false) {
     }
   })
   .catch(error => {
+    if (error.message === 'SESSION_EXPIRED') return;
     console.error('❌ Erreur sync serveur:', error);
-    showToast('❌ Sync échouée: ' + error.message, 'error');
+    if (manual) {
+      showToast('❌ Sync échouée: ' + error.message, 'error');
+    }
   });
 }
 
