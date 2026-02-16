@@ -193,6 +193,62 @@ class TokenStore {
 
 const adminTokens = new TokenStore(config.admin.tokenExpiry);
 
+// ==================== TELEGRAM INITDATA VALIDATION ====================
+// Valide les données signées du Telegram Mini App pour authentifier les utilisateurs
+function validateTelegramInitData(initData) {
+  if (!initData || !config.telegram.token) return null;
+
+  try {
+    const params = new URLSearchParams(initData);
+    const hash = params.get('hash');
+    if (!hash) return null;
+
+    // Construire la chaîne de vérification (tous les params sauf hash, triés alphabétiquement)
+    const checkParams = [];
+    for (const [key, value] of params.entries()) {
+      if (key !== 'hash') checkParams.push(`${key}=${value}`);
+    }
+    checkParams.sort();
+    const dataCheckString = checkParams.join('\n');
+
+    // HMAC-SHA256 avec "WebAppData" + bot token
+    const secretKey = crypto.createHmac('sha256', 'WebAppData').update(config.telegram.token).digest();
+    const computedHash = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
+
+    // Comparaison en temps constant pour éviter les timing attacks
+    if (!crypto.timingSafeEqual(Buffer.from(computedHash, 'hex'), Buffer.from(hash, 'hex'))) {
+      return null;
+    }
+
+    // Extraire l'utilisateur des données validées
+    const userParam = params.get('user');
+    if (!userParam) return null;
+    return JSON.parse(userParam);
+  } catch (err) {
+    console.error('Telegram initData validation error:', err.message);
+    return null;
+  }
+}
+
+// Extraire le telegramId vérifié depuis initData ou fallback sur le body (moins sécurisé)
+function getVerifiedTelegramId(req) {
+  const { initData, telegramId } = req.body;
+
+  // Priorité : validation cryptographique via initData
+  if (initData) {
+    const validatedUser = validateTelegramInitData(initData);
+    if (validatedUser && validatedUser.id) {
+      return String(validatedUser.id);
+    }
+    // initData fourni mais invalide → rejeter
+    return null;
+  }
+
+  // Fallback : telegramId non vérifié (pour les clients web hors Telegram)
+  return telegramId ? String(telegramId) : null;
+}
+
+
 // Hash du mot de passe admin avec bcrypt (ne jamais comparer en clair)
 const BCRYPT_ROUNDS = 12;
 let adminPasswordHash = null;
@@ -677,6 +733,10 @@ async function initDB() {
     CREATE INDEX IF NOT EXISTS idx_referrals_contact ON referrals(customer_contact);
     CREATE INDEX IF NOT EXISTS idx_referral_history_referrer ON referral_history(referrer_code);
     CREATE INDEX IF NOT EXISTS idx_referral_history_order ON referral_history(order_id);
+    CREATE INDEX IF NOT EXISTS idx_referral_history_referred ON referral_history(referred_contact);
+    CREATE INDEX IF NOT EXISTS idx_orders_customer ON orders(customer);
+    CREATE INDEX IF NOT EXISTS idx_orders_telegram_id ON orders(client_telegram_id);
+    CREATE INDEX IF NOT EXISTS idx_telegram_clients_telegram_id ON telegram_clients(telegram_id);
   `);
 
   // Migrations (idempotent)
@@ -2289,7 +2349,7 @@ app.get('/api/stock/:productId/:variant', apiLimiter, async (req, res) => {
 // ==================== NOUVEAU : ANNULATION COMMANDE ====================
 app.post('/api/cancel-order', apiLimiter, async (req, res) => {
   try {
-    const { orderId, reason, telegramId } = req.body;
+    const { orderId, reason } = req.body;
 
     if (!orderId) {
       return res.status(400).json({ ok: false, error: 'ID commande manquant' });
@@ -2301,8 +2361,9 @@ app.post('/api/cancel-order', apiLimiter, async (req, res) => {
       return res.status(404).json({ ok: false, error: 'Commande introuvable' });
     }
 
-    // Vérifier que le demandeur est le propriétaire de la commande
-    if (!telegramId || (order.client_telegram_id !== String(telegramId) && order.customer !== String(telegramId))) {
+    // Vérifier l'identité du demandeur (initData signé ou fallback telegramId)
+    const verifiedTelegramId = getVerifiedTelegramId(req);
+    if (!verifiedTelegramId || (order.client_telegram_id !== verifiedTelegramId && order.customer !== verifiedTelegramId)) {
       return res.status(403).json({ ok: false, error: 'Non autorisé' });
     }
 
@@ -2376,7 +2437,7 @@ app.post('/api/cancel-order', apiLimiter, async (req, res) => {
 // ==================== ANNULATION PARTIELLE ====================
 app.post('/api/cancel-order-items', apiLimiter, async (req, res) => {
   try {
-    const { orderId, itemsToCancel, reason, telegramId } = req.body;
+    const { orderId, itemsToCancel, reason } = req.body;
 
     if (!orderId || !itemsToCancel || !Array.isArray(itemsToCancel) || itemsToCancel.length === 0) {
       return res.status(400).json({ ok: false, error: 'Données invalides' });
@@ -2388,8 +2449,9 @@ app.post('/api/cancel-order-items', apiLimiter, async (req, res) => {
       return res.status(404).json({ ok: false, error: 'Commande introuvable' });
     }
 
-    // Vérifier que le demandeur est le propriétaire de la commande
-    if (!telegramId || (order.client_telegram_id !== String(telegramId) && order.customer !== String(telegramId))) {
+    // Vérifier l'identité du demandeur (initData signé ou fallback telegramId)
+    const verifiedTelegramId = getVerifiedTelegramId(req);
+    if (!verifiedTelegramId || (order.client_telegram_id !== verifiedTelegramId && order.customer !== verifiedTelegramId)) {
       return res.status(403).json({ ok: false, error: 'Non autorisé' });
     }
 
@@ -2528,7 +2590,7 @@ app.post('/api/cancel-order-items', apiLimiter, async (req, res) => {
     const originalCreditUsed = order.credit_used || 0;
     const creditToKeep = Math.min(originalCreditUsed, newTotalBeforeCredit);
     const creditToRefund = originalCreditUsed - creditToKeep;
-    const newTotal = newTotalBeforeCredit - creditToKeep;
+    const newTotal = Math.round((newTotalBeforeCredit - creditToKeep) * 100) / 100;
 
     // Calculer le remboursement réel (basé sur ce que le client a payé en espèces)
     const actualRefund = order.total - newTotal;
@@ -2727,7 +2789,7 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
 
       // Recalculer le total côté serveur (ne pas faire confiance au client)
       const serverItemsTotal = items.reduce((sum, item) => sum + (item.price * item.qty), 0);
-      const finalTotal = serverItemsTotal + deliveryFee - discount - creditUsed;
+      const finalTotal = Math.round((serverItemsTotal + deliveryFee - discount - creditUsed) * 100) / 100;
 
       // 2. Lier telegram_id au contact
       if (telegramId) {
@@ -2947,25 +3009,22 @@ app.get('/api/referral-leaderboard', apiLimiter, async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 10;
 
+    // Un seul JOIN au lieu de N+1 queries (1 query par utilisateur)
     const leaderboard = await db.all(`
       SELECT
-        customer_contact,
-        referral_code,
-        total_referrals,
-        total_earned,
-        credit_balance
-      FROM referrals
-      WHERE total_referrals > 0
-      ORDER BY total_referrals DESC, total_earned DESC
+        r.customer_contact,
+        r.total_referrals,
+        r.total_earned,
+        COALESCE(tc.first_name, r.customer_contact) AS display_name
+      FROM referrals r
+      LEFT JOIN telegram_clients tc ON tc.contact = r.customer_contact OR tc.telegram_id = r.customer_contact
+      WHERE r.total_referrals > 0
+      ORDER BY r.total_referrals DESC, r.total_earned DESC
       LIMIT ?
     `, [limit]);
 
-    // Résoudre les noms d'affichage
-    const leaderboardWithInfo = await Promise.all(leaderboard.map(async (user, index) => {
-      const totalReferrals = user.total_referrals || 0;
-
-      // Afficher le nom avec première lettre + *** pour la confidentialité
-      const displayName = await getCustomerDisplayName(user.customer_contact);
+    const leaderboardWithInfo = leaderboard.map((user, index) => {
+      const displayName = user.display_name || user.customer_contact;
       const maskedName = displayName.length > 2
         ? displayName.substring(0, 2) + '***'
         : displayName[0] + '***';
@@ -2973,10 +3032,10 @@ app.get('/api/referral-leaderboard', apiLimiter, async (req, res) => {
       return {
         rank: index + 1,
         contact: maskedName,
-        totalReferrals,
+        totalReferrals: user.total_referrals || 0,
         totalEarned: user.total_earned
       };
-    }));
+    });
 
     res.json({
       ok: true,
@@ -3026,7 +3085,7 @@ app.post('/api/admin/login', authLimiter, async (req, res) => {
   const { password } = req.body;
 
   try {
-    console.log(`🔐 Tentative de connexion admin (password length: ${password ? password.length : 0}, ADMIN_PASS length: ${config.admin.password ? config.admin.password.length : 0})`);
+    console.log('🔐 Tentative de connexion admin');
     const isValid = await verifyAdminPassword(password);
     if (isValid) {
       console.log('✅ Admin login réussi');
