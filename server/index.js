@@ -232,20 +232,20 @@ function validateTelegramInitData(initData) {
 
 // Extraire le telegramId vérifié depuis initData ou fallback sur le body (moins sécurisé)
 function getVerifiedTelegramId(req) {
-  const { initData, telegramId } = req.body;
+  const { initData } = req.body;
 
-  // Priorité : validation cryptographique via initData
-  if (initData) {
-    const validatedUser = validateTelegramInitData(initData);
-    if (validatedUser && validatedUser.id) {
-      return String(validatedUser.id);
-    }
-    // initData fourni mais invalide → rejeter
+  // Seule la validation cryptographique via initData est acceptée
+  // Pas de fallback sur telegramId du body (spoofable)
+  if (!initData) {
     return null;
   }
 
-  // Fallback : telegramId non vérifié (pour les clients web hors Telegram)
-  return telegramId ? String(telegramId) : null;
+  const validatedUser = validateTelegramInitData(initData);
+  if (validatedUser && validatedUser.id) {
+    return String(validatedUser.id);
+  }
+
+  return null;
 }
 
 
@@ -2651,6 +2651,32 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
 
     const { customer, customerName, type, address, items, total, referralCode, useCredit, telegramId, timeSlot, customerDescription, deliveryFee: rawDeliveryFee } = req.body;
 
+    // ==================== VALIDATION DES PRIX CÔTÉ SERVEUR ====================
+    // Charger le catalogue produit et vérifier chaque article contre les prix réels
+    const productsData = await db.get("SELECT value FROM settings WHERE key = 'products'");
+    const productCatalog = productsData?.value ? JSON.parse(productsData.value) : [];
+
+    for (const item of items) {
+      const catalogProduct = productCatalog.find(p => p.id === item.product_id);
+      if (!catalogProduct) {
+        return res.status(400).json({ ok: false, error: `Produit introuvable (ID: ${item.product_id})` });
+      }
+
+      if (!catalogProduct.variants || !catalogProduct.variants[item.variant]) {
+        return res.status(400).json({ ok: false, error: `Variante "${item.variant}" introuvable pour ${catalogProduct.name}` });
+      }
+
+      const catalogPrice = catalogProduct.variants[item.variant].price;
+      if (Math.abs(item.price - catalogPrice) > 0.01) {
+        console.warn(`⚠️ Tentative de manipulation de prix: ${catalogProduct.name} ${item.variant} — envoyé ${item.price}€, réel ${catalogPrice}€`);
+        return res.status(400).json({ ok: false, error: `Prix incorrect pour ${catalogProduct.name} ${item.variant}. Rechargez la page.` });
+      }
+
+      // Forcer le prix du catalogue (ne jamais faire confiance au client)
+      item.price = catalogPrice;
+      item.lineTotal = catalogPrice * item.qty;
+    }
+
     // Valider les frais de livraison côté serveur (ne pas faire confiance au client)
     const deliveryZoneRules = {
       'millau': { fee: 0, min: 0 },
@@ -2666,7 +2692,7 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
     }
     const deliveryFee = serverZone ? serverZone.fee : 0;
 
-    // Vérifier le minimum de commande pour la zone
+    // Vérifier le minimum de commande pour la zone (avec les prix vérifiés du catalogue)
     const itemsSubtotal = items.reduce((sum, item) => sum + (item.price * item.qty), 0);
     if (serverZone && serverZone.min > 0 && itemsSubtotal < serverZone.min) {
       return res.status(400).json({ ok: false, error: `Minimum ${serverZone.min}€ requis pour cette zone de livraison` });
