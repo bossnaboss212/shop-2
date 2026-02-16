@@ -261,8 +261,8 @@ class ChatManager {
   createConversation(orderId, driverId, clientTelegramId) {
     this.activeConversations.set(orderId, {
       orderId,
-      driverId,
-      clientTelegramId,
+      driverId: String(driverId),
+      clientTelegramId: String(clientTelegramId),
       driverActive: false,
       clientActive: false,
       messagesCount: 0,
@@ -277,11 +277,12 @@ class ChatManager {
   }
 
   findConversationByChatId(chatId, role) {
+    const chatIdStr = String(chatId);
     for (const [orderId, conv] of this.activeConversations.entries()) {
-      if (role === 'driver' && conv.driverId === chatId.toString() && conv.driverActive) {
+      if (role === 'driver' && String(conv.driverId) === chatIdStr && conv.driverActive) {
         return { orderId, ...conv };
       }
-      if (role === 'client' && conv.clientTelegramId === chatId.toString() && conv.clientActive) {
+      if (role === 'client' && String(conv.clientTelegramId) === chatIdStr && conv.clientActive) {
         return { orderId, ...conv };
       }
     }
@@ -1126,18 +1127,28 @@ async function relayDriverMessage(driverChatId, text, conv) {
 <i>Répondez directement pour lui parler</i>`;
   
   const clientKeyboard = {
-    inline_keyboard: [
-      [{ text: '✍️ Répondre (tapez votre message)', callback_data: 'noop' }],
-      [{ text: '❌ Fermer conversation', callback_data: `end_conv_${conv.orderId}` }]
-    ]
+    force_reply: true,
+    selective: true,
+    input_field_placeholder: 'Tapez votre réponse au livreur...'
   };
-  
+
   try {
-    await telegram.sendMessage(conv.clientTelegramId, clientMsg, { 
-      reply_markup: clientKeyboard 
+    await telegram.sendMessage(conv.clientTelegramId, clientMsg, {
+      reply_markup: clientKeyboard
     });
-    
+
+    // Envoyer aussi un bouton pour fermer la conversation
+    await telegram.sendMessage(conv.clientTelegramId, '👆 <i>Répondez au message ci-dessus, ou fermez la conversation :</i>', {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '📜 Historique', callback_data: `chat_history_${conv.orderId}` }],
+          [{ text: '❌ Fermer conversation', callback_data: `end_conv_${conv.orderId}` }]
+        ]
+      }
+    });
+
     await chatManager.activateClient(conv.orderId);
+    await chatManager.incrementMessageCount(conv.orderId);
     
     await telegram.sendMessage(driverChatId, `✅ Message envoyé
 
@@ -1174,18 +1185,26 @@ Transmettez manuellement au client.`
 
 async function relayClientMessage(clientChatId, text, conv) {
   console.log(`📤 Client → Driver (order #${conv.orderId}): "${text}"`);
-  
+
   await saveMessage(conv.orderId, 'client', clientChatId.toString(), text);
-  
+  await chatManager.incrementMessageCount(conv.orderId);
+
   const driverMsg = `👤 <b>Message du client</b> (Commande #${conv.orderId})
 
 💬 ${text}
 
 <i>Tapez votre réponse ci-dessous</i>`;
-  
+
+  const driverKeyboard = {
+    inline_keyboard: [
+      [{ text: '📜 Historique', callback_data: `chat_history_${conv.orderId}` }],
+      [{ text: '❌ Fermer conversation', callback_data: `stop_conversation_${conv.orderId}` }]
+    ]
+  };
+
   try {
-    await telegram.sendMessage(conv.driverId, driverMsg);
-    
+    await telegram.sendMessage(conv.driverId, driverMsg, { reply_markup: driverKeyboard });
+
     await telegram.sendMessage(clientChatId, `✅ Message envoyé au livreur
 
 "${text}"
@@ -5837,6 +5856,17 @@ async function handleTelegramMessage(message) {
       await relayClientMessage(chatId, text, clientConv);
       return;
     }
+
+    // Vérifier s'il y a une conversation inactive pour ce client (clientActive = false)
+    const chatIdStr = String(chatId);
+    for (const [orderId, conv] of chatManager.activeConversations.entries()) {
+      if (String(conv.clientTelegramId) === chatIdStr && !conv.clientActive) {
+        // Réactiver le client et relayer le message
+        await chatManager.activateClient(orderId);
+        await relayClientMessage(chatId, text, { orderId, ...conv });
+        return;
+      }
+    }
   }
 }
 
@@ -7453,15 +7483,16 @@ Votre livreur peut maintenant vous envoyer des messages pour faciliter la livrai
 
   const clientKeyboard = {
     inline_keyboard: [
-      [{ text: '✍️ Prêt à discuter', callback_data: 'noop' }]
+      [{ text: '📜 Historique', callback_data: `chat_history_${orderId}` }],
+      [{ text: '❌ Fermer conversation', callback_data: `end_conv_${orderId}` }]
     ]
   };
-  
+
   try {
-    await telegram.sendMessage(clientTelegramId, clientMessage, { 
-      reply_markup: clientKeyboard 
+    await telegram.sendMessage(clientTelegramId, clientMessage, {
+      reply_markup: clientKeyboard
     });
-    
+
     await chatManager.activateClient(parseInt(orderId));
   } catch (error) {
     console.error('Cannot notify client:', error);
