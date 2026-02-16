@@ -4429,7 +4429,8 @@ async function fetchUserCredit(customerContact) {
   }
 
   try {
-    const response = await fetch(`/api/referral-stats?customer=${encodeURIComponent(customerContact)}`);
+    const initData = window.Telegram?.WebApp?.initData || '';
+    const response = await fetch(`/api/referral-stats?customer=${encodeURIComponent(customerContact)}&initData=${encodeURIComponent(initData)}`);
     const data = await response.json();
 
     if (data.ok) {
@@ -5960,7 +5961,8 @@ function showOrderSummary(orderData, orderId, discount = 0, notificationSent = f
 // Fetch and display referral progress
 async function fetchAndDisplayReferralProgress(customerContact) {
   try {
-    const response = await fetch(`/api/referral-stats?customer=${encodeURIComponent(customerContact)}`);
+    const initData = window.Telegram?.WebApp?.initData || '';
+    const response = await fetch(`/api/referral-stats?customer=${encodeURIComponent(customerContact)}&initData=${encodeURIComponent(initData)}`);
     const data = await response.json();
 
     if (data.ok && data.exists) {
@@ -6956,7 +6958,8 @@ async function loadReferralPage() {
 
   try {
     // Charger les stats depuis l'API
-    const res = await fetch('/api/referral-stats?customer=' + encodeURIComponent(String(telegramUser.id)));
+    const _initData = window.Telegram?.WebApp?.initData || '';
+    const res = await fetch('/api/referral-stats?customer=' + encodeURIComponent(String(telegramUser.id)) + '&initData=' + encodeURIComponent(_initData));
     const data = await res.json();
 
     if (data.ok) {
