@@ -3823,6 +3823,24 @@ const DELIVERY_ZONES = {
   zone4: { name: 'Zone 4 (Rodez, Espalion...)', fee: 40, min: 150 }
 };
 
+// Mapping code postal → zone minimum de livraison
+const POSTAL_CODE_MIN_ZONE = {
+  '12100': 'millau',
+  '12520': 'zone1', '12640': 'zone1',
+  '12400': 'zone2', '12490': 'zone2', '12150': 'zone2', '12410': 'zone2',
+  '12620': 'zone2', '12230': 'zone2', '12250': 'zone2', '12720': 'zone2',
+  '12360': 'zone3', '12370': 'zone3', '12540': 'zone3',
+  '12550': 'zone3', '12380': 'zone3', '12480': 'zone3',
+  '12000': 'zone4', '12850': 'zone4', '12800': 'zone4',
+  '12500': 'zone4', '48500': 'zone4', '48100': 'zone4',
+};
+const ZONE_LEVELS = { millau: 0, zone1: 1, zone2: 2, zone3: 3, zone4: 4 };
+
+function getMinZoneForPostalCode(cp) {
+  if (!cp) return null;
+  return POSTAL_CODE_MIN_ZONE[cp] || 'zone4';
+}
+
 // Codes postaux Aveyron (12) et Lozère (48) avec villes principales
 const CODES_POSTAUX = {
   "12000": "Rodez, Onet-le-Château",
@@ -4965,6 +4983,15 @@ function renderCart() {
   }
 
   const subtotal = CartManager.getTotal();
+
+  // Corriger automatiquement la zone si le code postal l'exige
+  const cpCartMatch = selectedCity.match(/\((\d{5})\)/);
+  const minZoneCart = cpCartMatch ? getMinZoneForPostalCode(cpCartMatch[1]) : null;
+  const minLevelCart = minZoneCart ? (ZONE_LEVELS[minZoneCart] || 0) : 0;
+  if (minZoneCart && (ZONE_LEVELS[selectedDelivery] || 0) < minLevelCart) {
+    selectedDelivery = minZoneCart;
+  }
+
   const zone = DELIVERY_ZONES[selectedDelivery] || DELIVERY_ZONES.millau;
   const deliveryFee = zone ? zone.fee : 0;
 
@@ -5026,20 +5053,20 @@ function renderCart() {
 
     <div class="cart-section-title">Sélectionnez votre zone de livraison :</div>
 
-    <label class="cart-radio-option">
-      <input type="radio" name="deliveryType" value="millau" ${selectedDelivery === 'millau' ? 'checked' : ''}>
+    <label class="cart-radio-option" style="${minLevelCart > 0 ? 'opacity:0.4;pointer-events:none' : ''}">
+      <input type="radio" name="deliveryType" value="millau" ${selectedDelivery === 'millau' ? 'checked' : ''} ${minLevelCart > 0 ? 'disabled' : ''}>
       <span>🏠 Millau (gratuit)</span>
     </label>
-    <label class="cart-radio-option">
-      <input type="radio" name="deliveryType" value="zone1" ${selectedDelivery === 'zone1' ? 'checked' : ''}>
+    <label class="cart-radio-option" style="${minLevelCart > 1 ? 'opacity:0.4;pointer-events:none' : ''}">
+      <input type="radio" name="deliveryType" value="zone1" ${selectedDelivery === 'zone1' ? 'checked' : ''} ${minLevelCart > 1 ? 'disabled' : ''}>
       <span>🟢 Zone 1 - Aguessac, St Georges... (+10€, min 50€)</span>
     </label>
-    <label class="cart-radio-option">
-      <input type="radio" name="deliveryType" value="zone2" ${selectedDelivery === 'zone2' ? 'checked' : ''}>
+    <label class="cart-radio-option" style="${minLevelCart > 2 ? 'opacity:0.4;pointer-events:none' : ''}">
+      <input type="radio" name="deliveryType" value="zone2" ${selectedDelivery === 'zone2' ? 'checked' : ''} ${minLevelCart > 2 ? 'disabled' : ''}>
       <span>🟡 Zone 2 - St Affrigue... (+20€, min 80€)</span>
     </label>
-    <label class="cart-radio-option">
-      <input type="radio" name="deliveryType" value="zone3" ${selectedDelivery === 'zone3' ? 'checked' : ''}>
+    <label class="cart-radio-option" style="${minLevelCart > 3 ? 'opacity:0.4;pointer-events:none' : ''}">
+      <input type="radio" name="deliveryType" value="zone3" ${selectedDelivery === 'zone3' ? 'checked' : ''} ${minLevelCart > 3 ? 'disabled' : ''}>
       <span>🟠 Zone 3 - Camarès, Belmont... (+30€, min 100€)</span>
     </label>
     <label class="cart-radio-option">
@@ -5149,6 +5176,20 @@ function renderCart() {
   // Delivery type radios
   content.querySelectorAll('input[name="deliveryType"]').forEach(radio => {
     radio.onchange = function() {
+      // Empêcher la sélection d'une zone moins chère que le minimum du code postal
+      const cpMatch = selectedCity.match(/\((\d{5})\)/);
+      if (cpMatch) {
+        const minZone = getMinZoneForPostalCode(cpMatch[1]);
+        const minLevel = ZONE_LEVELS[minZone] || 0;
+        const selectedLevel = ZONE_LEVELS[this.value] || 0;
+        if (selectedLevel < minLevel) {
+          showToast(`Votre ville nécessite au minimum la ${DELIVERY_ZONES[minZone].name}`);
+          this.checked = false;
+          const correctRadio = content.querySelector(`input[name="deliveryType"][value="${selectedDelivery}"]`);
+          if (correctRadio) correctRadio.checked = true;
+          return;
+        }
+      }
       selectedDelivery = this.value;
       renderCart();
     };
@@ -5402,7 +5443,27 @@ function selectCity(cp, ville) {
   const sugBox = document.getElementById('citySuggestions');
   if (sugBox) sugBox.style.display = 'none';
   const valBox = document.getElementById('cityValidation');
-  if (valBox) valBox.innerHTML = '<span style="color:var(--success)">Ville validée</span>';
+
+  // Auto-sélectionner la zone minimum pour ce code postal
+  const minZone = getMinZoneForPostalCode(cp);
+  if (minZone) {
+    const minLevel = ZONE_LEVELS[minZone] || 0;
+    const currentLevel = ZONE_LEVELS[selectedDelivery] || 0;
+    if (currentLevel < minLevel) {
+      selectedDelivery = minZone;
+    }
+    const zone = DELIVERY_ZONES[minZone];
+    if (valBox) {
+      if (minZone === 'millau') {
+        valBox.innerHTML = '<span style="color:var(--success)">Ville validée — Livraison gratuite</span>';
+      } else {
+        valBox.innerHTML = `<span style="color:var(--success)">Ville validée — ${zone.name} minimum (+${zone.fee}€)</span>`;
+      }
+    }
+    renderCart();
+  } else {
+    if (valBox) valBox.innerHTML = '<span style="color:var(--success)">Ville validée</span>';
+  }
 }
 
 function isCityValid() {
