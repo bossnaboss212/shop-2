@@ -974,13 +974,14 @@
               <th>Catégorie</th>
               <th>Variants</th>
               <th>Prix Min</th>
+              <th>Marge</th>
               <th>Stock</th>
               <th>Statut</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody id="productsTable">
-            <tr><td colspan="8" style="text-align:center;padding:40px;color:var(--muted)">Chargement des produits...</td></tr>
+            <tr><td colspan="9" style="text-align:center;padding:40px;color:var(--muted)">Chargement des produits...</td></tr>
           </tbody>
         </table>
       </div>
@@ -1107,6 +1108,7 @@
             <thead>
               <tr>
                 <th>Produit</th>
+                <th>Achat/g</th>
                 <th>Ventes</th>
                 <th>CA</th>
                 <th>Coût</th>
@@ -3119,10 +3121,10 @@ function loadProducts() {
   }
   
   if (products.length === 0) {
-    const message = filterArchived === 'archived' ? 
-      '📦 Aucun produit archivé' : 
+    const message = filterArchived === 'archived' ?
+      '📦 Aucun produit archivé' :
       '⚠️ Aucun produit. Cliquez sur "➕ Nouveau" pour ajouter.';
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--warning)">${message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--warning)">${message}</td></tr>`;
     return;
   }
   
@@ -3133,7 +3135,16 @@ function loadProducts() {
     const totalStock = Object.values(p.variants).reduce((s, v) => s + v.stock, 0);
     const isArchived = p.archived || false;
     const hasVideo = p.video && p.video.length > 0;
-    
+
+    // Calcul rentabilité
+    const costPerG = p.buyPrice || 0;
+    const avgSellPerG = prices.length > 0 ? prices.reduce((s, pr) => s + pr, 0) / prices.length : 0;
+    const avgGrams = Object.values(p.variants).reduce((s, v) => s + (v.grams || 1), 0) / (Object.keys(p.variants).length || 1);
+    const effectiveSellPerG = avgGrams > 0 ? avgSellPerG / avgGrams : 0;
+    const marginPct = effectiveSellPerG > 0 ? ((effectiveSellPerG - costPerG) / effectiveSellPerG * 100).toFixed(0) : '—';
+    const marginColor = marginPct === '—' ? 'var(--muted)' : marginPct >= 50 ? 'var(--success)' : marginPct >= 20 ? 'var(--warning)' : 'var(--danger)';
+    const bulkInfo = p.bulkPrice && p.bulkWeight ? `<br><span style="font-size:10px;color:var(--muted)">${fc(p.bulkPrice)}/${p.bulkWeight}g</span>` : '';
+
     return `
       <tr style="${isArchived ? 'opacity:0.6;background:var(--bg-secondary)' : ''}">
         <td><strong>#${p.id}</strong></td>
@@ -3145,12 +3156,16 @@ function loadProducts() {
         <td><span class="badge">${p.category}</span></td>
         <td>${variants}</td>
         <td>${fc(minPrice)}</td>
+        <td>
+          <strong style="color:${marginColor}">${marginPct}%</strong>
+          ${bulkInfo}
+        </td>
         <td><strong style="color:${totalStock < 10 ? 'var(--warning)' : 'var(--success)'}">
           ${totalStock}
         </strong></td>
         <td>
-          ${isArchived ? 
-            '<span class="badge danger">📦 Archivé</span>' : 
+          ${isArchived ?
+            '<span class="badge danger">📦 Archivé</span>' :
             '<span class="badge success">✅ Actif</span>'}
         </td>
         <td>
@@ -3398,23 +3413,47 @@ function loadProfitTable() {
   });
 
   let html = '';
+  let totalRevenue = 0, totalCost = 0, totalProfit = 0;
+
   state.data.products.forEach(p => {
     const salesData = productSales[p.name] || { qty: 0, revenue: 0, grams: 0 };
     const cost = salesData.grams * (p.buyPrice || 0);
     const profit = salesData.revenue - cost;
     const margin = salesData.revenue > 0 ? ((profit / salesData.revenue) * 100).toFixed(1) : '0.0';
+    const bulkInfo = p.bulkPrice && p.bulkWeight ? `${fc(p.bulkPrice)}/${p.bulkWeight}g` : '';
+
+    totalRevenue += salesData.revenue;
+    totalCost += cost;
+    totalProfit += profit;
 
     html += `
       <tr>
-        <td><strong>${p.name}</strong></td>
+        <td>
+          <strong>${p.name}</strong>
+          ${bulkInfo ? `<br><span style="font-size:10px;color:var(--muted)">Gros: ${bulkInfo}</span>` : ''}
+        </td>
+        <td>${fc(p.buyPrice || 0)}/g</td>
         <td>${salesData.qty}</td>
         <td>${fc(salesData.revenue)}</td>
         <td>${fc(cost)}</td>
-        <td style="color:${profit >= 0 ? 'var(--success)' : 'var(--danger)'}">${fc(profit)}</td>
-        <td><strong>${margin}%</strong></td>
+        <td style="color:${profit >= 0 ? 'var(--success)' : 'var(--danger)'}"><strong>${fc(profit)}</strong></td>
+        <td><strong style="color:${margin >= 50 ? 'var(--success)' : margin >= 20 ? 'var(--warning)' : 'var(--danger)'}">${margin}%</strong></td>
       </tr>
     `;
   });
+
+  const totalMargin = totalRevenue > 0 ? ((totalProfit / totalRevenue) * 100).toFixed(1) : '0.0';
+  html += `
+    <tr style="border-top:2px solid var(--border);font-weight:700;background:var(--bg-secondary)">
+      <td>TOTAL</td>
+      <td></td>
+      <td>${state.data.products.length} produits</td>
+      <td>${fc(totalRevenue)}</td>
+      <td>${fc(totalCost)}</td>
+      <td style="color:${totalProfit >= 0 ? 'var(--success)' : 'var(--danger)'}">${fc(totalProfit)}</td>
+      <td><strong style="color:${totalMargin >= 50 ? 'var(--success)' : totalMargin >= 20 ? 'var(--warning)' : 'var(--danger)'}">${totalMargin}%</strong></td>
+    </tr>
+  `;
 
   tbody.innerHTML = html;
 }
@@ -4005,9 +4044,25 @@ function addProduct() {
         <option value="keta">💎 Keta</option>
       </select>
     </div>
-    <div class="form-group">
-      <label>Prix achat €/g</label>
-      <input type="number" id="productBuyPrice" step="0.01">
+    <div style="background:var(--bg-secondary);padding:16px;border-radius:12px;margin-bottom:16px;border-left:3px solid var(--warning)">
+      <h4 style="margin:0 0 12px;font-size:14px;color:var(--warning)">💰 Prix d'achat en gros</h4>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-group" style="margin:0">
+          <label>Prix total payé (€)</label>
+          <input type="number" id="productBulkPrice" step="0.01" placeholder="500" oninput="calcBuyPrice()">
+        </div>
+        <div class="form-group" style="margin:0">
+          <label>Quantité achetée (g)</label>
+          <input type="number" id="productBulkWeight" step="0.01" placeholder="100" oninput="calcBuyPrice()">
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;margin-top:12px">
+        <div class="form-group" style="margin:0;flex:1">
+          <label>Prix achat €/g (auto-calculé)</label>
+          <input type="number" id="productBuyPrice" step="0.01" style="font-weight:700;color:var(--warning)">
+        </div>
+        <div id="bulkMarginPreview" style="font-size:12px;color:var(--muted);text-align:right;min-width:120px"></div>
+      </div>
     </div>
     <div class="form-group">
       <label>Description (optionnel)</label>
@@ -4021,7 +4076,7 @@ function addProduct() {
     </div>
     <div class="form-group">
       <label>Prix vente 1G (€)</label>
-      <input type="number" id="variantPrice" placeholder="20" step="0.01">
+      <input type="number" id="variantPrice" placeholder="20" step="0.01" oninput="calcBuyPrice()">
     </div>
     <div class="form-group">
       <label>Stock initial</label>
@@ -4061,18 +4116,55 @@ function previewVideo(input, previewId) {
   reader.readAsDataURL(file);
 }
 
+function calcBuyPrice() {
+  const bulkPrice = parseFloat(document.getElementById('productBulkPrice')?.value);
+  const bulkWeight = parseFloat(document.getElementById('productBulkWeight')?.value);
+  const buyPriceEl = document.getElementById('productBuyPrice');
+  const previewEl = document.getElementById('bulkMarginPreview');
+
+  if (bulkPrice > 0 && bulkWeight > 0) {
+    const perGram = bulkPrice / bulkWeight;
+    if (buyPriceEl) buyPriceEl.value = perGram.toFixed(2);
+    const sellPrice = parseFloat(document.getElementById('variantPrice')?.value);
+    if (previewEl && sellPrice > 0) {
+      const margin = ((sellPrice - perGram) / sellPrice * 100).toFixed(1);
+      const profit1g = sellPrice - perGram;
+      previewEl.innerHTML = `<strong style="color:${margin > 0 ? 'var(--success)' : 'var(--danger)'}">Marge: ${margin}%</strong><br><span style="font-size:11px">+${fc(profit1g)}/g</span>`;
+    } else if (previewEl) {
+      previewEl.innerHTML = '';
+    }
+  }
+}
+
+function calcEditBuyPrice() {
+  const bulkPrice = parseFloat(document.getElementById('editProductBulkPrice')?.value);
+  const bulkWeight = parseFloat(document.getElementById('editProductBulkWeight')?.value);
+  const buyPriceEl = document.getElementById('editProductBuyPrice');
+  const previewEl = document.getElementById('editBulkMarginPreview');
+
+  if (bulkPrice > 0 && bulkWeight > 0) {
+    const perGram = bulkPrice / bulkWeight;
+    if (buyPriceEl) buyPriceEl.value = perGram.toFixed(2);
+    if (previewEl) {
+      previewEl.innerHTML = `<strong style="color:var(--success)">${fc(perGram)}/g</strong>`;
+    }
+  }
+}
+
 function saveProduct() {
   const name = document.getElementById('productName').value.toUpperCase();
   const category = document.getElementById('productCategory').value;
   const buyPrice = parseFloat(document.getElementById('productBuyPrice').value);
   const variantPrice = parseFloat(document.getElementById('variantPrice').value);
   const variantStock = parseInt(document.getElementById('variantStock').value) || 0;
-  
+  const bulkPrice = parseFloat(document.getElementById('productBulkPrice').value) || 0;
+  const bulkWeight = parseFloat(document.getElementById('productBulkWeight').value) || 0;
+
   if (!name || !buyPrice || !variantPrice) {
     showToast('Remplissez les champs obligatoires', 'error');
     return;
   }
-  
+
   const description = document.getElementById('productDescription').value.trim();
   const videoFile = document.getElementById('productVideoFile');
 
@@ -4089,6 +4181,8 @@ function saveProduct() {
         category,
         description,
         buyPrice,
+        bulkPrice,
+        bulkWeight,
         video: videoData,
         videoType: file.type,
         videoSize: file.size,
@@ -4113,6 +4207,8 @@ function saveProduct() {
       category,
       description,
       buyPrice,
+      bulkPrice,
+      bulkWeight,
       video: '',
       archived: false,
       variants: { '1G': { price: variantPrice, stock: variantStock, grams: 1 } }
@@ -4168,22 +4264,70 @@ function downloadProductVideo(id) {
 function viewProductStock(id) {
   const p = state.data.products.find(x => x.id === id);
   if (!p) return;
-  
-  const variantsHtml = Object.entries(p.variants).map(([v, d]) => 
-    `<div style="padding:12px;margin-bottom:8px;background:var(--bg-secondary);border-radius:8px;display:flex;justify-content:space-between">
-      <div>
-        <strong>${v}</strong>
-        <div style="font-size:12px;color:var(--muted)">${fc(d.price)}</div>
-      </div>
-      <div style="text-align:right">
+
+  const costPerG = p.buyPrice || 0;
+  const bulkInfo = p.bulkPrice && p.bulkWeight ? `<div style="font-size:12px;color:var(--muted);margin-bottom:4px">Achat en gros: ${fc(p.bulkPrice)} pour ${p.bulkWeight}g</div>` : '';
+
+  const variantsHtml = Object.entries(p.variants).map(([v, d]) => {
+    const grams = d.grams || 1;
+    const costUnit = costPerG * grams;
+    const profitUnit = d.price - costUnit;
+    const marginPct = d.price > 0 ? ((profitUnit / d.price) * 100).toFixed(0) : 0;
+    const stockValue = d.stock * costUnit;
+
+    return `<div style="padding:12px;margin-bottom:8px;background:var(--bg-secondary);border-radius:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div>
+          <strong>${v}</strong> <span style="font-size:12px;color:var(--muted)">(${grams}g)</span>
+        </div>
         <div style="font-size:20px;font-weight:700;color:${d.stock < 10 ? 'var(--warning)' : 'var(--success)'}">
           ${d.stock}
         </div>
       </div>
-    </div>`
-  ).join('');
-  
-  showModal(`📊 Stock ${p.name}`, variantsHtml);
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;font-size:12px">
+        <div style="text-align:center;padding:6px;background:var(--bg);border-radius:6px">
+          <div style="color:var(--muted)">Vente</div>
+          <strong>${fc(d.price)}</strong>
+        </div>
+        <div style="text-align:center;padding:6px;background:var(--bg);border-radius:6px">
+          <div style="color:var(--muted)">Coût</div>
+          <strong>${fc(costUnit)}</strong>
+        </div>
+        <div style="text-align:center;padding:6px;background:var(--bg);border-radius:6px">
+          <div style="color:${profitUnit >= 0 ? 'var(--success)' : 'var(--danger)'}">Profit</div>
+          <strong style="color:${profitUnit >= 0 ? 'var(--success)' : 'var(--danger)'}">${fc(profitUnit)}</strong>
+        </div>
+        <div style="text-align:center;padding:6px;background:var(--bg);border-radius:6px">
+          <div style="color:var(--muted)">Marge</div>
+          <strong style="color:${marginPct >= 50 ? 'var(--success)' : marginPct >= 20 ? 'var(--warning)' : 'var(--danger)'}">${marginPct}%</strong>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:6px;text-align:right">Valeur stock: ${fc(stockValue)}</div>
+    </div>`;
+  }).join('');
+
+  const totalStock = Object.values(p.variants).reduce((s, v) => s + v.stock, 0);
+  const totalValue = Object.values(p.variants).reduce((s, v) => s + v.stock * (v.grams || 1) * costPerG, 0);
+
+  showModal(`📊 ${p.name} — Rentabilité`, `
+    <div style="padding:12px;background:var(--bg-secondary);border-radius:8px;margin-bottom:16px;border-left:3px solid var(--warning)">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:12px;color:var(--muted)">Prix achat</div>
+          <strong style="font-size:18px;color:var(--warning)">${fc(costPerG)}/g</strong>
+        </div>
+        <div style="text-align:center">
+          ${bulkInfo}
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:12px;color:var(--muted)">Valeur stock total</div>
+          <strong style="font-size:18px">${fc(totalValue)}</strong>
+          <div style="font-size:11px;color:var(--muted)">${totalStock} unités</div>
+        </div>
+      </div>
+    </div>
+    ${variantsHtml}
+  `);
 }
 
 function editProduct(id) {
@@ -4235,9 +4379,27 @@ function editProduct(id) {
         <option value="keta" ${p.category === 'keta' ? 'selected' : ''}>💎 Keta</option>
       </select>
     </div>
-    <div class="form-group">
-      <label>Prix achat €/g</label>
-      <input type="number" id="editProductBuyPrice" value="${p.buyPrice}" step="0.01">
+    <div style="background:var(--bg-secondary);padding:16px;border-radius:12px;margin-bottom:16px;border-left:3px solid var(--warning)">
+      <h4 style="margin:0 0 12px;font-size:14px;color:var(--warning)">💰 Prix d'achat en gros</h4>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-group" style="margin:0">
+          <label>Prix total payé (€)</label>
+          <input type="number" id="editProductBulkPrice" step="0.01" value="${p.bulkPrice || ''}" oninput="calcEditBuyPrice()">
+        </div>
+        <div class="form-group" style="margin:0">
+          <label>Quantité achetée (g)</label>
+          <input type="number" id="editProductBulkWeight" step="0.01" value="${p.bulkWeight || ''}" oninput="calcEditBuyPrice()">
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;margin-top:12px">
+        <div class="form-group" style="margin:0;flex:1">
+          <label>Prix achat €/g ${p.bulkPrice && p.bulkWeight ? '(auto-calculé)' : '(manuel)'}</label>
+          <input type="number" id="editProductBuyPrice" value="${p.buyPrice}" step="0.01" style="font-weight:700;color:var(--warning)">
+        </div>
+        <div id="editBulkMarginPreview" style="font-size:12px;color:var(--muted);text-align:right;min-width:120px">
+          ${p.bulkPrice && p.bulkWeight ? '<strong style="color:var(--success)">' + fc(p.bulkPrice / p.bulkWeight) + '/g</strong>' : ''}
+        </div>
+      </div>
     </div>
     <div class="form-group">
       <label>Description</label>
@@ -4330,6 +4492,8 @@ function saveProductEdit(id) {
   if (categoryEl) p.category = categoryEl.value;
   
   p.buyPrice = parseFloat(document.getElementById('editProductBuyPrice').value);
+  p.bulkPrice = parseFloat(document.getElementById('editProductBulkPrice').value) || 0;
+  p.bulkWeight = parseFloat(document.getElementById('editProductBulkWeight').value) || 0;
   p.description = document.getElementById('editProductDescription').value.trim();
 
   // Gérer la vidéo
