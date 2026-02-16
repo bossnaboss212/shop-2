@@ -3818,6 +3818,96 @@ const DELIVERY_ZONES = {
   zone3: { name: 'Zone 3 (Camarès, Belmont...)', fee: 30, min: 100 },
   zone4: { name: 'Zone 4 (Rodez, Espalion...)', fee: 40, min: 150 }
 };
+
+// Codes postaux Aveyron (12) et Lozère (48) avec villes principales
+const CODES_POSTAUX = {
+  "12000": "Rodez, Onet-le-Château",
+  "12100": "Millau, Creissels",
+  "12110": "Viviez, Aubin, Cransac",
+  "12120": "Cassagnes-Bégonhès, Arvieu",
+  "12130": "Saint-Geniez-d'Olt, Pierrefiche",
+  "12140": "Entraygues-sur-Truyère, Golinhac",
+  "12150": "Sévérac-d'Aveyron, Lavernhe",
+  "12160": "Baraqueville, Moyrazès",
+  "12170": "Réquista, Durenque",
+  "12190": "Estaing, Coubisou",
+  "12200": "Villefranche-de-Rouergue, La Rouquette",
+  "12210": "Laguiole, Montpeyroux",
+  "12220": "Montbazens, Lugan",
+  "12230": "Nant, La Cavalerie, L'Hospitalet-du-Larzac",
+  "12240": "Rieupeyroux, La Salvetat-Peyralès",
+  "12250": "Roquefort-sur-Soulzon, Tournemire, Saint-Jean-d'Alcapiès",
+  "12260": "Villeneuve, Salles-Courbatiès",
+  "12270": "Najac, La Fouillade",
+  "12290": "Pont-de-Salars, Canet-de-Salars",
+  "12300": "Decazeville, Firmi, Livinhac-le-Haut",
+  "12310": "Laissac-Sévérac, Bertholène",
+  "12320": "Saint-Félix-de-Lunel, Conques-en-Rouergue",
+  "12330": "Clairvaux-d'Aveyron, Marcillac-Vallon, Salles-la-Source, Valady",
+  "12340": "Bozouls, Gabriac",
+  "12350": "Maleville",
+  "12360": "Camarès, Montlaur",
+  "12370": "Belmont-sur-Rance, Murasson",
+  "12380": "Saint-Sernin-sur-Rance, Balaguier-sur-Rance",
+  "12390": "Rignac, Auzits",
+  "12400": "Saint-Affrique, Vabres-l'Abbaye",
+  "12410": "Salles-Curan, Curan",
+  "12420": "Cantoin, Florentin-la-Capelle",
+  "12430": "Villecomtal, Ayssènes",
+  "12440": "La Salvetat-Peyralès, Lédergues",
+  "12450": "Luc-la-Primaube, Flavin",
+  "12460": "Saint-Amans-des-Cots",
+  "12470": "Saint-Chély-d'Aubrac, Condom-d'Aubrac",
+  "12480": "Broquiès, Saint-Izaire",
+  "12490": "Saint-Rome-de-Tarn, Montjaux",
+  "12500": "Espalion, Bessuéjouls",
+  "12510": "Druelle, Olemps",
+  "12520": "Aguessac, Compeyre, Paulhe",
+  "12540": "Fondamente, Mélagues",
+  "12550": "Coupiac, Martrin",
+  "12560": "Saint-Laurent-de-Lévézou, Ségur",
+  "12580": "Villecomtal, Campouriez",
+  "12600": "Mur-de-Barrez, Taussac",
+  "12620": "Saint-Beauzély, Castelnau-Pégayrols",
+  "12630": "Agen-d'Aveyron, Montrozier",
+  "12640": "Rivière-sur-Tarn",
+  "12700": "Capdenac-Gare",
+  "12720": "Peyreleau, Mostuejouls",
+  "12740": "Sébazac-Concourès, Le Monastère",
+  "12780": "Saint-Léons, Vézins-de-Lévézou",
+  "12800": "Sauveterre-de-Rouergue, Naucelle",
+  "12850": "Onet-le-Château, Sainte-Radegonde",
+  "48000": "Mende, Badaroux, Balsièges, Chastel-Nouvel",
+  "48100": "Marvejols, Montrodat, Chirac, Antrenas",
+  "48120": "Saint-Alban-sur-Limagnole, Lajo",
+  "48130": "Aumont-Aubrac, Fau-de-Peyre, Javols",
+  "48140": "Le Malzieu-Ville, Le Malzieu-Forain",
+  "48150": "Meyrueis, Le Rozier",
+  "48160": "Le Collet-de-Dèze, Saint-Michel-de-Dèze",
+  "48170": "Châteauneuf-de-Randon, Laubert, Montbel",
+  "48190": "Le Bleymard, Bagnols-les-Bains, Cubières",
+  "48200": "Saint-Chély-d'Apcher, Albaret-Sainte-Marie, Prunières",
+  "48210": "La Malène, Mas-Saint-Chély, Sainte-Enimie",
+  "48220": "Pont-de-Montvert-Sud-Mont-Lozère",
+  "48230": "Chanac, Esclanèdes, Cultures",
+  "48240": "Saint-André-de-Lancize",
+  "48250": "La Bastide-Puylaurent, Chasseradès, Luc",
+  "48260": "Nasbinals, Marchastel, Recoules-d'Aubrac",
+  "48270": "Malbouzon, Saint-Laurent-de-Muret",
+  "48300": "Langogne, Naussac-Fontanes, Rocles, Chastanier",
+  "48310": "Fournels, Brion, Arzenc-d'Apcher",
+  "48320": "Quézac, Ispagnac",
+  "48330": "Saint-Étienne-Vallée-Française",
+  "48340": "Saint-Germain-du-Teil, Trélans",
+  "48370": "Saint-Germain-de-Calberte",
+  "48400": "Florac-Trois-Rivières, Bédouès, Cocurès, Barre-des-Cévennes",
+  "48500": "La Canourgue, Banassac, Saint-Georges-de-Lévéjac",
+  "48600": "Grandrieu, Auroux, Chambon-le-Château, Saint-Bonnet-de-Montauroux",
+  "48700": "Rieutort-de-Randon, Fontans, Ribennes, Saint-Amans",
+  "48800": "Villefort, Pied-de-Borne, Prévenchères, Pourcharesses"
+};
+
+let selectedCity = '';
 let currentSort = 'default';
 let currentCategory = 'all';
 let syncInterval = null;
@@ -4953,7 +5043,14 @@ function renderCart() {
     </label>
 
     <div id="addressBlock">
-      <div class="input-wrapper" style="margin-top:16px">
+      <div class="cart-section-title" style="margin-top:16px">📍 Votre ville ou code postal</div>
+      <div class="input-wrapper" style="position:relative">
+        <input type="text" class="input-field" id="cityPostalInput" placeholder="Ville ou code postal (ex: Millau, 12100)" maxlength="100" value="${selectedCity}" autocomplete="off">
+        <div id="citySuggestions" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--card);border:1px solid var(--border);border-radius:0 0 12px 12px;max-height:200px;overflow-y:auto;z-index:100"></div>
+      </div>
+      <div id="cityValidation" style="font-size:12px;margin-top:6px"></div>
+
+      <div class="input-wrapper" style="margin-top:12px">
         <input type="text" class="input-field" id="addressInput" placeholder="Entrez votre adresse de livraison" maxlength="200">
         <div class="suggestions" id="suggestions" style="display:none"></div>
       </div>
@@ -5081,6 +5178,48 @@ function renderCart() {
   if (descInput) {
     descInput.oninput = function() {
       customerDescription = this.value;
+    };
+  }
+
+  // City/Postal code input with autocomplete
+  const cityInput = content.querySelector('#cityPostalInput');
+  if (cityInput) {
+    cityInput.oninput = function() {
+      selectedCity = this.value;
+      const term = this.value.trim().toLowerCase();
+      const sugBox = document.getElementById('citySuggestions');
+      const valBox = document.getElementById('cityValidation');
+      if (!term || term.length < 2) {
+        sugBox.style.display = 'none';
+        valBox.innerHTML = '';
+        return;
+      }
+      const matches = [];
+      Object.entries(CODES_POSTAUX).forEach(([cp, villes]) => {
+        if (cp.startsWith(term) || villes.toLowerCase().includes(term)) {
+          matches.push({ cp, villes });
+        }
+      });
+      if (matches.length > 0 && matches.length <= 15) {
+        sugBox.style.display = 'block';
+        sugBox.innerHTML = matches.map(m =>
+          `<div style="padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border);font-size:13px" onmousedown="selectCity('${m.cp}', '${m.villes.split(',')[0].trim()}')">`
+          + `<strong>${m.cp}</strong> — ${m.villes}</div>`
+        ).join('');
+        valBox.innerHTML = '';
+      } else if (matches.length === 0) {
+        sugBox.style.display = 'none';
+        valBox.innerHTML = '<span style="color:var(--danger)">Livraison uniquement en Aveyron (12) et Lozère (48)</span>';
+      } else {
+        sugBox.style.display = 'none';
+        valBox.innerHTML = `<span style="color:var(--text-muted)">${matches.length} résultats, continuez à taper...</span>`;
+      }
+    };
+    cityInput.onblur = function() {
+      setTimeout(() => {
+        const sugBox = document.getElementById('citySuggestions');
+        if (sugBox) sugBox.style.display = 'none';
+      }, 200);
     };
   }
 
@@ -5244,6 +5383,33 @@ function openCart() {
   });
 }
 
+function selectCity(cp, ville) {
+  const input = document.getElementById('cityPostalInput');
+  if (input) input.value = `${ville} (${cp})`;
+  selectedCity = `${ville} (${cp})`;
+  const sugBox = document.getElementById('citySuggestions');
+  if (sugBox) sugBox.style.display = 'none';
+  const valBox = document.getElementById('cityValidation');
+  if (valBox) valBox.innerHTML = '<span style="color:var(--success)">Ville validée</span>';
+}
+
+function isCityValid() {
+  const val = selectedCity.trim().toLowerCase();
+  if (!val) return false;
+  // Vérifier par code postal direct
+  for (const [cp, villes] of Object.entries(CODES_POSTAUX)) {
+    if (val.includes(cp) || cp.startsWith(val)) return true;
+    const villesList = villes.toLowerCase().split(',').map(v => v.trim());
+    for (const v of villesList) {
+      if (val.includes(v) || v.includes(val)) return true;
+    }
+  }
+  // Accepter tout code postal commençant par 12 ou 48
+  const cpMatch = val.match(/\b(12\d{3}|48\d{3})\b/);
+  if (cpMatch) return true;
+  return false;
+}
+
 async function validateOrder() {
   // Tenter la détection Telegram
   if (!telegramUser || !telegramUser.id) detectTelegramUser();
@@ -5261,7 +5427,20 @@ async function validateOrder() {
     addressInput?.focus({ preventScroll: true });
     return;
   }
-  
+
+  // Vérifier ville/code postal
+  const cityInput = document.getElementById('cityPostalInput');
+  if (!selectedCity || !selectedCity.trim()) {
+    showToast('⚠️ Entrez votre ville ou code postal');
+    cityInput?.focus({ preventScroll: true });
+    return;
+  }
+  if (!isCityValid()) {
+    showToast('⚠️ Livraison uniquement en Aveyron (12) et Lozère (48)');
+    cityInput?.focus({ preventScroll: true });
+    return;
+  }
+
   const btn = document.getElementById('validateOrder');
   btn.disabled = true;
   btn.classList.add('loading');
@@ -5334,6 +5513,7 @@ async function validateOrder() {
       type: deliveryType,
       deliveryFee: deliveryFee,
       address: fullAddress,
+      city: selectedCity.trim(),
       items: items,
       total: total,
       referralCode: referralCode,
@@ -5430,6 +5610,7 @@ ${orderData.type}
 
 📍 ADRESSE:
 ${orderData.address}
+🏘️ VILLE: ${orderData.city || 'Non renseignée'}
 
 🕐 CRÉNEAU: ${getTimeSlotLabel(orderData.timeSlot)}
 
