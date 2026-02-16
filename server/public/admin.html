@@ -3010,8 +3010,7 @@ function showTab(name, evt) {
   }
 
   if (name === 'livreur') {
-    loadDrivers();
-    loadDriverSchedule();
+    loadDrivers().then(() => loadDriverSchedule());
     loadDriverCaisse();
   }
   
@@ -5318,7 +5317,7 @@ function renderDriversTable() {
     <td><b>${d.name}</b></td>
     <td><code>${d.telegram_id}</code></td>
     <td>${d.active ? '<span style="color:var(--success)">Actif</span>' : '<span style="color:var(--muted)">Inactif</span>'}</td>
-    <td><button onclick="deleteDriver(${d.id}, '${d.name}')" style="background:var(--danger);color:#fff;padding:4px 10px;border:none;border-radius:6px;cursor:pointer;font-size:12px">Supprimer</button></td>
+    <td><button data-name="${d.name.replace(/"/g, '&quot;')}" onclick="deleteDriver(${d.id}, this.dataset.name)" style="background:var(--danger);color:#fff;padding:4px 10px;border:none;border-radius:6px;cursor:pointer;font-size:12px">Supprimer</button></td>
   </tr>`).join('');
 }
 
