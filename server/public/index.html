@@ -6222,7 +6222,7 @@ function showPartialCancellationDialog(orderId, orderData) {
       const response = await fetch('/api/cancel-order-items', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId, itemsToCancel, reason, telegramId: telegramUser ? String(telegramUser.id) : null })
+        body: JSON.stringify({ orderId, itemsToCancel, reason, telegramId: telegramUser ? String(telegramUser.id) : null, initData: window.Telegram?.WebApp?.initData || '' })
       });
 
       const data = await response.json();
@@ -6426,7 +6426,8 @@ function cancelOrder(orderId, customerName) {
         body: JSON.stringify({
           orderId,
           reason,
-          telegramId: telegramUser ? String(telegramUser.id) : null
+          telegramId: telegramUser ? String(telegramUser.id) : null,
+          initData: window.Telegram?.WebApp?.initData || ''
         })
       });
       const data = await response.json();
