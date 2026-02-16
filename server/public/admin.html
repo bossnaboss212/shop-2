@@ -1596,6 +1596,43 @@
 
     <!-- ==================== LIVREUR ==================== -->
     <div class="tab-content" id="tab-livreur">
+
+      <!-- ===== GESTION DES LIVREURS ===== -->
+      <div class="chart-container">
+        <h3>👥 Livreurs enregistrés</h3>
+        <div class="toolbar" style="flex-wrap:wrap;margin-bottom:12px">
+          <input type="text" id="newDriverName" placeholder="Nom du livreur" style="flex:1;min-width:140px">
+          <input type="text" id="newDriverTelegramId" placeholder="Telegram ID" style="flex:1;min-width:140px">
+          <button onclick="addDriver()" style="background:var(--success);color:#fff">➕ Ajouter</button>
+        </div>
+        <div class="table-container" style="max-height:250px;overflow-y:auto">
+          <table>
+            <thead><tr><th>Nom</th><th>Telegram ID</th><th>Statut</th><th>Actions</th></tr></thead>
+            <tbody id="driversTable"><tr><td colspan="4" style="text-align:center;color:var(--muted)">Chargement...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ===== PLANNING HEBDOMADAIRE ===== -->
+      <div class="chart-container">
+        <h3>📅 Planning hebdomadaire</h3>
+        <p style="color:var(--muted);font-size:13px;margin-bottom:12px">Assignez un livreur à chaque zone pour chaque jour de la semaine. Sans assignation, le livreur par défaut (.env) sera utilisé.</p>
+        <div class="table-container">
+          <table id="scheduleTable">
+            <thead>
+              <tr>
+                <th>Jour</th>
+                <th>🏙️ Millau</th>
+                <th>🌐 Extérieur</th>
+              </tr>
+            </thead>
+            <tbody id="scheduleBody">
+              <tr><td colspan="3" style="text-align:center;color:var(--muted)">Chargement...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <div class="stats">
         <div class="stat-card"><div class="stat-label">Caisse Livreur</div><div class="stat-value" id="livreurCash">0,00 &euro;</div></div>
         <div class="stat-card"><div class="stat-label">Stock Gros (g)</div><div class="stat-value" id="livreurTotalGrams">0g</div></div>
@@ -2973,6 +3010,8 @@ function showTab(name, evt) {
   }
 
   if (name === 'livreur') {
+    loadDrivers();
+    loadDriverSchedule();
     loadDriverCaisse();
   }
   
@@ -5251,6 +5290,125 @@ function staffLoadCashTable(role) {
       <td>${h.note || '-'}</td>
     </tr>`;
   }).join('');
+}
+
+// ==================== GESTION LIVREURS & PLANNING ====================
+const DAY_NAMES = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+let driversCache = [];
+
+async function loadDrivers() {
+  const token = localStorage.getItem('admin_token');
+  if (!token) return;
+  try {
+    const res = await fetch('/api/admin/drivers', { headers: { 'x-admin-token': token } });
+    const data = await res.json();
+    if (!data.ok) return;
+    driversCache = data.drivers;
+    renderDriversTable();
+  } catch (err) { console.error('Erreur chargement livreurs:', err); }
+}
+
+function renderDriversTable() {
+  const tbody = document.getElementById('driversTable');
+  if (!driversCache.length) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted)">Aucun livreur enregistré. Ajoutez-en un ci-dessus.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = driversCache.map(d => `<tr>
+    <td><b>${d.name}</b></td>
+    <td><code>${d.telegram_id}</code></td>
+    <td>${d.active ? '<span style="color:var(--success)">Actif</span>' : '<span style="color:var(--muted)">Inactif</span>'}</td>
+    <td><button onclick="deleteDriver(${d.id}, '${d.name}')" style="background:var(--danger);color:#fff;padding:4px 10px;border:none;border-radius:6px;cursor:pointer;font-size:12px">Supprimer</button></td>
+  </tr>`).join('');
+}
+
+async function addDriver() {
+  const token = localStorage.getItem('admin_token');
+  if (!token) return;
+  const name = document.getElementById('newDriverName').value.trim();
+  const telegram_id = document.getElementById('newDriverTelegramId').value.trim();
+  if (!name || !telegram_id) return alert('Remplissez le nom et le Telegram ID');
+  try {
+    const res = await fetch('/api/admin/drivers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-token': token },
+      body: JSON.stringify({ name, telegram_id })
+    });
+    const data = await res.json();
+    if (!data.ok) return alert(data.error || 'Erreur');
+    document.getElementById('newDriverName').value = '';
+    document.getElementById('newDriverTelegramId').value = '';
+    await loadDrivers();
+    await loadDriverSchedule();
+  } catch (err) { alert('Erreur: ' + err.message); }
+}
+
+async function deleteDriver(id, name) {
+  if (!confirm(`Supprimer le livreur "${name}" ? Son planning sera aussi supprimé.`)) return;
+  const token = localStorage.getItem('admin_token');
+  try {
+    const res = await fetch(`/api/admin/drivers/${id}`, {
+      method: 'DELETE',
+      headers: { 'x-admin-token': token }
+    });
+    const data = await res.json();
+    if (!data.ok) return alert(data.error || 'Erreur');
+    await loadDrivers();
+    await loadDriverSchedule();
+  } catch (err) { alert('Erreur: ' + err.message); }
+}
+
+async function loadDriverSchedule() {
+  const token = localStorage.getItem('admin_token');
+  if (!token) return;
+  try {
+    const res = await fetch('/api/admin/driver-schedule', { headers: { 'x-admin-token': token } });
+    const data = await res.json();
+    if (!data.ok) return;
+    renderScheduleTable(data.schedule);
+  } catch (err) { console.error('Erreur chargement planning:', err); }
+}
+
+function renderScheduleTable(schedule) {
+  const tbody = document.getElementById('scheduleBody');
+  const today = new Date().getDay();
+
+  tbody.innerHTML = DAY_NAMES.map((dayName, dayIndex) => {
+    const millauEntry = schedule.find(s => s.zone === 'millau' && s.day_of_week === dayIndex);
+    const extEntry = schedule.find(s => s.zone === 'exterieur' && s.day_of_week === dayIndex);
+    const isToday = dayIndex === today;
+    const rowStyle = isToday ? 'background:rgba(59,130,246,0.08);font-weight:600' : '';
+
+    const makeSelect = (zone, current) => {
+      let html = `<select onchange="updateSchedule(${dayIndex}, '${zone}', this.value)" style="width:100%;padding:6px;border-radius:6px;border:1px solid var(--border)">`;
+      html += `<option value="">-- Par défaut --</option>`;
+      driversCache.filter(d => d.active).forEach(d => {
+        html += `<option value="${d.id}" ${current && current.driver_id === d.id ? 'selected' : ''}>${d.name}</option>`;
+      });
+      html += '</select>';
+      return html;
+    };
+
+    return `<tr style="${rowStyle}">
+      <td>${isToday ? '👉 ' : ''}${dayName}</td>
+      <td>${makeSelect('millau', millauEntry)}</td>
+      <td>${makeSelect('exterieur', extEntry)}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function updateSchedule(dayOfWeek, zone, driverId) {
+  const token = localStorage.getItem('admin_token');
+  if (!token) return;
+  try {
+    const res = await fetch('/api/admin/driver-schedule', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-token': token },
+      body: JSON.stringify({ driver_id: driverId ? parseInt(driverId) : null, zone, day_of_week: dayOfWeek })
+    });
+    const data = await res.json();
+    if (!data.ok) alert(data.error || 'Erreur');
+  } catch (err) { alert('Erreur: ' + err.message); }
 }
 
 async function loadDriverCaisse() {
