@@ -2770,6 +2770,10 @@ function sanitizeInput(input) {
   return div.innerHTML;
 }
 
+function escapeAttr(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
 function getCategoryEmoji(category) {
   const emojis = {
     'weed': '🌿',
@@ -2981,10 +2985,10 @@ const SyncManager = {
       orders.push(order);
       localStorage.setItem('shop_orders', JSON.stringify(orders));
 
-      // Mettre à jour les stocks locaux
-      orderData.items.forEach(item => {
-        this.updateStock(item.product_id, item.variant, item.qty);
-      });
+      // Mettre à jour les stocks locaux (séquentiel pour éviter les race conditions)
+      for (const item of orderData.items) {
+        await this.updateStock(item.product_id, item.variant, item.qty);
+      }
 
       // Mettre à jour le chiffre d'affaires et incrémenter le compteur
       this.updateRevenue(orderData.total, true);
@@ -2997,29 +3001,29 @@ const SyncManager = {
   },
 
   // Annuler une commande
-  cancelOrder(orderId, reason) {
+  async cancelOrder(orderId, reason) {
     try {
       // Récupérer toutes les commandes
       const orders = JSON.parse(localStorage.getItem('shop_orders') || '[]');
       const orderIndex = orders.findIndex(o => o.id === orderId);
-      
+
       if (orderIndex === -1) {
         console.error('❌ Commande non trouvée:', orderId);
         return false;
       }
-      
+
       const order = orders[orderIndex];
-      
+
       // Vérifier que la commande n'est pas déjà annulée ou livrée
       if (order.status === 'cancelled' || order.status === 'delivered') {
         console.error('❌ Impossible d\'annuler cette commande (statut:', order.status + ')');
         return false;
       }
-      
-      // Restaurer les stocks pour chaque article
-      order.items.forEach(item => {
-        this.restoreStock(item.product_id, item.variant, item.qty);
-      });
+
+      // Restaurer les stocks pour chaque article (séquentiel)
+      for (const item of order.items) {
+        await this.restoreStock(item.product_id, item.variant, item.qty);
+      }
       
       // Mettre à jour le chiffre d'affaires
       this.updateRevenue(-order.total);
@@ -4526,7 +4530,7 @@ async function openReferralSheet() {
           </div>
         </div>
 
-        <button onclick="openCart()" style="width:100%;padding:14px;background:var(--accent);border:none;border-radius:12px;color:var(--bg-primary);font-weight:700;font-size:16px;cursor:pointer">
+        <button onclick="document.getElementById('referralSheet').classList.add('hidden');document.body.classList.remove('modal-open');openCart()" style="width:100%;padding:14px;background:var(--accent);border:none;border-radius:12px;color:var(--bg-primary);font-weight:700;font-size:16px;cursor:pointer">
           🛒 Commander Maintenant
         </button>
       </div>
@@ -5203,10 +5207,11 @@ function renderCart() {
       });
       if (matches.length > 0 && matches.length <= 15) {
         sugBox.style.display = 'block';
-        sugBox.innerHTML = matches.map(m =>
-          `<div style="padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border);font-size:13px" onmousedown="selectCity('${m.cp}', '${m.villes.split(',')[0].trim()}')">`
-          + `<strong>${m.cp}</strong> — ${m.villes}</div>`
-        ).join('');
+        sugBox.innerHTML = matches.map(m => {
+          const ville = m.villes.split(',')[0].trim().replace(/'/g, "\\'");
+          return `<div style="padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border);font-size:13px" onmousedown="selectCity('${m.cp}', '${ville}')">`
+          + `<strong>${m.cp}</strong> — ${m.villes}</div>`;
+        }).join('');
         valBox.innerHTML = '';
       } else if (matches.length === 0) {
         sugBox.style.display = 'none';
@@ -5345,11 +5350,23 @@ function renderCart() {
       }, 200);
     });
     
-    document.addEventListener('click', (e) => {
-      if (!e.target.closest('.input-wrapper')) {
-        const suggestionsEl = content.querySelector('#suggestions');
-        if (suggestionsEl) suggestionsEl.style.display = 'none';
-      }
+    if (!window._addressSuggestionsClickHandler) {
+      window._addressSuggestionsClickHandler = (e) => {
+        if (!e.target.closest('.input-wrapper')) {
+          const suggestionsEl = document.querySelector('#cartContent #suggestions');
+          if (suggestionsEl) suggestionsEl.style.display = 'none';
+        }
+      };
+      document.addEventListener('click', window._addressSuggestionsClickHandler);
+    }
+  }
+
+  // Réattacher les listeners focus/blur pour cacher le footer pendant la saisie
+  const footer = document.querySelector('#cartSheet .sheet-footer');
+  if (footer) {
+    document.querySelectorAll('#cartSheet input, #cartSheet textarea').forEach(input => {
+      input.addEventListener('focus', () => { footer.style.display = 'none'; });
+      input.addEventListener('blur', () => { setTimeout(() => { footer.style.display = ''; }, 150); });
     });
   }
 }
@@ -5376,12 +5393,6 @@ function openCart() {
   document.getElementById('cartSheet').classList.remove('hidden');
   document.body.classList.add('modal-open');
   window.scrollTo(0, 0);
-
-  const footer = document.querySelector('#cartSheet .sheet-footer');
-  document.querySelectorAll('#cartSheet input, #cartSheet textarea').forEach(input => {
-    input.addEventListener('focus', () => { footer.style.display = 'none'; });
-    input.addEventListener('blur', () => { setTimeout(() => { footer.style.display = ''; }, 150); });
-  });
 }
 
 function selectCity(cp, ville) {
@@ -5662,8 +5673,8 @@ function showOrderSummary(orderData, orderId, discount = 0, notificationSent = f
 
           <div style="background:rgba(255,255,255,0.2);border:2px dashed #fff;border-radius:12px;padding:16px;text-align:center;margin-bottom:16px;backdrop-filter:blur(10px)">
             <div style="color:rgba(255,255,255,0.8);font-size:13px;margin-bottom:8px">Votre ID de parrainage</div>
-            <div id="referralCode" style="font-size:32px;font-weight:800;color:#fff;letter-spacing:2px;text-shadow:2px 2px 4px rgba(0,0,0,0.2)">${orderData.customer}</div>
-            <button onclick="copyReferralCode('${orderData.customer}')" style="margin-top:12px;padding:10px 20px;background:#fff;border:none;border-radius:8px;font-weight:600;color:#f5576c;cursor:pointer;transition:all 0.2s">
+            <div id="referralCode" style="font-size:32px;font-weight:800;color:#fff;letter-spacing:2px;text-shadow:2px 2px 4px rgba(0,0,0,0.2)">${sanitizeInput(orderData.customer)}</div>
+            <button onclick="copyReferralCode('${escapeAttr(orderData.customer)}')" style="margin-top:12px;padding:10px 20px;background:#fff;border:none;border-radius:8px;font-weight:600;color:#f5576c;cursor:pointer;transition:all 0.2s">
               📋 Copier le code
             </button>
           </div>
@@ -5698,12 +5709,12 @@ function showOrderSummary(orderData, orderId, discount = 0, notificationSent = f
         </div>
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          <button onclick="shareToWhatsApp('${orderData.customer}')" style="background:#25D366;border:none;border-radius:12px;padding:14px;color:#fff;font-weight:700;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;box-shadow:0 4px 12px rgba(37,211,102,0.3)">
+          <button onclick="shareToWhatsApp('${escapeAttr(orderData.customer)}')" style="background:#25D366;border:none;border-radius:12px;padding:14px;color:#fff;font-weight:700;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;box-shadow:0 4px 12px rgba(37,211,102,0.3)">
             <span style="font-size:20px">📱</span>
             WhatsApp
           </button>
 
-          <button onclick="shareToTelegram('${orderData.customer}')" style="background:#0088cc;border:none;border-radius:12px;padding:14px;color:#fff;font-weight:700;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;box-shadow:0 4px 12px rgba(0,136,204,0.3)">
+          <button onclick="shareToTelegram('${escapeAttr(orderData.customer)}')" style="background:#0088cc;border:none;border-radius:12px;padding:14px;color:#fff;font-weight:700;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;box-shadow:0 4px 12px rgba(0,136,204,0.3)">
             <span style="font-size:20px">✈️</span>
             Telegram
           </button>
@@ -5713,7 +5724,7 @@ function showOrderSummary(orderData, orderId, discount = 0, notificationSent = f
             Snapchat
           </button>
 
-          <button onclick="copyShareLink('${orderData.customer}')" style="background:#667eea;border:none;border-radius:12px;padding:14px;color:#fff;font-weight:700;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;box-shadow:0 4px 12px rgba(102,126,234,0.3)">
+          <button onclick="copyShareLink('${escapeAttr(orderData.customer)}')" style="background:#667eea;border:none;border-radius:12px;padding:14px;color:#fff;font-weight:700;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;box-shadow:0 4px 12px rgba(102,126,234,0.3)">
             <span style="font-size:20px">🔗</span>
             Copier lien
           </button>
@@ -6533,6 +6544,7 @@ function renderOrders() {
 
     const statusMap = {
       'pending': '<span class="order-status pending">⏳ En attente</span>',
+      'pending_approval': '<span class="order-status" style="background:rgba(255,152,0,0.15);color:#ff9800">⏳ En attente de validation</span>',
       'confirmed': '<span class="order-status" style="background:rgba(0,200,83,0.15);color:#00c853">✅ Confirmée</span>',
       'preparing': '<span class="order-status" style="background:rgba(255,152,0,0.15);color:#ff9800">👨‍🍳 En préparation</span>',
       'en_route': '<span class="order-status" style="background:rgba(33,150,243,0.15);color:#2196f3">🚚 En livraison</span>',
@@ -6732,13 +6744,16 @@ function initEventListeners() {
   document.querySelectorAll('.menu-item').forEach(item => {
     item.onclick = () => {
       const page = item.dataset.page;
+      if (!page) return; // Ignorer les items sans data-page (parrainage, promo)
       document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-      document.getElementById('page-' + page).classList.add('active');
+      const targetPage = document.getElementById('page-' + page);
+      if (!targetPage) return;
+      targetPage.classList.add('active');
       document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
       document.querySelector(`.nav-item[data-tab="${page}"]`)?.classList.add('active');
       document.getElementById('sideMenu').classList.remove('open');
       document.getElementById('menuOverlay').classList.remove('open');
-      
+
       if (page === 'loyalty') {
         LoyaltyManager.renderDetails();
       }
@@ -6919,16 +6934,18 @@ if (document.readyState === 'loading') {
 // Gestion du hash pour navigation directe (ex: #orders depuis Telegram)
 window.addEventListener('load', () => {
   const hash = window.location.hash.substring(1); // Retire le #
-  if (hash && ['orders', 'favorites', 'loyalty', 'reviews', 'support', 'parrainage'].includes(hash)) {
+  const hashMap = { 'reviews': 'avis' };
+  const mappedHash = hashMap[hash] || hash;
+  if (mappedHash && ['orders', 'favorites', 'loyalty', 'avis', 'support', 'parrainage'].includes(mappedHash)) {
     // Activer la bonne page
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    const targetPage = document.getElementById(`page-${hash}`);
+    const targetPage = document.getElementById(`page-${mappedHash}`);
     if (targetPage) {
       targetPage.classList.add('active');
 
       // Mettre à jour le bottom nav
       document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-      const navItem = document.querySelector(`.nav-item[data-tab="${hash}"]`);
+      const navItem = document.querySelector(`.nav-item[data-tab="${mappedHash}"]`);
       if (navItem) navItem.classList.add('active');
     }
   }
