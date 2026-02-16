@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
+  <title>Poste de Travail - DROGUA CENTER</title>
+  <style>
+    :root {
+      --bg: #0a0e14;
+      --bg2: #0d1419;
+      --card: #151b23;
+      --card-hover: #1a212b;
+      --text: #e8edf2;
+      --text2: #b4c0ce;
+      --muted: #7a8594;
+      --accent: #5ba3f5;
+      --accent-light: rgba(91,163,245,0.15);
+      --border: #2a3441;
+      --success: #10b981;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    /* ===== LOGIN ===== */
+    #loginScreen { display:flex; justify-content:center; align-items:center; min-height:100vh; }
+    .login-box { background:var(--card); padding:40px; border-radius:20px; border:1px solid var(--border); width:90%; max-width:380px; text-align:center; }
+    .login-box h1 { font-size:24px; margin-bottom:8px; }
+    .login-box p { color:var(--muted); margin-bottom:24px; font-size:14px; }
+    .login-box input { width:100%; padding:14px; border:1px solid var(--border); background:var(--bg2); color:var(--text); border-radius:12px; font-size:16px; margin-bottom:16px; outline:none; }
+    .login-box input:focus { border-color:var(--accent); }
+    .login-box button { width:100%; padding:14px; background:var(--accent); color:#fff; border:none; border-radius:12px; font-size:16px; font-weight:700; cursor:pointer; }
+    .login-box button:hover { opacity:0.9; }
+    .login-error { color:var(--danger); font-size:13px; margin-top:8px; display:none; }
+
+    /* ===== MAIN LAYOUT ===== */
+    #posScreen { display:none; height:100vh; }
+    .pos-layout { display:grid; grid-template-columns:1fr 420px; height:100vh; }
+
+    /* ===== LEFT: PRODUCTS ===== */
+    .pos-products { padding:16px; overflow-y:auto; background:var(--bg); }
+    .pos-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:8px; }
+    .pos-header h1 { font-size:20px; font-weight:700; }
+    .pos-header-actions { display:flex; gap:8px; align-items:center; }
+    .pos-header-actions a, .pos-header-actions button { padding:8px 14px; border-radius:10px; border:1px solid var(--border); background:var(--card); color:var(--text2); text-decoration:none; font-size:13px; cursor:pointer; }
+    .pos-header-actions a:hover, .pos-header-actions button:hover { background:var(--card-hover); }
+
+    .pos-search { width:100%; padding:12px 16px; border:1px solid var(--border); background:var(--card); color:var(--text); border-radius:12px; font-size:14px; margin-bottom:12px; outline:none; }
+    .pos-search:focus { border-color:var(--accent); }
+
+    .pos-categories { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:16px; }
+    .cat-btn { padding:8px 14px; border-radius:20px; border:1px solid var(--border); background:var(--card); color:var(--text2); font-size:12px; font-weight:600; cursor:pointer; transition:all .2s; }
+    .cat-btn:hover, .cat-btn.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+
+    .product-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(160px, 1fr)); gap:12px; }
+    .product-card { background:var(--card); border:1px solid var(--border); border-radius:16px; padding:16px; cursor:pointer; transition:all .2s; position:relative; }
+    .product-card:hover { border-color:var(--accent); transform:translateY(-2px); box-shadow:var(--shadow); }
+    .product-card .p-name { font-size:14px; font-weight:700; margin-bottom:4px; }
+    .product-card .p-cat { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; }
+    .product-card .p-stock { position:absolute; top:10px; right:10px; font-size:10px; padding:3px 8px; border-radius:10px; font-weight:600; }
+    .p-stock.ok { background:rgba(16,185,129,0.15); color:var(--success); }
+    .p-stock.low { background:rgba(245,158,11,0.15); color:var(--warning); }
+    .p-stock.out { background:rgba(239,68,68,0.15); color:var(--danger); }
+
+    /* ===== VARIANT MODAL ===== */
+    .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1000; justify-content:center; align-items:center; }
+    .modal-overlay.show { display:flex; }
+    .modal { background:var(--card); border:1px solid var(--border); border-radius:20px; padding:24px; width:90%; max-width:440px; max-height:80vh; overflow-y:auto; }
+    .modal h2 { font-size:18px; margin-bottom:16px; }
+    .modal-close { float:right; background:none; border:none; color:var(--muted); font-size:20px; cursor:pointer; }
+    .variant-list { display:flex; flex-direction:column; gap:8px; }
+    .variant-item { display:flex; justify-content:space-between; align-items:center; padding:12px 16px; background:var(--bg2); border:1px solid var(--border); border-radius:12px; cursor:pointer; transition:all .2s; }
+    .variant-item:hover { border-color:var(--accent); background:var(--accent-light); }
+    .variant-item .v-name { font-weight:600; font-size:14px; }
+    .variant-item .v-price { color:var(--accent); font-weight:700; font-size:15px; }
+    .variant-item .v-stock { font-size:12px; color:var(--muted); }
+    .variant-item.oos { opacity:0.4; cursor:not-allowed; }
+
+    .qty-selector { display:flex; align-items:center; gap:12px; margin-top:16px; justify-content:center; }
+    .qty-selector button { width:40px; height:40px; border-radius:50%; border:1px solid var(--border); background:var(--card); color:var(--text); font-size:20px; cursor:pointer; font-weight:700; }
+    .qty-selector button:hover { background:var(--accent); color:#fff; border-color:var(--accent); }
+    .qty-selector span { font-size:24px; font-weight:700; min-width:40px; text-align:center; }
+    .add-to-cart-btn { width:100%; margin-top:16px; padding:14px; background:var(--success); color:#fff; border:none; border-radius:12px; font-size:16px; font-weight:700; cursor:pointer; }
+    .add-to-cart-btn:hover { opacity:0.9; }
+    .add-to-cart-btn:disabled { opacity:0.4; cursor:not-allowed; }
+
+    /* ===== RIGHT: CART + ORDER ===== */
+    .pos-cart { background:var(--bg2); border-left:1px solid var(--border); display:flex; flex-direction:column; height:100vh; }
+    .cart-header { padding:16px 20px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
+    .cart-header h2 { font-size:18px; font-weight:700; }
+    .cart-count { background:var(--accent); color:#fff; font-size:12px; font-weight:700; padding:2px 8px; border-radius:10px; }
+    .cart-clear { background:none; border:none; color:var(--danger); font-size:13px; cursor:pointer; font-weight:600; }
+    .cart-clear:hover { text-decoration:underline; }
+
+    .cart-items { flex:1; overflow-y:auto; padding:12px 16px; }
+    .cart-empty { text-align:center; color:var(--muted); padding:40px 0; font-size:14px; }
+    .cart-item { display:flex; align-items:center; gap:12px; padding:12px; background:var(--card); border:1px solid var(--border); border-radius:12px; margin-bottom:8px; }
+    .cart-item .ci-info { flex:1; }
+    .cart-item .ci-name { font-size:13px; font-weight:700; }
+    .cart-item .ci-variant { font-size:11px; color:var(--muted); }
+    .cart-item .ci-price { font-size:14px; font-weight:700; color:var(--accent); white-space:nowrap; }
+    .cart-item .ci-qty { display:flex; align-items:center; gap:6px; }
+    .cart-item .ci-qty button { width:26px; height:26px; border-radius:6px; border:1px solid var(--border); background:var(--bg2); color:var(--text); font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+    .cart-item .ci-qty button:hover { border-color:var(--accent); }
+    .cart-item .ci-qty span { font-size:13px; font-weight:700; min-width:20px; text-align:center; }
+    .ci-remove { background:none; border:none; color:var(--danger); cursor:pointer; font-size:16px; padding:4px; }
+
+    /* ===== ORDER FORM ===== */
+    .cart-footer { border-top:1px solid var(--border); padding:16px 20px; }
+    .order-form { display:flex; flex-direction:column; gap:10px; }
+    .order-form input, .order-form select { width:100%; padding:10px 14px; border:1px solid var(--border); background:var(--card); color:var(--text); border-radius:10px; font-size:13px; outline:none; }
+    .order-form input:focus, .order-form select:focus { border-color:var(--accent); }
+    .order-form .row { display:flex; gap:8px; }
+    .order-form .row > * { flex:1; }
+
+    .cart-totals { margin-bottom:12px; }
+    .cart-totals .line { display:flex; justify-content:space-between; font-size:13px; padding:4px 0; color:var(--text2); }
+    .cart-totals .line.total { font-size:18px; font-weight:800; color:var(--text); border-top:1px solid var(--border); padding-top:8px; margin-top:4px; }
+    .cart-totals .line.discount { color:var(--success); }
+
+    .submit-order { width:100%; padding:16px; background:var(--success); color:#fff; border:none; border-radius:14px; font-size:17px; font-weight:800; cursor:pointer; letter-spacing:0.5px; }
+    .submit-order:hover { opacity:0.9; }
+    .submit-order:disabled { opacity:0.4; cursor:not-allowed; }
+
+    /* ===== RECENT ORDERS ===== */
+    .recent-orders { display:none; }
+    .recent-orders.show { display:block; }
+    .recent-item { padding:10px 14px; background:var(--card); border:1px solid var(--border); border-radius:10px; margin-bottom:6px; font-size:12px; }
+    .recent-item .ri-top { display:flex; justify-content:space-between; margin-bottom:4px; }
+    .recent-item .ri-id { font-weight:700; }
+    .recent-item .ri-status { padding:2px 8px; border-radius:8px; font-size:10px; font-weight:600; }
+    .ri-status.pending { background:rgba(245,158,11,0.15); color:var(--warning); }
+    .ri-status.delivered { background:rgba(16,185,129,0.15); color:var(--success); }
+    .ri-status.cancelled { background:rgba(239,68,68,0.15); color:var(--danger); }
+    .ri-status.pending_approval { background:rgba(91,163,245,0.15); color:var(--accent); }
+    .ri-status.in_transit { background:rgba(168,85,247,0.15); color:#a855f7; }
+
+    /* ===== TOAST ===== */
+    .toast { position:fixed; top:20px; right:20px; padding:14px 24px; border-radius:12px; font-size:14px; font-weight:600; z-index:9999; transform:translateX(120%); transition:transform .3s; }
+    .toast.show { transform:translateX(0); }
+    .toast.success { background:var(--success); color:#fff; }
+    .toast.error { background:var(--danger); color:#fff; }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 900px) {
+      .pos-layout { grid-template-columns:1fr; }
+      .pos-cart { height:auto; border-left:none; border-top:1px solid var(--border); }
+      .pos-products { max-height:50vh; }
+      #posScreen { height:auto; }
+      .product-grid { grid-template-columns:repeat(auto-fill, minmax(130px, 1fr)); }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ==================== LOGIN ==================== -->
+<div id="loginScreen">
+  <div class="login-box">
+    <h1>Poste de Travail</h1>
+    <p>DROGUA CENTER</p>
+    <input type="password" id="loginPass" placeholder="Mot de passe admin" onkeydown="if(event.key==='Enter')posLogin()">
+    <button onclick="posLogin()">Connexion</button>
+    <div class="login-error" id="loginError">Mot de passe incorrect</div>
+  </div>
+</div>
+
+<!-- ==================== POS MAIN ==================== -->
+<div id="posScreen">
+  <div class="pos-layout">
+
+    <!-- LEFT: PRODUCTS -->
+    <div class="pos-products">
+      <div class="pos-header">
+        <h1>Poste de Travail</h1>
+        <div class="pos-header-actions">
+          <button onclick="toggleRecentOrders()" id="recentBtn">Commandes recentes</button>
+          <a href="/admin.html">Admin</a>
+          <button onclick="posLogout()" style="color:var(--danger)">Deconnexion</button>
+        </div>
+      </div>
+
+      <input type="text" class="pos-search" id="posSearch" placeholder="Rechercher un produit..." oninput="filterProducts()">
+
+      <div class="pos-categories" id="posCategories"></div>
+
+      <div class="product-grid" id="productGrid"></div>
+
+      <!-- Recent Orders Panel (toggled) -->
+      <div class="recent-orders" id="recentOrders">
+        <h3 style="margin:16px 0 12px;font-size:16px">Commandes recentes</h3>
+        <div id="recentOrdersList"></div>
+      </div>
+    </div>
+
+    <!-- RIGHT: CART -->
+    <div class="pos-cart">
+      <div class="cart-header">
+        <div style="display:flex;align-items:center;gap:8px">
+          <h2>Panier</h2>
+          <span class="cart-count" id="cartCount">0</span>
+        </div>
+        <button class="cart-clear" onclick="clearCart()">Vider</button>
+      </div>
+
+      <div class="cart-items" id="cartItems">
+        <div class="cart-empty">Aucun article dans le panier</div>
+      </div>
+
+      <div class="cart-footer">
+        <div class="cart-totals" id="cartTotals">
+          <div class="line"><span>Sous-total</span><span id="subtotalAmount">0,00 &euro;</span></div>
+          <div class="line discount" id="discountLine" style="display:none"><span>Remise</span><span id="discountAmount">-0,00 &euro;</span></div>
+          <div class="line" id="deliveryLine" style="display:none"><span>Livraison</span><span id="deliveryAmount">0,00 &euro;</span></div>
+          <div class="line total"><span>Total</span><span id="totalAmount">0,00 &euro;</span></div>
+        </div>
+        <div class="order-form">
+          <input type="text" id="orderCustomer" placeholder="Nom / tel du client *">
+          <input type="text" id="orderAddress" placeholder="Adresse de livraison *">
+          <div class="row">
+            <select id="orderZone">
+              <option value="millau">Millau (gratuit)</option>
+              <option value="zone 1">Zone 1 (+10&euro;, min 50&euro;)</option>
+              <option value="zone 2">Zone 2 (+20&euro;, min 80&euro;)</option>
+              <option value="zone 3">Zone 3 (+30&euro;, min 100&euro;)</option>
+              <option value="zone 4">Zone 4 (+40&euro;, min 150&euro;)</option>
+            </select>
+            <select id="orderTimeSlot">
+              <option value="asap">Au plus vite</option>
+            </select>
+          </div>
+          <input type="text" id="orderNote" placeholder="Note (optionnel)">
+          <button class="submit-order" id="submitOrder" onclick="submitOrder()" disabled>Valider la commande</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== VARIANT MODAL ==================== -->
+<div class="modal-overlay" id="variantModal" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">&times;</button>
+    <h2 id="modalProductName"></h2>
+    <div class="variant-list" id="variantList"></div>
+    <div id="qtySection" style="display:none">
+      <div class="qty-selector">
+        <button onclick="changeQty(-1)">-</button>
+        <span id="modalQty">1</span>
+        <button onclick="changeQty(1)">+</button>
+      </div>
+      <button class="add-to-cart-btn" id="addToCartBtn" onclick="addToCart()">Ajouter au panier</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== TOAST ==================== -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ==================== STATE ====================
+let token = localStorage.getItem('pos_token') || '';
+let products = [];
+let cart = [];
+let selectedCategory = 'all';
+let selectedProduct = null;
+let selectedVariant = null;
+let modalQty = 1;
+
+// ==================== LOGIN ====================
+async function posLogin() {
+  const pass = document.getElementById('loginPass').value;
+  try {
+    const r = await fetch('/api/admin/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pass })
+    });
+    const d = await r.json();
+    if (d.ok) {
+      token = d.token;
+      localStorage.setItem('pos_token', token);
+      document.getElementById('loginScreen').style.display = 'none';
+      document.getElementById('posScreen').style.display = 'block';
+      loadProducts();
+      loadRecentOrders();
+      generateTimeSlots();
+    } else {
+      const el = document.getElementById('loginError');
+      el.style.display = 'block';
+      el.textContent = d.error || 'Mot de passe incorrect';
+    }
+  } catch (e) {
+    const el = document.getElementById('loginError');
+    el.style.display = 'block';
+    el.textContent = 'Erreur de connexion';
+  }
+}
+
+function posLogout() {
+  token = '';
+  localStorage.removeItem('pos_token');
+  document.getElementById('posScreen').style.display = 'none';
+  document.getElementById('loginScreen').style.display = 'flex';
+}
+
+// Auto-login if token exists
+async function checkToken() {
+  if (!token) return;
+  try {
+    const r = await fetch('/api/admin/stats', { headers: { 'x-admin-token': token } });
+    if (r.ok) {
+      document.getElementById('loginScreen').style.display = 'none';
+      document.getElementById('posScreen').style.display = 'block';
+      loadProducts();
+      loadRecentOrders();
+      generateTimeSlots();
+    } else {
+      localStorage.removeItem('pos_token');
+      token = '';
+    }
+  } catch (e) {
+    localStorage.removeItem('pos_token');
+    token = '';
+  }
+}
+checkToken();
+
+// ==================== PRODUCTS ====================
+async function loadProducts() {
+  try {
+    const r = await fetch('/api/products');
+    const d = await r.json();
+    if (d.ok) {
+      products = d.products.filter(p => !p.archived);
+      renderCategories();
+      renderProducts();
+    }
+  } catch (e) {
+    showToast('Erreur chargement produits', 'error');
+  }
+}
+
+function renderCategories() {
+  const cats = new Set();
+  products.forEach(p => { if (p.category) cats.add(p.category); });
+  let html = '<button class="cat-btn active" onclick="selectCategory(\'all\', this)">Tous</button>';
+  cats.forEach(c => {
+    html += `<button class="cat-btn" onclick="selectCategory('${c}', this)">${c.charAt(0).toUpperCase() + c.slice(1)}</button>`;
+  });
+  document.getElementById('posCategories').innerHTML = html;
+}
+
+function selectCategory(cat, el) {
+  selectedCategory = cat;
+  document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+  if (el) el.classList.add('active');
+  renderProducts();
+}
+
+function renderProducts() {
+  const search = (document.getElementById('posSearch').value || '').toLowerCase();
+  const filtered = products.filter(p => {
+    if (selectedCategory !== 'all' && p.category !== selectedCategory) return false;
+    if (search && !p.name.toLowerCase().includes(search)) return false;
+    return true;
+  });
+
+  let html = '';
+  filtered.forEach(p => {
+    const totalStock = Object.values(p.variants || {}).reduce((s, v) => s + (v.stock || 0), 0);
+    let stockClass = 'ok', stockLabel = totalStock;
+    if (totalStock === 0) { stockClass = 'out'; stockLabel = 'Epuise'; }
+    else if (totalStock < 5) { stockClass = 'low'; }
+
+    html += `
+      <div class="product-card" onclick="openVariants('${p.id}')">
+        <span class="p-stock ${stockClass}">${stockLabel}</span>
+        <div class="p-name">${p.name}</div>
+        <div class="p-cat">${p.category || ''}</div>
+      </div>`;
+  });
+
+  if (!html) html = '<div style="grid-column:1/-1;text-align:center;color:var(--muted);padding:40px">Aucun produit trouve</div>';
+  document.getElementById('productGrid').innerHTML = html;
+}
+
+function filterProducts() { renderProducts(); }
+
+// ==================== VARIANT MODAL ====================
+function openVariants(productId) {
+  selectedProduct = products.find(p => p.id == productId);
+  if (!selectedProduct) return;
+  selectedVariant = null;
+  modalQty = 1;
+
+  document.getElementById('modalProductName').textContent = selectedProduct.name;
+  document.getElementById('qtySection').style.display = 'none';
+
+  let html = '';
+  const variants = selectedProduct.variants || {};
+  const entries = Object.entries(variants).sort((a, b) => a[1].price - b[1].price);
+
+  entries.forEach(([name, data]) => {
+    const oos = (data.stock || 0) <= 0;
+    html += `
+      <div class="variant-item ${oos ? 'oos' : ''}" onclick="${oos ? '' : `selectVariant('${name.replace(/'/g, "\\'")}', ${data.price}, ${data.stock || 0})`}">
+        <div>
+          <div class="v-name">${name}</div>
+          <div class="v-stock">Stock: ${data.stock || 0}</div>
+        </div>
+        <div class="v-price">${formatPrice(data.price)}</div>
+      </div>`;
+  });
+
+  document.getElementById('variantList').innerHTML = html;
+  document.getElementById('variantModal').classList.add('show');
+}
+
+function selectVariant(name, price, stock) {
+  selectedVariant = { name, price, stock };
+  modalQty = 1;
+  document.getElementById('modalQty').textContent = '1';
+  document.getElementById('qtySection').style.display = 'block';
+  document.getElementById('addToCartBtn').textContent = `Ajouter - ${formatPrice(price)}`;
+  document.getElementById('addToCartBtn').disabled = false;
+
+  // Highlight selected
+  document.querySelectorAll('.variant-item').forEach(el => el.style.borderColor = '');
+  event.currentTarget.style.borderColor = 'var(--accent)';
+}
+
+function changeQty(delta) {
+  if (!selectedVariant) return;
+  const newQty = modalQty + delta;
+  if (newQty < 1 || newQty > selectedVariant.stock) return;
+  modalQty = newQty;
+  document.getElementById('modalQty').textContent = modalQty;
+  document.getElementById('addToCartBtn').textContent = `Ajouter - ${formatPrice(selectedVariant.price * modalQty)}`;
+}
+
+function closeModal() {
+  document.getElementById('variantModal').classList.remove('show');
+}
+
+// ==================== CART ====================
+function addToCart() {
+  if (!selectedProduct || !selectedVariant) return;
+
+  const existing = cart.find(c => c.product_id == selectedProduct.id && c.variant === selectedVariant.name);
+  if (existing) {
+    const newQty = existing.qty + modalQty;
+    if (newQty > selectedVariant.stock) {
+      showToast(`Stock max: ${selectedVariant.stock}`, 'error');
+      return;
+    }
+    existing.qty = newQty;
+  } else {
+    cart.push({
+      product_id: selectedProduct.id,
+      name: selectedProduct.name,
+      variant: selectedVariant.name,
+      price: selectedVariant.price,
+      qty: modalQty,
+      maxStock: selectedVariant.stock
+    });
+  }
+
+  closeModal();
+  renderCart();
+  showToast(`${selectedProduct.name} ${selectedVariant.name} x${modalQty} ajoute`, 'success');
+}
+
+function removeFromCart(index) {
+  cart.splice(index, 1);
+  renderCart();
+}
+
+function cartQty(index, delta) {
+  const item = cart[index];
+  const newQty = item.qty + delta;
+  if (newQty < 1) { removeFromCart(index); return; }
+  if (newQty > item.maxStock) { showToast(`Stock max: ${item.maxStock}`, 'error'); return; }
+  item.qty = newQty;
+  renderCart();
+}
+
+function clearCart() {
+  cart = [];
+  renderCart();
+}
+
+function renderCart() {
+  const container = document.getElementById('cartItems');
+  document.getElementById('cartCount').textContent = cart.reduce((s, c) => s + c.qty, 0);
+
+  if (cart.length === 0) {
+    container.innerHTML = '<div class="cart-empty">Aucun article dans le panier</div>';
+    updateTotals();
+    return;
+  }
+
+  let html = '';
+  cart.forEach((item, i) => {
+    html += `
+      <div class="cart-item">
+        <div class="ci-info">
+          <div class="ci-name">${item.name}</div>
+          <div class="ci-variant">${item.variant}</div>
+        </div>
+        <div class="ci-qty">
+          <button onclick="cartQty(${i}, -1)">-</button>
+          <span>${item.qty}</span>
+          <button onclick="cartQty(${i}, 1)">+</button>
+        </div>
+        <div class="ci-price">${formatPrice(item.price * item.qty)}</div>
+        <button class="ci-remove" onclick="removeFromCart(${i})">&times;</button>
+      </div>`;
+  });
+  container.innerHTML = html;
+  updateTotals();
+}
+
+function updateTotals() {
+  const subtotal = cart.reduce((s, c) => s + c.price * c.qty, 0);
+  const zone = document.getElementById('orderZone').value;
+  const zoneRules = {
+    'millau': { fee: 0, min: 0 },
+    'zone 1': { fee: 10, min: 50 },
+    'zone 2': { fee: 20, min: 80 },
+    'zone 3': { fee: 30, min: 100 },
+    'zone 4': { fee: 40, min: 150 }
+  };
+  const rule = zoneRules[zone] || { fee: 0, min: 0 };
+  const deliveryFee = rule.fee;
+
+  let discount = 0;
+  if (subtotal >= 100) discount = 10;
+
+  const total = subtotal + deliveryFee - discount;
+
+  document.getElementById('subtotalAmount').textContent = formatPrice(subtotal);
+
+  const discountLine = document.getElementById('discountLine');
+  if (discount > 0) {
+    discountLine.style.display = 'flex';
+    document.getElementById('discountAmount').textContent = `-${formatPrice(discount)}`;
+  } else {
+    discountLine.style.display = 'none';
+  }
+
+  const deliveryLine = document.getElementById('deliveryLine');
+  if (deliveryFee > 0) {
+    deliveryLine.style.display = 'flex';
+    document.getElementById('deliveryAmount').textContent = `+${formatPrice(deliveryFee)}`;
+  } else {
+    deliveryLine.style.display = 'none';
+  }
+
+  document.getElementById('totalAmount').textContent = formatPrice(total);
+  document.getElementById('submitOrder').disabled = cart.length === 0;
+}
+
+// ==================== ORDER SUBMISSION ====================
+async function submitOrder() {
+  const customer = document.getElementById('orderCustomer').value.trim();
+  const address = document.getElementById('orderAddress').value.trim();
+  const zone = document.getElementById('orderZone').value;
+  const timeSlot = document.getElementById('orderTimeSlot').value;
+  const note = document.getElementById('orderNote').value.trim();
+
+  if (!customer) { showToast('Nom du client requis', 'error'); return; }
+  if (!address) { showToast('Adresse requise', 'error'); return; }
+  if (cart.length === 0) { showToast('Panier vide', 'error'); return; }
+
+  const subtotal = cart.reduce((s, c) => s + c.price * c.qty, 0);
+
+  const items = cart.map(c => ({
+    product_id: c.product_id,
+    name: c.name,
+    variant: c.variant,
+    price: c.price,
+    qty: c.qty
+  }));
+
+  const btn = document.getElementById('submitOrder');
+  btn.disabled = true;
+  btn.textContent = 'Envoi en cours...';
+
+  try {
+    const r = await fetch('/api/create-order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        customer,
+        customerName: customer,
+        type: zone,
+        address,
+        items,
+        total: subtotal,
+        timeSlot,
+        customerDescription: note
+      })
+    });
+    const d = await r.json();
+    if (d.ok) {
+      showToast(`Commande #${d.orderId} creee avec succes!`, 'success');
+      cart = [];
+      renderCart();
+      document.getElementById('orderCustomer').value = '';
+      document.getElementById('orderAddress').value = '';
+      document.getElementById('orderNote').value = '';
+      document.getElementById('orderZone').value = 'millau';
+      document.getElementById('orderTimeSlot').value = 'asap';
+      loadProducts(); // refresh stock
+      loadRecentOrders();
+    } else {
+      showToast(d.error || 'Erreur lors de la commande', 'error');
+    }
+  } catch (e) {
+    showToast('Erreur de connexion', 'error');
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Valider la commande';
+  updateTotals();
+}
+
+// ==================== RECENT ORDERS ====================
+function toggleRecentOrders() {
+  const el = document.getElementById('recentOrders');
+  el.classList.toggle('show');
+  if (el.classList.contains('show')) loadRecentOrders();
+}
+
+async function loadRecentOrders() {
+  try {
+    const r = await fetch('/api/admin/orders?limit=20', { headers: { 'x-admin-token': token } });
+    const d = await r.json();
+    if (!d.ok) return;
+
+    const container = document.getElementById('recentOrdersList');
+    if (!d.orders || d.orders.length === 0) {
+      container.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px">Aucune commande</div>';
+      return;
+    }
+
+    let html = '';
+    d.orders.forEach(o => {
+      const items = JSON.parse(o.items || '[]');
+      const itemStr = items.map(i => `${i.name} ${i.variant} x${i.qty}`).join(', ');
+      const date = new Date(o.created_at).toLocaleString('fr-FR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+      const statusLabel = { pending: 'En attente', delivered: 'Livre', cancelled: 'Annule', in_transit: 'En route', pending_approval: 'Approbation' }[o.status] || o.status;
+
+      html += `
+        <div class="recent-item">
+          <div class="ri-top">
+            <span class="ri-id">#${o.id} - ${o.customer_name || o.customer}</span>
+            <span class="ri-status ${o.status}">${statusLabel}</span>
+          </div>
+          <div style="color:var(--text2)">${itemStr}</div>
+          <div style="display:flex;justify-content:space-between;margin-top:4px">
+            <span style="color:var(--muted)">${date}</span>
+            <span style="font-weight:700;color:var(--accent)">${formatPrice(o.total)}</span>
+          </div>
+        </div>`;
+    });
+    container.innerHTML = html;
+  } catch (e) {
+    // silent
+  }
+}
+
+// ==================== TIME SLOTS ====================
+function generateTimeSlots() {
+  const sel = document.getElementById('orderTimeSlot');
+  sel.innerHTML = '<option value="asap">Au plus vite</option>';
+  for (let h = 9; h <= 23; h++) {
+    for (const m of ['00', '30']) {
+      const t = `${String(h).padStart(2, '0')}:${m}`;
+      sel.innerHTML += `<option value="${t}">${t}</option>`;
+    }
+  }
+}
+
+// ==================== ZONE CHANGE ====================
+document.getElementById('orderZone').addEventListener('change', updateTotals);
+
+// ==================== UTILS ====================
+function formatPrice(n) {
+  return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' \u20AC';
+}
+
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast ${type} show`;
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// Init
+renderCart();
+</script>
+</body>
+</html>
