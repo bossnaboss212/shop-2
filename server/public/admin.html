@@ -460,6 +460,11 @@
       color: var(--danger);
     }
 
+    .badge.info {
+      background: rgba(59, 130, 246, 0.15);
+      color: var(--info);
+    }
+
     .badge.priority-urgent {
       background: rgba(255, 59, 48, 0.2);
       color: #ff3b30;
@@ -1447,7 +1452,7 @@
       </div>
 
       <div style="margin-bottom:12px;text-align:right">
-        <button onclick="exportStaffCSV('nourrice')" style="background:var(--primary);color:#fff;padding:8px 16px;border:none;border-radius:8px;cursor:pointer">📥 Exporter CSV</button>
+        <button onclick="exportStaffCSV('nourrice')" style="background:var(--accent);color:#fff;padding:8px 16px;border:none;border-radius:8px;cursor:pointer">📥 Exporter CSV</button>
       </div>
 
       <!-- Caisse -->
@@ -1536,7 +1541,7 @@
       </div>
 
       <div style="margin-bottom:12px;text-align:right">
-        <button onclick="exportStaffCSV('gerant')" style="background:var(--primary);color:#fff;padding:8px 16px;border:none;border-radius:8px;cursor:pointer">📥 Exporter CSV</button>
+        <button onclick="exportStaffCSV('gerant')" style="background:var(--accent);color:#fff;padding:8px 16px;border:none;border-radius:8px;cursor:pointer">📥 Exporter CSV</button>
       </div>
       <div class="chart-container">
         <h3>💶 Caisse Gérant</h3>
@@ -1662,7 +1667,7 @@
             <option value="30" selected>30 derniers jours</option>
             <option value="90">90 derniers jours</option>
           </select>
-          <button onclick="loadDriverCaisse()" style="background:var(--primary);color:#fff">🔄 Actualiser</button>
+          <button onclick="loadDriverCaisse()" style="background:var(--accent);color:#fff">🔄 Actualiser</button>
         </div>
         <div class="stats" id="caisseStats" style="margin-bottom:16px">
           <div class="stat-card"><div class="stat-label">Millau</div><div class="stat-value" id="caisseMillauTotal">-</div><div style="font-size:11px;color:var(--muted)" id="caisseMillauCount">0 livraisons</div></div>
@@ -1678,7 +1683,7 @@
       </div>
 
       <div style="margin-bottom:12px;text-align:right">
-        <button onclick="exportStaffCSV('livreur')" style="background:var(--primary);color:#fff;padding:8px 16px;border:none;border-radius:8px;cursor:pointer">📥 Exporter CSV</button>
+        <button onclick="exportStaffCSV('livreur')" style="background:var(--accent);color:#fff;padding:8px 16px;border:none;border-radius:8px;cursor:pointer">📥 Exporter CSV</button>
       </div>
       <div class="chart-container">
         <h3>💶 Caisse Livreur (manuelle)</h3>
@@ -1771,7 +1776,7 @@
           </select>
           <input type="number" id="payrollYear" placeholder="Année" value="2026" style="width:80px">
           <button onclick="showAddPayrollModal()" style="background:var(--success)">➕ Nouvelle fiche</button>
-          <button onclick="loadPayroll()" style="background:var(--primary)">🔄 Charger</button>
+          <button onclick="loadPayroll()" style="background:var(--accent)">🔄 Charger</button>
         </div>
         <div class="table-container" style="margin-top:12px">
           <table>
@@ -1956,7 +1961,7 @@
           <textarea id="broadcastMessage" rows="4" placeholder="Votre message ici..." style="width:100%;resize:vertical"></textarea>
         </div>
         <div style="display:flex;align-items:center;gap:12px">
-          <button onclick="sendBroadcast()" style="background:var(--primary);color:#fff">📢 Envoyer à tous</button>
+          <button onclick="sendBroadcast()" style="background:var(--accent);color:#fff">📢 Envoyer à tous</button>
           <span id="broadcastStatus" style="font-size:13px;color:var(--muted)"></span>
         </div>
       </div>
@@ -2724,9 +2729,12 @@ function logout() {
   if (confirm('Se déconnecter ?')) {
     if (state.syncInterval) {
       clearInterval(state.syncInterval);
+      state.syncInterval = null;
     }
+    state.apiToken = null;
     localStorage.removeItem('admin_auth');
     localStorage.removeItem('session_expiry');
+    localStorage.removeItem('admin_token');
     location.reload();
   }
 }
@@ -2772,14 +2780,15 @@ function calculateStorageSize() {
         totalSize += localStorage[key].length + key.length;
       }
     }
-    const sizeInMB = (totalSize / 1024 / 1024).toFixed(2);
+    const sizeNum = totalSize / 1024 / 1024;
+    const sizeInMB = sizeNum.toFixed(2);
     const el = document.getElementById('storageSize');
     if (el) {
       el.textContent = `${sizeInMB} MB`;
-      if (sizeInMB > 8) {
+      if (sizeNum > 8) {
         el.style.color = 'var(--danger)';
         el.textContent += ' ⚠️ Attention !';
-      } else if (sizeInMB > 5) {
+      } else if (sizeNum > 5) {
         el.style.color = 'var(--warning)';
       } else {
         el.style.color = 'var(--success)';
@@ -2809,7 +2818,7 @@ function updateAllStats() {
   let stockValue = 0, lowStock = 0;
   activeProducts.forEach(p => {
     Object.values(p.variants).forEach(v => {
-      stockValue += v.stock * v.price;
+      stockValue += v.stock * (v.grams || 1) * (p.buyPrice || 0);
       if (v.stock < 10) lowStock++;
     });
   });
@@ -3380,17 +3389,18 @@ function loadProfitTable() {
     if (o.items && Array.isArray(o.items)) {
       o.items.forEach(item => {
         const name = item.name || 'Inconnu';
-        if (!productSales[name]) productSales[name] = { qty: 0, revenue: 0 };
+        if (!productSales[name]) productSales[name] = { qty: 0, revenue: 0, grams: 0 };
         productSales[name].qty += item.qty || 1;
         productSales[name].revenue += item.lineTotal || ((item.qty || 1) * (item.price || 0));
+        productSales[name].grams += (item.grams || 1) * (item.qty || 1);
       });
     }
   });
 
   let html = '';
   state.data.products.forEach(p => {
-    const salesData = productSales[p.name] || { qty: 0, revenue: 0 };
-    const cost = salesData.qty * (p.buyPrice || 0);
+    const salesData = productSales[p.name] || { qty: 0, revenue: 0, grams: 0 };
+    const cost = salesData.grams * (p.buyPrice || 0);
     const profit = salesData.revenue - cost;
     const margin = salesData.revenue > 0 ? ((profit / salesData.revenue) * 100).toFixed(1) : '0.0';
 
@@ -3704,12 +3714,12 @@ function viewOrder(id) {
   if (!o) return;
 
   showModal(`Commande #${id}`, `
-    <p><strong>Client:</strong> ${o.customer}</p>
-    <p><strong>Date:</strong> ${o.date}</p>
-    <p><strong>Produits:</strong> ${o.products}</p>
+    <p><strong>Client:</strong> ${escapeHtml(o.customer)}</p>
+    <p><strong>Date:</strong> ${escapeHtml(o.date)}</p>
+    <p><strong>Produits:</strong> ${escapeHtml(o.products)}</p>
     <p><strong>Total:</strong> ${fc(o.total)}</p>
     <p><strong>Statut:</strong> ${getStatusBadge(o.status)}</p>
-    <p><strong>Adresse:</strong> ${o.address || 'Non spécifiée'}</p>
+    <p><strong>Adresse:</strong> ${escapeHtml(o.address) || 'Non spécifiée'}</p>
     <div style="margin-top:20px;display:grid;gap:12px">
       ${o.status === 'pending' ? `
         <button onclick="updateOrderStatus('${id}', 'delivered')" style="background:var(--success)">✅ Valider (Marquer livré)</button>
@@ -3730,7 +3740,7 @@ function editOrder(id) {
   showModal(`Éditer #${id}`, `
     <div class="form-group">
       <label>Client</label>
-      <input type="text" id="editOrderCustomer" value="${o.customer}">
+      <input type="text" id="editOrderCustomer" value="${escapeHtml(o.customer)}">
     </div>
     <div class="form-group">
       <label>Total</label>
@@ -3740,6 +3750,10 @@ function editOrder(id) {
       <label>Statut</label>
       <select id="editOrderStatus">
         <option value="pending" ${o.status === 'pending' ? 'selected' : ''}>⏳ En attente</option>
+        <option value="pending_approval" ${o.status === 'pending_approval' ? 'selected' : ''}>🔍 Approbation</option>
+        <option value="confirmed" ${o.status === 'confirmed' ? 'selected' : ''}>✔️ Confirmée</option>
+        <option value="preparing" ${o.status === 'preparing' ? 'selected' : ''}>📦 Préparation</option>
+        <option value="en_route" ${o.status === 'en_route' ? 'selected' : ''}>🚗 En route</option>
         <option value="delivered" ${o.status === 'delivered' ? 'selected' : ''}>✅ Livré</option>
         <option value="cancelled" ${o.status === 'cancelled' ? 'selected' : ''}>❌ Annulé</option>
       </select>
@@ -3770,7 +3784,7 @@ function saveOrderEdit(id) {
   o.customer = document.getElementById('editOrderCustomer').value;
   o.total = parseFloat(document.getElementById('editOrderTotal').value);
 
-  const updates = { customer: o.customer, total: o.total };
+  const updates = { total: o.total };
 
   if (o.status !== newStatus) {
     o.status = newStatus;
@@ -4460,6 +4474,10 @@ function restoreProduct(id) {
   
   if (confirm(`Restaurer "${p.name}" ?`)) {
     p.archived = false;
+    delete p.archivedAt;
+    delete p.archiveReason;
+    delete p.archiveNote;
+    delete p.archiveStats;
     saveData();
     loadProducts();
     loadStock();
@@ -4683,6 +4701,10 @@ function bulkRestoreArchived() {
   if (confirm(`Restaurer les ${archivedProducts.length} produits archivés ?`)) {
     archivedProducts.forEach(p => {
       p.archived = false;
+      delete p.archivedAt;
+      delete p.archiveReason;
+      delete p.archiveNote;
+      delete p.archiveStats;
     });
     
     saveData();
@@ -4753,7 +4775,7 @@ function adjustStock() {
   const variantName = document.getElementById('stockVariant').value;
   const qty = parseInt(document.getElementById('stockQty').value);
   
-  if (!productId || !variantName || qty === undefined) {
+  if (!productId || !variantName || isNaN(qty)) {
     showToast('Remplissez tous les champs', 'error');
     return;
   }
@@ -5169,12 +5191,12 @@ function loadNourriceVariantTable() {
     const statusColor = r.qty <= 2 ? 'var(--danger)' : r.qty <= 5 ? 'var(--warning)' : 'var(--success)';
     return `<tr>
       <td><strong>${r.p.name}</strong></td>
-      <td><span class="badge" style="background:var(--primary)">${r.vName}</span></td>
+      <td><span class="badge" style="background:var(--accent)">${r.vName}</span></td>
       <td><strong style="color:${statusColor}">${r.qty}</strong></td>
       <td>${fc(r.price)}</td>
       <td>${fc(r.value)}</td>
       <td>
-        <button onclick="nourriceQuickSetVariant(${r.pid},'${r.vName}')" style="background:var(--accent);color:#fff;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px">Ajuster</button>
+        <button onclick="nourriceQuickSetVariant(${r.pid},'${r.vName.replace(/'/g, "\\'")}')" style="background:var(--accent);color:#fff;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px">Ajuster</button>
       </td>
     </tr>`;
   }).join('');
@@ -6000,7 +6022,7 @@ function saveCustomer() {
   }
   
   const newCustomer = {
-    id: Math.max(...state.data.customers.map(c => c.id), 0) + 1,
+    id: state.data.customers.reduce((max, c) => Math.max(max, c.id || 0), 0) + 1,
     name,
     email,
     phone,
@@ -6021,9 +6043,9 @@ function viewCustomer(id) {
   if (!c) return;
   
   showModal(`Client #${id}`, `
-    <p><strong>Nom:</strong> ${c.name}</p>
-    <p><strong>Email:</strong> ${c.email}</p>
-    <p><strong>Téléphone:</strong> ${c.phone}</p>
+    <p><strong>Nom:</strong> ${escapeHtml(c.name)}</p>
+    <p><strong>Email:</strong> ${escapeHtml(c.email)}</p>
+    <p><strong>Téléphone:</strong> ${escapeHtml(c.phone)}</p>
     <p><strong>Commandes:</strong> ${c.orders}</p>
     <p><strong>Total:</strong> ${fc(c.total)}</p>
   `);
@@ -6476,6 +6498,13 @@ function fc(amount) {
   return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(amount || 0);
 }
 
+function escapeHtml(str) {
+  if (!str) return '';
+  const div = document.createElement('div');
+  div.textContent = String(str);
+  return div.innerHTML;
+}
+
 function showToast(msg, type = 'success') {
   const container = document.getElementById('toastContainer');
   const toast = document.createElement('div');
@@ -6594,7 +6623,7 @@ function updateTrendChart() {
     } else if (currentTrendView === 'orders') {
       data.push(dayData ? dayData.orders : 0);
     } else {
-      data.push(dayData ? dayData.customers.size : 0);
+      data.push(dayData && dayData.orders > 0 ? Math.round(dayData.revenue / dayData.orders) : 0);
     }
   }
   
@@ -6672,13 +6701,13 @@ function updateABCAnalysis() {
   
   const sorted = Object.entries(productRevenue).sort((a, b) => b[1] - a[1]);
   const totalRevenue = sorted.reduce((sum, [, rev]) => sum + rev, 0);
-  
+
   let cumulative = 0;
   const classified = sorted.map(([name, rev]) => {
     cumulative += rev;
-    const percent = (cumulative / totalRevenue) * 100;
+    const percent = totalRevenue > 0 ? (cumulative / totalRevenue) * 100 : 0;
     const category = percent <= 80 ? 'A' : percent <= 95 ? 'B' : 'C';
-    return { name, revenue: rev, category, percent: (rev / totalRevenue * 100).toFixed(1) };
+    return { name, revenue: rev, category, percent: totalRevenue > 0 ? (rev / totalRevenue * 100).toFixed(1) : '0.0' };
   });
   
   const categoryA = classified.filter(p => p.category === 'A');
@@ -6746,16 +6775,24 @@ function updateABCAnalysis() {
 function updatePeakHours() {
   const ctx = document.getElementById('peakHoursChart');
   if (!ctx) return;
-  
+
   const hours = [];
   const sales = [];
-  
+
+  // Calculer les vraies ventes par heure depuis les commandes
+  const hourlySales = {};
+  for (let h = 9; h <= 22; h++) hourlySales[h] = 0;
+  state.data.orders.forEach(o => {
+    if (o.status === 'cancelled') return;
+    const ts = o.timestamp || o.created_at;
+    if (!ts) return;
+    const hour = new Date(ts).getHours();
+    if (hour >= 9 && hour <= 22) hourlySales[hour] += 1;
+  });
+
   for (let h = 9; h <= 22; h++) {
     hours.push(`${h}h`);
-    const isPeakLunch = h >= 12 && h <= 14;
-    const isPeakEvening = h >= 18 && h <= 21;
-    const base = isPeakLunch || isPeakEvening ? 25 : 10;
-    sales.push(Math.floor(Math.random() * 10 + base));
+    sales.push(hourlySales[h] || 0);
   }
   
   if (analyticsCharts.peakHours) {
@@ -6786,31 +6823,31 @@ function updatePeakHours() {
 function updateProfitabilityTable() {
   const tbody = document.getElementById('profitabilityTable');
   if (!tbody) return;
-  
-  const categories = ['weed', 'cali', 'mousseux', 'blanche', 'mdma', 'keta', 'frozen', 'filtre'];
+
+  // Calculer les vraies ventes par categorie depuis les commandes
+  const categorySales = {};
+  state.data.orders.forEach(o => {
+    if (o.status === 'cancelled') return;
+    if (o.items && Array.isArray(o.items)) {
+      o.items.forEach(item => {
+        const prod = state.data.products.find(p => p.name === item.name);
+        if (!prod) return;
+        const cat = prod.category || 'autre';
+        if (!categorySales[cat]) categorySales[cat] = { revenue: 0, cost: 0 };
+        const qty = item.qty || 1;
+        const grams = item.grams || 1;
+        categorySales[cat].revenue += item.lineTotal || (qty * (item.price || 0));
+        categorySales[cat].cost += qty * grams * (prod.buyPrice || 0);
+      });
+    }
+  });
+
   const categoryData = {};
-  
-  categories.forEach(cat => {
-    const products = state.data.products.filter(p => p.category === cat);
-    if (products.length === 0) return;
-    
-    let totalRevenue = 0;
-    let totalCost = 0;
-    
-    products.forEach(p => {
-      const sales = Math.floor(Math.random() * 30) + 10;
-      const avgPrice = Object.values(p.variants).reduce((sum, v) => sum + v.price, 0) / Object.keys(p.variants).length;
-      const avgGrams = Object.values(p.variants).reduce((sum, v) => sum + (v.grams || 1), 0) / Object.keys(p.variants).length;
-      
-      totalRevenue += sales * avgPrice;
-      totalCost += sales * avgGrams * p.buyPrice;
-    });
-    
-    const profit = totalRevenue - totalCost;
-    const margin = ((profit / totalRevenue) * 100).toFixed(1);
-    const roi = ((profit / totalCost) * 100).toFixed(0);
-    
-    categoryData[cat] = { totalRevenue, totalCost, profit, margin, roi };
+  Object.entries(categorySales).forEach(([cat, data]) => {
+    const profit = data.revenue - data.cost;
+    const margin = data.revenue > 0 ? ((profit / data.revenue) * 100).toFixed(1) : '0.0';
+    const roi = data.cost > 0 ? ((profit / data.cost) * 100).toFixed(0) : '0';
+    categoryData[cat] = { totalRevenue: data.revenue, totalCost: data.cost, profit, margin, roi };
   });
   
   tbody.innerHTML = Object.entries(categoryData).map(([cat, data]) => `
@@ -6827,10 +6864,21 @@ function updateProfitabilityTable() {
 function updateTurnoverTable() {
   const tbody = document.getElementById('turnoverTable');
   if (!tbody) return;
-  
+
+  // Calculer les vraies ventes par produit
+  const productSalesCount = {};
+  state.data.orders.forEach(o => {
+    if (o.status === 'cancelled') return;
+    if (o.items && Array.isArray(o.items)) {
+      o.items.forEach(item => {
+        productSalesCount[item.name] = (productSalesCount[item.name] || 0) + (item.qty || 1);
+      });
+    }
+  });
+
   tbody.innerHTML = state.data.products.slice(0, 8).map(p => {
     const totalStock = Object.values(p.variants).reduce((sum, v) => sum + v.stock, 0);
-    const sales = Math.floor(Math.random() * 50) + 20;
+    const sales = productSalesCount[p.name] || 0;
     const turnover = (sales / (totalStock || 1)).toFixed(1);
     const status = turnover > 2 ? 'success' : turnover > 1 ? 'warning' : 'danger';
     const statusText = turnover > 2 ? '🔥 Excellent' : turnover > 1 ? '✅ Bon' : '⚠️ Faible';
@@ -6852,11 +6900,22 @@ function updatePerformanceMatrix() {
   const ctx = document.getElementById('performanceMatrix');
   if (!ctx) return;
   
+  // Calculer les vraies ventes par produit
+  const perfSales = {};
+  state.data.orders.forEach(o => {
+    if (o.status === 'cancelled') return;
+    if (o.items && Array.isArray(o.items)) {
+      o.items.forEach(item => {
+        perfSales[item.name] = (perfSales[item.name] || 0) + (item.qty || 1);
+      });
+    }
+  });
+
   const data = state.data.products.map(p => {
-    const sales = Math.floor(Math.random() * 100) + 20;
+    const sales = perfSales[p.name] || 0;
     const avgPrice = Object.values(p.variants).reduce((sum, v) => sum + v.price, 0) / Object.keys(p.variants).length;
     const avgGrams = Object.values(p.variants).reduce((sum, v) => sum + (v.grams || 1), 0) / Object.keys(p.variants).length;
-    const margin = ((avgPrice - (avgGrams * p.buyPrice)) / avgPrice * 100).toFixed(1);
+    const margin = avgPrice > 0 ? ((avgPrice - (avgGrams * (p.buyPrice || 0))) / avgPrice * 100).toFixed(1) : '0.0';
     const displayName = p.archived ? `${p.name} (Archivé)` : p.name;
     
     return {
@@ -7079,7 +7138,7 @@ function exportAnalytics() {
 }
 
 function exportAnalyticsPDF() {
-  showToast('📄 Génération du rapport PDF...', 'success');
+  showToast('📄 Génération du rapport...', 'success');
   
   let report = '═══════════════════════════════════════\n';
   report += '      RAPPORT ANALYTICS COMPLET\n';
@@ -7168,7 +7227,7 @@ function exportAnalyticsPDF() {
   a.download = `analytics_report_${Date.now()}.txt`;
   a.click();
   
-  showToast('✅ Rapport PDF généré !', 'success');
+  showToast('✅ Rapport TXT généré !', 'success');
 }
 
 function updateComparisonChart() {
@@ -7698,19 +7757,20 @@ function generateReport(type, startDate, endDate, title) {
   showToast('📊 Génération du rapport...', 'success');
   
   const reportData = collectReportData(startDate, endDate);
-  
+  window._pendingReport = { type, title, data: reportData };
+
   showModal('📋 Format du rapport', `
     <p style="margin-bottom:20px">Choisissez le format d'export :</p>
     <div style="display:grid;gap:12px">
-      <button onclick="exportReportPDF('${type}', '${title}', ${JSON.stringify(reportData).replace(/"/g, '&quot;')})" 
+      <button onclick="exportReportPDF(window._pendingReport.type, window._pendingReport.title, window._pendingReport.data)"
         style="background:var(--danger);padding:16px">
         📄 Télécharger PDF
       </button>
-      <button onclick="exportReportExcel('${type}', '${title}', ${JSON.stringify(reportData).replace(/"/g, '&quot;')})" 
+      <button onclick="exportReportExcel(window._pendingReport.type, window._pendingReport.title, window._pendingReport.data)"
         style="background:var(--success);padding:16px">
         📊 Télécharger Excel
       </button>
-      <button onclick="exportReportBoth('${type}', '${title}', ${JSON.stringify(reportData).replace(/"/g, '&quot;')})" 
+      <button onclick="exportReportBoth(window._pendingReport.type, window._pendingReport.title, window._pendingReport.data)"
         style="background:var(--info);padding:16px">
         📦 Télécharger PDF + Excel
       </button>
@@ -8069,8 +8129,10 @@ function toggleAutoReports() {
   }
 }
 
+let _autoReportInterval = null;
 function scheduleAutoReports() {
-  setInterval(() => {
+  if (_autoReportInterval) clearInterval(_autoReportInterval);
+  _autoReportInterval = setInterval(() => {
     const now = new Date();
     const hour = now.getHours();
     const day = now.getDay();
