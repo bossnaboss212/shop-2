@@ -337,6 +337,13 @@ async function loadProducts() {
       products = d.products.filter(p => !p.archived);
       renderCategories();
       renderProducts();
+      // Mettre a jour maxStock dans le panier
+      cart.forEach(item => {
+        const prod = products.find(p => p.id == item.product_id);
+        if (prod && prod.variants && prod.variants[item.variant]) {
+          item.maxStock = prod.variants[item.variant].stock || 0;
+        }
+      });
     }
   } catch (e) {
     showToast('Erreur chargement produits', 'error');
@@ -406,7 +413,7 @@ function openVariants(productId) {
   entries.forEach(([name, data]) => {
     const oos = (data.stock || 0) <= 0;
     html += `
-      <div class="variant-item ${oos ? 'oos' : ''}" onclick="${oos ? '' : `selectVariant('${name.replace(/'/g, "\\'")}', ${data.price}, ${data.stock || 0})`}">
+      <div class="variant-item ${oos ? 'oos' : ''}" onclick="${oos ? '' : `selectVariant(event, '${name.replace(/'/g, "\\'")}', ${data.price}, ${data.stock || 0})`}">
         <div>
           <div class="v-name">${name}</div>
           <div class="v-stock">Stock: ${data.stock || 0}</div>
@@ -419,7 +426,7 @@ function openVariants(productId) {
   document.getElementById('variantModal').classList.add('show');
 }
 
-function selectVariant(name, price, stock) {
+function selectVariant(e, name, price, stock) {
   selectedVariant = { name, price, stock };
   modalQty = 1;
   document.getElementById('modalQty').textContent = '1';
@@ -429,7 +436,7 @@ function selectVariant(name, price, stock) {
 
   // Highlight selected
   document.querySelectorAll('.variant-item').forEach(el => el.style.borderColor = '');
-  event.currentTarget.style.borderColor = 'var(--accent)';
+  e.currentTarget.style.borderColor = 'var(--accent)';
 }
 
 function changeQty(delta) {
@@ -572,17 +579,32 @@ async function submitOrder() {
   const note = document.getElementById('orderNote').value.trim();
 
   if (!customer) { showToast('Nom du client requis', 'error'); return; }
+  if (customer.trim().length < 2) { showToast('Nom trop court (min 2 caracteres)', 'error'); return; }
   if (!address) { showToast('Adresse requise', 'error'); return; }
+  if (address.trim().length < 5) { showToast('Adresse trop courte (min 5 caracteres)', 'error'); return; }
   if (cart.length === 0) { showToast('Panier vide', 'error'); return; }
 
   const subtotal = cart.reduce((s, c) => s + c.price * c.qty, 0);
+  const zoneRulesCheck = {
+    'millau': { fee: 0, min: 0 },
+    'zone 1': { fee: 10, min: 50 },
+    'zone 2': { fee: 20, min: 80 },
+    'zone 3': { fee: 30, min: 100 },
+    'zone 4': { fee: 40, min: 150 }
+  };
+  const zoneRule = zoneRulesCheck[zone];
+  if (zoneRule && zoneRule.min > 0 && subtotal < zoneRule.min) {
+    showToast(`Minimum ${zoneRule.min}\u20AC requis pour cette zone`, 'error');
+    return;
+  }
 
   const items = cart.map(c => ({
     product_id: c.product_id,
     name: c.name,
     variant: c.variant,
     price: c.price,
-    qty: c.qty
+    qty: c.qty,
+    lineTotal: c.price * c.qty
   }));
 
   const btn = document.getElementById('submitOrder');
