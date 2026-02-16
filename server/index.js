@@ -53,7 +53,7 @@ const config = {
     },
     exterieur: {
       name: 'Extérieur',
-      keywords: ['extérieur', 'exterieur'],
+      keywords: ['extérieur', 'exterieur', 'zone 1', 'zone 2', 'zone 3', 'zone 4'],
       driverIdKey: 'driverExterieurId',
     },
   },
