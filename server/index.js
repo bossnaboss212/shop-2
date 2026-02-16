@@ -2659,7 +2659,7 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
 
     validateOrderInput(req.body);
 
-    const { customer, customerName, type, address, items, total, referralCode, useCredit, telegramId, timeSlot, customerDescription, deliveryFee: rawDeliveryFee } = req.body;
+    const { customer, customerName, type, address, city, items, total, referralCode, useCredit, telegramId, timeSlot, customerDescription, deliveryFee: rawDeliveryFee } = req.body;
 
     // ==================== VALIDATION DES PRIX CÔTÉ SERVEUR ====================
     // Charger le catalogue produit et vérifier chaque article contre les prix réels
@@ -2689,18 +2689,43 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
 
     // Valider les frais de livraison côté serveur (ne pas faire confiance au client)
     const deliveryZoneRules = {
-      'millau': { fee: 0, min: 0 },
-      'zone 1': { fee: 10, min: 50 },
-      'zone 2': { fee: 20, min: 80 },
-      'zone 3': { fee: 30, min: 100 },
-      'zone 4': { fee: 40, min: 150 },
+      'millau': { fee: 0, min: 0, level: 0 },
+      'zone 1': { fee: 10, min: 50, level: 1 },
+      'zone 2': { fee: 20, min: 80, level: 2 },
+      'zone 3': { fee: 30, min: 100, level: 3 },
+      'zone 4': { fee: 40, min: 150, level: 4 },
     };
     const typeLower = (type || '').toLowerCase();
     let serverZone = null;
+    let serverZoneKey = null;
     for (const [zone, rules] of Object.entries(deliveryZoneRules)) {
-      if (typeLower.includes(zone)) { serverZone = rules; break; }
+      if (typeLower.includes(zone)) { serverZone = rules; serverZoneKey = zone; break; }
     }
     const deliveryFee = serverZone ? serverZone.fee : 0;
+
+    // Valider que la zone correspond au code postal du client
+    const postalCodeMinZone = {
+      '12100': 'millau',
+      '12520': 'zone 1', '12640': 'zone 1',
+      '12400': 'zone 2', '12490': 'zone 2', '12150': 'zone 2', '12410': 'zone 2',
+      '12620': 'zone 2', '12230': 'zone 2', '12250': 'zone 2', '12720': 'zone 2',
+      '12360': 'zone 3', '12370': 'zone 3', '12540': 'zone 3',
+      '12550': 'zone 3', '12380': 'zone 3', '12480': 'zone 3',
+      '12000': 'zone 4', '12850': 'zone 4', '12800': 'zone 4',
+      '12500': 'zone 4', '48500': 'zone 4', '48100': 'zone 4',
+    };
+    const cityStr = (city || '').trim();
+    const cpServerMatch = cityStr.match(/\((\d{5})\)/);
+    if (cpServerMatch) {
+      const cp = cpServerMatch[1];
+      const requiredZoneKey = postalCodeMinZone[cp] || 'zone 4';
+      const requiredZone = deliveryZoneRules[requiredZoneKey];
+      const selectedLevel = serverZone ? serverZone.level : 0;
+      if (requiredZone && selectedLevel < requiredZone.level) {
+        console.warn(`⚠️ Zone incorrecte: CP ${cp} nécessite ${requiredZoneKey}, client a sélectionné ${serverZoneKey || 'millau'}`);
+        return res.status(400).json({ ok: false, error: `Votre ville (${cp}) nécessite au minimum la ${requiredZoneKey}. Rechargez la page.` });
+      }
+    }
 
     // Vérifier le minimum de commande pour la zone (avec les prix vérifiés du catalogue)
     const itemsSubtotal = items.reduce((sum, item) => sum + (item.price * item.qty), 0);
