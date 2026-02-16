@@ -922,11 +922,12 @@
               <th onclick="sortTable('orders','total')">Total</th>
               <th>Statut</th>
               <th>Paiement</th>
+              <th>Livreur</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody id="ordersTable">
-            <tr><td colspan="8" style="text-align:center;padding:40px">Aucune commande</td></tr>
+            <tr><td colspan="9" style="text-align:center;padding:40px">Aucune commande</td></tr>
           </tbody>
         </table>
       </div>
@@ -2995,6 +2996,7 @@ function showTab(name, evt) {
   if (name === 'orders') {
     syncOrders(false);
     loadOrders();
+    if (!driversCache.length) loadDrivers();
   }
 
   if (name === 'products') {
@@ -3031,10 +3033,10 @@ function showTab(name, evt) {
 function loadOrders() {
   const tbody = document.getElementById('ordersTable');
   if (state.data.orders.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px">Aucune commande</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:40px">Aucune commande</td></tr>';
     return;
   }
-  
+
   tbody.innerHTML = state.data.orders.map(o => {
     const p = o.priority || { level: 3, label: '', emoji: '' };
     const priorityClass = p.level === 1 ? 'priority-urgent' : p.level === 2 ? 'priority-high' : '';
@@ -3042,6 +3044,8 @@ function loadOrders() {
     const priorityBadge = isActive ? `<span class="badge ${priorityClass}" title="${p.label}">${p.emoji} ${p.label}</span>` : '';
     const descBadge = o.customer_description ? `<br><small style="color:#aaa">🧍 ${o.customer_description}</small>` : '';
     const slotBadge = (o.time_slot && o.time_slot !== 'asap' && isActive) ? `<br><small>🕐 ${o.time_slot}</small>` : '';
+    const driverZone = o.assigned_driver_zone || '';
+    const driverBadge = driverZone === 'millau' ? '<span class="badge info">🏙️ Millau</span>' : driverZone === 'exterieur' ? '<span class="badge warning">🌍 Extérieur</span>' : '<span class="badge" style="opacity:0.5">—</span>';
 
     return `<tr style="${p.level === 1 && isActive ? 'background:rgba(255,59,48,0.08);' : p.level === 2 && isActive ? 'background:rgba(255,149,0,0.06);' : ''}">
       <td><strong>#${o.id}</strong>${slotBadge}</td>
@@ -3051,6 +3055,7 @@ function loadOrders() {
       <td><strong>${fc(o.total)}</strong></td>
       <td>${getStatusBadge(o.status)}<br>${priorityBadge}</td>
       <td><span class="badge">${o.payment || 'Espèces'}</span></td>
+      <td>${driverBadge}</td>
       <td>
         ${o.status === 'pending' ? `<button class="btn-sm btn-success" onclick="validateOrder('${o.id}')" title="Valider">✅</button>` : ''}
         ${o.status === 'pending_approval' ? `<button class="btn-sm btn-success" onclick="approveAndValidateOrder('${o.id}', '${(o.customer || '').replace(/'/g, "\\'")}')" title="Approuver le client et valider" style="background:#667eea">🔓 Approuver</button>` : ''}
@@ -3712,6 +3717,8 @@ function editOrder(id) {
   const o = state.data.orders.find(x => x.id == id);
   if (!o) return;
 
+  const currentZone = o.assigned_driver_zone || '';
+
   showModal(`Éditer #${id}`, `
     <div class="form-group">
       <label>Client</label>
@@ -3729,8 +3736,21 @@ function editOrder(id) {
         <option value="cancelled" ${o.status === 'cancelled' ? 'selected' : ''}>❌ Annulé</option>
       </select>
     </div>
+    <div class="form-group">
+      <label>🚗 Zone livreur</label>
+      <select id="editOrderDriverZone">
+        <option value="" ${!currentZone ? 'selected' : ''}>— Non assigné —</option>
+        <option value="millau" ${currentZone === 'millau' ? 'selected' : ''}>🏙️ Millau</option>
+        <option value="exterieur" ${currentZone === 'exterieur' ? 'selected' : ''}>🌍 Extérieur</option>
+      </select>
+    </div>
     <button onclick="saveOrderEdit('${id}')">💾 Sauvegarder</button>
   `);
+
+  // Charger les livreurs si pas encore fait
+  if (!driversCache.length) {
+    loadDrivers();
+  }
 }
 
 function saveOrderEdit(id) {
@@ -3738,24 +3758,46 @@ function saveOrderEdit(id) {
   if (!o) return;
 
   const newStatus = document.getElementById('editOrderStatus').value;
+  const newDriverZone = document.getElementById('editOrderDriverZone').value;
   o.customer = document.getElementById('editOrderCustomer').value;
   o.total = parseFloat(document.getElementById('editOrderTotal').value);
 
-  // Si le statut a changé, utiliser updateOrderStatus pour sync serveur
+  const updates = { customer: o.customer, total: o.total };
+
   if (o.status !== newStatus) {
     o.status = newStatus;
-    // Sync avec serveur
-    const token = localStorage.getItem('admin_token');
-    if (token) {
-      fetch(`/api/admin/orders/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-admin-token': token
-        },
-        body: JSON.stringify({ status: newStatus, customer: o.customer, total: o.total })
-      }).catch(err => console.warn('Sync error:', err));
-    }
+    updates.status = newStatus;
+  }
+
+  // Mettre à jour la zone livreur
+  if (o.assigned_driver_zone !== newDriverZone) {
+    o.assigned_driver_zone = newDriverZone;
+    updates.assigned_driver_zone = newDriverZone;
+  }
+
+  // Sync avec serveur
+  const token = localStorage.getItem('admin_token');
+  if (token) {
+    fetch(`/api/admin/orders/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-token': token
+      },
+      body: JSON.stringify(updates)
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.ok) {
+        console.log('✅ Commande synchronisée');
+        if (data.driver_notified) {
+          showToast('Livreur notifié !', 'info');
+        }
+      } else {
+        console.warn('⚠️ Erreur sync:', data.error);
+      }
+    })
+    .catch(err => console.warn('Sync error:', err));
   }
 
   saveData();
@@ -6300,7 +6342,8 @@ function syncOrders(manual = false) {
               items: order.items || [],
               priority: order.priority || { level: 3, label: 'Normale', emoji: '🟢' },
               customer_description: order.customer_description || '',
-              time_slot: order.time_slot || 'asap'
+              time_slot: order.time_slot || 'asap',
+              assigned_driver_zone: order.assigned_driver_zone || ''
             };
           } catch (mapErr) {
             console.error('❌ Erreur mapping commande:', order.id, mapErr);
@@ -6318,7 +6361,8 @@ function syncOrders(manual = false) {
               items: [],
               priority: { level: 3, label: 'Normale', emoji: '🟢' },
               customer_description: '',
-              time_slot: 'asap'
+              time_slot: 'asap',
+              assigned_driver_zone: ''
             };
           }
         });
