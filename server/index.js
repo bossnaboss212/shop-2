@@ -2510,33 +2510,47 @@ app.post('/api/cancel-order-items', apiLimiter, async (req, res) => {
     }
 
     // Recalculer le total de la commande
-    let newTotal = 0;
+    let newItemsTotal = 0;
     for (const item of remainingItems) {
-      newTotal += item.price * item.qty;
+      newItemsTotal += item.price * item.qty;
     }
 
     // Ajouter les frais de livraison (ne sont pas remboursés lors d'une annulation partielle)
     const orderDeliveryFee = order.delivery_fee || 0;
-    newTotal += orderDeliveryFee;
+    let newTotalBeforeCredit = newItemsTotal + orderDeliveryFee;
 
     // Appliquer la réduction si elle existe (discount est une valeur absolue, pas un pourcentage)
     if (order.discount > 0) {
-      newTotal = Math.max(0, newTotal - order.discount);
+      newTotalBeforeCredit = Math.max(0, newTotalBeforeCredit - order.discount);
     }
 
-    // Calculer le remboursement réel (basé sur ce que le client a payé)
+    // Recalculer le crédit : rembourser proportionnellement si le nouveau total est inférieur au crédit utilisé
+    const originalCreditUsed = order.credit_used || 0;
+    const creditToKeep = Math.min(originalCreditUsed, newTotalBeforeCredit);
+    const creditToRefund = originalCreditUsed - creditToKeep;
+    const newTotal = newTotalBeforeCredit - creditToKeep;
+
+    // Calculer le remboursement réel (basé sur ce que le client a payé en espèces)
     const actualRefund = order.total - newTotal;
 
-    // Transaction atomique : restauration stock + mise à jour commande + mise à jour revenu
+    // Transaction atomique : restauration stock + mise à jour commande + mise à jour revenu + remboursement crédit
     await db.run('BEGIN IMMEDIATE');
     try {
       await restoreStockForOrder(itemsToRemove, orderId, { inTransaction: true });
 
-      // Mettre à jour la commande avec les articles restants
+      // Mettre à jour la commande avec les articles restants et le crédit ajusté
       await db.run(
-        'UPDATE orders SET items = ?, total = ? WHERE id = ?',
-        [JSON.stringify(remainingItems), newTotal, orderId]
+        'UPDATE orders SET items = ?, total = ?, credit_used = ? WHERE id = ?',
+        [JSON.stringify(remainingItems), newTotal, creditToKeep, orderId]
       );
+
+      // Rembourser le crédit excédentaire au client
+      if (creditToRefund > 0) {
+        await db.run(
+          'UPDATE referrals SET credit_balance = credit_balance + ? WHERE customer_contact = ?',
+          [creditToRefund, order.customer]
+        );
+      }
 
       // Mettre à jour la transaction
       await db.run(
@@ -2550,13 +2564,14 @@ app.post('/api/cancel-order-items', apiLimiter, async (req, res) => {
       throw txErr;
     }
 
-    console.log(`✅ Order #${orderId} partially cancelled. ${itemsToRemove.length} item(s) removed.`);
+    console.log(`✅ Order #${orderId} partially cancelled. ${itemsToRemove.length} item(s) removed.${creditToRefund > 0 ? ` ${creditToRefund}€ credit refunded.` : ''}`);
 
     res.json({
       ok: true,
       message: 'Articles annulés avec succès',
       fullyCancelled: false,
       refundAmount: actualRefund,
+      creditRefunded: creditToRefund,
       newTotal: newTotal,
       remainingItems: remainingItems.length
     });
@@ -2656,9 +2671,10 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
     }
 
     // Remise automatique : -10€ dès 100€ de commande (pour tout le monde)
-    if (total >= 100) {
+    // Utiliser itemsSubtotal (articles seuls) et non total (qui inclut livraison)
+    if (itemsSubtotal >= 100) {
       discount += 10;
-      console.log(`🎉 Remise 10€ appliquée (commande de ${total}€ >= 100€)`);
+      console.log(`🎉 Remise 10€ appliquée (sous-total articles ${itemsSubtotal}€ >= 100€)`);
     }
 
     // ==================== TRANSACTION ATOMIQUE ====================

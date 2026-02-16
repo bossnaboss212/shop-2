@@ -5530,6 +5530,7 @@ async function validateOrder() {
 
       // Utiliser la remise réelle du serveur
       const serverDiscount = serverData.discount || 0;
+      const serverCreditUsed = serverData.creditUsed || 0;
 
       OrdersManager.add(order);
       LoyaltyManager.addOrder(order.id, total);
@@ -5538,9 +5539,9 @@ async function validateOrder() {
 
       document.getElementById('cartSheet').classList.add('hidden');
 
-      // Ouvrir Telegram avec l'ID serveur
+      // Ouvrir Telegram avec l'ID serveur (inclure remise ET crédit dans le total)
       try {
-        const message = createOrderMessage(orderData, order.id, total - serverDiscount);
+        const message = createOrderMessage(orderData, order.id, total - serverDiscount - serverCreditUsed);
         const encodedMessage = encodeURIComponent(message);
         const telegramUrl = `https://t.me/${TELEGRAM_CONFIG.SUPPORT_USERNAME}?text=${encodedMessage}`;
 
@@ -5554,7 +5555,7 @@ async function validateOrder() {
         console.warn('⚠️ Impossible d\'ouvrir le lien Telegram:', linkErr);
       }
 
-      showOrderSummary(orderData, order.id, serverDiscount, true);
+      showOrderSummary(orderData, order.id, serverDiscount, true, serverCreditUsed);
 
       // Recharger les produits pour afficher les nouveaux stocks
       loadProducts();
@@ -5621,11 +5622,11 @@ ${orderData.address}
   return message;
 }
 
-function showOrderSummary(orderData, orderId, discount = 0, notificationSent = false) {
+function showOrderSummary(orderData, orderId, discount = 0, notificationSent = false, creditUsed = 0) {
   const content = document.getElementById('orderSummaryContent');
   const deliveryFee = orderData.deliveryFee || 0;
   const subtotal = orderData.items.reduce((sum, item) => sum + item.lineTotal, 0);
-  const totalWithDiscount = orderData.total - discount;
+  const totalWithDiscount = orderData.total - discount - creditUsed;
   
   content.innerHTML = `
     <div style="text-align:center;padding:20px 0">
@@ -5842,6 +5843,12 @@ function showOrderSummary(orderData, orderId, discount = 0, notificationSent = f
         <div style="display:flex;justify-content:space-between;margin-bottom:12px">
           <span style="color:var(--success)">🎁 Remise</span>
           <span style="font-weight:600;color:var(--success)">-${fmt(discount)}</span>
+        </div>
+      ` : ''}
+      ${creditUsed > 0 ? `
+        <div style="display:flex;justify-content:space-between;margin-bottom:12px">
+          <span style="color:var(--success)">💰 Crédit utilisé</span>
+          <span style="font-weight:600;color:var(--success)">-${fmt(creditUsed)}</span>
         </div>
       ` : ''}
       <div style="border-top:2px solid var(--accent);margin:12px 0;padding-top:12px;display:flex;justify-content:space-between;align-items:center">
