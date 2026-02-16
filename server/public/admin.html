@@ -1598,47 +1598,54 @@
     <!-- ==================== LIVREUR ==================== -->
     <div class="tab-content" id="tab-livreur">
 
-      <!-- ===== GESTION DES LIVREURS ===== -->
-      <div class="chart-container">
-        <h3>👥 Livreurs enregistrés</h3>
-        <div class="toolbar" style="flex-wrap:wrap;margin-bottom:12px">
-          <input type="text" id="newDriverName" placeholder="Nom du livreur" style="flex:1;min-width:140px">
-          <input type="text" id="newDriverTelegramId" placeholder="Telegram ID" style="flex:1;min-width:140px">
-          <button onclick="addDriver()" style="background:var(--success);color:#fff">➕ Ajouter</button>
-        </div>
-        <div class="table-container" style="max-height:250px;overflow-y:auto">
-          <table>
-            <thead><tr><th>Nom</th><th>Telegram ID</th><th>Statut</th><th>Actions</th></tr></thead>
-            <tbody id="driversTable"><tr><td colspan="4" style="text-align:center;color:var(--muted)">Chargement...</td></tr></tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- ===== PLANNING HEBDOMADAIRE ===== -->
-      <div class="chart-container">
-        <h3>📅 Planning hebdomadaire</h3>
-        <p style="color:var(--muted);font-size:13px;margin-bottom:12px">Assignez un livreur à chaque zone pour chaque jour de la semaine. Sans assignation, le livreur par défaut (.env) sera utilisé.</p>
-        <div class="table-container">
-          <table id="scheduleTable">
-            <thead>
-              <tr>
-                <th>Jour</th>
-                <th>🏙️ Millau</th>
-                <th>🌐 Extérieur</th>
-              </tr>
-            </thead>
-            <tbody id="scheduleBody">
-              <tr><td colspan="3" style="text-align:center;color:var(--muted)">Chargement...</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
       <div class="stats">
         <div class="stat-card"><div class="stat-label">Caisse Livreur</div><div class="stat-value" id="livreurCash">0,00 &euro;</div></div>
         <div class="stat-card"><div class="stat-label">Stock Gros (g)</div><div class="stat-value" id="livreurTotalGrams">0g</div></div>
         <div class="stat-card"><div class="stat-label">Stock Variants</div><div class="stat-value" id="livreurTotalVariants">0</div></div>
         <div class="stat-card"><div class="stat-label">Valeur Totale</div><div class="stat-value" id="livreurStockValue">0,00 &euro;</div></div>
+      </div>
+
+      <!-- ===== GESTION DES LIVREURS (toggle) ===== -->
+      <div class="chart-container" style="border:2px solid var(--primary)">
+        <div onclick="document.getElementById('driverMgmtBody').style.display = document.getElementById('driverMgmtBody').style.display === 'none' ? 'block' : 'none'" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center">
+          <h3 style="margin-bottom:0">👥 Gestion des livreurs & Planning</h3>
+          <span style="font-size:20px;color:var(--primary)">▼</span>
+        </div>
+        <div id="driverMgmtBody" style="display:none;margin-top:16px">
+
+          <!-- Ajouter un livreur -->
+          <h4 style="margin-bottom:8px">➕ Ajouter un livreur</h4>
+          <div class="toolbar" style="flex-wrap:wrap;margin-bottom:16px">
+            <input type="text" id="newDriverName" placeholder="Nom du livreur" style="flex:1;min-width:140px">
+            <input type="text" id="newDriverTelegramId" placeholder="Telegram ID" style="flex:1;min-width:140px">
+            <button onclick="addDriver()" style="background:var(--success);color:#fff;padding:8px 16px;border:none;border-radius:8px;cursor:pointer;font-weight:600">➕ Ajouter</button>
+          </div>
+          <div class="table-container" style="max-height:250px;overflow-y:auto;margin-bottom:20px">
+            <table>
+              <thead><tr><th>Nom</th><th>Telegram ID</th><th>Statut</th><th>Actions</th></tr></thead>
+              <tbody id="driversTable"><tr><td colspan="4" style="text-align:center;color:var(--muted)">Chargement...</td></tr></tbody>
+            </table>
+          </div>
+
+          <!-- Planning -->
+          <h4 style="margin-bottom:8px">📅 Planning hebdomadaire</h4>
+          <p style="color:var(--muted);font-size:13px;margin-bottom:12px">Assignez un livreur à chaque zone pour chaque jour de la semaine. Sans assignation, le livreur par défaut (.env) sera utilisé.</p>
+          <div class="table-container">
+            <table id="scheduleTable">
+              <thead>
+                <tr>
+                  <th>Jour</th>
+                  <th>🏙️ Millau</th>
+                  <th>🌐 Extérieur</th>
+                </tr>
+              </thead>
+              <tbody id="scheduleBody">
+                <tr><td colspan="3" style="text-align:center;color:var(--muted)">Chargement...</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+        </div>
       </div>
 
       <div class="chart-container">
