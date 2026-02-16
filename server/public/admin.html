@@ -5364,7 +5364,7 @@ async function loadDriverSchedule() {
   try {
     const res = await fetch('/api/admin/driver-schedule', { headers: { 'x-admin-token': token } });
     const data = await res.json();
-    if (!data.ok) return;
+    if (!data.ok || !data.schedule) return;
     renderScheduleTable(data.schedule);
   } catch (err) { console.error('Erreur chargement planning:', err); }
 }
@@ -5404,7 +5404,7 @@ async function updateSchedule(dayOfWeek, zone, driverId) {
     const res = await fetch('/api/admin/driver-schedule', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-admin-token': token },
-      body: JSON.stringify({ driver_id: driverId ? parseInt(driverId) : null, zone, day_of_week: dayOfWeek })
+      body: JSON.stringify({ driver_id: driverId && !isNaN(parseInt(driverId)) ? parseInt(driverId) : null, zone, day_of_week: dayOfWeek })
     });
     const data = await res.json();
     if (!data.ok) alert(data.error || 'Erreur');

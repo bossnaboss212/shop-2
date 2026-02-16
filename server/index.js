@@ -2069,13 +2069,13 @@ ${order.discount > 0 ? `🎁 Remise fidélité: -${order.discount}€\n` : ''}�
   }
   
   // ==================== NOTIFICATION LIVREUR AUTO ====================
-  if (driverInfo.driverId) {
-    // Assigner la zone
-    await db.run(
-      'UPDATE orders SET assigned_driver_zone = ? WHERE id = ?',
-      [driverInfo.zone, order.id]
-    );
+  // Toujours assigner la zone (même sans livreur disponible)
+  await db.run(
+    'UPDATE orders SET assigned_driver_zone = ? WHERE id = ?',
+    [driverInfo.zone, order.id]
+  );
 
+  if (driverInfo.driverId) {
     // Envoyer la liste actualisée au livreur automatiquement
     try {
       await telegram.sendMessage(driverInfo.driverId, `🔔 <b>NOUVELLE COMMANDE #${order.id}</b> reçue !`);
@@ -2085,6 +2085,8 @@ ${order.discount > 0 ? `🎁 Remise fidélité: -${order.discount}€\n` : ''}�
     }
 
     console.log(`📦 Commande #${order.id} assignée à ${driverInfo.driverName} (${driverInfo.zone}) - livreur notifié`);
+  } else {
+    console.log(`⚠️ Commande #${order.id} zone ${driverInfo.zone} - aucun livreur configuré pour aujourd'hui`);
   }
 }
 
@@ -3196,7 +3198,8 @@ app.get('/api/admin/driver-schedule', requireAdmin, async (req, res) => {
     const schedule = await db.all(`
       SELECT ds.id, ds.zone, ds.day_of_week, ds.driver_id, d.name as driver_name, d.telegram_id
       FROM driver_schedule ds
-      JOIN drivers d ON d.id = ds.driver_id
+      LEFT JOIN drivers d ON d.id = ds.driver_id
+      WHERE d.id IS NOT NULL
       ORDER BY ds.day_of_week, ds.zone
     `);
     res.json({ ok: true, schedule });
@@ -3224,6 +3227,11 @@ app.post('/api/admin/driver-schedule', requireAdmin, async (req, res) => {
       // Supprimer l'assignation pour ce jour/zone
       await db.run('DELETE FROM driver_schedule WHERE zone = ? AND day_of_week = ?', [zone, day_of_week]);
     } else {
+      // Vérifier que le livreur existe
+      const driver = await db.get('SELECT id FROM drivers WHERE id = ? AND active = 1', [driver_id]);
+      if (!driver) {
+        return res.status(400).json({ ok: false, error: 'Livreur introuvable ou inactif' });
+      }
       // Upsert: remplacer l'assignation existante
       await db.run(`
         INSERT INTO driver_schedule (driver_id, zone, day_of_week) VALUES (?, ?, ?)
