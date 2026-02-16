@@ -6516,6 +6516,79 @@ async function handleAdminTextInput(chatId, text) {
 }
 
 async function sendHelpMessage(chatId) {
+  const isDriver = await isDriverChatId(chatId);
+
+  if (isDriver) {
+    const text = `📖 <b>GUIDE DU LIVREUR</b>
+
+━━━━━━━━━━━━━━━━━━━
+
+<b>📋 MENU PRINCIPAL</b>
+Les boutons en bas de votre écran :
+
+📋 <b>Mes Livraisons</b> → Voir toutes vos commandes en cours
+📊 <b>Mes Stats</b> → Vos statistiques (livraisons du jour/semaine)
+💰 <b>Caisse</b> → Détail de l'argent encaissé (30 derniers jours)
+🛍️ <b>Boutique</b> → Accéder à la boutique
+💬 <b>Support</b> → Contacter le support
+❓ <b>Aide</b> → Ce guide
+
+━━━━━━━━━━━━━━━━━━━
+
+<b>🚚 COMMENT GÉRER UNE LIVRAISON</b>
+
+<b>Étape 1 :</b> Vous recevez une notification automatique quand une commande arrive
+
+<b>Étape 2 :</b> Cliquez sur 📋 <b>Mes Livraisons</b>
+→ Les commandes sont triées par priorité :
+  🔴 Urgent (+ de 30 min d'attente)
+  🟠 Bientôt urgent (15-30 min)
+  🟢 Normal (moins de 15 min)
+
+<b>Étape 3 :</b> Appuyez sur 🚀 <b>START #XX</b>
+→ Choisissez le temps estimé (10, 15, 20, 30, 45 ou 60 min)
+→ Le client est prévenu automatiquement
+
+<b>Étape 4 :</b> La livraison est lancée ! Vous avez 4 boutons :
+  💬 <b>Contacter le client</b> → Envoyer un message au client
+  ✅ <b>LIVRAISON TERMINÉE</b> → Quand c'est livré
+  📍 <b>Ouvrir Maps</b> → GPS vers l'adresse du client
+  📋 <b>Voir toutes mes livraisons</b> → Retour à la liste
+
+<b>Étape 5 :</b> Appuyez sur ✅ <b>LIVRAISON TERMINÉE</b>
+→ La commande passe en "livrée"
+→ Le client est prévenu
+→ La prochaine commande s'affiche automatiquement
+
+━━━━━━━━━━━━━━━━━━━
+
+<b>💬 CONTACTER UN CLIENT</b>
+Après avoir cliqué START, appuyez sur "Contacter le client"
+→ Tapez votre message, il sera envoyé au client
+→ Le client peut répondre directement
+→ Tapez /stop pour fermer la conversation
+
+━━━━━━━━━━━━━━━━━━━
+
+<b>🔄 BOUTON ACTUALISER</b>
+Appuyez dessus pour rafraîchir la liste des commandes
+
+<b>⚠️ IMPORTANT</b>
+→ Remettez l'argent encaissé à l'admin régulièrement
+→ Traitez les commandes 🔴 urgentes en priorité
+→ Utilisez 📍 Maps pour ne pas vous perdre`;
+
+    const keyboard = {
+      inline_keyboard: [
+        [{ text: '📋 Voir mes livraisons', callback_data: 'my_deliveries_millau' }],
+        [{ text: '📊 Mes Stats', callback_data: 'driver_stats' }]
+      ]
+    };
+
+    await telegram.sendMessage(chatId, text, { reply_markup: keyboard });
+    return;
+  }
+
   const text = `❓ <b>AIDE & SUPPORT</b>
 
 <b>📍 Livraison :</b>
@@ -6548,7 +6621,7 @@ Utilisez les boutons en bas de votre écran pour naviguer rapidement ! 👇`;
       ]
     ]
   };
-  
+
   await telegram.sendMessage(chatId, text, { reply_markup: keyboard });
 }
 
