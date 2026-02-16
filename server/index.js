@@ -3522,8 +3522,7 @@ app.put('/api/admin/orders/:id', requireAdmin, async (req, res) => {
 
     // Notification livreur si la zone a changé
     let driverNotified = false;
-    if (updates.assigned_driver_zone && oldOrder) {
-      const oldZone = (await db.get('SELECT assigned_driver_zone FROM orders WHERE id = ?', [id]))?.assigned_driver_zone;
+    if (updates.assigned_driver_zone) {
       try {
         const driverInfo = await getDriverForDeliveryZone(updates.assigned_driver_zone);
         if (driverInfo && driverInfo.driverId) {

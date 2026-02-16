@@ -3718,9 +3718,6 @@ function editOrder(id) {
   if (!o) return;
 
   const currentZone = o.assigned_driver_zone || '';
-  const driverOptions = driversCache.length > 0
-    ? driversCache.map(d => `<option value="${d.id}" ${false ? 'selected' : ''}>${d.name} (${d.telegram_id})</option>`).join('')
-    : '';
 
   showModal(`Éditer #${id}`, `
     <div class="form-group">
