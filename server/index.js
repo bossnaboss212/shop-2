@@ -640,6 +640,23 @@ async function initDB() {
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
+    CREATE TABLE IF NOT EXISTS drivers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      telegram_id TEXT NOT NULL UNIQUE,
+      active INTEGER DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS driver_schedule (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      driver_id INTEGER NOT NULL,
+      zone TEXT NOT NULL CHECK(zone IN ('millau', 'exterieur')),
+      day_of_week INTEGER NOT NULL CHECK(day_of_week BETWEEN 0 AND 6),
+      UNIQUE(zone, day_of_week),
+      FOREIGN KEY (driver_id) REFERENCES drivers(id)
+    );
+
     CREATE INDEX IF NOT EXISTS idx_carts_updated ON carts(updated_at);
     CREATE INDEX IF NOT EXISTS idx_scheduled_actions_status ON scheduled_actions(status, execute_at);
     CREATE INDEX IF NOT EXISTS idx_announcements_channel ON announcements(channel_id, created_at DESC);
@@ -1521,23 +1538,45 @@ class TelegramService {
 const telegram = new TelegramService(config.telegram.token);
 
 // ==================== DELIVERY ZONE LOGIC ====================
-function getDriverForDeliveryType(deliveryType) {
+async function getDriverForDeliveryType(deliveryType) {
   const type = deliveryType.toLowerCase();
-  
+
+  // Déterminer la zone à partir du type de livraison
+  let matchedZone = 'millau'; // défaut
   for (const [zone, zoneConfig] of Object.entries(config.deliveryZones)) {
     if (zoneConfig.keywords.some(keyword => type.includes(keyword))) {
-      return {
-        zone,
-        driverId: config.telegram[zoneConfig.driverIdKey],
-        driverName: zoneConfig.name
-      };
+      matchedZone = zone;
+      break;
     }
   }
-  
+
+  // Vérifier le planning du jour pour cette zone
+  const today = new Date().getDay(); // 0=dimanche, 1=lundi, ..., 6=samedi
+  try {
+    const scheduled = await db.get(`
+      SELECT ds.driver_id, d.name, d.telegram_id
+      FROM driver_schedule ds
+      JOIN drivers d ON d.id = ds.driver_id AND d.active = 1
+      WHERE ds.zone = ? AND ds.day_of_week = ?
+    `, [matchedZone, today]);
+
+    if (scheduled) {
+      return {
+        zone: matchedZone,
+        driverId: scheduled.telegram_id,
+        driverName: scheduled.name
+      };
+    }
+  } catch (err) {
+    console.error('Erreur lecture planning livreur:', err.message);
+  }
+
+  // Fallback: utiliser les IDs par défaut du .env
+  const zoneConfig = config.deliveryZones[matchedZone];
   return {
-    zone: 'millau',
-    driverId: config.telegram.driverMillauId,
-    driverName: 'Millau'
+    zone: matchedZone,
+    driverId: config.telegram[zoneConfig ? zoneConfig.driverIdKey : 'driverMillauId'],
+    driverName: zoneConfig ? zoneConfig.name : 'Millau'
   };
 }
 
@@ -1961,7 +2000,7 @@ ${items.map(item => `• ${item.name} - ${item.variant} ×${item.qty} = ${item.l
 }
 
 async function notifyNewOrder(order, items) {
-  const driverInfo = getDriverForDeliveryType(order.type);
+  const driverInfo = await getDriverForDeliveryType(order.type);
   const displayName = await getCustomerDisplayName(order.customer);
 
   if (config.telegram.supportChatId) {
@@ -2030,13 +2069,13 @@ ${order.discount > 0 ? `🎁 Remise fidélité: -${order.discount}€\n` : ''}�
   }
   
   // ==================== NOTIFICATION LIVREUR AUTO ====================
-  if (driverInfo.driverId) {
-    // Assigner la zone
-    await db.run(
-      'UPDATE orders SET assigned_driver_zone = ? WHERE id = ?',
-      [driverInfo.zone, order.id]
-    );
+  // Toujours assigner la zone (même sans livreur disponible)
+  await db.run(
+    'UPDATE orders SET assigned_driver_zone = ? WHERE id = ?',
+    [driverInfo.zone, order.id]
+  );
 
+  if (driverInfo.driverId) {
     // Envoyer la liste actualisée au livreur automatiquement
     try {
       await telegram.sendMessage(driverInfo.driverId, `🔔 <b>NOUVELLE COMMANDE #${order.id}</b> reçue !`);
@@ -2046,6 +2085,8 @@ ${order.discount > 0 ? `🎁 Remise fidélité: -${order.discount}€\n` : ''}�
     }
 
     console.log(`📦 Commande #${order.id} assignée à ${driverInfo.driverName} (${driverInfo.zone}) - livreur notifié`);
+  } else {
+    console.log(`⚠️ Commande #${order.id} zone ${driverInfo.zone} - aucun livreur configuré pour aujourd'hui`);
   }
 }
 
@@ -3100,6 +3141,107 @@ app.get('/api/admin/driver-caisse', requireAdmin, async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching driver caisse:', error);
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+// ==================== GESTION LIVREURS & PLANNING ====================
+
+// Liste des livreurs
+app.get('/api/admin/drivers', requireAdmin, async (req, res) => {
+  try {
+    const drivers = await db.all('SELECT * FROM drivers ORDER BY name');
+    res.json({ ok: true, drivers });
+  } catch (error) {
+    console.error('Error fetching drivers:', error);
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+// Ajouter un livreur
+app.post('/api/admin/drivers', requireAdmin, async (req, res) => {
+  try {
+    const { name, telegram_id } = req.body;
+    if (!name || !telegram_id) {
+      return res.status(400).json({ ok: false, error: 'Nom et Telegram ID requis' });
+    }
+    const result = await db.run(
+      'INSERT INTO drivers (name, telegram_id) VALUES (?, ?)',
+      [name.trim(), telegram_id.trim()]
+    );
+    res.json({ ok: true, id: result.lastID });
+  } catch (error) {
+    if (error.message.includes('UNIQUE')) {
+      return res.status(400).json({ ok: false, error: 'Ce Telegram ID existe déjà' });
+    }
+    console.error('Error adding driver:', error);
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+// Supprimer un livreur
+app.delete('/api/admin/drivers/:id', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await db.run('DELETE FROM driver_schedule WHERE driver_id = ?', [id]);
+    await db.run('DELETE FROM drivers WHERE id = ?', [id]);
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Error deleting driver:', error);
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+// Récupérer le planning de la semaine
+app.get('/api/admin/driver-schedule', requireAdmin, async (req, res) => {
+  try {
+    const schedule = await db.all(`
+      SELECT ds.id, ds.zone, ds.day_of_week, ds.driver_id, d.name as driver_name, d.telegram_id
+      FROM driver_schedule ds
+      LEFT JOIN drivers d ON d.id = ds.driver_id
+      WHERE d.id IS NOT NULL
+      ORDER BY ds.day_of_week, ds.zone
+    `);
+    res.json({ ok: true, schedule });
+  } catch (error) {
+    console.error('Error fetching schedule:', error);
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+// Mettre à jour le planning (assigner un livreur à une zone pour un jour)
+app.post('/api/admin/driver-schedule', requireAdmin, async (req, res) => {
+  try {
+    const { driver_id, zone, day_of_week } = req.body;
+    if (!zone || day_of_week === undefined || day_of_week === null) {
+      return res.status(400).json({ ok: false, error: 'Zone et jour requis' });
+    }
+    if (!['millau', 'exterieur'].includes(zone)) {
+      return res.status(400).json({ ok: false, error: 'Zone invalide' });
+    }
+    if (day_of_week < 0 || day_of_week > 6) {
+      return res.status(400).json({ ok: false, error: 'Jour invalide (0-6)' });
+    }
+
+    if (!driver_id) {
+      // Supprimer l'assignation pour ce jour/zone
+      await db.run('DELETE FROM driver_schedule WHERE zone = ? AND day_of_week = ?', [zone, day_of_week]);
+    } else {
+      // Vérifier que le livreur existe
+      const driver = await db.get('SELECT id FROM drivers WHERE id = ? AND active = 1', [driver_id]);
+      if (!driver) {
+        return res.status(400).json({ ok: false, error: 'Livreur introuvable ou inactif' });
+      }
+      // Upsert: remplacer l'assignation existante
+      await db.run(`
+        INSERT INTO driver_schedule (driver_id, zone, day_of_week) VALUES (?, ?, ?)
+        ON CONFLICT(zone, day_of_week) DO UPDATE SET driver_id = excluded.driver_id
+      `, [driver_id, zone, day_of_week]);
+    }
+
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Error updating schedule:', error);
     res.status(500).json({ ok: false, error: error.message });
   }
 });
@@ -4610,9 +4752,19 @@ if (config.telegram.token) {
 }
 
 // ==================== CLAVIER PERMANENT POUR CHAQUE UTILISATEUR ====================
-function getPermanentKeyboard(chatId) {
-  const isDriver = chatId.toString() === config.telegram.driverMillauId ||
-                   chatId.toString() === config.telegram.driverExterieurId;
+async function isDriverChatId(chatId) {
+  const chatStr = chatId.toString();
+  // Vérifier config .env
+  if (chatStr === config.telegram.driverMillauId || chatStr === config.telegram.driverExterieurId) return true;
+  // Vérifier dans la table drivers
+  try {
+    const driver = await db.get('SELECT id FROM drivers WHERE telegram_id = ? AND active = 1', [chatStr]);
+    return !!driver;
+  } catch (err) { return false; }
+}
+
+async function getPermanentKeyboard(chatId) {
+  const isDriver = await isDriverChatId(chatId);
   const userIsAdmin = isAdmin(chatId);
   const shopUrl = `${config.webapp.url}?tg_id=${chatId}`;
 
@@ -5978,7 +6130,7 @@ Tapez sur les boutons ci-dessous pour commencer ! 👇`;
   const shopUrl = `${config.webapp.url}?tg_id=${chatId}`;
   telegram.setChatMenuButton(chatId, shopUrl).catch(() => {});
 
-  const keyboard = getPermanentKeyboard(chatId);
+  const keyboard = await getPermanentKeyboard(chatId);
   const result = await telegram.sendMessage(chatId, text, { reply_markup: keyboard });
 
   // Si l'envoi avec clavier échoue (ex: URL web_app invalide), renvoyer sans clavier
@@ -6689,17 +6841,42 @@ Partagez dès maintenant ! 🚀`;
   }
 }
 
-async function sendDriverDeliveries(chatId) {
-  let driverZone = null;
-  if (chatId.toString() === config.telegram.driverMillauId) {
-    driverZone = 'millau';
-  } else if (chatId.toString() === config.telegram.driverExterieurId) {
-    driverZone = 'exterieur';
+// Résoudre les zones d'un livreur par son chatId (planning du jour + fallback config)
+async function getDriverZonesByChatId(chatId) {
+  const chatStr = chatId.toString();
+  const zones = [];
+
+  // 1) Vérifier dans le planning du jour (peut avoir 2 zones)
+  const today = new Date().getDay();
+  try {
+    const scheduled = await db.all(`
+      SELECT ds.zone FROM driver_schedule ds
+      JOIN drivers d ON d.id = ds.driver_id
+      WHERE d.telegram_id = ? AND ds.day_of_week = ?
+    `, [chatStr, today]);
+    for (const s of scheduled) {
+      if (!zones.includes(s.zone)) zones.push(s.zone);
+    }
+  } catch (err) {
+    console.error('Erreur getDriverZonesByChatId schedule:', err.message);
   }
-  
-  if (!driverZone) return;
-  
-  await sendDetailedDriverDeliveries(chatId, driverZone);
+
+  // 2) Fallback: IDs par défaut du .env (seulement si pas trouvé via planning)
+  if (zones.length === 0) {
+    if (chatStr === config.telegram.driverMillauId) zones.push('millau');
+    if (chatStr === config.telegram.driverExterieurId) zones.push('exterieur');
+  }
+
+  return zones;
+}
+
+async function sendDriverDeliveries(chatId) {
+  const zones = await getDriverZonesByChatId(chatId);
+  if (zones.length === 0) return;
+
+  for (const zone of zones) {
+    await sendDetailedDriverDeliveries(chatId, zone);
+  }
 }
 
 async function sendDetailedDriverDeliveries(chatId, driverZone) {
@@ -6793,32 +6970,29 @@ async function sendDetailedDriverDeliveries(chatId, driverZone) {
 }
 
 async function sendDriverStats(chatId) {
-  let driverZone = null;
-  if (chatId.toString() === config.telegram.driverMillauId) {
-    driverZone = 'millau';
-  } else if (chatId.toString() === config.telegram.driverExterieurId) {
-    driverZone = 'exterieur';
-  }
-  
-  if (!driverZone) return;
-  
-  const today = await db.get(`
-    SELECT COUNT(*) as count, SUM(total) as revenue
-    FROM orders 
-    WHERE status = 'delivered' 
-    AND assigned_driver_zone = ?
-    AND DATE(created_at) = DATE('now')
-  `, [driverZone]);
-  
-  const week = await db.get(`
-    SELECT COUNT(*) as count, SUM(total) as revenue
-    FROM orders 
-    WHERE status = 'delivered' 
-    AND assigned_driver_zone = ?
-    AND DATE(created_at) >= DATE('now', '-7 days')
-  `, [driverZone]);
-  
-  const message = `📊 <b>VOS STATISTIQUES (${driverZone.toUpperCase()})</b>
+  const zones = await getDriverZonesByChatId(chatId);
+  if (zones.length === 0) return;
+
+  let message = `📊 <b>VOS STATISTIQUES</b>\n`;
+
+  for (const driverZone of zones) {
+    const today = await db.get(`
+      SELECT COUNT(*) as count, SUM(total) as revenue
+      FROM orders
+      WHERE status = 'delivered'
+      AND assigned_driver_zone = ?
+      AND DATE(created_at) = DATE('now')
+    `, [driverZone]);
+
+    const week = await db.get(`
+      SELECT COUNT(*) as count, SUM(total) as revenue
+      FROM orders
+      WHERE status = 'delivered'
+      AND assigned_driver_zone = ?
+      AND DATE(created_at) >= DATE('now', '-7 days')
+    `, [driverZone]);
+
+    message += `\n━━━ ${driverZone.toUpperCase()} ━━━
 
 <b>📅 AUJOURD'HUI</b>
 🚚 Livraisons : ${today?.count || 0}
@@ -6827,88 +7001,85 @@ async function sendDriverStats(chatId) {
 <b>📈 CETTE SEMAINE</b>
 🚚 Livraisons : ${week?.count || 0}
 💰 CA : ${(week?.revenue || 0).toFixed(2)}€
+`;
+  }
 
-Continue comme ça ! 🚀`;
-  
+  message += `\nContinue comme ça ! 🚀`;
   await telegram.sendMessage(chatId, message);
 }
 
 async function sendDriverCaisse(chatId) {
-  let driverZone = null;
-  if (chatId.toString() === config.telegram.driverMillauId) {
-    driverZone = 'millau';
-  } else if (chatId.toString() === config.telegram.driverExterieurId) {
-    driverZone = 'exterieur';
-  }
+  const zones = await getDriverZonesByChatId(chatId);
+  if (zones.length === 0) return;
 
-  if (!driverZone) return;
+  for (const driverZone of zones) {
+    const deliveredOrders = await db.all(`
+      SELECT id, customer, address, items, total, created_at
+      FROM orders
+      WHERE status = 'delivered'
+      AND assigned_driver_zone = ?
+      AND DATE(created_at) >= DATE('now', '-30 days')
+      ORDER BY created_at DESC
+    `, [driverZone]);
 
-  const deliveredOrders = await db.all(`
-    SELECT id, customer, address, items, total, created_at
-    FROM orders
-    WHERE status = 'delivered'
-    AND assigned_driver_zone = ?
-    AND DATE(created_at) >= DATE('now', '-30 days')
-    ORDER BY created_at DESC
-  `, [driverZone]);
+    const totalCount = deliveredOrders.length;
+    const totalRevenue = deliveredOrders.reduce((sum, o) => sum + (o.total || 0), 0);
 
-  const totalCount = deliveredOrders.length;
-  const totalRevenue = deliveredOrders.reduce((sum, o) => sum + (o.total || 0), 0);
+    let message = `💰 <b>CAISSE LIVREUR (${driverZone.toUpperCase()})</b>\n`;
+    message += `━━━━━━━━━━━━━━━━━━━\n\n`;
+    message += `🚚 <b>Total livraisons :</b> ${totalCount}\n`;
+    message += `💶 <b>Total encaissé :</b> ${totalRevenue.toFixed(2)}€\n\n`;
+    message += `━━━━━━━━━━━━━━━━━━━\n`;
+    message += `📋 <b>DÉTAIL DES COMMANDES (30 derniers jours)</b>\n\n`;
 
-  let message = `💰 <b>CAISSE LIVREUR (${driverZone.toUpperCase()})</b>\n`;
-  message += `━━━━━━━━━━━━━━━━━━━\n\n`;
-  message += `🚚 <b>Total livraisons :</b> ${totalCount}\n`;
-  message += `💶 <b>Total encaissé :</b> ${totalRevenue.toFixed(2)}€\n\n`;
-  message += `━━━━━━━━━━━━━━━━━━━\n`;
-  message += `📋 <b>DÉTAIL DES COMMANDES (30 derniers jours)</b>\n\n`;
+    if (deliveredOrders.length === 0) {
+      message += `<i>Aucune livraison sur cette période</i>`;
+    } else {
+      deliveredOrders.forEach((order, index) => {
+        const items = JSON.parse(order.items || '[]');
+        const date = new Date(order.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
+        const time = new Date(order.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+        const itemsList = items.map(i => `${i.name} ${i.variant} ×${i.qty}`).join(', ');
 
-  if (deliveredOrders.length === 0) {
-    message += `<i>Aucune livraison sur cette période</i>`;
-  } else {
-    deliveredOrders.forEach((order, index) => {
-      const items = JSON.parse(order.items || '[]');
-      const date = new Date(order.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
-      const time = new Date(order.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-      const itemsList = items.map(i => `${i.name} ${i.variant} ×${i.qty}`).join(', ');
+        message += `${index + 1}. <b>#${order.id}</b> — ${date} ${time}\n`;
+        message += `   📦 ${itemsList}\n`;
+        message += `   📍 ${order.address}\n`;
+        message += `   💰 <b>${order.total}€</b>\n\n`;
+      });
+    }
 
-      message += `${index + 1}. <b>#${order.id}</b> — ${date} ${time}\n`;
-      message += `   📦 ${itemsList}\n`;
-      message += `   📍 ${order.address}\n`;
-      message += `   💰 <b>${order.total}€</b>\n\n`;
-    });
-  }
+    message += `━━━━━━━━━━━━━━━━━━━\n`;
+    message += `⚠️ <i>Remettez l'argent à l'admin régulièrement !</i>`;
 
-  message += `━━━━━━━━━━━━━━━━━━━\n`;
-  message += `⚠️ <i>Remettez l'argent à l'admin régulièrement !</i>`;
+    // Telegram a une limite de 4096 caractères par message
+    if (message.length > 4000) {
+      const header = `💰 <b>CAISSE LIVREUR (${driverZone.toUpperCase()})</b>\n━━━━━━━━━━━━━━━━━━━\n\n🚚 <b>Total livraisons :</b> ${totalCount}\n💶 <b>Total encaissé :</b> ${totalRevenue.toFixed(2)}€\n\n━━━━━━━━━━━━━━━━━━━\n📋 <b>DÉTAIL DES COMMANDES (30 derniers jours)</b>\n\n`;
+      await telegram.sendMessage(chatId, header);
 
-  // Telegram a une limite de 4096 caractères par message
-  if (message.length > 4000) {
-    const header = `💰 <b>CAISSE LIVREUR (${driverZone.toUpperCase()})</b>\n━━━━━━━━━━━━━━━━━━━\n\n🚚 <b>Total livraisons :</b> ${totalCount}\n💶 <b>Total encaissé :</b> ${totalRevenue.toFixed(2)}€\n\n━━━━━━━━━━━━━━━━━━━\n📋 <b>DÉTAIL DES COMMANDES (30 derniers jours)</b>\n\n`;
-    await telegram.sendMessage(chatId, header);
+      let chunk = '';
+      for (let i = 0; i < deliveredOrders.length; i++) {
+        const order = deliveredOrders[i];
+        const items = JSON.parse(order.items || '[]');
+        const date = new Date(order.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
+        const time = new Date(order.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+        const itemsList = items.map(it => `${it.name} ${it.variant} ×${it.qty}`).join(', ');
 
-    let chunk = '';
-    for (let i = 0; i < deliveredOrders.length; i++) {
-      const order = deliveredOrders[i];
-      const items = JSON.parse(order.items || '[]');
-      const date = new Date(order.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
-      const time = new Date(order.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-      const itemsList = items.map(it => `${it.name} ${it.variant} ×${it.qty}`).join(', ');
+        const line = `${i + 1}. <b>#${order.id}</b> — ${date} ${time}\n   📦 ${itemsList}\n   📍 ${order.address}\n   💰 <b>${order.total}€</b>\n\n`;
 
-      const line = `${i + 1}. <b>#${order.id}</b> — ${date} ${time}\n   📦 ${itemsList}\n   📍 ${order.address}\n   💰 <b>${order.total}€</b>\n\n`;
-
-      if ((chunk + line).length > 3800) {
-        await telegram.sendMessage(chatId, chunk);
-        chunk = '';
+        if ((chunk + line).length > 3800) {
+          await telegram.sendMessage(chatId, chunk);
+          chunk = '';
+        }
+        chunk += line;
       }
-      chunk += line;
-    }
 
-    if (chunk) {
-      chunk += `━━━━━━━━━━━━━━━━━━━\n⚠️ <i>Remettez l'argent à l'admin régulièrement !</i>`;
-      await telegram.sendMessage(chatId, chunk);
+      if (chunk) {
+        chunk += `━━━━━━━━━━━━━━━━━━━\n⚠️ <i>Remettez l'argent à l'admin régulièrement !</i>`;
+        await telegram.sendMessage(chatId, chunk);
+      }
+    } else {
+      await telegram.sendMessage(chatId, message);
     }
-  } else {
-    await telegram.sendMessage(chatId, message);
   }
 }
 
@@ -7473,8 +7644,22 @@ Le client ne peut plus commander.`;
     if (cancelledOrders.length > 0) {
       const zones = [...new Set(cancelledOrders.map(o => o.assigned_driver_zone).filter(Boolean))];
       for (const zone of zones) {
-        const driverIdKey = zone === 'millau' ? 'driverMillauId' : 'driverExterieurId';
-        const driverId = config.telegram[driverIdKey];
+        // Chercher le livreur planifié aujourd'hui pour cette zone
+        const today = new Date().getDay();
+        let driverId = null;
+        try {
+          const scheduled = await db.get(`
+            SELECT d.telegram_id FROM driver_schedule ds
+            JOIN drivers d ON d.id = ds.driver_id
+            WHERE ds.zone = ? AND ds.day_of_week = ?
+          `, [zone, today]);
+          if (scheduled) driverId = scheduled.telegram_id;
+        } catch (err) { /* ignore */ }
+        // Fallback config
+        if (!driverId) {
+          const driverIdKey = zone === 'millau' ? 'driverMillauId' : 'driverExterieurId';
+          driverId = config.telegram[driverIdKey];
+        }
         if (driverId) {
           try {
             await telegram.sendMessage(driverId, `🚫 ${cancelledOrders.length} commande(s) annulée(s) (client bloqué)`);
@@ -7861,6 +8046,17 @@ async function start() {
         if (driverExtId && Number.isFinite(driverExtId) && config.telegram.driverExterieurId !== '0') {
           await telegram.setMyCommands(driverCommands, { type: 'chat', chat_id: driverExtId });
         }
+
+        // Configurer les commandes pour les livreurs enregistrés en DB
+        try {
+          const dbDrivers = await db.all('SELECT telegram_id FROM drivers WHERE active = 1');
+          for (const drv of dbDrivers) {
+            const drvId = parseInt(drv.telegram_id);
+            if (drvId && Number.isFinite(drvId)) {
+              await telegram.setMyCommands(driverCommands, { type: 'chat', chat_id: drvId });
+            }
+          }
+        } catch (err) { console.error('Error setting DB driver commands:', err.message); }
 
         // Commandes spécifiques aux admins
         const adminIds = getAdminChatIds();
