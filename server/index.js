@@ -36,7 +36,7 @@ const config = {
   },
   admin: {
     password: process.env.ADMIN_PASS,
-    tokenExpiry: 24 * 60 * 60 * 1000,
+    tokenExpiry: 2 * 60 * 60 * 1000, // 2 heures
   },
   webapp: {
     url: process.env.WEBAPP_URL || 'https://shop-2-production-2d5f.up.railway.app',
@@ -106,7 +106,7 @@ const apiLimiter = rateLimit({
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
+  max: 5,
   message: { ok: false, error: 'Trop de tentatives de connexion' },
   validate: false,
   standardHeaders: true,
@@ -114,8 +114,12 @@ const authLimiter = rateLimit({
 });
 
 // ==================== MIDDLEWARE ====================
+const allowedOrigins = [config.webapp.url];
+if (process.env.NODE_ENV !== 'production') {
+  allowedOrigins.push('http://localhost:3000');
+}
 app.use(cors({
-  origin: [config.webapp.url, 'http://localhost:3000'],
+  origin: allowedOrigins,
   credentials: true
 }));
 app.use(express.json({ limit: '10mb' }));
@@ -3006,10 +3010,18 @@ app.post('/api/validate-referral', apiLimiter, async (req, res) => {
 
 app.get('/api/referral-stats', apiLimiter, async (req, res) => {
   try {
-    const { customer } = req.query;
+    const { customer, initData } = req.query;
 
     if (!customer) {
       return res.status(400).json({ ok: false, error: 'Contact client manquant' });
+    }
+
+    // Vérifier que le demandeur est bien le propriétaire des données
+    if (initData) {
+      const validatedUser = validateTelegramInitData(initData);
+      if (!validatedUser || String(validatedUser.id) !== String(customer)) {
+        return res.status(403).json({ ok: false, error: 'Non autorisé' });
+      }
     }
 
     const stats = await getReferralStats(customer);
@@ -3081,10 +3093,18 @@ app.get('/api/referral-leaderboard', apiLimiter, async (req, res) => {
 
 app.get('/api/credit-balance', apiLimiter, async (req, res) => {
   try {
-    const { customer } = req.query;
+    const { customer, initData } = req.query;
 
     if (!customer) {
       return res.status(400).json({ ok: false, error: 'Contact client manquant' });
+    }
+
+    // Vérifier que le demandeur est bien le propriétaire des données
+    if (initData) {
+      const validatedUser = validateTelegramInitData(initData);
+      if (!validatedUser || String(validatedUser.id) !== String(customer)) {
+        return res.status(403).json({ ok: false, error: 'Non autorisé' });
+      }
     }
 
     const referral = await db.get(
@@ -4887,11 +4907,6 @@ if (config.telegram.token) {
         res.sendStatus(500);
       }
     }
-
-    // Test endpoint pour vérifier que la route fonctionne
-    app.get('/telegram-webhook', (req, res) => {
-      res.json({ ok: true, message: 'Webhook endpoint is working' });
-    });
 
     // Endpoint principal du webhook (protégé par le secret token)
     app.post('/telegram-webhook', handleWebhookRequest);
