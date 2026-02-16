@@ -261,8 +261,9 @@ async function verifyAdminPassword(password) {
   return bcrypt.compare(password || '', adminPasswordHash);
 }
 
-// Admins authentifiés en session (via /adminlogin)
-const sessionAdmins = new Set();
+// Admins authentifiés en session (via /adminlogin) — avec expiration automatique
+const SESSION_ADMIN_EXPIRY_MS = 60 * 60 * 1000; // 1 heure
+const sessionAdmins = new Map(); // chatId -> timestamp d'expiration
 
 // État conversationnel pour les admins (chatId -> { action, step, data })
 const adminStates = new Map();
@@ -275,8 +276,13 @@ function getAdminChatIds() {
 // Helper pour vérifier si un utilisateur est admin
 function isAdmin(chatId) {
   const chatIdStr = chatId.toString();
-  // Vérifier d'abord les admins connectés en session
-  if (sessionAdmins.has(chatIdStr)) return true;
+  // Vérifier d'abord les admins connectés en session (avec expiration)
+  const sessionExpiry = sessionAdmins.get(chatIdStr);
+  if (sessionExpiry) {
+    if (Date.now() < sessionExpiry) return true;
+    // Session expirée → supprimer
+    sessionAdmins.delete(chatIdStr);
+  }
   // Ensuite vérifier l'env
   const adminIds = getAdminChatIds();
   return adminIds.includes(chatIdStr);
@@ -4861,7 +4867,7 @@ if (config.telegram.token) {
         return res.sendStatus(403);
       }
 
-      console.log('📥 Webhook reçu:', JSON.stringify(req.body).substring(0, 200));
+      console.log('📥 Webhook reçu');
 
       try {
         const { message, callback_query } = req.body;
@@ -4887,11 +4893,8 @@ if (config.telegram.token) {
       res.json({ ok: true, message: 'Webhook endpoint is working' });
     });
 
-    // Endpoint principal du webhook
+    // Endpoint principal du webhook (protégé par le secret token)
     app.post('/telegram-webhook', handleWebhookRequest);
-
-    // Endpoint alternatif compatible bot.js (au cas où le webhook Telegram pointe vers /bot<TOKEN>)
-    app.post(`/bot${config.telegram.token}`, handleWebhookRequest);
 
     // Route /setup-webhook protégée par authentification admin
     app.post('/setup-webhook', requireAdmin, async (req, res) => {
@@ -4905,7 +4908,7 @@ if (config.telegram.token) {
     });
 
     console.log('✅ Telegram bot webhook configured successfully');
-    console.log(`   📡 Endpoints: /telegram-webhook + /bot<TOKEN>`);
+    console.log(`   📡 Endpoint: /telegram-webhook`);
   } catch (error) {
     console.error('❌ Failed to configure Telegram bot:', error.message);
     console.error(error.stack);
@@ -5843,8 +5846,8 @@ async function handleTelegramMessage(message) {
     const password = text.substring(12).trim();
     const isValid = await verifyAdminPassword(password);
     if (isValid) {
-      sessionAdmins.add(chatId.toString());
-      console.log(`✅ Admin login success for chatId ${chatId} | sessionAdmins=[${[...sessionAdmins].join(',')}]`);
+      sessionAdmins.set(chatId.toString(), Date.now() + SESSION_ADMIN_EXPIRY_MS);
+      console.log(`✅ Admin login success for chatId ${chatId}`);
       await telegram.sendMessage(chatId, `✅ Authentification réussie !`);
       // Afficher directement le panel admin bot
       await sendAdminBotPanel(chatId);
@@ -5862,13 +5865,13 @@ async function handleTelegramMessage(message) {
     await sendShopMessage(chatId);
     return;
   } else if (text === '/admin') {
-    console.log(`🔐 /admin from ${chatId} | isAdmin=${isAdmin(chatId)} | sessionAdmins=[${[...sessionAdmins].join(',')}] | envAdmins=[${getAdminChatIds().join(',')}]`);
+    console.log(`🔐 /admin from ${chatId} | isAdmin=${isAdmin(chatId)}`);
     if (isAdmin(chatId)) {
       try {
         await sendAdminMessage(chatId);
       } catch (err) {
         console.error('❌ sendAdminMessage error:', err);
-        await telegram.sendMessage(chatId, `❌ Erreur panneau admin: ${err.message}`);
+        await telegram.sendMessage(chatId, '❌ Erreur panneau admin. Réessayez.');
       }
     } else {
       await telegram.sendMessage(chatId, `⛔ Accès refusé.\n\nTapez /adminlogin <mot_de_passe> pour vous connecter.`);
@@ -5891,6 +5894,16 @@ async function handleTelegramMessage(message) {
     return;
   } else if (text === '/stop') {
     await stopUserConversations(chatId);
+    return;
+  } else if (text === '/logout') {
+    const chatIdStr = chatId.toString();
+    if (sessionAdmins.has(chatIdStr)) {
+      sessionAdmins.delete(chatIdStr);
+      adminStates.delete(chatIdStr);
+      await telegram.sendMessage(chatId, '🔒 Déconnexion admin réussie.');
+    } else {
+      await telegram.sendMessage(chatId, 'Vous n\'étiez pas connecté en tant qu\'admin.');
+    }
     return;
   } else if (text === '/zones' && isAdmin(chatId)) {
     await sendZoneStats(chatId);
