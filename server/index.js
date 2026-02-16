@@ -1580,6 +1580,31 @@ async function getDriverForDeliveryType(deliveryType) {
   };
 }
 
+async function getDriverForDeliveryZone(zone) {
+  const today = new Date().getDay();
+  try {
+    const scheduled = await db.get(`
+      SELECT ds.driver_id, d.name, d.telegram_id
+      FROM driver_schedule ds
+      JOIN drivers d ON d.id = ds.driver_id AND d.active = 1
+      WHERE ds.zone = ? AND ds.day_of_week = ?
+    `, [zone, today]);
+
+    if (scheduled) {
+      return { zone, driverId: scheduled.telegram_id, driverName: scheduled.name };
+    }
+  } catch (err) {
+    console.error('Erreur lecture planning livreur:', err.message);
+  }
+
+  const zoneConfig = config.deliveryZones[zone];
+  return {
+    zone,
+    driverId: config.telegram[zoneConfig ? zoneConfig.driverIdKey : 'driverMillauId'],
+    driverName: zoneConfig ? zoneConfig.name : 'Millau'
+  };
+}
+
 // ==================== CUSTOMER VALIDATION ====================
 async function getOrCreateCustomer(contact) {
   // INSERT OR IGNORE atomique pour éviter la race condition entre SELECT et INSERT
@@ -3430,7 +3455,7 @@ app.put('/api/admin/orders/:id', requireAdmin, async (req, res) => {
     const body = req.body;
 
     // Whitelist des champs autorisés pour éviter l'injection SQL
-    const allowedFields = ['status', 'type', 'address', 'total', 'discount', 'notes', 'driver_zone', 'assigned_driver'];
+    const allowedFields = ['status', 'type', 'address', 'total', 'discount', 'notes', 'driver_zone', 'assigned_driver', 'assigned_driver_zone'];
     const updates = {};
     for (const key of allowedFields) {
       if (body[key] !== undefined) {
@@ -3495,7 +3520,24 @@ app.put('/api/admin/orders/:id', requireAdmin, async (req, res) => {
       }
     }
 
-    res.json({ ok: true });
+    // Notification livreur si la zone a changé
+    let driverNotified = false;
+    if (updates.assigned_driver_zone && oldOrder) {
+      const oldZone = (await db.get('SELECT assigned_driver_zone FROM orders WHERE id = ?', [id]))?.assigned_driver_zone;
+      try {
+        const driverInfo = await getDriverForDeliveryZone(updates.assigned_driver_zone);
+        if (driverInfo && driverInfo.driverId) {
+          await telegram.sendMessage(driverInfo.driverId, `🔔 <b>COMMANDE #${id} REASSIGNÉE</b>\n\nCette commande vous a été assignée par l'admin.\nZone: ${updates.assigned_driver_zone.toUpperCase()}`);
+          await sendDetailedDriverDeliveries(driverInfo.driverId, updates.assigned_driver_zone);
+          driverNotified = true;
+          console.log(`📦 Commande #${id} réassignée à zone ${updates.assigned_driver_zone} - livreur notifié`);
+        }
+      } catch (err) {
+        console.error('Erreur notification livreur lors réassignation:', err.message);
+      }
+    }
+
+    res.json({ ok: true, driver_notified: driverNotified });
   } catch (error) {
     console.error('Update order error:', error);
     res.status(500).json({ ok: false, error: 'Erreur serveur' });
