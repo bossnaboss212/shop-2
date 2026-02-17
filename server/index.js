@@ -2703,27 +2703,73 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
     }
     const deliveryFee = serverZone ? serverZone.fee : 0;
 
-    // Valider que la zone correspond au code postal du client
+    // Valider que la zone correspond au code postal / commune du client
     const postalCodeMinZone = {
       '12100': 'millau',
       '12520': 'zone 1', '12640': 'zone 1',
       '12400': 'zone 2', '12490': 'zone 2', '12150': 'zone 2', '12410': 'zone 2',
       '12620': 'zone 2', '12230': 'zone 2', '12250': 'zone 2', '12720': 'zone 2',
+      '12170': 'zone 3', '12290': 'zone 3', '12780': 'zone 3',
       '12360': 'zone 3', '12370': 'zone 3', '12540': 'zone 3',
       '12550': 'zone 3', '12380': 'zone 3', '12480': 'zone 3',
       '12000': 'zone 4', '12850': 'zone 4', '12800': 'zone 4',
       '12500': 'zone 4', '48500': 'zone 4', '48100': 'zone 4',
     };
+    const communeZone = {
+      'Millau': 'millau',
+      'Aguessac': 'zone 1', 'Comprégnac': 'zone 1', 'Compeyre': 'zone 1', 'Creissels': 'zone 1',
+      'La Cresse': 'zone 1', 'Paulhe': 'zone 1', 'Rivière-sur-Tarn': 'zone 1',
+      'Saint-Georges-de-Luzençon': 'zone 1', 'Verrières': 'zone 1',
+      'La Roque-Sainte-Marguerite': 'zone 2', 'Mostuéjouls': 'zone 2', 'Peyreleau': 'zone 2',
+      'Saint-André-de-Vézines': 'zone 2', 'Veyreau': 'zone 2',
+      'La Bastide-Pradines': 'zone 2', 'La Cavalerie': 'zone 2', 'Cornus': 'zone 2',
+      'La Couvertoirade': 'zone 2', "L'Hospitalet-du-Larzac": 'zone 2', 'Lapanouse-de-Cernon': 'zone 2',
+      'Nant': 'zone 2', 'Roquefort-sur-Soulzon': 'zone 2', 'Saint-Beaulize': 'zone 2',
+      'Sainte-Eulalie-de-Cernon': 'zone 2', "Saint-Jean-d'Alcapiès": 'zone 2',
+      'Saint-Jean-du-Bruel': 'zone 2', 'Saint-Jean-et-Saint-Paul': 'zone 2',
+      'Saint-Rome-de-Cernon': 'zone 2', 'Sauclières': 'zone 2', 'Tournemire': 'zone 2',
+      'Viala-du-Pas-de-Jaux': 'zone 2',
+      'Alrance': 'zone 2', 'Castelnau-Pégayrols': 'zone 2', 'Comps-la-Grand-Ville': 'zone 2',
+      'Curan': 'zone 2', 'Flavin': 'zone 2', 'Saint-Beauzély': 'zone 2',
+      'Saint-Laurent-de-Lévézou': 'zone 2', 'Salles-Curan': 'zone 2', 'Villefranche-de-Panat': 'zone 2',
+      'Les Costes-Gozon': 'zone 2', 'Le Truel': 'zone 2', 'Montjaux': 'zone 2',
+      'Peux-et-Couffouleux': 'zone 2', 'Saint-Rome-de-Tarn': 'zone 2',
+      'Saint-Victor-et-Melvieu': 'zone 2', 'Viala-du-Tarn': 'zone 2',
+      'Calmels-et-le-Viala': 'zone 2', 'Le Clapier': 'zone 2', 'Montclar': 'zone 2',
+      'Saint-Affrique': 'zone 2', "Vabres-l'Abbaye": 'zone 2',
+      'Arnac-sur-Dourdou': 'zone 3', 'Brusque': 'zone 3', 'Camarès': 'zone 3', 'Combret': 'zone 3',
+      'Fayet': 'zone 3', 'Montagnol': 'zone 3', 'Montlaur': 'zone 3', 'Mounes-Prohencoux': 'zone 3',
+      'Plaisance': 'zone 3', 'Saint-Félix-de-Sorgues': 'zone 3', 'Saint-Sever-du-Moustier': 'zone 3',
+      'La Serre': 'zone 3', 'Sylvanès': 'zone 3', 'Tauriac-de-Camarès': 'zone 3',
+      'La Bastide-Solages': 'zone 3', 'Belmont-sur-Rance': 'zone 3', 'Coupiac': 'zone 3',
+      'Laval-Roquecezière': 'zone 3', 'Martrin': 'zone 3', 'Murasson': 'zone 3',
+      'Balaguier-sur-Rance': 'zone 3', 'Brasc': 'zone 3', 'Connac': 'zone 3', 'Gissac': 'zone 3',
+      'Marnhagues-et-Latour': 'zone 3', 'Montfranc': 'zone 3', 'Pousthomy': 'zone 3',
+      'Rebourguil': 'zone 3', 'Saint-Sernin-sur-Rance': 'zone 3', 'La Selve': 'zone 3',
+      'Versols-et-Lapeyre': 'zone 3',
+      'Fondamente': 'zone 3', 'Mélagues': 'zone 3',
+      'Ayssènes': 'zone 3', 'Broquiès': 'zone 3', 'Brousse-le-Château': 'zone 3', 'Saint-Izaire': 'zone 3',
+      'Arques': 'zone 3', 'Auriac-Lagast': 'zone 3', 'Durenque': 'zone 3', 'Lédergues': 'zone 3',
+      'Lestrade-et-Thouels': 'zone 3', 'Réquista': 'zone 3', 'Rullac-Saint-Cirq': 'zone 3',
+      'Saint-Jean-Delnous': 'zone 3', 'Saint-Juéry': 'zone 3', 'Salmiech': 'zone 3',
+      "Agen-d'Aveyron": 'zone 3', 'Arvieu': 'zone 3', 'Pont-de-Salars': 'zone 3',
+      'Canet-de-Salars': 'zone 3', 'Ségur': 'zone 3', 'Prades-Salars': 'zone 3',
+      'Trémouilles': 'zone 3', 'Le Vibal': 'zone 3', 'Saint-Léons': 'zone 3',
+      'Vézins-de-Lévézou': 'zone 3',
+    };
     const cityStr = (city || '').trim();
     const cpServerMatch = cityStr.match(/\((\d{5})\)/);
+    const communeServerMatch = cityStr.match(/^(.+?)\s*\(/);
+    const communeName = communeServerMatch ? communeServerMatch[1].trim() : '';
     if (cpServerMatch) {
       const cp = cpServerMatch[1];
-      const requiredZoneKey = postalCodeMinZone[cp] || 'zone 4';
+      // Priorité à la commune, sinon fallback au code postal
+      const requiredZoneKey = (communeName && communeZone[communeName]) || postalCodeMinZone[cp] || 'zone 4';
       const requiredZone = deliveryZoneRules[requiredZoneKey];
       const selectedLevel = serverZone ? serverZone.level : 0;
       if (requiredZone && selectedLevel < requiredZone.level) {
-        console.warn(`⚠️ Zone incorrecte: CP ${cp} nécessite ${requiredZoneKey}, client a sélectionné ${serverZoneKey || 'millau'}`);
-        return res.status(400).json({ ok: false, error: `Votre ville (${cp}) nécessite au minimum la ${requiredZoneKey}. Rechargez la page.` });
+        console.warn(`⚠️ Zone incorrecte: ${communeName || cp} nécessite ${requiredZoneKey}, client a sélectionné ${serverZoneKey || 'millau'}`);
+        return res.status(400).json({ ok: false, error: `Votre ville (${communeName || cp}) nécessite au minimum la ${requiredZoneKey}. Rechargez la page.` });
       }
     }
 

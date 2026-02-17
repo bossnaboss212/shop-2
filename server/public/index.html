@@ -3817,26 +3817,90 @@ let customerDescription = '';
 // Configuration des zones de livraison
 const DELIVERY_ZONES = {
   millau: { name: 'Millau', fee: 0, min: 0 },
-  zone1: { name: 'Zone 1 (Aguessac, St Georges...)', fee: 10, min: 50 },
-  zone2: { name: 'Zone 2 (St Affrigue...)', fee: 20, min: 80 },
+  zone1: { name: 'Zone 1 (Aguessac, Creissels...)', fee: 10, min: 50 },
+  zone2: { name: 'Zone 2 (Nant, St Affrique...)', fee: 20, min: 80 },
   zone3: { name: 'Zone 3 (Camarès, Belmont...)', fee: 30, min: 100 },
   zone4: { name: 'Zone 4 (Rodez, Espalion...)', fee: 40, min: 150 }
 };
 
-// Mapping code postal → zone minimum de livraison
+// Mapping code postal → zone minimum de livraison (fallback si commune non trouvée)
 const POSTAL_CODE_MIN_ZONE = {
   '12100': 'millau',
   '12520': 'zone1', '12640': 'zone1',
   '12400': 'zone2', '12490': 'zone2', '12150': 'zone2', '12410': 'zone2',
   '12620': 'zone2', '12230': 'zone2', '12250': 'zone2', '12720': 'zone2',
+  '12170': 'zone3', '12290': 'zone3', '12780': 'zone3',
   '12360': 'zone3', '12370': 'zone3', '12540': 'zone3',
   '12550': 'zone3', '12380': 'zone3', '12480': 'zone3',
   '12000': 'zone4', '12850': 'zone4', '12800': 'zone4',
   '12500': 'zone4', '48500': 'zone4', '48100': 'zone4',
 };
+
+// Mapping commune → zone (prioritaire sur le code postal)
+const COMMUNE_ZONE = {
+  // Zone 0 — Millau
+  'Millau': 'millau',
+  // Zone 1 — Périphérie immédiate
+  'Aguessac': 'zone1', 'Comprégnac': 'zone1', 'Compeyre': 'zone1', 'Creissels': 'zone1',
+  'La Cresse': 'zone1', 'Paulhe': 'zone1', 'Rivière-sur-Tarn': 'zone1',
+  'Saint-Georges-de-Luzençon': 'zone1', 'Verrières': 'zone1',
+  // Zone 2 — Gorges / Causses
+  'La Roque-Sainte-Marguerite': 'zone2', 'Mostuéjouls': 'zone2', 'Peyreleau': 'zone2',
+  'Saint-André-de-Vézines': 'zone2', 'Veyreau': 'zone2',
+  // Zone 2 — Larzac / Sud
+  'La Bastide-Pradines': 'zone2', 'La Cavalerie': 'zone2', 'Cornus': 'zone2',
+  'La Couvertoirade': 'zone2', "L'Hospitalet-du-Larzac": 'zone2', 'Lapanouse-de-Cernon': 'zone2',
+  'Nant': 'zone2', 'Roquefort-sur-Soulzon': 'zone2', 'Saint-Beaulize': 'zone2',
+  'Sainte-Eulalie-de-Cernon': 'zone2', "Saint-Jean-d'Alcapiès": 'zone2',
+  'Saint-Jean-du-Bruel': 'zone2', 'Saint-Jean-et-Saint-Paul': 'zone2',
+  'Saint-Rome-de-Cernon': 'zone2', 'Sauclières': 'zone2', 'Tournemire': 'zone2',
+  'Viala-du-Pas-de-Jaux': 'zone2',
+  // Zone 2 — Lévézou / Nord
+  'Alrance': 'zone2', 'Castelnau-Pégayrols': 'zone2', 'Comps-la-Grand-Ville': 'zone2',
+  'Curan': 'zone2', 'Flavin': 'zone2', 'Saint-Beauzély': 'zone2',
+  'Saint-Laurent-de-Lévézou': 'zone2', 'Salles-Curan': 'zone2', 'Villefranche-de-Panat': 'zone2',
+  // Zone 2 — Tarn / Ouest
+  'Les Costes-Gozon': 'zone2', 'Le Truel': 'zone2', 'Montjaux': 'zone2',
+  'Peux-et-Couffouleux': 'zone2', 'Saint-Rome-de-Tarn': 'zone2',
+  'Saint-Victor-et-Melvieu': 'zone2', 'Viala-du-Tarn': 'zone2',
+  // Zone 2 — Saint-Affrique
+  'Calmels-et-le-Viala': 'zone2', 'Le Clapier': 'zone2', 'Montclar': 'zone2',
+  'Saint-Affrique': 'zone2', "Vabres-l'Abbaye": 'zone2',
+  // Zone 3 — Camarès
+  'Arnac-sur-Dourdou': 'zone3', 'Brusque': 'zone3', 'Camarès': 'zone3', 'Combret': 'zone3',
+  'Fayet': 'zone3', 'Montagnol': 'zone3', 'Montlaur': 'zone3', 'Mounes-Prohencoux': 'zone3',
+  'Plaisance': 'zone3', 'Saint-Félix-de-Sorgues': 'zone3', 'Saint-Sever-du-Moustier': 'zone3',
+  'La Serre': 'zone3', 'Sylvanès': 'zone3', 'Tauriac-de-Camarès': 'zone3',
+  // Zone 3 — Belmont / Coupiac
+  'La Bastide-Solages': 'zone3', 'Belmont-sur-Rance': 'zone3', 'Coupiac': 'zone3',
+  'Laval-Roquecezière': 'zone3', 'Martrin': 'zone3', 'Murasson': 'zone3',
+  // Zone 3 — Saint-Sernin
+  'Balaguier-sur-Rance': 'zone3', 'Brasc': 'zone3', 'Connac': 'zone3', 'Gissac': 'zone3',
+  'Marnhagues-et-Latour': 'zone3', 'Montfranc': 'zone3', 'Pousthomy': 'zone3',
+  'Rebourguil': 'zone3', 'Saint-Sernin-sur-Rance': 'zone3', 'La Selve': 'zone3',
+  'Versols-et-Lapeyre': 'zone3',
+  // Zone 3 — Fondamente
+  'Fondamente': 'zone3', 'Mélagues': 'zone3',
+  // Zone 3 — Broquiès / Brousse
+  'Ayssènes': 'zone3', 'Broquiès': 'zone3', 'Brousse-le-Château': 'zone3', 'Saint-Izaire': 'zone3',
+  // Zone 3 — Réquista
+  'Arques': 'zone3', 'Auriac-Lagast': 'zone3', 'Durenque': 'zone3', 'Lédergues': 'zone3',
+  'Lestrade-et-Thouels': 'zone3', 'Réquista': 'zone3', 'Rullac-Saint-Cirq': 'zone3',
+  'Saint-Jean-Delnous': 'zone3', 'Saint-Juéry': 'zone3', 'Salmiech': 'zone3',
+  // Zone 3 — Agen / Arvieu / Lévézou éloigné
+  "Agen-d'Aveyron": 'zone3', 'Arvieu': 'zone3', 'Pont-de-Salars': 'zone3',
+  'Canet-de-Salars': 'zone3', 'Ségur': 'zone3', 'Prades-Salars': 'zone3',
+  'Trémouilles': 'zone3', 'Le Vibal': 'zone3', 'Saint-Léons': 'zone3',
+  'Vézins-de-Lévézou': 'zone3',
+};
+
 const ZONE_LEVELS = { millau: 0, zone1: 1, zone2: 2, zone3: 3, zone4: 4 };
 
-function getMinZoneForPostalCode(cp) {
+function getMinZoneForPostalCode(cp, commune) {
+  if (commune) {
+    const z = COMMUNE_ZONE[commune.trim()];
+    if (z) return z;
+  }
   if (!cp) return null;
   return POSTAL_CODE_MIN_ZONE[cp] || 'zone4';
 }
@@ -3844,57 +3908,57 @@ function getMinZoneForPostalCode(cp) {
 // Codes postaux Aveyron (12) et Lozère (48) avec villes principales
 const CODES_POSTAUX = {
   "12000": "Rodez, Onet-le-Château",
-  "12100": "Millau, Creissels",
+  "12100": "Millau, Creissels, Comprégnac, Saint-Georges-de-Luzençon, La Roque-Sainte-Marguerite",
   "12110": "Viviez, Aubin, Cransac",
-  "12120": "Cassagnes-Bégonhès, Arvieu",
+  "12120": "Cassagnes-Bégonhès, Arvieu, Comps-la-Grand-Ville, Auriac-Lagast, Rullac-Saint-Cirq, Salmiech",
   "12130": "Saint-Geniez-d'Olt, Pierrefiche",
   "12140": "Entraygues-sur-Truyère, Golinhac",
   "12150": "Sévérac-d'Aveyron, Lavernhe",
   "12160": "Baraqueville, Moyrazès",
-  "12170": "Réquista, Durenque",
+  "12170": "Réquista, Durenque, Connac, Saint-Jean-Delnous, La Selve",
   "12190": "Estaing, Coubisou",
   "12200": "Villefranche-de-Rouergue, La Rouquette",
   "12210": "Laguiole, Montpeyroux",
   "12220": "Montbazens, Lugan",
-  "12230": "Nant, La Cavalerie, L'Hospitalet-du-Larzac",
+  "12230": "Nant, La Cavalerie, L'Hospitalet-du-Larzac, La Couvertoirade, Sauclières, Saint-Jean-du-Bruel, Lapanouse-de-Cernon, Sainte-Eulalie-de-Cernon",
   "12240": "Rieupeyroux, La Salvetat-Peyralès",
-  "12250": "Roquefort-sur-Soulzon, Tournemire, Saint-Jean-d'Alcapiès",
+  "12250": "Roquefort-sur-Soulzon, Tournemire, Saint-Jean-d'Alcapiès, Saint-Jean-et-Saint-Paul, Viala-du-Pas-de-Jaux",
   "12260": "Villeneuve, Salles-Courbatiès",
   "12270": "Najac, La Fouillade",
-  "12290": "Pont-de-Salars, Canet-de-Salars",
+  "12290": "Pont-de-Salars, Canet-de-Salars, Prades-Salars, Trémouilles, Le Vibal, Ségur, Arques",
   "12300": "Decazeville, Firmi, Livinhac-le-Haut",
   "12310": "Laissac-Sévérac, Bertholène",
   "12320": "Saint-Félix-de-Lunel, Conques-en-Rouergue",
   "12330": "Clairvaux-d'Aveyron, Marcillac-Vallon, Salles-la-Source, Valady",
   "12340": "Bozouls, Gabriac",
   "12350": "Maleville",
-  "12360": "Camarès, Montlaur",
-  "12370": "Belmont-sur-Rance, Murasson",
-  "12380": "Saint-Sernin-sur-Rance, Balaguier-sur-Rance",
+  "12360": "Camarès, Montlaur, Arnac-sur-Dourdou, Brusque, Fayet, Montagnol, Gissac, Sylvanès, Peux-et-Couffouleux, Mélagues, Tauriac-de-Camarès",
+  "12370": "Belmont-sur-Rance, Murasson, Combret, Mounes-Prohencoux, Saint-Sever-du-Moustier",
+  "12380": "Saint-Sernin-sur-Rance, Balaguier-sur-Rance, Laval-Roquecezière, Montfranc, Pousthomy, La Serre",
   "12390": "Rignac, Auzits",
-  "12400": "Saint-Affrique, Vabres-l'Abbaye",
+  "12400": "Saint-Affrique, Vabres-l'Abbaye, Calmels-et-le-Viala, Les Costes-Gozon, Saint-Félix-de-Sorgues, Saint-Victor-et-Melvieu, Rebourguil, Versols-et-Lapeyre",
   "12410": "Salles-Curan, Curan",
   "12420": "Cantoin, Florentin-la-Capelle",
-  "12430": "Villecomtal, Ayssènes",
+  "12430": "Villecomtal, Ayssènes, Alrance, Villefranche-de-Panat, Lestrade-et-Thouels, Le Truel",
   "12440": "La Salvetat-Peyralès, Lédergues",
   "12450": "Luc-la-Primaube, Flavin",
   "12460": "Saint-Amans-des-Cots",
   "12470": "Saint-Chély-d'Aubrac, Condom-d'Aubrac",
-  "12480": "Broquiès, Saint-Izaire",
-  "12490": "Saint-Rome-de-Tarn, Montjaux",
+  "12480": "Broquiès, Saint-Izaire, Brousse-le-Château",
+  "12490": "Saint-Rome-de-Tarn, Montjaux, La Bastide-Pradines, Saint-Rome-de-Cernon, Viala-du-Tarn",
   "12500": "Espalion, Bessuéjouls",
   "12510": "Druelle, Olemps",
-  "12520": "Aguessac, Compeyre, Paulhe",
-  "12540": "Fondamente, Mélagues",
-  "12550": "Coupiac, Martrin",
-  "12560": "Saint-Laurent-de-Lévézou, Ségur",
+  "12520": "Aguessac, Compeyre, Paulhe, Verrières",
+  "12540": "Fondamente, Cornus, Saint-Beaulize, Le Clapier, Marnhagues-et-Latour",
+  "12550": "Coupiac, Martrin, La Bastide-Solages, Brasc, Montclar, Plaisance, Saint-Juéry",
+  "12560": "Saint-Laurent-de-Lévézou",
   "12580": "Villecomtal, Campouriez",
   "12600": "Mur-de-Barrez, Taussac",
   "12620": "Saint-Beauzély, Castelnau-Pégayrols",
   "12630": "Agen-d'Aveyron, Montrozier",
-  "12640": "Rivière-sur-Tarn",
+  "12640": "Rivière-sur-Tarn, La Cresse",
   "12700": "Capdenac-Gare",
-  "12720": "Peyreleau, Mostuejouls",
+  "12720": "Peyreleau, Mostuéjouls, Saint-André-de-Vézines, Veyreau",
   "12740": "Sébazac-Concourès, Le Monastère",
   "12780": "Saint-Léons, Vézins-de-Lévézou",
   "12800": "Sauveterre-de-Rouergue, Naucelle",
@@ -4984,9 +5048,11 @@ function renderCart() {
 
   const subtotal = CartManager.getTotal();
 
-  // Corriger automatiquement la zone si le code postal l'exige
+  // Corriger automatiquement la zone si le code postal / la commune l'exige
   const cpCartMatch = selectedCity.match(/\((\d{5})\)/);
-  const minZoneCart = cpCartMatch ? getMinZoneForPostalCode(cpCartMatch[1]) : null;
+  const communeCartMatch = selectedCity.match(/^(.+?)\s*\(/);
+  const communeCart = communeCartMatch ? communeCartMatch[1] : '';
+  const minZoneCart = cpCartMatch ? getMinZoneForPostalCode(cpCartMatch[1], communeCart) : null;
   const minLevelCart = minZoneCart ? (ZONE_LEVELS[minZoneCart] || 0) : 0;
   if (minZoneCart && (ZONE_LEVELS[selectedDelivery] || 0) < minLevelCart) {
     selectedDelivery = minZoneCart;
@@ -5176,10 +5242,12 @@ function renderCart() {
   // Delivery type radios
   content.querySelectorAll('input[name="deliveryType"]').forEach(radio => {
     radio.onchange = function() {
-      // Empêcher la sélection d'une zone moins chère que le minimum du code postal
+      // Empêcher la sélection d'une zone moins chère que le minimum de la commune
       const cpMatch = selectedCity.match(/\((\d{5})\)/);
       if (cpMatch) {
-        const minZone = getMinZoneForPostalCode(cpMatch[1]);
+        const communeMatch = selectedCity.match(/^(.+?)\s*\(/);
+        const communeName = communeMatch ? communeMatch[1] : '';
+        const minZone = getMinZoneForPostalCode(cpMatch[1], communeName);
         const minLevel = ZONE_LEVELS[minZone] || 0;
         const selectedLevel = ZONE_LEVELS[this.value] || 0;
         if (selectedLevel < minLevel) {
@@ -5242,16 +5310,21 @@ function renderCart() {
       }
       const matches = [];
       Object.entries(CODES_POSTAUX).forEach(([cp, villes]) => {
-        if (cp.startsWith(term) || villes.toLowerCase().includes(term)) {
-          matches.push({ cp, villes });
+        const villesArr = villes.split(',').map(v => v.trim());
+        if (cp.startsWith(term)) {
+          villesArr.forEach(v => matches.push({ cp, ville: v }));
+        } else {
+          villesArr.forEach(v => {
+            if (v.toLowerCase().includes(term)) matches.push({ cp, ville: v });
+          });
         }
       });
       if (matches.length > 0 && matches.length <= 15) {
         sugBox.style.display = 'block';
         sugBox.innerHTML = matches.map(m => {
-          const ville = m.villes.split(',')[0].trim().replace(/'/g, "\\'");
-          return `<div style="padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border);font-size:13px" onmousedown="selectCity('${m.cp}', '${ville}')">`
-          + `<strong>${m.cp}</strong> — ${m.villes}</div>`;
+          const villeEsc = m.ville.replace(/'/g, "\\'");
+          return `<div style="padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border);font-size:13px" onmousedown="selectCity('${m.cp}', '${villeEsc}')">`
+          + `<strong>${m.cp}</strong> — ${m.ville}</div>`;
         }).join('');
         valBox.innerHTML = '';
       } else if (matches.length === 0) {
@@ -5445,7 +5518,7 @@ function selectCity(cp, ville) {
   const valBox = document.getElementById('cityValidation');
 
   // Auto-sélectionner la zone minimum pour ce code postal
-  const minZone = getMinZoneForPostalCode(cp);
+  const minZone = getMinZoneForPostalCode(cp, ville);
   if (minZone) {
     const minLevel = ZONE_LEVELS[minZone] || 0;
     const currentLevel = ZONE_LEVELS[selectedDelivery] || 0;
