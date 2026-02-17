@@ -6813,12 +6813,12 @@ function startAutoSync() {
   // Sync immédiat
   loadProducts();
   
-  // Sync toutes les 5 secondes (au lieu de 2) pour éviter le clignotement
+  // Sync toutes les 30 secondes pour éviter le rate limiting
   if (syncInterval) clearInterval(syncInterval);
-  
+
   syncInterval = setInterval(() => {
     loadProducts();
-  }, 5000);
+  }, 30000);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -97,7 +97,7 @@ app.use(helmet({
 
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: 500,
   message: { ok: false, error: 'Trop de requêtes, réessayez plus tard' },
   validate: false,
   standardHeaders: true,
