@@ -2909,11 +2909,28 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
     await db.run('BEGIN IMMEDIATE');
     try {
       // 0. Vérifier la disponibilité du stock avant de procéder
+      // Auto-repair: si un stock est à 0 ou manquant, le réinitialiser depuis la config produit
+      const productsConfig = await db.get("SELECT value FROM settings WHERE key = 'products'");
+      const allProducts = productsConfig?.value ? JSON.parse(productsConfig.value) : [];
       for (const item of items) {
-        const stockRow = await db.get(
+        let stockRow = await db.get(
           'SELECT qty FROM stock WHERE product_id = ? AND variant = ?',
           [item.product_id, item.variant]
         );
+        // Auto-repair: stock manquant ou à 0 → remettre la valeur par défaut
+        if (!stockRow || stockRow.qty === 0) {
+          const productCfg = allProducts.find(p => p.id === item.product_id);
+          const defaultQty = productCfg?.variants?.[item.variant]?.stock || 0;
+          if (defaultQty > 0) {
+            if (!stockRow) {
+              await db.run('INSERT INTO stock (product_id, variant, qty) VALUES (?, ?, ?)', [item.product_id, item.variant, defaultQty]);
+            } else {
+              await db.run('UPDATE stock SET qty = ? WHERE product_id = ? AND variant = ?', [defaultQty, item.product_id, item.variant]);
+            }
+            stockRow = { qty: defaultQty };
+            console.log(`🔧 Auto-repair stock: ${item.name} ${item.variant} → ${defaultQty}`);
+          }
+        }
         if (!stockRow || stockRow.qty < item.qty) {
           const available = stockRow?.qty || 0;
           await db.run('ROLLBACK');
