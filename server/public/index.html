@@ -107,6 +107,8 @@ body.modal-open{overflow:hidden;position:fixed;width:100%;max-width:100vw;overfl
   align-items:center;
   justify-content:center;
   transition:transform 0.2s;
+  position:relative;
+  z-index:11;
 }
 
 .menu-btn:active{transform:scale(0.95)}
@@ -142,7 +144,7 @@ body.modal-open{overflow:hidden;position:fixed;width:100%;max-width:100vw;overfl
   50%{transform:translateY(-4px)}
 }
 
-.header-actions{display:flex;gap:8px;align-items:center}
+.header-actions{display:flex;gap:8px;align-items:center;position:relative;z-index:11}
 
 .search-bar{
   flex:1;
