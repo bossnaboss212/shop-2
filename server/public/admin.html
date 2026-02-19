@@ -3363,7 +3363,7 @@ async function loadStock() {
         <tr>
           <td><strong>${p.name}</strong></td>
           <td>${v}</td>
-          <td><strong style="cursor:pointer;text-decoration:underline dotted" onclick="quickSetStock(${p.id}, '${v}', ${realStock}, '${p.name}')" title="Cliquer pour modifier">${realStock}</strong></td>
+          <td><strong style="cursor:pointer;text-decoration:underline dotted" onclick="quickSetStock(${p.id}, '${v.replace(/'/g,"\\'")}', ${realStock}, '${p.name.replace(/'/g,"\\'")}' )" title="Cliquer pour modifier">${realStock}</strong></td>
           <td>${fc(p.buyPrice)}/g</td>
           <td>${fc(d.price)}</td>
           <td>${fc(value)}</td>
