@@ -534,6 +534,7 @@ async function initDB() {
       product_id INTEGER NOT NULL,
       variant TEXT NOT NULL,
       qty INTEGER DEFAULT 0,
+      manual INTEGER DEFAULT 0,
       PRIMARY KEY (product_id, variant)
     );
 
@@ -770,6 +771,9 @@ async function initDB() {
   try {
     await db.run("ALTER TABLE orders ADD COLUMN customer_name TEXT DEFAULT ''");
   } catch (e) { /* colonne existe déjà */ }
+  try {
+    await db.run("ALTER TABLE stock ADD COLUMN manual INTEGER DEFAULT 0");
+  } catch (e) { /* colonne existe déjà */ }
 
   await db.run(`
     INSERT OR IGNORE INTO settings (key, value) VALUES
@@ -974,11 +978,12 @@ async function initDB() {
               initialized++;
             } else if (defaultQty > 0) {
               // Row exists - if stuck at 0 and default is > 0, repair it
+              // BUT skip if admin manually set the stock (manual = 1)
               const current = await db.get(
-                'SELECT qty FROM stock WHERE product_id = ? AND variant = ?',
+                'SELECT qty, manual FROM stock WHERE product_id = ? AND variant = ?',
                 [product.id, variantName]
               );
-              if (current && current.qty === 0) {
+              if (current && current.qty === 0 && !current.manual) {
                 await db.run(
                   'UPDATE stock SET qty = ? WHERE product_id = ? AND variant = ?',
                   [defaultQty, product.id, variantName]
@@ -2914,11 +2919,12 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
       const allProducts = productsConfig?.value ? JSON.parse(productsConfig.value) : [];
       for (const item of items) {
         let stockRow = await db.get(
-          'SELECT qty FROM stock WHERE product_id = ? AND variant = ?',
+          'SELECT qty, manual FROM stock WHERE product_id = ? AND variant = ?',
           [item.product_id, item.variant]
         );
         // Auto-repair: stock manquant ou à 0 → remettre la valeur par défaut
-        if (!stockRow || stockRow.qty === 0) {
+        // SAUF si l'admin a manuellement mis le stock (manual = 1)
+        if ((!stockRow || stockRow.qty === 0) && !stockRow?.manual) {
           const productCfg = allProducts.find(p => p.id === item.product_id);
           const defaultQty = productCfg?.variants?.[item.variant]?.stock || 0;
           if (defaultQty > 0) {
@@ -3905,16 +3911,16 @@ app.post('/api/admin/stock/movement', requireAdmin, async (req, res) => {
       : Math.max(0, current.qty - quantity);
     
     await db.run(
-      'UPDATE stock SET qty = ? WHERE product_id = ? AND variant = ?',
+      'UPDATE stock SET qty = ?, manual = 1 WHERE product_id = ? AND variant = ?',
       [newQty, product_id, variant]
     );
-    
+
     await db.run(
       `INSERT INTO stock_movements (product_id, variant, type, quantity, stock_after, reason)
        VALUES (?, ?, ?, ?, ?, ?)`,
       [product_id, variant, type, quantity, newQty, reason || '']
     );
-    
+
     res.json({ ok: true, newQty });
   } catch (error) {
     console.error('Stock movement error:', error);
@@ -3947,7 +3953,7 @@ app.post('/api/admin/stock/reset', requireAdmin, async (req, res) => {
               repaired++;
             } else if (current.qty === 0) {
               await db.run(
-                'UPDATE stock SET qty = ? WHERE product_id = ? AND variant = ?',
+                'UPDATE stock SET qty = ?, manual = 0 WHERE product_id = ? AND variant = ?',
                 [defaultQty, product.id, variantName]
               );
               repaired++;
