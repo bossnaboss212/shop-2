@@ -2897,37 +2897,6 @@ const SyncManager = {
     }
   },
 
-  // Mettre à jour le stock d'un produit
-  async updateStock(productId, variantLabel, quantity) {
-    const products = await this.loadProducts();
-    const product = products.find(p => p.id === productId);
-
-    if (product && product.variants[variantLabel]) {
-      product.variants[variantLabel].stock -= quantity;
-      if (product.variants[variantLabel].stock < 0) {
-        product.variants[variantLabel].stock = 0;
-      }
-      this.saveProducts(products);
-      console.log(`📦 Stock mis à jour: ${product.name} ${variantLabel} → ${product.variants[variantLabel].stock}`);
-      return true;
-    }
-    return false;
-  },
-
-  // Restaurer le stock d'un produit (lors d'une annulation)
-  async restoreStock(productId, variantLabel, quantity) {
-    const products = await this.loadProducts();
-    const product = products.find(p => p.id === productId);
-
-    if (product && product.variants[variantLabel]) {
-      product.variants[variantLabel].stock += quantity;
-      this.saveProducts(products);
-      console.log(`♻️ Stock restauré: ${product.name} ${variantLabel} → ${product.variants[variantLabel].stock}`);
-      return true;
-    }
-    return false;
-  },
-
   // Créer une commande
   async createOrder(orderData) {
     try {
@@ -2985,10 +2954,8 @@ const SyncManager = {
       orders.push(order);
       localStorage.setItem('shop_orders', JSON.stringify(orders));
 
-      // Mettre à jour les stocks locaux (séquentiel pour éviter les race conditions)
-      for (const item of orderData.items) {
-        await this.updateStock(item.product_id, item.variant, item.qty);
-      }
+      // Recharger les produits une seule fois pour récupérer le stock à jour du serveur
+      await this.loadProducts();
 
       // Mettre à jour le chiffre d'affaires et incrémenter le compteur
       this.updateRevenue(orderData.total, true);
@@ -3000,49 +2967,26 @@ const SyncManager = {
     }
   },
 
-  // Annuler une commande
-  async cancelOrder(orderId, reason) {
+  // Annuler une commande (mise à jour locale uniquement, le serveur gère stock/revenue)
+  cancelOrder(orderId, reason) {
     try {
-      // Récupérer toutes les commandes
       const orders = JSON.parse(localStorage.getItem('shop_orders') || '[]');
       const orderIndex = orders.findIndex(o => o.id === orderId);
 
-      if (orderIndex === -1) {
-        console.error('❌ Commande non trouvée:', orderId);
-        return false;
-      }
+      if (orderIndex === -1) return false;
 
       const order = orders[orderIndex];
+      if (order.status === 'cancelled' || order.status === 'delivered') return false;
 
-      // Vérifier que la commande n'est pas déjà annulée ou livrée
-      if (order.status === 'cancelled' || order.status === 'delivered') {
-        console.error('❌ Impossible d\'annuler cette commande (statut:', order.status + ')');
-        return false;
-      }
-
-      // Restaurer les stocks pour chaque article (séquentiel)
-      for (const item of order.items) {
-        await this.restoreStock(item.product_id, item.variant, item.qty);
-      }
-      
-      // Mettre à jour le chiffre d'affaires
-      this.updateRevenue(-order.total);
-      
-      // Mettre à jour le statut de la commande
       orders[orderIndex].status = 'cancelled';
       orders[orderIndex].cancelledAt = new Date().toISOString();
       orders[orderIndex].cancelReason = reason;
-      
-      // Sauvegarder les commandes mises à jour
       localStorage.setItem('shop_orders', JSON.stringify(orders));
-      
-      console.log('✅ Commande annulée:', orderId);
-      console.log('♻️ Stocks restaurés pour', order.items.length, 'article(s)');
-      console.log('💰 Chiffre d\'affaires mis à jour:', -order.total, '€');
-      
+
+      console.log('✅ Commande annulée localement:', orderId);
       return true;
     } catch (e) {
-      console.error('❌ Erreur annulation commande:', e);
+      console.error('❌ Erreur annulation locale:', e);
       return false;
     }
   },
@@ -6375,6 +6319,32 @@ function showPartialCancellationDialog(orderId, orderData) {
       const data = await response.json();
 
       if (data.ok) {
+        // Mettre à jour l'état local selon le résultat
+        if (data.fullyCancelled) {
+          OrdersManager.updateStatus(orderId, 'cancelled', reason);
+        } else {
+          // Annulation partielle : mettre à jour les articles et le total dans OrdersManager
+          const localOrder = OrdersManager.orders.find(o => o.id === orderId);
+          if (localOrder) {
+            // Retirer les articles annulés et recalculer
+            const remaining = [];
+            for (const item of localOrder.items) {
+              const cancelled = itemsToCancel.find(ci => ci.product_id === item.product_id && ci.variant === item.variant);
+              if (cancelled) {
+                const remainingQty = item.qty - cancelled.qty;
+                if (remainingQty > 0) {
+                  remaining.push({ ...item, qty: remainingQty, lineTotal: item.price * remainingQty });
+                }
+              } else {
+                remaining.push(item);
+              }
+            }
+            localOrder.items = remaining;
+            if (data.newTotal !== undefined) localOrder.total = data.newTotal;
+            OrdersManager.save();
+          }
+        }
+
         showToast('✅ ' + data.message);
         dialog.remove();
 
@@ -6382,10 +6352,9 @@ function showPartialCancellationDialog(orderId, orderData) {
         document.getElementById('orderSummarySheet').classList.add('hidden');
         document.body.classList.remove('modal-open');
 
-        // Rafraîchir l'affichage si nécessaire
-        if (typeof renderOrders === 'function') {
-          setTimeout(() => renderOrders(), 1000);
-        }
+        // Recharger les produits (stock restauré côté serveur) puis rafraîchir les commandes
+        await loadProducts();
+        renderOrders();
       } else {
         showToast('❌ ' + (data.error || 'Erreur lors de l\'annulation'));
         confirmBtn.disabled = false;
@@ -6586,8 +6555,7 @@ function cancelOrder(orderId, customerName) {
         return;
       }
 
-      // Mettre à jour le localStorage
-      SyncManager.cancelOrder(orderId, reason);
+      // Mettre à jour l'état local
       OrdersManager.updateStatus(orderId, 'cancelled', reason);
 
       showToast('Annulation effectuee');
@@ -6595,8 +6563,8 @@ function cancelOrder(orderId, customerName) {
       // Fermer les fenêtres
       cancelDialog.remove();
 
-      // Recharger les produits et les commandes
-      loadProducts();
+      // Recharger les produits (stock mis à jour côté serveur) puis les commandes
+      await loadProducts();
       renderOrders();
 
       setTimeout(() => {
