@@ -3204,34 +3204,56 @@ function updateVariantOptions() {
     Object.keys(product.variants).map(v => `<option value="${v}">${v}</option>`).join('');
 }
 
-function loadStock() {
+async function loadStock() {
   const tbody = document.getElementById('stockTable');
   let html = '';
-  
+
+  // Charger le stock réel depuis la table stock du serveur
+  const token = localStorage.getItem('admin_token');
+  let stockMap = {};
+  if (token) {
+    try {
+      const res = await fetch('/api/admin/stock', { headers: { 'x-admin-token': token } });
+      const data = await res.json();
+      if (data.ok && data.stock) {
+        for (const row of data.stock) {
+          if (!stockMap[row.product_id]) stockMap[row.product_id] = {};
+          stockMap[row.product_id][row.variant] = row.qty;
+        }
+      }
+    } catch (e) {
+      console.warn('Impossible de charger le stock serveur, fallback local');
+    }
+  }
+
   const activeProducts = state.data.products.filter(p => !p.archived);
-  
+
   activeProducts.forEach(p => {
     Object.entries(p.variants).forEach(([v, d]) => {
-      const value = d.stock * d.price;
-      const status = d.stock < 10 ? 'warning' : 'success';
+      // Utiliser le stock réel du serveur, fallback sur la valeur locale
+      const realStock = (stockMap[p.id] && stockMap[p.id][v] !== undefined) ? stockMap[p.id][v] : (d.stock || 0);
+      // Synchroniser l'état local
+      d.stock = realStock;
+      const value = realStock * d.price;
+      const status = realStock < 10 ? 'warning' : 'success';
       html += `
         <tr>
           <td><strong>${p.name}</strong></td>
           <td>${v}</td>
-          <td><strong>${d.stock}</strong></td>
+          <td><strong>${realStock}</strong></td>
           <td>${fc(p.buyPrice)}/g</td>
           <td>${fc(d.price)}</td>
           <td>${fc(value)}</td>
-          <td><span class="badge ${status}">${d.stock < 10 ? '⚠️ Faible' : '✅ OK'}</span></td>
+          <td><span class="badge ${status}">${realStock < 10 ? '⚠️ Faible' : '✅ OK'}</span></td>
         </tr>
       `;
     });
   });
-  
+
   if (html === '') {
     html = '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted)">Aucun produit actif</td></tr>';
   }
-  
+
   tbody.innerHTML = html;
 }
 
@@ -4911,50 +4933,86 @@ function exportArchivedProducts() {
   showToast(`${archivedProducts.length} produits archivés exportés`, 'success');
 }
 
-function addStock() {
+async function addStock() {
   const productId = document.getElementById('stockProduct').value;
   const variantName = document.getElementById('stockVariant').value;
   const qty = parseInt(document.getElementById('stockQty').value);
-  
+
   if (!productId || !variantName || !qty) {
     showToast('Remplissez tous les champs', 'error');
     return;
   }
-  
-  const product = state.data.products.find(p => p.id == productId);
-  if (!product || !product.variants[variantName]) return;
-  
-  product.variants[variantName].stock += qty;
-  
-  saveData();
-  loadStock();
-  updateAllStats();
-  
-  document.getElementById('stockQty').value = '';
-  showToast(`+${qty} ajouté au stock`, 'success');
+
+  const token = localStorage.getItem('admin_token');
+  if (!token) { showToast('Non authentifié', 'error'); return; }
+
+  try {
+    const response = await fetch('/api/admin/stock/movement', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-token': token },
+      body: JSON.stringify({ product_id: parseInt(productId), variant: variantName, type: 'in', quantity: qty, reason: 'Ajout stock admin' })
+    });
+    const data = await response.json();
+    if (!data.ok) { showToast(data.error || 'Erreur', 'error'); return; }
+
+    // Mettre à jour l'état local avec la valeur réelle du serveur
+    const product = state.data.products.find(p => p.id == productId);
+    if (product && product.variants[variantName]) {
+      product.variants[variantName].stock = data.newQty;
+    }
+    loadStock();
+    updateAllStats();
+    document.getElementById('stockQty').value = '';
+    showToast(`+${qty} ajouté au stock (total: ${data.newQty})`, 'success');
+  } catch (error) {
+    console.error('Erreur ajout stock:', error);
+    showToast('Erreur réseau', 'error');
+  }
 }
 
-function adjustStock() {
+async function adjustStock() {
   const productId = document.getElementById('stockProduct').value;
   const variantName = document.getElementById('stockVariant').value;
   const qty = parseInt(document.getElementById('stockQty').value);
-  
+
   if (!productId || !variantName || isNaN(qty)) {
     showToast('Remplissez tous les champs', 'error');
     return;
   }
-  
-  const product = state.data.products.find(p => p.id == productId);
-  if (!product || !product.variants[variantName]) return;
-  
-  product.variants[variantName].stock = qty;
-  
-  saveData();
-  loadStock();
-  updateAllStats();
-  
-  document.getElementById('stockQty').value = '';
-  showToast(`Stock ajusté à ${qty}`, 'success');
+
+  const token = localStorage.getItem('admin_token');
+  if (!token) { showToast('Non authentifié', 'error'); return; }
+
+  // Récupérer le stock actuel pour calculer le mouvement
+  try {
+    const stockRes = await fetch('/api/admin/stock', { headers: { 'x-admin-token': token } });
+    const stockData = await stockRes.json();
+    const currentRow = stockData.ok ? stockData.stock.find(s => s.product_id == productId && s.variant === variantName) : null;
+    const currentQty = currentRow ? currentRow.qty : 0;
+    const diff = qty - currentQty;
+
+    if (diff === 0) { showToast('Stock déjà à cette valeur', 'info'); return; }
+
+    const response = await fetch('/api/admin/stock/movement', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-token': token },
+      body: JSON.stringify({ product_id: parseInt(productId), variant: variantName, type: diff > 0 ? 'in' : 'out', quantity: Math.abs(diff), reason: `Ajustement stock admin (${currentQty} → ${qty})` })
+    });
+    const data = await response.json();
+    if (!data.ok) { showToast(data.error || 'Erreur', 'error'); return; }
+
+    const product = state.data.products.find(p => p.id == productId);
+    if (product && product.variants[variantName]) {
+      product.variants[variantName].stock = data.newQty;
+    }
+    loadStock();
+    updateAllStats();
+    document.getElementById('stockQty').value = '';
+    showToast(`Stock ajusté à ${data.newQty}`, 'success');
+  } catch (error) {
+    console.error('Erreur ajustement stock:', error);
+    showToast('Erreur réseau', 'error');
+  }
 }
 
 // ==================== NOURRICE ====================
