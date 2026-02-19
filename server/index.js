@@ -2471,6 +2471,29 @@ app.post('/api/cancel-order', apiLimiter, async (req, res) => {
         );
       }
 
+      // Décrémenter le compteur de fidélité
+      await db.run(
+        'UPDATE loyalty SET orders_count = MAX(0, orders_count - 1) WHERE customer = ?',
+        [order.customer]
+      );
+
+      // Reverser le crédit parrainage si c'était la commande qui l'a déclenché
+      const referralEntry = await db.get(
+        'SELECT * FROM referral_history WHERE order_id = ? AND status = ?',
+        [orderId, 'completed']
+      );
+      if (referralEntry) {
+        await db.run(
+          'UPDATE referrals SET credit_balance = MAX(0, credit_balance - ?), total_earned = MAX(0, total_earned - ?) WHERE referral_code = ?',
+          [referralEntry.referrer_credit, referralEntry.referrer_credit, referralEntry.referrer_code]
+        );
+        await db.run(
+          'UPDATE referral_history SET status = ? WHERE id = ?',
+          ['reversed', referralEntry.id]
+        );
+        console.log(`🔄 Referral credit reversed for order #${orderId}: -${referralEntry.referrer_credit}€ to ${referralEntry.referrer_code}`);
+      }
+
       await db.run(
         'UPDATE orders SET status = ?, cancel_reason = ?, cancelled_at = CURRENT_TIMESTAMP WHERE id = ?',
         ['cancelled', reason || 'Annulée par le client', orderId]
@@ -2609,6 +2632,28 @@ app.post('/api/cancel-order-items', apiLimiter, async (req, res) => {
           await db.run(
             'UPDATE referrals SET credit_balance = credit_balance + ? WHERE customer_contact = ?',
             [order.credit_used, order.customer]
+          );
+        }
+
+        // Décrémenter le compteur de fidélité
+        await db.run(
+          'UPDATE loyalty SET orders_count = MAX(0, orders_count - 1) WHERE customer = ?',
+          [order.customer]
+        );
+
+        // Reverser le crédit parrainage si c'était la commande qui l'a déclenché
+        const referralEntry = await db.get(
+          'SELECT * FROM referral_history WHERE order_id = ? AND status = ?',
+          [orderId, 'completed']
+        );
+        if (referralEntry) {
+          await db.run(
+            'UPDATE referrals SET credit_balance = MAX(0, credit_balance - ?), total_earned = MAX(0, total_earned - ?) WHERE referral_code = ?',
+            [referralEntry.referrer_credit, referralEntry.referrer_credit, referralEntry.referrer_code]
+          );
+          await db.run(
+            'UPDATE referral_history SET status = ? WHERE id = ?',
+            ['reversed', referralEntry.id]
           );
         }
 
