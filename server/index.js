@@ -4199,6 +4199,37 @@ app.get('/api/admin/orders/export/csv', requireAdmin, async (req, res) => {
   }
 });
 
+// ==================== CLIENTS TELEGRAM EXPORT (CSV) ====================
+
+app.get('/api/admin/clients/export/csv', requireAdmin, async (req, res) => {
+  try {
+    const clients = await db.all(`
+      SELECT tc.telegram_id, tc.username, tc.first_name, tc.contact, tc.registered_at, tc.last_seen,
+             COUNT(o.id) as total_orders,
+             COALESCE(SUM(o.total), 0) as total_spent
+      FROM telegram_clients tc
+      LEFT JOIN orders o ON o.client_telegram_id = tc.telegram_id
+      GROUP BY tc.telegram_id
+      ORDER BY tc.last_seen DESC
+    `);
+
+    let csv = 'Telegram ID,Username,Prénom,Contact,Inscrit le,Dernière visite,Nb commandes,Total dépensé\n';
+
+    clients.forEach(c => {
+      const registered = c.registered_at ? new Date(c.registered_at).toLocaleString('fr-FR') : '';
+      const lastSeen = c.last_seen ? new Date(c.last_seen).toLocaleString('fr-FR') : '';
+      csv += `${c.telegram_id},"${c.username || ''}","${c.first_name || ''}","${c.contact || ''}","${registered}","${lastSeen}",${c.total_orders},${(c.total_spent || 0).toFixed(2)}\n`;
+    });
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename=clients_telegram.csv');
+    res.send('\uFEFF' + csv);
+  } catch (error) {
+    console.error('Export clients error:', error);
+    res.status(500).json({ ok: false, error: 'Erreur serveur' });
+  }
+});
+
 // ==================== CART PERSISTENCE (30min expiry) ====================
 
 app.put('/api/cart/:sessionId', apiLimiter, async (req, res) => {
