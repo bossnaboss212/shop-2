@@ -954,25 +954,46 @@ async function initDB() {
 
   // ==================== STOCK TABLE INITIALIZATION ====================
   // Ensure every product variant has a row in the stock table
+  // Also fix rows stuck at qty=0 when default stock > 0 (e.g. after DB reset without volume)
   try {
     const productsData = await db.get("SELECT value FROM settings WHERE key = 'products'");
     if (productsData?.value) {
       const products = JSON.parse(productsData.value);
       let initialized = 0;
+      let repaired = 0;
       for (const product of products) {
         if (product.variants) {
           for (const [variantName, variantData] of Object.entries(product.variants)) {
             const defaultQty = variantData.stock || 0;
+            // Insert new rows
             const result = await db.run(
               'INSERT OR IGNORE INTO stock (product_id, variant, qty) VALUES (?, ?, ?)',
               [product.id, variantName, defaultQty]
             );
-            if (result.changes > 0) initialized++;
+            if (result.changes > 0) {
+              initialized++;
+            } else if (defaultQty > 0) {
+              // Row exists - if stuck at 0 and default is > 0, repair it
+              const current = await db.get(
+                'SELECT qty FROM stock WHERE product_id = ? AND variant = ?',
+                [product.id, variantName]
+              );
+              if (current && current.qty === 0) {
+                await db.run(
+                  'UPDATE stock SET qty = ? WHERE product_id = ? AND variant = ?',
+                  [defaultQty, product.id, variantName]
+                );
+                repaired++;
+              }
+            }
           }
         }
       }
       if (initialized > 0) {
         console.log(`✅ ${initialized} entrée(s) stock initialisée(s) dans la table stock`);
+      }
+      if (repaired > 0) {
+        console.log(`🔧 ${repaired} stock(s) à 0 réparé(s) avec les valeurs par défaut`);
       }
     }
   } catch (err) {
