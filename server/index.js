@@ -978,14 +978,13 @@ async function initDB() {
               initialized++;
             } else if (defaultQty > 0) {
               // Row exists - if stuck at 0 and default is > 0, repair it
-              // BUT skip if admin manually set the stock (manual = 1)
               const current = await db.get(
                 'SELECT qty, manual FROM stock WHERE product_id = ? AND variant = ?',
                 [product.id, variantName]
               );
-              if (current && current.qty === 0 && !current.manual) {
+              if (current && current.qty === 0) {
                 await db.run(
-                  'UPDATE stock SET qty = ? WHERE product_id = ? AND variant = ?',
+                  'UPDATE stock SET qty = ?, manual = 0 WHERE product_id = ? AND variant = ?',
                   [defaultQty, product.id, variantName]
                 );
                 repaired++;
@@ -2922,20 +2921,17 @@ app.post('/api/create-order', apiLimiter, async (req, res) => {
           'SELECT qty, manual FROM stock WHERE product_id = ? AND variant = ?',
           [item.product_id, item.variant]
         );
-        // Auto-repair: stock manquant ou à 0 → remettre la valeur par défaut
-        // SAUF si l'admin a manuellement mis le stock (manual = 1)
-        if ((!stockRow || stockRow.qty === 0) && !stockRow?.manual) {
+        // Auto-repair: stock manquant ou à 0 → remettre la valeur par défaut (999)
+        if (!stockRow || stockRow.qty === 0) {
           const productCfg = allProducts.find(p => p.id === item.product_id);
-          const defaultQty = productCfg?.variants?.[item.variant]?.stock || 0;
-          if (defaultQty > 0) {
-            if (!stockRow) {
-              await db.run('INSERT INTO stock (product_id, variant, qty) VALUES (?, ?, ?)', [item.product_id, item.variant, defaultQty]);
-            } else {
-              await db.run('UPDATE stock SET qty = ? WHERE product_id = ? AND variant = ?', [defaultQty, item.product_id, item.variant]);
-            }
-            stockRow = { qty: defaultQty };
-            console.log(`🔧 Auto-repair stock: ${item.name} ${item.variant} → ${defaultQty}`);
+          const defaultQty = productCfg?.variants?.[item.variant]?.stock || 999;
+          if (!stockRow) {
+            await db.run('INSERT INTO stock (product_id, variant, qty, manual) VALUES (?, ?, ?, 0)', [item.product_id, item.variant, defaultQty]);
+          } else {
+            await db.run('UPDATE stock SET qty = ?, manual = 0 WHERE product_id = ? AND variant = ?', [defaultQty, item.product_id, item.variant]);
           }
+          stockRow = { qty: defaultQty };
+          console.log(`🔧 Auto-repair stock: ${item.name} ${item.variant} → ${defaultQty}`);
         }
         if (!stockRow || stockRow.qty < item.qty) {
           const available = stockRow?.qty || 0;
@@ -3937,10 +3933,11 @@ app.post('/api/admin/stock/set', requireAdmin, async (req, res) => {
       return res.status(400).json({ ok: false, error: 'product_id, variant et qty requis' });
     }
 
-    const newQty = Math.max(0, parseInt(qty));
-    if (isNaN(newQty)) {
+    const parsed = parseInt(qty);
+    if (isNaN(parsed) || parsed < 0) {
       return res.status(400).json({ ok: false, error: 'Quantité invalide' });
     }
+    const newQty = parsed;
 
     const existing = await db.get(
       'SELECT qty FROM stock WHERE product_id = ? AND variant = ?',
