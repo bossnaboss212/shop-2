@@ -901,11 +901,11 @@ async function initDB() {
               existing.video = defaultProduct.video;
               changed = true;
             }
-            // Mettre à jour les stocks depuis les defaults
+            // Ajouter les nouvelles variantes qui n'existent pas encore (sans écraser le stock existant)
             if (defaultProduct.variants && existing.variants) {
               for (const [varName, varData] of Object.entries(defaultProduct.variants)) {
-                if (existing.variants[varName] && existing.variants[varName].stock !== varData.stock) {
-                  existing.variants[varName].stock = varData.stock;
+                if (!existing.variants[varName]) {
+                  existing.variants[varName] = { ...varData };
                   changed = true;
                 }
               }
@@ -948,6 +948,33 @@ async function initDB() {
     }
   } catch (err) {
     console.error('⚠️ Erreur lors du merge des produits:', err);
+  }
+
+  // ==================== STOCK TABLE INITIALIZATION ====================
+  // Ensure every product variant has a row in the stock table
+  try {
+    const productsData = await db.get("SELECT value FROM settings WHERE key = 'products'");
+    if (productsData?.value) {
+      const products = JSON.parse(productsData.value);
+      let initialized = 0;
+      for (const product of products) {
+        if (product.variants) {
+          for (const [variantName, variantData] of Object.entries(product.variants)) {
+            const defaultQty = variantData.stock || 0;
+            const result = await db.run(
+              'INSERT OR IGNORE INTO stock (product_id, variant, qty) VALUES (?, ?, ?)',
+              [product.id, variantName, defaultQty]
+            );
+            if (result.changes > 0) initialized++;
+          }
+        }
+      }
+      if (initialized > 0) {
+        console.log(`✅ ${initialized} entrée(s) stock initialisée(s) dans la table stock`);
+      }
+    }
+  } catch (err) {
+    console.error('⚠️ Erreur lors de l\'initialisation du stock:', err);
   }
 
   // Seed reviews if empty
@@ -4117,22 +4144,23 @@ app.put('/api/admin/settings', requireAdmin, async (req, res) => {
         [key, value]
       );
 
-      // Quand les produits sont sauvegardés, synchroniser le stock dans la table stock
+      // Quand les produits sont sauvegardés, s'assurer que les nouvelles variantes ont une entrée stock
+      // INSERT OR IGNORE : ne jamais écraser le stock réel existant
       if (key === 'products') {
         try {
           const products = JSON.parse(value);
           for (const product of products) {
             if (product.variants) {
               for (const [variantName, variantData] of Object.entries(product.variants)) {
-                const stock = variantData.stock || 0;
+                const defaultQty = variantData.stock || 0;
                 await db.run(
-                  'INSERT OR REPLACE INTO stock (product_id, variant, qty) VALUES (?, ?, ?)',
-                  [product.id, variantName, stock]
+                  'INSERT OR IGNORE INTO stock (product_id, variant, qty) VALUES (?, ?, ?)',
+                  [product.id, variantName, defaultQty]
                 );
               }
             }
           }
-          console.log('✅ Stock synchronisé dans la table stock');
+          console.log('✅ Nouvelles variantes stock synchronisées');
         } catch (parseErr) {
           console.error('Erreur sync stock:', parseErr);
         }
