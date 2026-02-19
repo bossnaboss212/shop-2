@@ -804,6 +804,9 @@
       <button class="tab-btn" onclick="showTab('employees', event)">👷 Employés</button>
       <button class="tab-btn" onclick="showTab('reports', event)">📋 Rapports</button>
       <button class="tab-btn" onclick="showTab('settings', event)">⚙️ Paramètres</button>
+      <button class="tab-btn" onclick="showTab('reviews', event)">⭐ Avis</button>
+      <button class="tab-btn" onclick="showTab('referrals', event)">🎁 Parrainages</button>
+      <button class="tab-btn" onclick="showTab('announcements', event)">📢 Annonces</button>
       <button class="tab-btn" onclick="showTab('backup', event)">💾 Backup</button>
     </div>
 
@@ -915,6 +918,7 @@
         </select>
         <button onclick="addOrder()" style="background:var(--success)">➕ Nouveau</button>
         <button onclick="exportData('orders')">📥 Export</button>
+        <button onclick="exportOrdersCSV()" style="background:var(--info)">📥 Export CSV (serveur)</button>
       </div>
 
       <div class="table-container">
@@ -1998,6 +2002,111 @@
       </div>
     </div>
 
+    <!-- ==================== AVIS ==================== -->
+    <div class="tab-content" id="tab-reviews">
+      <div class="toolbar">
+        <select id="filterReviews" onchange="loadAdminReviews()">
+          <option value="all">Tous les avis</option>
+          <option value="pending">⏳ En attente</option>
+          <option value="approved">✅ Approuvés</option>
+        </select>
+        <button onclick="loadAdminReviews()" style="background:var(--info)">🔄 Rafraîchir</button>
+      </div>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Date</th>
+              <th>Nom</th>
+              <th>Note</th>
+              <th>Avis</th>
+              <th>Statut</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="reviewsTable">
+            <tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted)">Chargement...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ==================== PARRAINAGES ==================== -->
+    <div class="tab-content" id="tab-referrals">
+      <div class="toolbar">
+        <button onclick="loadAdminReferrals()" style="background:var(--info)">🔄 Rafraîchir</button>
+        <button onclick="exportReferralsCSV()" style="background:var(--accent)">📥 Export CSV</button>
+      </div>
+      <div class="stats" id="referralStats"></div>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Code</th>
+              <th>Contact</th>
+              <th>Parrainages</th>
+              <th>Solde crédit</th>
+              <th>Total gagné</th>
+              <th>Bonus</th>
+              <th>Inscrit le</th>
+            </tr>
+          </thead>
+          <tbody id="referralsTable">
+            <tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted)">Chargement...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ==================== ANNONCES ==================== -->
+    <div class="tab-content" id="tab-announcements">
+      <div class="chart-container">
+        <h3>📝 Nouvelle annonce</h3>
+        <div style="display:flex;flex-direction:column;gap:12px;max-width:600px">
+          <textarea id="announcementText" rows="4" placeholder="Texte de l'annonce..." style="width:100%;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:14px;resize:vertical"></textarea>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+            <select id="announcementChannel" style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text)">
+              <option value="principal">📢 Canal principal</option>
+              <option value="photo">📸 Canal photo</option>
+              <option value="secours">🆘 Canal secours</option>
+            </select>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+              <input type="checkbox" id="announcementPin"> 📌 Épingler
+            </label>
+            <input type="datetime-local" id="announcementPostAt" style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text)" title="Programmer (laisser vide = immédiat)">
+          </div>
+          <div style="display:flex;gap:12px">
+            <button onclick="postAnnouncement()" style="background:var(--success);color:white;padding:10px 24px;border:none;border-radius:8px;cursor:pointer;font-weight:600">📤 Publier</button>
+            <button onclick="postAnnouncementPhoto()" style="background:var(--accent);color:white;padding:10px 24px;border:none;border-radius:8px;cursor:pointer;font-weight:600">📸 Publier photo</button>
+          </div>
+        </div>
+      </div>
+      <div class="chart-container">
+        <h3>📋 Annonces récentes</h3>
+        <button onclick="loadAdminAnnouncements()" style="background:var(--info);color:white;padding:8px 16px;border:none;border-radius:8px;cursor:pointer;margin-bottom:12px">🔄 Rafraîchir</button>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Date</th>
+                <th>Type</th>
+                <th>Contenu</th>
+                <th>Canal</th>
+                <th>Statut</th>
+                <th>Épinglé</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="announcementsTable">
+              <tr><td colspan="8" style="text-align:center;padding:40px;color:var(--muted)">Chargement...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
     <div class="tab-content" id="tab-backup">
       <div class="stats">
         <div class="stat-card">
@@ -3042,6 +3151,18 @@ function showTab(name, evt) {
 
   if (name === 'settings') {
     calculateStorageSize();
+  }
+
+  if (name === 'reviews') {
+    loadAdminReviews();
+  }
+
+  if (name === 'referrals') {
+    loadAdminReferrals();
+  }
+
+  if (name === 'announcements') {
+    loadAdminAnnouncements();
   }
 
   if (name === 'backup') {
@@ -5013,6 +5134,276 @@ async function adjustStock() {
     console.error('Erreur ajustement stock:', error);
     showToast('Erreur réseau', 'error');
   }
+}
+
+// ==================== EXPORT CSV COMMANDES ====================
+
+async function exportOrdersCSV() {
+  const token = localStorage.getItem('admin_token');
+  if (!token) { showToast('Non authentifié', 'error'); return; }
+  try {
+    const res = await fetch('/api/admin/orders/export/csv', { headers: { 'x-admin-token': token } });
+    if (!res.ok) { showToast('Erreur export', 'error'); return; }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'commandes.csv'; a.click();
+    URL.revokeObjectURL(url);
+    showToast('CSV téléchargé', 'success');
+  } catch (e) { showToast('Erreur réseau', 'error'); }
+}
+
+// ==================== AVIS (MODÉRATION) ====================
+
+async function loadAdminReviews() {
+  const token = localStorage.getItem('admin_token');
+  if (!token) return;
+  const tbody = document.getElementById('reviewsTable');
+  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px">Chargement...</td></tr>';
+
+  try {
+    const res = await fetch('/api/admin/reviews', { headers: { 'x-admin-token': token } });
+    const data = await res.json();
+    if (!data.ok) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--danger)">Erreur</td></tr>'; return; }
+
+    const filter = document.getElementById('filterReviews')?.value || 'all';
+    let reviews = data.reviews || [];
+    if (filter === 'pending') reviews = reviews.filter(r => !r.approved);
+    else if (filter === 'approved') reviews = reviews.filter(r => r.approved);
+
+    if (reviews.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted)">Aucun avis</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = reviews.map(r => `
+      <tr>
+        <td>${r.id}</td>
+        <td>${new Date(r.created_at).toLocaleDateString('fr-FR')}</td>
+        <td>${r.name || 'Anonyme'}</td>
+        <td>${'⭐'.repeat(r.stars)}</td>
+        <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(r.text || '').replace(/"/g, '&quot;')}">${r.text || ''}</td>
+        <td><span class="badge ${r.approved ? 'success' : 'warning'}">${r.approved ? '✅ Approuvé' : '⏳ En attente'}</span></td>
+        <td style="display:flex;gap:6px">
+          ${!r.approved ? `<button onclick="approveReview(${r.id})" style="background:var(--success);color:white;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:12px">✅</button>` : `<button onclick="unapproveReview(${r.id})" style="background:var(--warning);color:white;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:12px">↩️</button>`}
+          <button onclick="deleteReview(${r.id})" style="background:var(--danger);color:white;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:12px">🗑</button>
+        </td>
+      </tr>
+    `).join('');
+  } catch (e) {
+    console.error('Erreur chargement avis:', e);
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--danger)">Erreur réseau</td></tr>';
+  }
+}
+
+async function approveReview(id) {
+  const token = localStorage.getItem('admin_token');
+  try {
+    const res = await fetch(`/api/admin/reviews/${id}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json', 'x-admin-token': token },
+      body: JSON.stringify({ approved: true })
+    });
+    const data = await res.json();
+    if (data.ok) { showToast('Avis approuvé', 'success'); loadAdminReviews(); }
+    else showToast(data.error || 'Erreur', 'error');
+  } catch (e) { showToast('Erreur réseau', 'error'); }
+}
+
+async function unapproveReview(id) {
+  const token = localStorage.getItem('admin_token');
+  try {
+    const res = await fetch(`/api/admin/reviews/${id}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json', 'x-admin-token': token },
+      body: JSON.stringify({ approved: false })
+    });
+    const data = await res.json();
+    if (data.ok) { showToast('Avis retiré', 'success'); loadAdminReviews(); }
+    else showToast(data.error || 'Erreur', 'error');
+  } catch (e) { showToast('Erreur réseau', 'error'); }
+}
+
+async function deleteReview(id) {
+  if (!confirm('Supprimer cet avis définitivement ?')) return;
+  const token = localStorage.getItem('admin_token');
+  try {
+    const res = await fetch(`/api/admin/reviews/${id}`, {
+      method: 'DELETE', headers: { 'x-admin-token': token }
+    });
+    const data = await res.json();
+    if (data.ok) { showToast('Avis supprimé', 'success'); loadAdminReviews(); }
+    else showToast(data.error || 'Erreur', 'error');
+  } catch (e) { showToast('Erreur réseau', 'error'); }
+}
+
+// ==================== PARRAINAGES ====================
+
+async function loadAdminReferrals() {
+  const token = localStorage.getItem('admin_token');
+  if (!token) return;
+  const tbody = document.getElementById('referralsTable');
+  const statsDiv = document.getElementById('referralStats');
+  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px">Chargement...</td></tr>';
+
+  try {
+    const res = await fetch('/api/admin/referrals', { headers: { 'x-admin-token': token } });
+    const data = await res.json();
+    if (!data.ok) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--danger)">Erreur</td></tr>'; return; }
+
+    const referrals = data.referrals || [];
+
+    // Stats
+    const totalRefs = referrals.reduce((s, r) => s + (r.total_referrals || 0), 0);
+    const totalCredit = referrals.reduce((s, r) => s + (r.credit_balance || 0), 0);
+    const totalEarned = referrals.reduce((s, r) => s + (r.total_earned || 0), 0);
+    statsDiv.innerHTML = `
+      <div class="stat-card"><h3>👥 Parrains</h3><div class="value">${referrals.length}</div></div>
+      <div class="stat-card"><h3>🤝 Parrainages</h3><div class="value">${totalRefs}</div></div>
+      <div class="stat-card"><h3>💰 Crédits en cours</h3><div class="value">${fc(totalCredit)}</div></div>
+      <div class="stat-card"><h3>🎁 Total distribué</h3><div class="value">${fc(totalEarned)}</div></div>
+    `;
+
+    if (referrals.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted)">Aucun parrainage</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = referrals.map(r => `
+      <tr>
+        <td><code>${r.referral_code}</code></td>
+        <td>${r.customer_contact}</td>
+        <td><strong>${r.total_referrals || 0}</strong></td>
+        <td>${fc(r.credit_balance || 0)}</td>
+        <td>${fc(r.total_earned || 0)}</td>
+        <td>${r.totalBonusEarned || 0}€</td>
+        <td>${new Date(r.created_at).toLocaleDateString('fr-FR')}</td>
+      </tr>
+    `).join('');
+  } catch (e) {
+    console.error('Erreur chargement parrainages:', e);
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--danger)">Erreur réseau</td></tr>';
+  }
+}
+
+async function exportReferralsCSV() {
+  const token = localStorage.getItem('admin_token');
+  if (!token) { showToast('Non authentifié', 'error'); return; }
+  try {
+    const res = await fetch('/api/admin/referrals/export', { headers: { 'x-admin-token': token } });
+    if (!res.ok) { showToast('Erreur export', 'error'); return; }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'parrainages.csv'; a.click();
+    URL.revokeObjectURL(url);
+    showToast('CSV téléchargé', 'success');
+  } catch (e) { showToast('Erreur réseau', 'error'); }
+}
+
+// ==================== ANNONCES ====================
+
+async function loadAdminAnnouncements() {
+  const token = localStorage.getItem('admin_token');
+  if (!token) return;
+  const tbody = document.getElementById('announcementsTable');
+  tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px">Chargement...</td></tr>';
+
+  try {
+    const res = await fetch('/api/admin/announcements', { headers: { 'x-admin-token': token } });
+    const data = await res.json();
+    if (!data.ok) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--danger)">Erreur</td></tr>'; return; }
+
+    const annonces = data.announcements || [];
+    if (annonces.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--muted)">Aucune annonce</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = annonces.map(a => `
+      <tr>
+        <td>${a.id}</td>
+        <td>${new Date(a.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
+        <td><span class="badge ${a.type === 'photo' ? 'info' : 'success'}">${a.type === 'photo' ? '📸 Photo' : '📝 Texte'}</span></td>
+        <td style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(a.content || '').replace(/"/g, '&quot;')}">${a.content || ''}</td>
+        <td>${a.channel_id ? a.channel_id.slice(-6) : '-'}</td>
+        <td><span class="badge ${a.status === 'posted' ? 'success' : 'warning'}">${a.status === 'posted' ? '✅ Publié' : '⏳ Programmé'}</span></td>
+        <td>${a.pin ? '📌 Oui' : '-'}</td>
+        <td><button onclick="deleteAnnouncement(${a.id})" style="background:var(--danger);color:white;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:12px">🗑</button></td>
+      </tr>
+    `).join('');
+  } catch (e) {
+    console.error('Erreur chargement annonces:', e);
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--danger)">Erreur réseau</td></tr>';
+  }
+}
+
+async function postAnnouncement() {
+  const token = localStorage.getItem('admin_token');
+  if (!token) { showToast('Non authentifié', 'error'); return; }
+
+  const text = document.getElementById('announcementText').value.trim();
+  if (!text) { showToast('Le texte est requis', 'error'); return; }
+
+  const channel = document.getElementById('announcementChannel').value;
+  const pin = document.getElementById('announcementPin').checked;
+  const postAt = document.getElementById('announcementPostAt').value || null;
+
+  try {
+    const res = await fetch('/api/admin/announcements', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-token': token },
+      body: JSON.stringify({ text, channel, pin, post_at: postAt })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      showToast(data.scheduled ? 'Annonce programmée' : 'Annonce publiée', 'success');
+      document.getElementById('announcementText').value = '';
+      document.getElementById('announcementPin').checked = false;
+      document.getElementById('announcementPostAt').value = '';
+      loadAdminAnnouncements();
+    } else {
+      showToast(data.error || 'Erreur', 'error');
+    }
+  } catch (e) { showToast('Erreur réseau', 'error'); }
+}
+
+async function postAnnouncementPhoto() {
+  const token = localStorage.getItem('admin_token');
+  if (!token) { showToast('Non authentifié', 'error'); return; }
+
+  const photo = prompt('URL de la photo :');
+  if (!photo) return;
+
+  const caption = document.getElementById('announcementText').value.trim();
+  const channel = document.getElementById('announcementChannel').value;
+  const pin = document.getElementById('announcementPin').checked;
+  const postAt = document.getElementById('announcementPostAt').value || null;
+
+  try {
+    const res = await fetch('/api/admin/announcements/photo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-token': token },
+      body: JSON.stringify({ photo, caption, channel, pin, post_at: postAt })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      showToast(data.scheduled ? 'Photo programmée' : 'Photo publiée', 'success');
+      document.getElementById('announcementText').value = '';
+      loadAdminAnnouncements();
+    } else {
+      showToast(data.error || 'Erreur', 'error');
+    }
+  } catch (e) { showToast('Erreur réseau', 'error'); }
+}
+
+async function deleteAnnouncement(id) {
+  if (!confirm('Supprimer cette annonce ? (sera aussi supprimée du canal)')) return;
+  const token = localStorage.getItem('admin_token');
+  try {
+    const res = await fetch(`/api/admin/announcements/${id}`, {
+      method: 'DELETE', headers: { 'x-admin-token': token }
+    });
+    const data = await res.json();
+    if (data.ok) { showToast('Annonce supprimée', 'success'); loadAdminAnnouncements(); }
+    else showToast(data.error || 'Erreur', 'error');
+  } catch (e) { showToast('Erreur réseau', 'error'); }
 }
 
 // ==================== NOURRICE ====================
