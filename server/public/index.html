@@ -2909,6 +2909,7 @@ const SyncManager = {
           customerName: orderData.customerName || orderData.customer,
           type: orderData.type,
           address: orderData.address,
+          city: orderData.city || '',
           items: orderData.items,
           total: orderData.total,
           referralCode: orderData.referralCode || '',
