@@ -1002,7 +1002,7 @@
         <input type="number" id="stockQty" placeholder="Ex: 23 = il en reste 23" min="0">
         <button onclick="adjustStock()" style="background:var(--warning)">📝 Définir stock</button>
         <button onclick="addStock()" style="background:var(--success)">➕ Ajouter au stock</button>
-        <button onclick="resetAllStock()" style="background:var(--danger);margin-left:auto">🔄 Reset stocks à 999</button>
+        <button onclick="resetAllStock()" style="background:var(--danger);margin-left:auto">🔄 Tout remettre à 999</button>
       </div>
 
       <div class="table-container">
@@ -5103,12 +5103,11 @@ async function quickSetStock(productId, variant, currentQty, productName) {
   const token = localStorage.getItem('admin_token');
   if (!token) { showToast('Non authentifié', 'error'); return; }
 
-  const diff = qty - currentQty;
   try {
-    const response = await fetch('/api/admin/stock/movement', {
+    const response = await fetch('/api/admin/stock/set', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-admin-token': token },
-      body: JSON.stringify({ product_id: productId, variant, type: diff > 0 ? 'in' : 'out', quantity: Math.abs(diff), reason: `Modif rapide (${currentQty} → ${qty})` })
+      body: JSON.stringify({ product_id: productId, variant, qty })
     });
     const data = await response.json();
     if (!data.ok) { showToast(data.error || 'Erreur', 'error'); return; }
@@ -5133,20 +5132,11 @@ async function adjustStock() {
   const token = localStorage.getItem('admin_token');
   if (!token) { showToast('Non authentifié', 'error'); return; }
 
-  // Récupérer le stock actuel pour calculer le mouvement
   try {
-    const stockRes = await fetch('/api/admin/stock', { headers: { 'x-admin-token': token } });
-    const stockData = await stockRes.json();
-    const currentRow = stockData.ok ? stockData.stock.find(s => s.product_id == productId && s.variant === variantName) : null;
-    const currentQty = currentRow ? currentRow.qty : 0;
-    const diff = qty - currentQty;
-
-    if (diff === 0) { showToast('Stock déjà à cette valeur', 'info'); return; }
-
-    const response = await fetch('/api/admin/stock/movement', {
+    const response = await fetch('/api/admin/stock/set', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-admin-token': token },
-      body: JSON.stringify({ product_id: parseInt(productId), variant: variantName, type: diff > 0 ? 'in' : 'out', quantity: Math.abs(diff), reason: `Ajustement stock admin (${currentQty} → ${qty})` })
+      body: JSON.stringify({ product_id: parseInt(productId), variant: variantName, qty })
     });
     const data = await response.json();
     if (!data.ok) { showToast(data.error || 'Erreur', 'error'); return; }
@@ -5158,7 +5148,7 @@ async function adjustStock() {
     loadStock();
     updateAllStats();
     document.getElementById('stockQty').value = '';
-    showToast(`Stock ajusté à ${data.newQty}`, 'success');
+    showToast(`Stock défini à ${data.newQty}`, 'success');
   } catch (error) {
     console.error('Erreur ajustement stock:', error);
     showToast('Erreur réseau', 'error');
@@ -5166,7 +5156,7 @@ async function adjustStock() {
 }
 
 async function resetAllStock() {
-  if (!confirm('Remettre tous les stocks à 0 à leur valeur par défaut (999) ?')) return;
+  if (!confirm('Remettre TOUS les stocks à 999 ? (les clients pourront commander)')) return;
   const token = localStorage.getItem('admin_token');
   if (!token) { showToast('Non authentifié', 'error'); return; }
   try {

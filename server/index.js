@@ -3928,6 +3928,55 @@ app.post('/api/admin/stock/movement', requireAdmin, async (req, res) => {
   }
 });
 
+// Endpoint simple pour définir directement le stock d'un variant
+app.post('/api/admin/stock/set', requireAdmin, async (req, res) => {
+  try {
+    const { product_id, variant, qty } = req.body;
+
+    if (product_id === undefined || !variant || qty === undefined) {
+      return res.status(400).json({ ok: false, error: 'product_id, variant et qty requis' });
+    }
+
+    const newQty = Math.max(0, parseInt(qty));
+    if (isNaN(newQty)) {
+      return res.status(400).json({ ok: false, error: 'Quantité invalide' });
+    }
+
+    const existing = await db.get(
+      'SELECT qty FROM stock WHERE product_id = ? AND variant = ?',
+      [product_id, variant]
+    );
+
+    if (existing) {
+      await db.run(
+        'UPDATE stock SET qty = ?, manual = 1 WHERE product_id = ? AND variant = ?',
+        [newQty, product_id, variant]
+      );
+    } else {
+      await db.run(
+        'INSERT INTO stock (product_id, variant, qty, manual) VALUES (?, ?, ?, 1)',
+        [product_id, variant, newQty]
+      );
+    }
+
+    // Log le mouvement
+    const oldQty = existing ? existing.qty : 0;
+    const diff = newQty - oldQty;
+    if (diff !== 0) {
+      await db.run(
+        `INSERT INTO stock_movements (product_id, variant, type, quantity, stock_after, reason)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [product_id, variant, diff > 0 ? 'in' : 'out', Math.abs(diff), newQty, `Stock défini à ${newQty}`]
+      );
+    }
+
+    res.json({ ok: true, newQty });
+  } catch (error) {
+    console.error('Stock set error:', error);
+    res.status(500).json({ ok: false, error: 'Erreur serveur' });
+  }
+});
+
 app.post('/api/admin/stock/reset', requireAdmin, async (req, res) => {
   try {
     const productsData = await db.get("SELECT value FROM settings WHERE key = 'products'");
@@ -3937,32 +3986,30 @@ app.post('/api/admin/stock/reset', requireAdmin, async (req, res) => {
     const products = JSON.parse(productsData.value);
     let repaired = 0;
     for (const product of products) {
+      if (product.archived) continue;
       if (product.variants) {
-        for (const [variantName, variantData] of Object.entries(product.variants)) {
-          const defaultQty = variantData.stock || 0;
-          if (defaultQty > 0) {
-            const current = await db.get(
-              'SELECT qty FROM stock WHERE product_id = ? AND variant = ?',
+        for (const [variantName] of Object.entries(product.variants)) {
+          const current = await db.get(
+            'SELECT qty FROM stock WHERE product_id = ? AND variant = ?',
+            [product.id, variantName]
+          );
+          if (!current) {
+            await db.run(
+              'INSERT INTO stock (product_id, variant, qty, manual) VALUES (?, ?, 999, 0)',
               [product.id, variantName]
             );
-            if (!current) {
-              await db.run(
-                'INSERT INTO stock (product_id, variant, qty) VALUES (?, ?, ?)',
-                [product.id, variantName, defaultQty]
-              );
-              repaired++;
-            } else if (current.qty === 0) {
-              await db.run(
-                'UPDATE stock SET qty = ?, manual = 0 WHERE product_id = ? AND variant = ?',
-                [defaultQty, product.id, variantName]
-              );
-              repaired++;
-            }
+            repaired++;
+          } else if (current.qty < 999) {
+            await db.run(
+              'UPDATE stock SET qty = 999, manual = 0 WHERE product_id = ? AND variant = ?',
+              [product.id, variantName]
+            );
+            repaired++;
           }
         }
       }
     }
-    console.log(`🔧 Admin stock reset: ${repaired} stock(s) réparé(s)`);
+    console.log(`🔧 Admin stock reset: ${repaired} stock(s) remis à 999`);
     res.json({ ok: true, repaired });
   } catch (error) {
     console.error('Stock reset error:', error);
