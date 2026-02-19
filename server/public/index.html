@@ -6349,12 +6349,29 @@ function showPartialCancellationDialog(orderId, orderData) {
           }
         }
 
-        showToast('✅ ' + data.message);
+        // Fermer la modale de sélection
         dialog.remove();
 
-        // Fermer le récapitulatif de commande
+        // Afficher un écran de confirmation
+        const confirmScreen = document.createElement('div');
+        confirmScreen.className = 'confirm-dialog';
+        confirmScreen.style.zIndex = '2002';
+        confirmScreen.innerHTML = `
+          <div class="confirm-content" style="max-width:420px;text-align:center">
+            <div style="font-size:64px;margin-bottom:16px">${data.fullyCancelled ? '✅' : '📦'}</div>
+            <h3 style="font-size:22px;font-weight:700;margin-bottom:12px">${data.fullyCancelled ? 'Commande annulée' : 'Articles annulés'}</h3>
+            <p style="color:var(--text-secondary);font-size:15px;margin-bottom:24px">
+              ${data.message || (data.fullyCancelled ? 'Votre commande a bien été annulée.' : 'Les articles sélectionnés ont été retirés de votre commande.')}
+            </p>
+            <button onclick="this.closest('.confirm-dialog').remove();document.body.classList.remove('modal-open')" style="width:100%;padding:14px;background:var(--accent);border:none;border-radius:12px;color:var(--bg-primary);font-weight:700;font-size:16px;cursor:pointer;transition:all 0.2s">
+              Compris
+            </button>
+          </div>
+        `;
+        document.body.appendChild(confirmScreen);
+
+        // Fermer le récapitulatif de commande en arrière-plan
         document.getElementById('orderSummarySheet').classList.add('hidden');
-        document.body.classList.remove('modal-open');
 
         // Recharger les produits (stock restauré côté serveur) puis rafraîchir les commandes
         await loadProducts();
@@ -6562,22 +6579,40 @@ function cancelOrder(orderId, customerName) {
       // Mettre à jour l'état local
       OrdersManager.updateStatus(orderId, 'cancelled', reason);
 
-      showToast('Annulation effectuee');
-
-      // Fermer les fenêtres
+      // Fermer la modale de motif
       cancelDialog.remove();
+
+      // Afficher un vrai écran de confirmation
+      const confirmScreen = document.createElement('div');
+      confirmScreen.className = 'confirm-dialog';
+      confirmScreen.style.zIndex = '2002';
+      confirmScreen.innerHTML = `
+        <div class="confirm-content" style="max-width:420px;text-align:center">
+          <div style="font-size:64px;margin-bottom:16px">✅</div>
+          <h3 style="font-size:22px;font-weight:700;margin-bottom:12px">Commande annulée</h3>
+          <p style="color:var(--text-secondary);font-size:15px;margin-bottom:8px">
+            Votre commande <strong>#${orderId}</strong> a bien été annulée.
+          </p>
+          <p style="color:var(--text-muted);font-size:13px;margin-bottom:${data.orderAmount ? '12px' : '24px'}">
+            Motif : ${reason}
+          </p>
+          ${data.orderAmount ? `<p style="color:var(--text-secondary);font-size:14px;margin-bottom:24px">Le montant de <strong>${fmt(data.orderAmount)}</strong> ne sera pas débité.</p>` : ''}
+          <button onclick="this.closest('.confirm-dialog').remove();document.body.classList.remove('modal-open')" style="width:100%;padding:14px;background:var(--accent);border:none;border-radius:12px;color:var(--bg-primary);font-weight:700;font-size:16px;cursor:pointer;transition:all 0.2s">
+            Compris
+          </button>
+        </div>
+      `;
+      document.body.appendChild(confirmScreen);
+
+      // Fermer le résumé de commande en arrière-plan
+      const summarySheet = document.getElementById('orderSummarySheet');
+      if (summarySheet && !summarySheet.classList.contains('hidden')) {
+        summarySheet.classList.add('hidden');
+      }
 
       // Recharger les produits (stock mis à jour côté serveur) puis les commandes
       await loadProducts();
       renderOrders();
-
-      setTimeout(() => {
-        const summarySheet = document.getElementById('orderSummarySheet');
-        if (summarySheet && !summarySheet.classList.contains('hidden')) {
-          summarySheet.classList.add('hidden');
-          document.body.classList.remove('modal-open');
-        }
-      }, 1000);
     } catch (err) {
       console.error('Cancel error:', err);
       showToast('Erreur de connexion');
