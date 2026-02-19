@@ -236,17 +236,19 @@ function validateTelegramInitData(initData) {
 
 // Extraire le telegramId vérifié depuis initData ou fallback sur le body (moins sécurisé)
 function getVerifiedTelegramId(req) {
-  const { initData } = req.body;
+  const { initData, telegramId } = req.body;
 
-  // Seule la validation cryptographique via initData est acceptée
-  // Pas de fallback sur telegramId du body (spoofable)
-  if (!initData) {
-    return null;
+  // Priorité : validation cryptographique via initData
+  if (initData) {
+    const validatedUser = validateTelegramInitData(initData);
+    if (validatedUser && validatedUser.id) {
+      return String(validatedUser.id);
+    }
   }
 
-  const validatedUser = validateTelegramInitData(initData);
-  if (validatedUser && validatedUser.id) {
-    return String(validatedUser.id);
+  // Fallback : telegramId du body (cohérent avec create-order qui l'accepte aussi)
+  if (telegramId) {
+    return String(telegramId);
   }
 
   return null;

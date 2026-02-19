@@ -6640,7 +6640,7 @@ function renderOrders() {
   }
   
   list.innerHTML = orders.map(order => {
-    const canCancel = order.status === 'pending';
+    const canCancel = ['pending', 'pending_approval', 'confirmed', 'preparing'].includes(order.status);
     const isCancelled = order.status === 'cancelled';
     const isDelivered = order.status === 'delivered';
 
