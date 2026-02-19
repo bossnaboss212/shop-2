@@ -81,7 +81,7 @@ body{
   transition:background 0.3s, color 0.3s;
 }
 
-body.modal-open{overflow:hidden;position:fixed;width:100%;max-width:100vw;overflow-x:hidden;touch-action:none}
+body.modal-open{overflow:hidden;position:fixed;width:100%;max-width:100vw;overflow-x:hidden}
 
 .header{
   position:sticky;
@@ -982,6 +982,7 @@ body.modal-open{overflow:hidden;position:fixed;width:100%;max-width:100vw;overfl
   justify-content:center;
   animation:fadeIn 0.2s;
   overflow-x:hidden;
+  touch-action:auto;
 }
 
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
@@ -994,6 +995,7 @@ body.modal-open{overflow:hidden;position:fixed;width:100%;max-width:100vw;overfl
   max-width:400px;
   width:90%;
   animation:scaleIn 0.3s;
+  touch-action:auto;
 }
 
 @keyframes scaleIn{
@@ -1004,7 +1006,6 @@ body.modal-open{overflow:hidden;position:fixed;width:100%;max-width:100vw;overfl
 @keyframes slideIn{
   from{transform:translateX(-20px);opacity:0}
   to{transform:translateX(0);opacity:1}
-}
 }
 
 .history-filter.active{
