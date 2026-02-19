@@ -1002,6 +1002,7 @@
         <input type="number" id="stockQty" placeholder="Quantité" min="0">
         <button onclick="addStock()" style="background:var(--success)">➕ Ajouter</button>
         <button onclick="adjustStock()" style="background:var(--warning)">⚖️ Ajuster</button>
+        <button onclick="resetAllStock()" style="background:var(--danger);margin-left:auto">🔄 Reset stocks à 999</button>
       </div>
 
       <div class="table-container">
@@ -5133,6 +5134,29 @@ async function adjustStock() {
     showToast(`Stock ajusté à ${data.newQty}`, 'success');
   } catch (error) {
     console.error('Erreur ajustement stock:', error);
+    showToast('Erreur réseau', 'error');
+  }
+}
+
+async function resetAllStock() {
+  if (!confirm('Remettre tous les stocks à 0 à leur valeur par défaut (999) ?')) return;
+  const token = localStorage.getItem('admin_token');
+  if (!token) { showToast('Non authentifié', 'error'); return; }
+  try {
+    const response = await fetch('/api/admin/stock/reset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-token': token }
+    });
+    const data = await response.json();
+    if (data.ok) {
+      showToast(`${data.repaired} stock(s) réparé(s) à 999`, 'success');
+      loadStock();
+      updateAllStats();
+    } else {
+      showToast(data.error || 'Erreur', 'error');
+    }
+  } catch (error) {
+    console.error('Erreur reset stock:', error);
     showToast('Erreur réseau', 'error');
   }
 }

@@ -3905,6 +3905,48 @@ app.post('/api/admin/stock/movement', requireAdmin, async (req, res) => {
   }
 });
 
+app.post('/api/admin/stock/reset', requireAdmin, async (req, res) => {
+  try {
+    const productsData = await db.get("SELECT value FROM settings WHERE key = 'products'");
+    if (!productsData?.value) {
+      return res.status(404).json({ ok: false, error: 'Produits non trouvés' });
+    }
+    const products = JSON.parse(productsData.value);
+    let repaired = 0;
+    for (const product of products) {
+      if (product.variants) {
+        for (const [variantName, variantData] of Object.entries(product.variants)) {
+          const defaultQty = variantData.stock || 0;
+          if (defaultQty > 0) {
+            const current = await db.get(
+              'SELECT qty FROM stock WHERE product_id = ? AND variant = ?',
+              [product.id, variantName]
+            );
+            if (!current) {
+              await db.run(
+                'INSERT INTO stock (product_id, variant, qty) VALUES (?, ?, ?)',
+                [product.id, variantName, defaultQty]
+              );
+              repaired++;
+            } else if (current.qty === 0) {
+              await db.run(
+                'UPDATE stock SET qty = ? WHERE product_id = ? AND variant = ?',
+                [defaultQty, product.id, variantName]
+              );
+              repaired++;
+            }
+          }
+        }
+      }
+    }
+    console.log(`🔧 Admin stock reset: ${repaired} stock(s) réparé(s)`);
+    res.json({ ok: true, repaired });
+  } catch (error) {
+    console.error('Stock reset error:', error);
+    res.status(500).json({ ok: false, error: 'Erreur serveur' });
+  }
+});
+
 app.get('/api/admin/stock/movements', requireAdmin, async (req, res) => {
   try {
     const movements = await db.all(
