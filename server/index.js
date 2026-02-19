@@ -2537,7 +2537,7 @@ app.post('/api/cancel-order', apiLimiter, async (req, res) => {
       if (driverInfo.driverId) {
         try {
           await telegram.sendMessage(driverInfo.driverId,
-            `🚫 <b>COMMANDE #${orderId} ANNULÉE</b>\n\n👤 ${displayName}\n📍 ${order.address || 'N/A'}\n📝 ${cancelReason}\n\n⚠️ <b>Retirez cette commande de vos livraisons.</b>`
+            `🚫 <b>COMMANDE #${orderId} ANNULÉE</b>\n\n📍 ${order.address || 'N/A'}\n💰 ${order.total}€\n\n⚠️ <b>Retirez cette commande de vos livraisons.</b>`
           );
           // Renvoyer la liste actualisée au livreur
           await sendDetailedDriverDeliveries(driverInfo.driverId, driverInfo.zone);
@@ -2726,7 +2726,7 @@ app.post('/api/cancel-order-items', apiLimiter, async (req, res) => {
         if (driverInfoCancel.driverId) {
           try {
             await telegram.sendMessage(driverInfoCancel.driverId,
-              `🚫 <b>COMMANDE #${orderId} ANNULÉE</b>\n\n👤 ${displayNamePartial}\n📍 ${order.address || 'N/A'}\n📝 ${cancelReasonPartial}\n\n⚠️ <b>Retirez cette commande de vos livraisons.</b>`
+              `🚫 <b>COMMANDE #${orderId} ANNULÉE</b>\n\n📍 ${order.address || 'N/A'}\n💰 ${order.total}€\n\n⚠️ <b>Retirez cette commande de vos livraisons.</b>`
             );
             await sendDetailedDriverDeliveries(driverInfoCancel.driverId, driverInfoCancel.zone);
           } catch (err) {
@@ -2817,7 +2817,7 @@ app.post('/api/cancel-order-items', apiLimiter, async (req, res) => {
       if (driverInfoP.driverId) {
         try {
           await telegram.sendMessage(driverInfoP.driverId,
-            `⚠️ <b>COMMANDE #${orderId} MODIFIÉE</b>\n\n👤 ${displayNameP}\n🗑️ Retiré: ${cancelledItemsText}\n💰 Nouveau total: ${newTotal}€\n\n📋 <b>Vérifiez la commande mise à jour.</b>`
+            `⚠️ <b>COMMANDE #${orderId} MODIFIÉE</b>\n\n🗑️ Retiré: ${cancelledItemsText}\n💰 Nouveau total: ${newTotal}€\n\n📋 <b>Vérifiez la commande mise à jour.</b>`
           );
           await sendDetailedDriverDeliveries(driverInfoP.driverId, driverInfoP.zone);
         } catch (err) {
