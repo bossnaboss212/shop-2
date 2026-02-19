@@ -2508,7 +2508,46 @@ app.post('/api/cancel-order', apiLimiter, async (req, res) => {
     // Fermer les conversations liées
     chatManager.closeConversation(parseInt(orderId));
 
-    console.log(`✅ Order #${orderId} cancelled. Stocks restored.`);
+    // ==================== NOTIFICATIONS ANNULATION ====================
+    const displayName = await getCustomerDisplayName(order.customer);
+    const cancelReason = reason || 'Annulée par le client';
+
+    // Notifier les admins
+    const adminCancelMsg = `❌ <b>COMMANDE #${orderId} ANNULÉE</b>
+
+👤 Client: ${displayName}
+💰 Montant: ${order.total}€
+📦 Articles: ${items.map(i => `${i.name} ${i.variant} ×${i.qty}`).join(', ')}
+
+📝 Motif: ${cancelReason}
+🔄 Stocks restaurés automatiquement`;
+
+    await notifyAdmins(adminCancelMsg);
+
+    // Notifier le support
+    if (config.telegram.supportChatId) {
+      await telegram.sendMessage(config.telegram.supportChatId,
+        `❌ <b>ANNULATION #${orderId}</b>\n\n👤 ${displayName}\n💰 ${order.total}€\n📝 ${cancelReason}`
+      );
+    }
+
+    // Notifier le livreur assigné
+    if (order.assigned_driver_zone) {
+      const driverInfo = await getDriverForDeliveryZone(order.assigned_driver_zone);
+      if (driverInfo.driverId) {
+        try {
+          await telegram.sendMessage(driverInfo.driverId,
+            `🚫 <b>COMMANDE #${orderId} ANNULÉE</b>\n\n📍 ${order.address || 'N/A'}\n💰 ${order.total}€\n\n⚠️ <b>Retirez cette commande de vos livraisons.</b>`
+          );
+          // Renvoyer la liste actualisée au livreur
+          await sendDetailedDriverDeliveries(driverInfo.driverId, driverInfo.zone);
+        } catch (err) {
+          console.error(`❌ Erreur notification livreur annulation:`, err.message);
+        }
+      }
+    }
+
+    console.log(`✅ Order #${orderId} cancelled. Stocks restored. Notifications sent.`);
 
     res.json({
       ok: true,
@@ -2670,7 +2709,33 @@ app.post('/api/cancel-order-items', apiLimiter, async (req, res) => {
 
       chatManager.closeConversation(parseInt(orderId));
 
-      console.log(`✅ Order #${orderId} fully cancelled (all items removed)`);
+      // Notifications annulation complète (via annulation partielle totale)
+      const displayNamePartial = await getCustomerDisplayName(order.customer);
+      const cancelReasonPartial = reason || 'Annulation totale des articles';
+
+      await notifyAdmins(`❌ <b>COMMANDE #${orderId} ANNULÉE</b>\n\n👤 Client: ${displayNamePartial}\n💰 Montant: ${order.total}€\n📝 Motif: ${cancelReasonPartial}\n🔄 Stocks restaurés`);
+
+      if (config.telegram.supportChatId) {
+        await telegram.sendMessage(config.telegram.supportChatId,
+          `❌ <b>ANNULATION #${orderId}</b>\n\n👤 ${displayNamePartial}\n💰 ${order.total}€\n📝 ${cancelReasonPartial}`
+        );
+      }
+
+      if (order.assigned_driver_zone) {
+        const driverInfoCancel = await getDriverForDeliveryZone(order.assigned_driver_zone);
+        if (driverInfoCancel.driverId) {
+          try {
+            await telegram.sendMessage(driverInfoCancel.driverId,
+              `🚫 <b>COMMANDE #${orderId} ANNULÉE</b>\n\n📍 ${order.address || 'N/A'}\n💰 ${order.total}€\n\n⚠️ <b>Retirez cette commande de vos livraisons.</b>`
+            );
+            await sendDetailedDriverDeliveries(driverInfoCancel.driverId, driverInfoCancel.zone);
+          } catch (err) {
+            console.error(`❌ Erreur notification livreur annulation:`, err.message);
+          }
+        }
+      }
+
+      console.log(`✅ Order #${orderId} fully cancelled (all items removed). Notifications sent.`);
 
       return res.json({
         ok: true,
@@ -2733,6 +2798,32 @@ app.post('/api/cancel-order-items', apiLimiter, async (req, res) => {
     } catch (txErr) {
       await db.run('ROLLBACK');
       throw txErr;
+    }
+
+    // Notifications annulation partielle
+    const displayNameP = await getCustomerDisplayName(order.customer);
+    const cancelledItemsText = itemsToRemove.map(i => `${i.name} ${i.variant} ×${i.qty}`).join(', ');
+
+    await notifyAdmins(`⚠️ <b>ANNULATION PARTIELLE #${orderId}</b>\n\n👤 Client: ${displayNameP}\n🗑️ Retiré: ${cancelledItemsText}\n💰 Nouveau total: ${newTotal}€ (ancien: ${order.total}€)\n📝 Motif: ${reason || 'Annulation partielle'}`);
+
+    if (config.telegram.supportChatId) {
+      await telegram.sendMessage(config.telegram.supportChatId,
+        `⚠️ <b>MODIF COMMANDE #${orderId}</b>\n\n👤 ${displayNameP}\n🗑️ ${cancelledItemsText}\n💰 ${order.total}€ → ${newTotal}€`
+      );
+    }
+
+    if (order.assigned_driver_zone) {
+      const driverInfoP = await getDriverForDeliveryZone(order.assigned_driver_zone);
+      if (driverInfoP.driverId) {
+        try {
+          await telegram.sendMessage(driverInfoP.driverId,
+            `⚠️ <b>COMMANDE #${orderId} MODIFIÉE</b>\n\n🗑️ Retiré: ${cancelledItemsText}\n💰 Nouveau total: ${newTotal}€\n\n📋 <b>Vérifiez la commande mise à jour.</b>`
+          );
+          await sendDetailedDriverDeliveries(driverInfoP.driverId, driverInfoP.zone);
+        } catch (err) {
+          console.error(`❌ Erreur notification livreur annulation partielle:`, err.message);
+        }
+      }
     }
 
     console.log(`✅ Order #${orderId} partially cancelled. ${itemsToRemove.length} item(s) removed.${creditToRefund > 0 ? ` ${creditToRefund}€ credit refunded.` : ''}`);
