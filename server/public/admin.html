@@ -1026,6 +1026,7 @@
       <div class="toolbar">
         <input type="text" id="searchCustomers" placeholder="🔍 Rechercher..." oninput="searchCustomers()">
         <button onclick="addCustomer()" style="background:var(--success)">➕ Nouveau</button>
+        <button onclick="exportClientsCSV()" style="background:var(--info)">📥 Export Telegram CSV</button>
       </div>
 
       <div class="table-container">
@@ -5149,6 +5150,22 @@ async function exportOrdersCSV() {
     const a = document.createElement('a'); a.href = url; a.download = 'commandes.csv'; a.click();
     URL.revokeObjectURL(url);
     showToast('CSV téléchargé', 'success');
+  } catch (e) { showToast('Erreur réseau', 'error'); }
+}
+
+// ==================== EXPORT CLIENTS TELEGRAM (CSV) ====================
+
+async function exportClientsCSV() {
+  const token = localStorage.getItem('admin_token');
+  if (!token) { showToast('Non authentifié', 'error'); return; }
+  try {
+    const res = await fetch('/api/admin/clients/export/csv', { headers: { 'x-admin-token': token } });
+    if (!res.ok) { showToast('Erreur export', 'error'); return; }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'clients_telegram.csv'; a.click();
+    URL.revokeObjectURL(url);
+    showToast('CSV clients téléchargé', 'success');
   } catch (e) { showToast('Erreur réseau', 'error'); }
 }
 
