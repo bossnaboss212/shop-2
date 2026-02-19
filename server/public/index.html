@@ -2897,37 +2897,6 @@ const SyncManager = {
     }
   },
 
-  // Mettre à jour le stock d'un produit
-  async updateStock(productId, variantLabel, quantity) {
-    const products = await this.loadProducts();
-    const product = products.find(p => p.id === productId);
-
-    if (product && product.variants[variantLabel]) {
-      product.variants[variantLabel].stock -= quantity;
-      if (product.variants[variantLabel].stock < 0) {
-        product.variants[variantLabel].stock = 0;
-      }
-      this.saveProducts(products);
-      console.log(`📦 Stock mis à jour: ${product.name} ${variantLabel} → ${product.variants[variantLabel].stock}`);
-      return true;
-    }
-    return false;
-  },
-
-  // Restaurer le stock d'un produit (lors d'une annulation)
-  async restoreStock(productId, variantLabel, quantity) {
-    const products = await this.loadProducts();
-    const product = products.find(p => p.id === productId);
-
-    if (product && product.variants[variantLabel]) {
-      product.variants[variantLabel].stock += quantity;
-      this.saveProducts(products);
-      console.log(`♻️ Stock restauré: ${product.name} ${variantLabel} → ${product.variants[variantLabel].stock}`);
-      return true;
-    }
-    return false;
-  },
-
   // Créer une commande
   async createOrder(orderData) {
     try {
@@ -2985,10 +2954,8 @@ const SyncManager = {
       orders.push(order);
       localStorage.setItem('shop_orders', JSON.stringify(orders));
 
-      // Mettre à jour les stocks locaux (séquentiel pour éviter les race conditions)
-      for (const item of orderData.items) {
-        await this.updateStock(item.product_id, item.variant, item.qty);
-      }
+      // Recharger les produits une seule fois pour récupérer le stock à jour du serveur
+      await this.loadProducts();
 
       // Mettre à jour le chiffre d'affaires et incrémenter le compteur
       this.updateRevenue(orderData.total, true);
@@ -3020,11 +2987,9 @@ const SyncManager = {
         return false;
       }
 
-      // Restaurer les stocks pour chaque article (séquentiel)
-      for (const item of order.items) {
-        await this.restoreStock(item.product_id, item.variant, item.qty);
-      }
-      
+      // Recharger les produits une seule fois pour récupérer le stock à jour du serveur
+      await this.loadProducts();
+
       // Mettre à jour le chiffre d'affaires
       this.updateRevenue(-order.total);
       
