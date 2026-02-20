@@ -2468,6 +2468,56 @@ body.modal-open{overflow:hidden;position:fixed;width:100%;max-width:100vw;overfl
       .dlv-legend-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
       .dlv-legend-price{color:var(--text-muted);font-weight:400;margin-left:2px}
 
+      .dlv-zone{
+        position:relative;overflow:hidden;border-radius:20px;padding:0;margin-bottom:16px;
+        background:var(--bg-secondary);
+        border:1px solid color-mix(in srgb,var(--dlv-clr) 30%,transparent);
+        transition:all 0.35s cubic-bezier(0.4,0,0.2,1);
+        animation:dlv-fadeIn 0.5s ease-out both;
+      }
+      .dlv-zone:nth-child(2){animation-delay:0.1s}
+      .dlv-zone:nth-child(3){animation-delay:0.2s}
+      .dlv-zone:nth-child(4){animation-delay:0.3s}
+      .dlv-zone:nth-child(5){animation-delay:0.4s}
+      .dlv-zone:hover{
+        transform:translateY(-4px) scale(1.01);
+        border-color:var(--dlv-clr);
+        box-shadow:0 8px 32px color-mix(in srgb,var(--dlv-clr) 20%,transparent),0 0 0 1px color-mix(in srgb,var(--dlv-clr) 15%,transparent);
+      }
+      .dlv-zone-glow{
+        position:absolute;top:0;left:0;right:0;height:3px;
+        background:linear-gradient(90deg,transparent,var(--dlv-clr),var(--dlv-clr2),transparent);
+        opacity:0.8;
+      }
+      .dlv-zone-head{display:flex;align-items:center;justify-content:space-between;padding:18px 18px 0}
+      .dlv-zone-left{display:flex;align-items:center;gap:14px}
+      .dlv-zone-icon{
+        width:50px;height:50px;border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:26px;
+        background:linear-gradient(135deg,var(--dlv-clr),var(--dlv-clr2));
+        box-shadow:0 4px 16px color-mix(in srgb,var(--dlv-clr) 30%,transparent);
+        animation:dlv-float 4s ease-in-out infinite;
+      }
+      .dlv-zone-icon span{filter:drop-shadow(0 2px 4px rgba(0,0,0,0.3))}
+      .dlv-zone-name{font-size:17px;font-weight:800;letter-spacing:-0.3px}
+      .dlv-zone-min{font-size:12px;color:var(--text-muted);font-weight:500;margin-top:2px}
+      .dlv-zone-price{
+        font-size:24px;font-weight:900;color:var(--dlv-clr);
+        text-shadow:0 0 20px color-mix(in srgb,var(--dlv-clr) 40%,transparent);
+      }
+      .dlv-zone-cities{display:flex;flex-wrap:wrap;gap:8px;padding:14px 18px 18px}
+      .dlv-city{
+        background:var(--bg-tertiary);border:1px solid var(--border);border-radius:10px;
+        padding:7px 14px;font-size:13px;font-weight:500;
+        transition:all 0.2s;cursor:default;
+      }
+      .dlv-city:hover{border-color:var(--dlv-clr);background:color-mix(in srgb,var(--dlv-clr) 8%,var(--bg-tertiary))}
+      .dlv-city.--free{
+        background:color-mix(in srgb,var(--dlv-clr) 12%,var(--bg-tertiary));
+        border-color:color-mix(in srgb,var(--dlv-clr) 40%,transparent);
+        font-weight:700;
+      }
+      .dlv-city.--free::after{content:' (Gratuit)';font-size:10px;color:var(--dlv-clr);font-weight:800;margin-left:4px}
+
       .dlv-recap{
         border-radius:20px;padding:24px 20px;margin-top:24px;position:relative;overflow:hidden;
         background:linear-gradient(160deg,var(--bg-secondary) 0%,var(--bg-tertiary) 100%);
@@ -2546,7 +2596,378 @@ body.modal-open{overflow:hidden;position:fixed;width:100%;max-width:100vw;overfl
         </div>
       </div>
 
-      <!-- Recap -->
+      <!-- MILLAU GRATUIT -->
+      <div class="dlv-zone" style="--dlv-clr:#3b82f6;--dlv-clr2:#1d4ed8">
+        <div class="dlv-zone-glow"></div>
+        <div class="dlv-zone-head">
+          <div class="dlv-zone-left">
+            <div class="dlv-zone-icon"><span>🏠</span></div>
+            <div>
+              <div class="dlv-zone-name">Millau</div>
+              <div class="dlv-zone-min">Pas de minimum</div>
+            </div>
+          </div>
+          <div class="dlv-zone-price" style="color:#4ade80">GRATUIT</div>
+        </div>
+        <div class="dlv-zone-cities">
+          <span class="dlv-city --free">Millau centre</span>
+          <span class="dlv-city --free">Tout Millau</span>
+        </div>
+      </div>
+
+      <!-- ZONE 1 -->
+      <div class="dlv-zone" style="--dlv-clr:#4ade80;--dlv-clr2:#22c55e">
+        <div class="dlv-zone-glow"></div>
+        <div class="dlv-zone-head">
+          <div class="dlv-zone-left">
+            <div class="dlv-zone-icon"><span>&#x1F7E2;</span></div>
+            <div>
+              <div class="dlv-zone-name">Zone 1</div>
+              <div class="dlv-zone-min">Min. 50&euro; d'achat</div>
+            </div>
+          </div>
+          <div class="dlv-zone-price">+10&euro;</div>
+        </div>
+        <div class="dlv-zone-cities">
+          <span class="dlv-city">Aguessac</span>
+          <span class="dlv-city">Compeyre</span>
+          <span class="dlv-city">Compr&eacute;gnac</span>
+          <span class="dlv-city">Creissels</span>
+          <span class="dlv-city">La Cresse</span>
+          <span class="dlv-city">Paulhe</span>
+          <span class="dlv-city">Rivi&egrave;re-sur-Tarn</span>
+          <span class="dlv-city">Saint-Georges-de-Luzen&ccedil;on</span>
+          <span class="dlv-city">Verri&egrave;res</span>
+        </div>
+      </div>
+
+      <!-- ZONE 2 -->
+      <div class="dlv-zone" style="--dlv-clr:#fbbf24;--dlv-clr2:#f59e0b">
+        <div class="dlv-zone-glow"></div>
+        <div class="dlv-zone-head">
+          <div class="dlv-zone-left">
+            <div class="dlv-zone-icon"><span>&#x1F7E1;</span></div>
+            <div>
+              <div class="dlv-zone-name">Zone 2</div>
+              <div class="dlv-zone-min">Min. 80&euro; d'achat</div>
+            </div>
+          </div>
+          <div class="dlv-zone-price">+20&euro;</div>
+        </div>
+        <div class="dlv-zone-cities">
+          <span class="dlv-city">Alrance</span>
+          <span class="dlv-city">Calmels-et-le-Viala</span>
+          <span class="dlv-city">Castelnau-P&eacute;gayrols</span>
+          <span class="dlv-city">Comps-la-Grand-Ville</span>
+          <span class="dlv-city">Cornus</span>
+          <span class="dlv-city">Curan</span>
+          <span class="dlv-city">Flavin</span>
+          <span class="dlv-city">La Bastide-Pradines</span>
+          <span class="dlv-city">La Cavalerie</span>
+          <span class="dlv-city">La Couvertoirade</span>
+          <span class="dlv-city">La Roque-Sainte-Marguerite</span>
+          <span class="dlv-city">Lapanouse-de-Cernon</span>
+          <span class="dlv-city">Le Clapier</span>
+          <span class="dlv-city">Le Truel</span>
+          <span class="dlv-city">Les Costes-Gozon</span>
+          <span class="dlv-city">L'Hospitalet-du-Larzac</span>
+          <span class="dlv-city">Montclar</span>
+          <span class="dlv-city">Montjaux</span>
+          <span class="dlv-city">Mostu&eacute;jouls</span>
+          <span class="dlv-city">Nant</span>
+          <span class="dlv-city">Peux-et-Couffouleux</span>
+          <span class="dlv-city">Peyreleau</span>
+          <span class="dlv-city">Roquefort-sur-Soulzon</span>
+          <span class="dlv-city">Saint-Affrique</span>
+          <span class="dlv-city">Saint-Andr&eacute;-de-V&eacute;zines</span>
+          <span class="dlv-city">Saint-Beaulize</span>
+          <span class="dlv-city">Saint-Beauz&eacute;ly</span>
+          <span class="dlv-city">Sainte-Eulalie-de-Cernon</span>
+          <span class="dlv-city">Saint-Jean-d'Alcapi&egrave;s</span>
+          <span class="dlv-city">Saint-Jean-du-Bruel</span>
+          <span class="dlv-city">Saint-Jean-et-Saint-Paul</span>
+          <span class="dlv-city">Saint-Laurent-de-L&eacute;v&eacute;zou</span>
+          <span class="dlv-city">Saint-Rome-de-Cernon</span>
+          <span class="dlv-city">Saint-Rome-de-Tarn</span>
+          <span class="dlv-city">Saint-Victor-et-Melvieu</span>
+          <span class="dlv-city">Salles-Curan</span>
+          <span class="dlv-city">Saucli&egrave;res</span>
+          <span class="dlv-city">S&eacute;v&eacute;rac d'Aveyron</span>
+          <span class="dlv-city">Tournemire</span>
+          <span class="dlv-city">Vabres-l'Abbaye</span>
+          <span class="dlv-city">Veyreau</span>
+          <span class="dlv-city">Viala-du-Pas-de-Jaux</span>
+          <span class="dlv-city">Viala-du-Tarn</span>
+          <span class="dlv-city">Villefranche-de-Panat</span>
+        </div>
+      </div>
+
+      <!-- ZONE 3 -->
+      <div class="dlv-zone" style="--dlv-clr:#f97316;--dlv-clr2:#ea580c">
+        <div class="dlv-zone-glow"></div>
+        <div class="dlv-zone-head">
+          <div class="dlv-zone-left">
+            <div class="dlv-zone-icon"><span>&#x1F7E0;</span></div>
+            <div>
+              <div class="dlv-zone-name">Zone 3</div>
+              <div class="dlv-zone-min">Min. 100&euro; d'achat</div>
+            </div>
+          </div>
+          <div class="dlv-zone-price">+30&euro;</div>
+        </div>
+        <div class="dlv-zone-cities">
+          <span class="dlv-city">Agen-d'Aveyron</span>
+          <span class="dlv-city">Arques</span>
+          <span class="dlv-city">Arnac-sur-Dourdou</span>
+          <span class="dlv-city">Arvieu</span>
+          <span class="dlv-city">Auriac-Lagast</span>
+          <span class="dlv-city">Ayss&egrave;nes</span>
+          <span class="dlv-city">Balaguier-sur-Rance</span>
+          <span class="dlv-city">Belmont-sur-Rance</span>
+          <span class="dlv-city">Brasc</span>
+          <span class="dlv-city">Broqui&egrave;s</span>
+          <span class="dlv-city">Brousse-le-Ch&acirc;teau</span>
+          <span class="dlv-city">Brusque</span>
+          <span class="dlv-city">Camar&egrave;s</span>
+          <span class="dlv-city">Canet-de-Salars</span>
+          <span class="dlv-city">Combret</span>
+          <span class="dlv-city">Connac</span>
+          <span class="dlv-city">Coupiac</span>
+          <span class="dlv-city">Durenque</span>
+          <span class="dlv-city">Fayet</span>
+          <span class="dlv-city">Fondamente</span>
+          <span class="dlv-city">Gissac</span>
+          <span class="dlv-city">La Bastide-Solages</span>
+          <span class="dlv-city">La Selve</span>
+          <span class="dlv-city">La Serre</span>
+          <span class="dlv-city">Laval-Roquecezi&egrave;re</span>
+          <span class="dlv-city">Le Vibal</span>
+          <span class="dlv-city">L&eacute;dergues</span>
+          <span class="dlv-city">Lestrade-et-Thouels</span>
+          <span class="dlv-city">Marnhagues-et-Latour</span>
+          <span class="dlv-city">Martrin</span>
+          <span class="dlv-city">M&eacute;lagues</span>
+          <span class="dlv-city">Montagnol</span>
+          <span class="dlv-city">Montfranc</span>
+          <span class="dlv-city">Montlaur</span>
+          <span class="dlv-city">Mounes-Prohencoux</span>
+          <span class="dlv-city">Murasson</span>
+          <span class="dlv-city">Plaisance</span>
+          <span class="dlv-city">Pont-de-Salars</span>
+          <span class="dlv-city">Pousthomy</span>
+          <span class="dlv-city">Prades-Salars</span>
+          <span class="dlv-city">Rebourguil</span>
+          <span class="dlv-city">R&eacute;quista</span>
+          <span class="dlv-city">Rullac-Saint-Cirq</span>
+          <span class="dlv-city">Saint-F&eacute;lix-de-Sorgues</span>
+          <span class="dlv-city">Saint-Izaire</span>
+          <span class="dlv-city">Saint-Jean-Delnous</span>
+          <span class="dlv-city">Saint-Ju&eacute;ry</span>
+          <span class="dlv-city">Saint-Just-sur-Viaur</span>
+          <span class="dlv-city">Saint-L&eacute;ons</span>
+          <span class="dlv-city">Saint-Sernin-sur-Rance</span>
+          <span class="dlv-city">Saint-Sever-du-Moustier</span>
+          <span class="dlv-city">Salmiech</span>
+          <span class="dlv-city">S&eacute;gur</span>
+          <span class="dlv-city">Sylvan&egrave;s</span>
+          <span class="dlv-city">Tauriac-de-Camar&egrave;s</span>
+          <span class="dlv-city">Tr&eacute;mouilles</span>
+          <span class="dlv-city">Versols-et-Lapeyre</span>
+          <span class="dlv-city">V&eacute;zins-de-L&eacute;v&eacute;zou</span>
+        </div>
+      </div>
+
+      <!-- ZONE 4 -->
+      <div class="dlv-zone" style="--dlv-clr:#ef4444;--dlv-clr2:#dc2626">
+        <div class="dlv-zone-glow"></div>
+        <div class="dlv-zone-head">
+          <div class="dlv-zone-left">
+            <div class="dlv-zone-icon"><span>&#x1F534;</span></div>
+            <div>
+              <div class="dlv-zone-name">Zone 4</div>
+              <div class="dlv-zone-min">Min. 150&euro; d'achat</div>
+            </div>
+          </div>
+          <div class="dlv-zone-price">+40&euro;</div>
+        </div>
+        <div class="dlv-zone-cities">
+          <span class="dlv-city">Almont-les-Junies</span>
+          <span class="dlv-city">Ambeyrac</span>
+          <span class="dlv-city">Anglars-Saint-F&eacute;lix</span>
+          <span class="dlv-city">Argences en Aubrac</span>
+          <span class="dlv-city">Aspi&egrave;res</span>
+          <span class="dlv-city">Aubin</span>
+          <span class="dlv-city">Auzits</span>
+          <span class="dlv-city">Balaguier-d'Olt</span>
+          <span class="dlv-city">Baraqueville</span>
+          <span class="dlv-city">Belcastel</span>
+          <span class="dlv-city">Bertholène</span>
+          <span class="dlv-city">Bessu&eacute;jouls</span>
+          <span class="dlv-city">Boisse-Penchot</span>
+          <span class="dlv-city">Bor-et-Bar</span>
+          <span class="dlv-city">Bouillac</span>
+          <span class="dlv-city">Bournazel</span>
+          <span class="dlv-city">Boussac</span>
+          <span class="dlv-city">Bozouls</span>
+          <span class="dlv-city">Brandonnet</span>
+          <span class="dlv-city">Brommat</span>
+          <span class="dlv-city">Caban&egrave;s</span>
+          <span class="dlv-city">Calmont</span>
+          <span class="dlv-city">Camboulazet</span>
+          <span class="dlv-city">Camjac</span>
+          <span class="dlv-city">Campagnac</span>
+          <span class="dlv-city">Campouriez</span>
+          <span class="dlv-city">Campuac</span>
+          <span class="dlv-city">Cantoin</span>
+          <span class="dlv-city">Capdenac-Gare</span>
+          <span class="dlv-city">Cassagnes-B&eacute;gonh&egrave;s</span>
+          <span class="dlv-city">Cassu&eacute;jouls</span>
+          <span class="dlv-city">Castanet</span>
+          <span class="dlv-city">Castelmary</span>
+          <span class="dlv-city">Castelnau-de-Mandailles</span>
+          <span class="dlv-city">Causse-et-Di&egrave;ge</span>
+          <span class="dlv-city">Centr&egrave;s</span>
+          <span class="dlv-city">Clairvaux-d'Aveyron</span>
+          <span class="dlv-city">Colombi&egrave;s</span>
+          <span class="dlv-city">Compolibat</span>
+          <span class="dlv-city">Condom-d'Aubrac</span>
+          <span class="dlv-city">Conques-en-Rouergue</span>
+          <span class="dlv-city">Coubisou</span>
+          <span class="dlv-city">Cransac</span>
+          <span class="dlv-city">Crespin</span>
+          <span class="dlv-city">Curi&egrave;res</span>
+          <span class="dlv-city">Decazeville</span>
+          <span class="dlv-city">Druelle Balsac</span>
+          <span class="dlv-city">Drulhe</span>
+          <span class="dlv-city">Entraygues-sur-Truy&egrave;re</span>
+          <span class="dlv-city">Escandoli&egrave;res</span>
+          <span class="dlv-city">Espalion</span>
+          <span class="dlv-city">Espeyrac</span>
+          <span class="dlv-city">Estaing</span>
+          <span class="dlv-city">Firmi</span>
+          <span class="dlv-city">Flagnac</span>
+          <span class="dlv-city">Florentin-la-Capelle</span>
+          <span class="dlv-city">Foissac</span>
+          <span class="dlv-city">Gabriac</span>
+          <span class="dlv-city">Gaillac-d'Aveyron</span>
+          <span class="dlv-city">Galgan</span>
+          <span class="dlv-city">Golinhac</span>
+          <span class="dlv-city">Goutrens</span>
+          <span class="dlv-city">Gramond</span>
+          <span class="dlv-city">Huparlac</span>
+          <span class="dlv-city">La Capelle-Balaguier</span>
+          <span class="dlv-city">La Capelle-Bleys</span>
+          <span class="dlv-city">La Capelle-Bonance</span>
+          <span class="dlv-city">La Fouillade</span>
+          <span class="dlv-city">La Loubi&egrave;re</span>
+          <span class="dlv-city">La Rouquette</span>
+          <span class="dlv-city">La Salvetat-Peyral&egrave;s</span>
+          <span class="dlv-city">Lacroix-Barrez</span>
+          <span class="dlv-city">Laguiole</span>
+          <span class="dlv-city">Laissac-S&eacute;v&eacute;rac l'&Eacute;glise</span>
+          <span class="dlv-city">Lanu&eacute;jouls</span>
+          <span class="dlv-city">Lassouts</span>
+          <span class="dlv-city">Le Bas S&eacute;gala</span>
+          <span class="dlv-city">Le Cayrol</span>
+          <span class="dlv-city">Le Fel</span>
+          <span class="dlv-city">Le Monast&egrave;re</span>
+          <span class="dlv-city">Le Nayrac</span>
+          <span class="dlv-city">Les Albres</span>
+          <span class="dlv-city">Lescure-Jaoul</span>
+          <span class="dlv-city">Livinhac-le-Haut</span>
+          <span class="dlv-city">Luc-la-Primaube</span>
+          <span class="dlv-city">Lugan</span>
+          <span class="dlv-city">Lunac</span>
+          <span class="dlv-city">Maleville</span>
+          <span class="dlv-city">Manhac</span>
+          <span class="dlv-city">Marcillac-Vallon</span>
+          <span class="dlv-city">Martiel</span>
+          <span class="dlv-city">Mayran</span>
+          <span class="dlv-city">Meljac</span>
+          <span class="dlv-city">Montbazens</span>
+          <span class="dlv-city">Monteils</span>
+          <span class="dlv-city">Mont&eacute;zic</span>
+          <span class="dlv-city">Montpeyroux</span>
+          <span class="dlv-city">Montrozier</span>
+          <span class="dlv-city">Montsal&egrave;s</span>
+          <span class="dlv-city">Morlhon-le-Haut</span>
+          <span class="dlv-city">Mouret</span>
+          <span class="dlv-city">Moyraz&egrave;s</span>
+          <span class="dlv-city">Mur-de-Barrez</span>
+          <span class="dlv-city">Muret-le-Ch&acirc;teau</span>
+          <span class="dlv-city">Murols</span>
+          <span class="dlv-city">Najac</span>
+          <span class="dlv-city">Naucelle</span>
+          <span class="dlv-city">Naussac</span>
+          <span class="dlv-city">Nauviale</span>
+          <span class="dlv-city">Olemps</span>
+          <span class="dlv-city">Ols-et-Rinhodes</span>
+          <span class="dlv-city">Onet-le-Ch&acirc;teau</span>
+          <span class="dlv-city">Palmas d'Aveyron</span>
+          <span class="dlv-city">Peyrusse-le-Roc</span>
+          <span class="dlv-city">Pierrefiche</span>
+          <span class="dlv-city">Pomayrols</span>
+          <span class="dlv-city">Prades-d'Aubrac</span>
+          <span class="dlv-city">Pradinas</span>
+          <span class="dlv-city">Pr&eacute;vinqui&egrave;res</span>
+          <span class="dlv-city">Privezac</span>
+          <span class="dlv-city">Pruines</span>
+          <span class="dlv-city">Quins</span>
+          <span class="dlv-city">Rignac</span>
+          <span class="dlv-city">Rodelle</span>
+          <span class="dlv-city">Rodez</span>
+          <span class="dlv-city">Roussennac</span>
+          <span class="dlv-city">Sainte-Croix</span>
+          <span class="dlv-city">Sainte-Eulalie-d'Olt</span>
+          <span class="dlv-city">Sainte-Juliette-sur-Viaur</span>
+          <span class="dlv-city">Sainte-Radegonde</span>
+          <span class="dlv-city">Saint-Amans-des-Cots</span>
+          <span class="dlv-city">Saint-Andr&eacute;-de-Najac</span>
+          <span class="dlv-city">Saint-Ch&eacute;ly-d'Aubrac</span>
+          <span class="dlv-city">Saint-Christophe-Vallon</span>
+          <span class="dlv-city">Saint-C&ocirc;me-d'Olt</span>
+          <span class="dlv-city">Saint Geniez d'Olt et d'Aubrac</span>
+          <span class="dlv-city">Saint-F&eacute;lix-de-Lunel</span>
+          <span class="dlv-city">Saint-Hippolyte</span>
+          <span class="dlv-city">Saint-Igest</span>
+          <span class="dlv-city">Saint-Laurent-d'Olt</span>
+          <span class="dlv-city">Saint-Martin-de-Lenne</span>
+          <span class="dlv-city">Saint-Parthem</span>
+          <span class="dlv-city">Saint-R&eacute;my</span>
+          <span class="dlv-city">Saint-Santin</span>
+          <span class="dlv-city">Saint-Saturnin-de-Lenne</span>
+          <span class="dlv-city">Saint-Symphorien-de-Th&eacute;ni&egrave;res</span>
+          <span class="dlv-city">Salles-Courbati&egrave;s</span>
+          <span class="dlv-city">Salles-la-Source</span>
+          <span class="dlv-city">Salvagnac-Cajarc</span>
+          <span class="dlv-city">Sanvensa</span>
+          <span class="dlv-city">Saujac</span>
+          <span class="dlv-city">Sauveterre-de-Rouergue</span>
+          <span class="dlv-city">Savignac</span>
+          <span class="dlv-city">S&eacute;bazac-Concour&egrave;s</span>
+          <span class="dlv-city">S&eacute;brazac</span>
+          <span class="dlv-city">S&eacute;nergues</span>
+          <span class="dlv-city">Sonnac</span>
+          <span class="dlv-city">Soulages-Bonneval</span>
+          <span class="dlv-city">Tauriac-de-Naucelle</span>
+          <span class="dlv-city">Taussac</span>
+          <span class="dlv-city">Tayrac</span>
+          <span class="dlv-city">Th&eacute;rondels</span>
+          <span class="dlv-city">Toulonjac</span>
+          <span class="dlv-city">Valady</span>
+          <span class="dlv-city">Valzergues</span>
+          <span class="dlv-city">Vaureilles</span>
+          <span class="dlv-city">Villecomtal</span>
+          <span class="dlv-city">Villefranche-de-Rouergue</span>
+          <span class="dlv-city">Villeneuve</span>
+          <span class="dlv-city">Vimenet</span>
+          <span class="dlv-city">Viviez</span>
+          <span class="dlv-city" style="font-style:italic;opacity:0.7">+ communes de Loz&egrave;re (48)</span>
+        </div>
+      </div>
+
+
+            <!-- Recap -->
       <div class="dlv-recap">
         <div class="dlv-recap-title">&#x1F4CB; R&eacute;capitulatif</div>
         <div class="dlv-recap-grid">
