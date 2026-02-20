@@ -83,11 +83,11 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "https://api.mapbox.com", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "https://telegram.org"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://api.mapbox.com", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "https://telegram.org", "https://unpkg.com"],
       scriptSrcAttr: ["'unsafe-inline'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://api.mapbox.com", "https://fonts.googleapis.com"],
-      imgSrc: ["'self'", "data:", "blob:", "https://api.mapbox.com", "https://api.telegram.org"],
-      connectSrc: ["'self'", "https://api.mapbox.com", "https://events.mapbox.com"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://api.mapbox.com", "https://fonts.googleapis.com", "https://unpkg.com"],
+      imgSrc: ["'self'", "data:", "blob:", "https://api.mapbox.com", "https://api.telegram.org", "https://*.basemaps.cartocdn.com"],
+      connectSrc: ["'self'", "https://api.mapbox.com", "https://events.mapbox.com", "https://*.basemaps.cartocdn.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       frameSrc: ["'none'"],
       objectSrc: ["'none'"],
