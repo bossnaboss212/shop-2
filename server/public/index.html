@@ -38,6 +38,8 @@
     } catch(e) {}
   </script>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
 :root{
   --bg-primary:#0a0e14;
@@ -2402,6 +2404,7 @@ body.modal-open{overflow:hidden;position:fixed;width:100%;max-width:100vw;overfl
       @keyframes dlv-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
       @keyframes dlv-shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
       @keyframes dlv-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+      @keyframes dlv-mapFadeIn{from{opacity:0;transform:scale(0.97)}to{opacity:1;transform:scale(1)}}
 
       .dlv-page{padding:0 16px 20px;max-width:600px;margin:0 auto}
 
@@ -2443,56 +2446,27 @@ body.modal-open{overflow:hidden;position:fixed;width:100%;max-width:100vw;overfl
         z-index:-1;opacity:0.5;
       }
 
-      .dlv-zone{
-        position:relative;overflow:hidden;border-radius:20px;padding:0;margin-bottom:16px;
-        background:var(--bg-secondary);
-        border:1px solid color-mix(in srgb,var(--dlv-clr) 30%,transparent);
-        transition:all 0.35s cubic-bezier(0.4,0,0.2,1);
-        animation:dlv-fadeIn 0.5s ease-out both;
+      .dlv-map-wrap{
+        border-radius:20px;overflow:hidden;margin-bottom:16px;
+        border:1px solid rgba(255,215,0,0.15);
+        animation:dlv-mapFadeIn 0.6s ease-out both;
+        position:relative;
       }
-      .dlv-zone:nth-child(2){animation-delay:0.1s}
-      .dlv-zone:nth-child(3){animation-delay:0.2s}
-      .dlv-zone:nth-child(4){animation-delay:0.3s}
-      .dlv-zone:nth-child(5){animation-delay:0.4s}
-
-      .dlv-zone:hover{
-        transform:translateY(-4px) scale(1.01);
-        border-color:var(--dlv-clr);
-        box-shadow:0 8px 32px color-mix(in srgb,var(--dlv-clr) 20%,transparent),0 0 0 1px color-mix(in srgb,var(--dlv-clr) 15%,transparent);
+      #deliveryMap{height:420px;width:100%;background:#0a0e14}
+      #deliveryMap .leaflet-control-zoom a{background:var(--bg-secondary);color:var(--text-primary);border-color:var(--border)}
+      #deliveryMap .leaflet-control-zoom a:hover{background:var(--bg-tertiary)}
+      .dlv-map-legend{
+        display:flex;flex-wrap:wrap;gap:8px;padding:14px 16px;
+        background:var(--bg-secondary);border-top:1px solid var(--border);
       }
-      .dlv-zone-glow{
-        position:absolute;top:0;left:0;right:0;height:3px;
-        background:linear-gradient(90deg,transparent,var(--dlv-clr),var(--dlv-clr2),transparent);
-        opacity:0.8;
+      .dlv-legend-item{
+        display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;
+        background:var(--bg-tertiary);border:1px solid var(--border);
+        border-radius:10px;padding:6px 12px;cursor:pointer;transition:all 0.2s;
       }
-      .dlv-zone-head{display:flex;align-items:center;justify-content:space-between;padding:18px 18px 0}
-      .dlv-zone-left{display:flex;align-items:center;gap:14px}
-      .dlv-zone-icon{
-        width:50px;height:50px;border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:26px;
-        background:linear-gradient(135deg,var(--dlv-clr),var(--dlv-clr2));
-        box-shadow:0 4px 16px color-mix(in srgb,var(--dlv-clr) 30%,transparent);
-        animation:dlv-float 4s ease-in-out infinite;
-      }
-      .dlv-zone-icon span{filter:drop-shadow(0 2px 4px rgba(0,0,0,0.3))}
-      .dlv-zone-name{font-size:17px;font-weight:800;letter-spacing:-0.3px}
-      .dlv-zone-min{font-size:12px;color:var(--text-muted);font-weight:500;margin-top:2px}
-      .dlv-zone-price{
-        font-size:24px;font-weight:900;color:var(--dlv-clr);
-        text-shadow:0 0 20px color-mix(in srgb,var(--dlv-clr) 40%,transparent);
-      }
-      .dlv-zone-cities{display:flex;flex-wrap:wrap;gap:8px;padding:14px 18px 18px}
-      .dlv-city{
-        background:var(--bg-tertiary);border:1px solid var(--border);border-radius:10px;
-        padding:7px 14px;font-size:13px;font-weight:500;
-        transition:all 0.2s;cursor:default;
-      }
-      .dlv-city:hover{border-color:var(--dlv-clr);background:color-mix(in srgb,var(--dlv-clr) 8%,var(--bg-tertiary))}
-      .dlv-city.--free{
-        background:color-mix(in srgb,var(--dlv-clr) 12%,var(--bg-tertiary));
-        border-color:color-mix(in srgb,var(--dlv-clr) 40%,transparent);
-        font-weight:700;
-      }
-      .dlv-city.--free::after{content:' (Gratuit)';font-size:10px;color:var(--dlv-clr);font-weight:800;margin-left:4px}
+      .dlv-legend-item:hover{border-color:var(--accent);transform:translateY(-1px)}
+      .dlv-legend-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+      .dlv-legend-price{color:var(--text-muted);font-weight:400;margin-left:2px}
 
       .dlv-recap{
         border-radius:20px;padding:24px 20px;margin-top:24px;position:relative;overflow:hidden;
@@ -2545,373 +2519,30 @@ body.modal-open{overflow:hidden;position:fixed;width:100%;max-width:100vw;overfl
         </div>
       </div>
 
-      <!-- MILLAU GRATUIT -->
-      <div class="dlv-zone" style="--dlv-clr:#3b82f6;--dlv-clr2:#1d4ed8">
-        <div class="dlv-zone-glow"></div>
-        <div class="dlv-zone-head">
-          <div class="dlv-zone-left">
-            <div class="dlv-zone-icon"><span>🏠</span></div>
-            <div>
-              <div class="dlv-zone-name">Millau</div>
-              <div class="dlv-zone-min">Pas de minimum</div>
-            </div>
+      <!-- CARTE INTERACTIVE -->
+      <div class="dlv-map-wrap">
+        <div id="deliveryMap"></div>
+        <div class="dlv-map-legend">
+          <div class="dlv-legend-item" onclick="dlvMapFlyTo(0)">
+            <span class="dlv-legend-dot" style="background:#3b82f6;box-shadow:0 0 6px #3b82f6"></span>
+            Millau <span class="dlv-legend-price">Gratuit</span>
           </div>
-          <div class="dlv-zone-price" style="color:#4ade80">GRATUIT</div>
-        </div>
-        <div class="dlv-zone-cities">
-          <span class="dlv-city --free">Millau centre</span>
-          <span class="dlv-city --free">Tout Millau</span>
-        </div>
-      </div>
-
-      <!-- ZONE 1 -->
-      <div class="dlv-zone" style="--dlv-clr:#4ade80;--dlv-clr2:#22c55e">
-        <div class="dlv-zone-glow"></div>
-        <div class="dlv-zone-head">
-          <div class="dlv-zone-left">
-            <div class="dlv-zone-icon"><span>&#x1F7E2;</span></div>
-            <div>
-              <div class="dlv-zone-name">Zone 1</div>
-              <div class="dlv-zone-min">Min. 50&euro; d'achat</div>
-            </div>
+          <div class="dlv-legend-item" onclick="dlvMapFlyTo(1)">
+            <span class="dlv-legend-dot" style="background:#4ade80;box-shadow:0 0 6px #4ade80"></span>
+            Zone 1 <span class="dlv-legend-price">+10&euro;</span>
           </div>
-          <div class="dlv-zone-price">+10&euro;</div>
-        </div>
-        <div class="dlv-zone-cities">
-          <span class="dlv-city">Aguessac</span>
-          <span class="dlv-city">Compeyre</span>
-          <span class="dlv-city">Compr&eacute;gnac</span>
-          <span class="dlv-city">Creissels</span>
-          <span class="dlv-city">La Cresse</span>
-          <span class="dlv-city">Paulhe</span>
-          <span class="dlv-city">Rivi&egrave;re-sur-Tarn</span>
-          <span class="dlv-city">Saint-Georges-de-Luzen&ccedil;on</span>
-          <span class="dlv-city">Verri&egrave;res</span>
-        </div>
-      </div>
-
-      <!-- ZONE 2 -->
-      <div class="dlv-zone" style="--dlv-clr:#fbbf24;--dlv-clr2:#f59e0b">
-        <div class="dlv-zone-glow"></div>
-        <div class="dlv-zone-head">
-          <div class="dlv-zone-left">
-            <div class="dlv-zone-icon"><span>&#x1F7E1;</span></div>
-            <div>
-              <div class="dlv-zone-name">Zone 2</div>
-              <div class="dlv-zone-min">Min. 80&euro; d'achat</div>
-            </div>
+          <div class="dlv-legend-item" onclick="dlvMapFlyTo(2)">
+            <span class="dlv-legend-dot" style="background:#fbbf24;box-shadow:0 0 6px #fbbf24"></span>
+            Zone 2 <span class="dlv-legend-price">+20&euro;</span>
           </div>
-          <div class="dlv-zone-price">+20&euro;</div>
-        </div>
-        <div class="dlv-zone-cities">
-          <span class="dlv-city">Alrance</span>
-          <span class="dlv-city">Calmels-et-le-Viala</span>
-          <span class="dlv-city">Castelnau-P&eacute;gayrols</span>
-          <span class="dlv-city">Comps-la-Grand-Ville</span>
-          <span class="dlv-city">Cornus</span>
-          <span class="dlv-city">Curan</span>
-          <span class="dlv-city">Flavin</span>
-          <span class="dlv-city">La Bastide-Pradines</span>
-          <span class="dlv-city">La Cavalerie</span>
-          <span class="dlv-city">La Couvertoirade</span>
-          <span class="dlv-city">La Roque-Sainte-Marguerite</span>
-          <span class="dlv-city">Lapanouse-de-Cernon</span>
-          <span class="dlv-city">Le Clapier</span>
-          <span class="dlv-city">Le Truel</span>
-          <span class="dlv-city">Les Costes-Gozon</span>
-          <span class="dlv-city">L'Hospitalet-du-Larzac</span>
-          <span class="dlv-city">Montclar</span>
-          <span class="dlv-city">Montjaux</span>
-          <span class="dlv-city">Mostu&eacute;jouls</span>
-          <span class="dlv-city">Nant</span>
-          <span class="dlv-city">Peux-et-Couffouleux</span>
-          <span class="dlv-city">Peyreleau</span>
-          <span class="dlv-city">Roquefort-sur-Soulzon</span>
-          <span class="dlv-city">Saint-Affrique</span>
-          <span class="dlv-city">Saint-Andr&eacute;-de-V&eacute;zines</span>
-          <span class="dlv-city">Saint-Beaulize</span>
-          <span class="dlv-city">Saint-Beauz&eacute;ly</span>
-          <span class="dlv-city">Sainte-Eulalie-de-Cernon</span>
-          <span class="dlv-city">Saint-Jean-d'Alcapi&egrave;s</span>
-          <span class="dlv-city">Saint-Jean-du-Bruel</span>
-          <span class="dlv-city">Saint-Jean-et-Saint-Paul</span>
-          <span class="dlv-city">Saint-Laurent-de-L&eacute;v&eacute;zou</span>
-          <span class="dlv-city">Saint-Rome-de-Cernon</span>
-          <span class="dlv-city">Saint-Rome-de-Tarn</span>
-          <span class="dlv-city">Saint-Victor-et-Melvieu</span>
-          <span class="dlv-city">Salles-Curan</span>
-          <span class="dlv-city">Saucli&egrave;res</span>
-          <span class="dlv-city">S&eacute;v&eacute;rac d'Aveyron</span>
-          <span class="dlv-city">Tournemire</span>
-          <span class="dlv-city">Vabres-l'Abbaye</span>
-          <span class="dlv-city">Veyreau</span>
-          <span class="dlv-city">Viala-du-Pas-de-Jaux</span>
-          <span class="dlv-city">Viala-du-Tarn</span>
-          <span class="dlv-city">Villefranche-de-Panat</span>
-        </div>
-      </div>
-
-      <!-- ZONE 3 -->
-      <div class="dlv-zone" style="--dlv-clr:#f97316;--dlv-clr2:#ea580c">
-        <div class="dlv-zone-glow"></div>
-        <div class="dlv-zone-head">
-          <div class="dlv-zone-left">
-            <div class="dlv-zone-icon"><span>&#x1F7E0;</span></div>
-            <div>
-              <div class="dlv-zone-name">Zone 3</div>
-              <div class="dlv-zone-min">Min. 100&euro; d'achat</div>
-            </div>
+          <div class="dlv-legend-item" onclick="dlvMapFlyTo(3)">
+            <span class="dlv-legend-dot" style="background:#f97316;box-shadow:0 0 6px #f97316"></span>
+            Zone 3 <span class="dlv-legend-price">+30&euro;</span>
           </div>
-          <div class="dlv-zone-price">+30&euro;</div>
-        </div>
-        <div class="dlv-zone-cities">
-          <span class="dlv-city">Agen-d'Aveyron</span>
-          <span class="dlv-city">Arques</span>
-          <span class="dlv-city">Arnac-sur-Dourdou</span>
-          <span class="dlv-city">Arvieu</span>
-          <span class="dlv-city">Auriac-Lagast</span>
-          <span class="dlv-city">Ayss&egrave;nes</span>
-          <span class="dlv-city">Balaguier-sur-Rance</span>
-          <span class="dlv-city">Belmont-sur-Rance</span>
-          <span class="dlv-city">Brasc</span>
-          <span class="dlv-city">Broqui&egrave;s</span>
-          <span class="dlv-city">Brousse-le-Ch&acirc;teau</span>
-          <span class="dlv-city">Brusque</span>
-          <span class="dlv-city">Camar&egrave;s</span>
-          <span class="dlv-city">Canet-de-Salars</span>
-          <span class="dlv-city">Combret</span>
-          <span class="dlv-city">Connac</span>
-          <span class="dlv-city">Coupiac</span>
-          <span class="dlv-city">Durenque</span>
-          <span class="dlv-city">Fayet</span>
-          <span class="dlv-city">Fondamente</span>
-          <span class="dlv-city">Gissac</span>
-          <span class="dlv-city">La Bastide-Solages</span>
-          <span class="dlv-city">La Selve</span>
-          <span class="dlv-city">La Serre</span>
-          <span class="dlv-city">Laval-Roquecezi&egrave;re</span>
-          <span class="dlv-city">Le Vibal</span>
-          <span class="dlv-city">L&eacute;dergues</span>
-          <span class="dlv-city">Lestrade-et-Thouels</span>
-          <span class="dlv-city">Marnhagues-et-Latour</span>
-          <span class="dlv-city">Martrin</span>
-          <span class="dlv-city">M&eacute;lagues</span>
-          <span class="dlv-city">Montagnol</span>
-          <span class="dlv-city">Montfranc</span>
-          <span class="dlv-city">Montlaur</span>
-          <span class="dlv-city">Mounes-Prohencoux</span>
-          <span class="dlv-city">Murasson</span>
-          <span class="dlv-city">Plaisance</span>
-          <span class="dlv-city">Pont-de-Salars</span>
-          <span class="dlv-city">Pousthomy</span>
-          <span class="dlv-city">Prades-Salars</span>
-          <span class="dlv-city">Rebourguil</span>
-          <span class="dlv-city">R&eacute;quista</span>
-          <span class="dlv-city">Rullac-Saint-Cirq</span>
-          <span class="dlv-city">Saint-F&eacute;lix-de-Sorgues</span>
-          <span class="dlv-city">Saint-Izaire</span>
-          <span class="dlv-city">Saint-Jean-Delnous</span>
-          <span class="dlv-city">Saint-Ju&eacute;ry</span>
-          <span class="dlv-city">Saint-Just-sur-Viaur</span>
-          <span class="dlv-city">Saint-L&eacute;ons</span>
-          <span class="dlv-city">Saint-Sernin-sur-Rance</span>
-          <span class="dlv-city">Saint-Sever-du-Moustier</span>
-          <span class="dlv-city">Salmiech</span>
-          <span class="dlv-city">S&eacute;gur</span>
-          <span class="dlv-city">Sylvan&egrave;s</span>
-          <span class="dlv-city">Tauriac-de-Camar&egrave;s</span>
-          <span class="dlv-city">Tr&eacute;mouilles</span>
-          <span class="dlv-city">Versols-et-Lapeyre</span>
-          <span class="dlv-city">V&eacute;zins-de-L&eacute;v&eacute;zou</span>
-        </div>
-      </div>
-
-      <!-- ZONE 4 -->
-      <div class="dlv-zone" style="--dlv-clr:#ef4444;--dlv-clr2:#dc2626">
-        <div class="dlv-zone-glow"></div>
-        <div class="dlv-zone-head">
-          <div class="dlv-zone-left">
-            <div class="dlv-zone-icon"><span>&#x1F534;</span></div>
-            <div>
-              <div class="dlv-zone-name">Zone 4</div>
-              <div class="dlv-zone-min">Min. 150&euro; d'achat</div>
-            </div>
+          <div class="dlv-legend-item" onclick="dlvMapFlyTo(4)">
+            <span class="dlv-legend-dot" style="background:#ef4444;box-shadow:0 0 6px #ef4444"></span>
+            Zone 4 <span class="dlv-legend-price">+40&euro;</span>
           </div>
-          <div class="dlv-zone-price">+40&euro;</div>
-        </div>
-        <div class="dlv-zone-cities">
-          <span class="dlv-city">Almont-les-Junies</span>
-          <span class="dlv-city">Ambeyrac</span>
-          <span class="dlv-city">Anglars-Saint-F&eacute;lix</span>
-          <span class="dlv-city">Argences en Aubrac</span>
-          <span class="dlv-city">Aspi&egrave;res</span>
-          <span class="dlv-city">Aubin</span>
-          <span class="dlv-city">Auzits</span>
-          <span class="dlv-city">Balaguier-d'Olt</span>
-          <span class="dlv-city">Baraqueville</span>
-          <span class="dlv-city">Belcastel</span>
-          <span class="dlv-city">Bertholène</span>
-          <span class="dlv-city">Bessu&eacute;jouls</span>
-          <span class="dlv-city">Boisse-Penchot</span>
-          <span class="dlv-city">Bor-et-Bar</span>
-          <span class="dlv-city">Bouillac</span>
-          <span class="dlv-city">Bournazel</span>
-          <span class="dlv-city">Boussac</span>
-          <span class="dlv-city">Bozouls</span>
-          <span class="dlv-city">Brandonnet</span>
-          <span class="dlv-city">Brommat</span>
-          <span class="dlv-city">Caban&egrave;s</span>
-          <span class="dlv-city">Calmont</span>
-          <span class="dlv-city">Camboulazet</span>
-          <span class="dlv-city">Camjac</span>
-          <span class="dlv-city">Campagnac</span>
-          <span class="dlv-city">Campouriez</span>
-          <span class="dlv-city">Campuac</span>
-          <span class="dlv-city">Cantoin</span>
-          <span class="dlv-city">Capdenac-Gare</span>
-          <span class="dlv-city">Cassagnes-B&eacute;gonh&egrave;s</span>
-          <span class="dlv-city">Cassu&eacute;jouls</span>
-          <span class="dlv-city">Castanet</span>
-          <span class="dlv-city">Castelmary</span>
-          <span class="dlv-city">Castelnau-de-Mandailles</span>
-          <span class="dlv-city">Causse-et-Di&egrave;ge</span>
-          <span class="dlv-city">Centr&egrave;s</span>
-          <span class="dlv-city">Clairvaux-d'Aveyron</span>
-          <span class="dlv-city">Colombi&egrave;s</span>
-          <span class="dlv-city">Compolibat</span>
-          <span class="dlv-city">Condom-d'Aubrac</span>
-          <span class="dlv-city">Conques-en-Rouergue</span>
-          <span class="dlv-city">Coubisou</span>
-          <span class="dlv-city">Cransac</span>
-          <span class="dlv-city">Crespin</span>
-          <span class="dlv-city">Curi&egrave;res</span>
-          <span class="dlv-city">Decazeville</span>
-          <span class="dlv-city">Druelle Balsac</span>
-          <span class="dlv-city">Drulhe</span>
-          <span class="dlv-city">Entraygues-sur-Truy&egrave;re</span>
-          <span class="dlv-city">Escandoli&egrave;res</span>
-          <span class="dlv-city">Espalion</span>
-          <span class="dlv-city">Espeyrac</span>
-          <span class="dlv-city">Estaing</span>
-          <span class="dlv-city">Firmi</span>
-          <span class="dlv-city">Flagnac</span>
-          <span class="dlv-city">Florentin-la-Capelle</span>
-          <span class="dlv-city">Foissac</span>
-          <span class="dlv-city">Gabriac</span>
-          <span class="dlv-city">Gaillac-d'Aveyron</span>
-          <span class="dlv-city">Galgan</span>
-          <span class="dlv-city">Golinhac</span>
-          <span class="dlv-city">Goutrens</span>
-          <span class="dlv-city">Gramond</span>
-          <span class="dlv-city">Huparlac</span>
-          <span class="dlv-city">La Capelle-Balaguier</span>
-          <span class="dlv-city">La Capelle-Bleys</span>
-          <span class="dlv-city">La Capelle-Bonance</span>
-          <span class="dlv-city">La Fouillade</span>
-          <span class="dlv-city">La Loubi&egrave;re</span>
-          <span class="dlv-city">La Rouquette</span>
-          <span class="dlv-city">La Salvetat-Peyral&egrave;s</span>
-          <span class="dlv-city">Lacroix-Barrez</span>
-          <span class="dlv-city">Laguiole</span>
-          <span class="dlv-city">Laissac-S&eacute;v&eacute;rac l'&Eacute;glise</span>
-          <span class="dlv-city">Lanu&eacute;jouls</span>
-          <span class="dlv-city">Lassouts</span>
-          <span class="dlv-city">Le Bas S&eacute;gala</span>
-          <span class="dlv-city">Le Cayrol</span>
-          <span class="dlv-city">Le Fel</span>
-          <span class="dlv-city">Le Monast&egrave;re</span>
-          <span class="dlv-city">Le Nayrac</span>
-          <span class="dlv-city">Les Albres</span>
-          <span class="dlv-city">Lescure-Jaoul</span>
-          <span class="dlv-city">Livinhac-le-Haut</span>
-          <span class="dlv-city">Luc-la-Primaube</span>
-          <span class="dlv-city">Lugan</span>
-          <span class="dlv-city">Lunac</span>
-          <span class="dlv-city">Maleville</span>
-          <span class="dlv-city">Manhac</span>
-          <span class="dlv-city">Marcillac-Vallon</span>
-          <span class="dlv-city">Martiel</span>
-          <span class="dlv-city">Mayran</span>
-          <span class="dlv-city">Meljac</span>
-          <span class="dlv-city">Montbazens</span>
-          <span class="dlv-city">Monteils</span>
-          <span class="dlv-city">Mont&eacute;zic</span>
-          <span class="dlv-city">Montpeyroux</span>
-          <span class="dlv-city">Montrozier</span>
-          <span class="dlv-city">Montsal&egrave;s</span>
-          <span class="dlv-city">Morlhon-le-Haut</span>
-          <span class="dlv-city">Mouret</span>
-          <span class="dlv-city">Moyraz&egrave;s</span>
-          <span class="dlv-city">Mur-de-Barrez</span>
-          <span class="dlv-city">Muret-le-Ch&acirc;teau</span>
-          <span class="dlv-city">Murols</span>
-          <span class="dlv-city">Najac</span>
-          <span class="dlv-city">Naucelle</span>
-          <span class="dlv-city">Naussac</span>
-          <span class="dlv-city">Nauviale</span>
-          <span class="dlv-city">Olemps</span>
-          <span class="dlv-city">Ols-et-Rinhodes</span>
-          <span class="dlv-city">Onet-le-Ch&acirc;teau</span>
-          <span class="dlv-city">Palmas d'Aveyron</span>
-          <span class="dlv-city">Peyrusse-le-Roc</span>
-          <span class="dlv-city">Pierrefiche</span>
-          <span class="dlv-city">Pomayrols</span>
-          <span class="dlv-city">Prades-d'Aubrac</span>
-          <span class="dlv-city">Pradinas</span>
-          <span class="dlv-city">Pr&eacute;vinqui&egrave;res</span>
-          <span class="dlv-city">Privezac</span>
-          <span class="dlv-city">Pruines</span>
-          <span class="dlv-city">Quins</span>
-          <span class="dlv-city">Rignac</span>
-          <span class="dlv-city">Rodelle</span>
-          <span class="dlv-city">Rodez</span>
-          <span class="dlv-city">Roussennac</span>
-          <span class="dlv-city">Sainte-Croix</span>
-          <span class="dlv-city">Sainte-Eulalie-d'Olt</span>
-          <span class="dlv-city">Sainte-Juliette-sur-Viaur</span>
-          <span class="dlv-city">Sainte-Radegonde</span>
-          <span class="dlv-city">Saint-Amans-des-Cots</span>
-          <span class="dlv-city">Saint-Andr&eacute;-de-Najac</span>
-          <span class="dlv-city">Saint-Ch&eacute;ly-d'Aubrac</span>
-          <span class="dlv-city">Saint-Christophe-Vallon</span>
-          <span class="dlv-city">Saint-C&ocirc;me-d'Olt</span>
-          <span class="dlv-city">Saint Geniez d'Olt et d'Aubrac</span>
-          <span class="dlv-city">Saint-F&eacute;lix-de-Lunel</span>
-          <span class="dlv-city">Saint-Hippolyte</span>
-          <span class="dlv-city">Saint-Igest</span>
-          <span class="dlv-city">Saint-Laurent-d'Olt</span>
-          <span class="dlv-city">Saint-Martin-de-Lenne</span>
-          <span class="dlv-city">Saint-Parthem</span>
-          <span class="dlv-city">Saint-R&eacute;my</span>
-          <span class="dlv-city">Saint-Santin</span>
-          <span class="dlv-city">Saint-Saturnin-de-Lenne</span>
-          <span class="dlv-city">Saint-Symphorien-de-Th&eacute;ni&egrave;res</span>
-          <span class="dlv-city">Salles-Courbati&egrave;s</span>
-          <span class="dlv-city">Salles-la-Source</span>
-          <span class="dlv-city">Salvagnac-Cajarc</span>
-          <span class="dlv-city">Sanvensa</span>
-          <span class="dlv-city">Saujac</span>
-          <span class="dlv-city">Sauveterre-de-Rouergue</span>
-          <span class="dlv-city">Savignac</span>
-          <span class="dlv-city">S&eacute;bazac-Concour&egrave;s</span>
-          <span class="dlv-city">S&eacute;brazac</span>
-          <span class="dlv-city">S&eacute;nergues</span>
-          <span class="dlv-city">Sonnac</span>
-          <span class="dlv-city">Soulages-Bonneval</span>
-          <span class="dlv-city">Tauriac-de-Naucelle</span>
-          <span class="dlv-city">Taussac</span>
-          <span class="dlv-city">Tayrac</span>
-          <span class="dlv-city">Th&eacute;rondels</span>
-          <span class="dlv-city">Toulonjac</span>
-          <span class="dlv-city">Valady</span>
-          <span class="dlv-city">Valzergues</span>
-          <span class="dlv-city">Vaureilles</span>
-          <span class="dlv-city">Villecomtal</span>
-          <span class="dlv-city">Villefranche-de-Rouergue</span>
-          <span class="dlv-city">Villeneuve</span>
-          <span class="dlv-city">Vimenet</span>
-          <span class="dlv-city">Viviez</span>
-          <span class="dlv-city" style="font-style:italic;opacity:0.7">+ communes de Loz&egrave;re (48)</span>
         </div>
       </div>
 
@@ -2955,9 +2586,145 @@ body.modal-open{overflow:hidden;position:fixed;width:100%;max-width:100vw;overfl
           <li>Les frais sont ajout&eacute;s automatiquement au panier</li>
           <li>Le minimum d'achat d&eacute;pend de votre zone</li>
           <li>Pour toute question, contactez le support</li>
+          <li>Cliquez sur une zone de la carte pour voir les d&eacute;tails</li>
         </ul>
       </div>
     </div>
+
+    <script>
+    // ========== CARTE INTERACTIVE LIVRAISON ==========
+    let dlvMap = null;
+    let dlvZoomLevels = [13, 11.5, 10, 9, 8.5];
+    const MILLAU_CENTER = [44.0987, 3.0783];
+
+    const DLV_ZONES_DATA = [
+      { name: 'Millau', fee: 'Gratuit', min: 'Pas de minimum', color: '#3b82f6', radius: 3000, zoom: 13 },
+      { name: 'Zone 1', fee: '+10\u20ac', min: 'Min. 50\u20ac', color: '#4ade80', radius: 10000, zoom: 11,
+        cities: [
+          {n:'Aguessac',lat:44.1354,lng:3.1222},{n:'Compeyre',lat:44.1237,lng:3.1017},
+          {n:'Creissels',lat:44.0829,lng:3.0500},{n:'La Cresse',lat:44.1500,lng:3.2167},
+          {n:'Paulhe',lat:44.1459,lng:3.0829},{n:'Rivi\u00e8re-sur-Tarn',lat:44.1833,lng:3.1333},
+          {n:'St-Georges-de-Luzen\u00e7on',lat:44.1082,lng:3.0259},{n:'Verri\u00e8res',lat:44.0619,lng:3.1364}
+        ]
+      },
+      { name: 'Zone 2', fee: '+20\u20ac', min: 'Min. 80\u20ac', color: '#fbbf24', radius: 30000, zoom: 10,
+        cities: [
+          {n:'Saint-Affrique',lat:43.9550,lng:2.8882},{n:'Nant',lat:44.0167,lng:3.3000},
+          {n:'S\u00e9v\u00e9rac d\'Aveyron',lat:44.3225,lng:3.0706},{n:'Salles-Curan',lat:44.1833,lng:2.8000},
+          {n:'Roquefort-sur-Soulzon',lat:43.9792,lng:2.9814},{n:'La Cavalerie',lat:43.9833,lng:3.1500},
+          {n:'St-Beauz\u00e9ly',lat:44.1667,lng:2.9500},{n:'Tournemire',lat:43.9667,lng:3.0167},
+          {n:'Montjaux',lat:44.0833,lng:2.8500},{n:'St-Rome-de-Tarn',lat:44.0500,lng:2.8833}
+        ]
+      },
+      { name: 'Zone 3', fee: '+30\u20ac', min: 'Min. 100\u20ac', color: '#f97316', radius: 55000, zoom: 9,
+        cities: [
+          {n:'Camar\u00e8s',lat:43.8167,lng:2.8833},{n:'Belmont-sur-Rance',lat:43.8167,lng:2.7500},
+          {n:'R\u00e9quista',lat:44.0333,lng:2.5333},{n:'Pont-de-Salars',lat:44.2833,lng:2.7333},
+          {n:'Broqui\u00e8s',lat:43.9667,lng:2.6833},{n:'Arvieu',lat:44.1833,lng:2.6667},
+          {n:'St-Sernin-sur-Rance',lat:43.8833,lng:2.6000},{n:'Coupiac',lat:43.9500,lng:2.5833},
+          {n:'V\u00e9zins-de-L\u00e9v\u00e9zou',lat:44.2667,lng:2.9333}
+        ]
+      },
+      { name: 'Zone 4', fee: '+40\u20ac', min: 'Min. 150\u20ac', color: '#ef4444', radius: 85000, zoom: 8,
+        cities: [
+          {n:'Rodez',lat:44.3500,lng:2.5750},{n:'Espalion',lat:44.5225,lng:2.7617},
+          {n:'Villefranche-de-Rouergue',lat:44.3519,lng:2.0386},{n:'Decazeville',lat:44.5608,lng:2.2525},
+          {n:'Mur-de-Barrez',lat:44.8444,lng:2.6600},{n:'Naucelle',lat:44.2000,lng:2.3500},
+          {n:'Laguiole',lat:44.6844,lng:2.8494},{n:'Capdenac-Gare',lat:44.5667,lng:2.0833},
+          {n:'Millau (Mende)',lat:44.5189,lng:3.5000,n:'Mende'},{n:'Marvejols',lat:44.5500,lng:3.2833}
+        ]
+      }
+    ];
+
+    function initDeliveryMap() {
+      if (dlvMap) { dlvMap.invalidateSize(); return; }
+      const mapEl = document.getElementById('deliveryMap');
+      if (!mapEl || !window.L) return;
+
+      dlvMap = L.map('deliveryMap', {
+        center: MILLAU_CENTER,
+        zoom: 10,
+        zoomControl: true,
+        attributionControl: false,
+        scrollWheelZoom: true
+      });
+
+      // Tuiles sombres
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        maxZoom: 16, minZoom: 7
+      }).addTo(dlvMap);
+
+      // Dessiner les zones (du plus grand au plus petit pour le z-order)
+      for (let i = DLV_ZONES_DATA.length - 1; i >= 0; i--) {
+        const z = DLV_ZONES_DATA[i];
+        const circle = L.circle(MILLAU_CENTER, {
+          radius: z.radius,
+          color: z.color,
+          fillColor: z.color,
+          fillOpacity: i === 0 ? 0.35 : 0.12,
+          weight: 2.5,
+          dashArray: i === 0 ? null : '8 4'
+        }).addTo(dlvMap);
+
+        circle.bindPopup(
+          '<div style="text-align:center;font-family:system-ui;padding:4px">' +
+          '<div style="font-size:16px;font-weight:800;color:' + z.color + '">' + z.name + '</div>' +
+          '<div style="font-size:20px;font-weight:900;margin:4px 0">' + z.fee + '</div>' +
+          '<div style="font-size:12px;color:#999">' + z.min + '</div></div>',
+          { className: 'dlv-popup' }
+        );
+
+        // Marqueurs des villes dans chaque zone
+        if (z.cities) {
+          z.cities.forEach(c => {
+            const marker = L.circleMarker([c.lat, c.lng], {
+              radius: 5,
+              color: z.color,
+              fillColor: z.color,
+              fillOpacity: 0.9,
+              weight: 1.5
+            }).addTo(dlvMap);
+            marker.bindTooltip(c.n, {
+              direction: 'top',
+              offset: [0, -8],
+              className: 'dlv-tooltip'
+            });
+          });
+        }
+      }
+
+      // Marqueur central Millau
+      const millauIcon = L.divIcon({
+        html: '<div style="background:#3b82f6;width:16px;height:16px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 12px #3b82f6,0 0 24px rgba(59,130,246,0.4)"></div>',
+        iconSize: [16, 16],
+        iconAnchor: [8, 8],
+        className: ''
+      });
+      L.marker(MILLAU_CENTER, { icon: millauIcon }).addTo(dlvMap)
+        .bindTooltip('MILLAU - Gratuit', { direction: 'top', offset: [0, -12], className: 'dlv-tooltip', permanent: false });
+
+      // Style pour les popups et tooltips
+      const style = document.createElement('style');
+      style.textContent = '.dlv-popup .leaflet-popup-content-wrapper{background:#1a2028;color:#fff;border:1px solid #333;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.5)}.dlv-popup .leaflet-popup-tip{background:#1a2028;border:1px solid #333}.dlv-tooltip{background:#1a2028!important;color:#fff!important;border:1px solid #444!important;border-radius:8px!important;font-weight:600!important;font-size:12px!important;padding:4px 10px!important;box-shadow:0 4px 16px rgba(0,0,0,0.4)!important}.dlv-tooltip::before{border-top-color:#444!important}';
+      document.head.appendChild(style);
+    }
+
+    function dlvMapFlyTo(zoneIndex) {
+      if (!dlvMap) initDeliveryMap();
+      if (!dlvMap) return;
+      const z = DLV_ZONES_DATA[zoneIndex];
+      dlvMap.flyTo(MILLAU_CENTER, z.zoom, { duration: 0.8 });
+    }
+
+    // Initialisation paresseuse quand la page livraison devient visible
+    const _dlvObs = new MutationObserver(() => {
+      const page = document.getElementById('page-livraison');
+      if (page && page.classList.contains('active')) {
+        setTimeout(initDeliveryMap, 150);
+      }
+    });
+    _dlvObs.observe(document.getElementById('page-livraison'), { attributes: true, attributeFilter: ['class'] });
+    </script>
   </main>
 
   <nav class="bottom-nav">
